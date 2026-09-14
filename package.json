@@ -1,0 +1,23 @@
+{
+  "name": "entole",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "pnpm --filter @entole/mobile start",
+    "android": "pnpm --filter @entole/mobile android",
+    "ios": "pnpm --filter @entole/mobile ios",
+    "dev": "pnpm --filter @entole/web dev",
+    "build:web": "pnpm --filter @entole/web build",
+    "test": "pnpm -r --no-bail test",
+    "typecheck": "pnpm -r --no-bail typecheck",
+    "lint": "pnpm -r --no-bail lint"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^57.0.2",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

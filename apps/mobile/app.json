@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Entole",
+    "slug": "entole",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "entole",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FBF9F5",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "to.entole.app"
+    },
+    "android": {
+      "package": "to.entole.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FBF9F5",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Entole uses Face ID to confirm it is you before money moves."
+        }
+      ],
+      "expo-splash-screen"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@entole/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "files": [
+    "index.ts",
+    "design-tokens.js",
+    "tailwind-preset.js"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests in @entole/tokens\"",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^57.0.2",
+    "typescript": "~6.0.3"
+  }
+}
