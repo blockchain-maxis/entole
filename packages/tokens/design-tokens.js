@@ -16,6 +16,8 @@ const colors = {
   // Surfaces
   paper: '#FBF9F5',
   card: '#FFFFFF',
+  white: '#FFFFFF',
+  black: '#000000',
   line: '#E8E2D8',
   hairline: '#EFE9DF',
   press: '#F4F0E8',

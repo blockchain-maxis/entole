@@ -23,13 +23,14 @@ type Props = {
   locked?: boolean;
   /** Leaves the top of the underlying screen visible. */
   topInset?: number;
+  className?: string;
 };
 
 /**
  * Bottom sheet, not a modal. Dismissible by gesture, operable one-handed, and
  * anchored so its primary action sits under the thumb.
  */
-export function Sheet({ children, onDismiss, locked = false, topInset }: Props) {
+export function Sheet({ children, onDismiss, locked = false, topInset, className }: Props) {
   const insets = useSafeAreaInsets();
   // Drag only. The entrance is a layout animation, so nothing here is driven
   // from an effect.
@@ -67,14 +68,26 @@ export function Sheet({ children, onDismiss, locked = false, topInset }: Props) 
 
       <GestureDetector gesture={pan}>
         <Animated.View
-          className="rounded-t-sheet bg-white px-[22px] pt-[22px]"
+          className={className}
           entering={SlideInDown.springify().damping(SHEET_SPRING.damping).stiffness(
             SHEET_SPRING.stiffness,
           )}
-          style={[sheetStyle, { paddingBottom: Math.max(insets.bottom, 12) }]}
+          style={[sheetStyle]}
         >
-          <View className="mx-auto mb-5 h-1 w-10 rounded-pill bg-line" />
-          {children}
+          {/* This inner View strictly handles the background color and padding without any className interference */}
+          <View 
+            style={{ 
+              backgroundColor: '#FFFFFF', 
+              borderTopLeftRadius: 26, 
+              borderTopRightRadius: 26, 
+              paddingHorizontal: 22, 
+              paddingTop: 22, 
+              paddingBottom: Math.max(insets.bottom, 12) 
+            }}
+          >
+            <View className="mx-auto mb-5 h-1 w-10 rounded-pill bg-line" />
+            {children}
+          </View>
         </Animated.View>
       </GestureDetector>
     </View>

@@ -53,7 +53,7 @@ export default function AllowanceDetail() {
 
   return (
     <Sheet onDismiss={close} topInset={132}>
-      <ScrollView showsVerticalScrollIndicator={false} className="max-h-[520px]">
+      <ScrollView showsVerticalScrollIndicator={false} className="max-h-[620px]">
         <Text className="font-strong text-title-sm text-ink">{allowance.name}</Text>
 
         <Text className="mt-3.5 font-body text-body-lg text-slate">
