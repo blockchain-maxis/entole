@@ -79,7 +79,7 @@ export default function Home() {
         {store.paused ? <PausedBanner onResume={() => void store.setPaused(false)} /> : null}
       </div>
 
-      <div className="sticky bottom-0 flex gap-2.5 border-t border-hairline bg-paper px-gutter py-4">
+      <div className="sticky bottom-0 flex gap-2.5 border-t border-hairline bg-paper px-gutter pt-4 safe-bottom">
         <ButtonLink href="/activity" label="Send money" />
         <ButtonLink href="/activity" label="Receive" variant="secondary" />
       </div>

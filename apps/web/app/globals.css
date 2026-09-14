@@ -9,11 +9,24 @@
 
   body {
     @apply bg-paper font-body text-ink antialiased;
+    /* Installed there is no browser chrome, so the app clears the notch and
+       the home indicator itself. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Standing on a home screen it should not rubber-band like a document. */
+    overscroll-behavior-y: none;
   }
 
   /* Digits must never shift the layout while an amount changes. */
   .tabular {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
+  }
+}
+
+@layer components {
+  /* Bottom-anchored actions sit above the home indicator, not under it. */
+  .safe-bottom {
+    padding-bottom: calc(theme('spacing.4') + env(safe-area-inset-bottom));
   }
 }
