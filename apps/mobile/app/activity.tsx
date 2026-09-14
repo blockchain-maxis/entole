@@ -91,8 +91,9 @@ export default function AllActivity() {
           <ActivityRow
             entry={item}
             contact={store.contact(item.contactId)}
-            onPress={item.allowanceId ? () => router.push({ pathname: '/rules/[id]', params: { id: item.allowanceId } }) : undefined}
-          />
+            onPress={
+              item.allowanceId ? () => router.push({ pathname: '/rules/[id]', params: { id: item.allowanceId! } }) : undefined
+            }/>
         )}
       />
     </Screen>

@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { PauseControl } from './PauseControl';
 import { Text } from './Text';
 
 type Props = {
@@ -45,7 +44,7 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
         {children}
       </View>
 
-      {trailing ?? <PauseControl />}
+      {trailing ?? null}
     </View>
   );
 }

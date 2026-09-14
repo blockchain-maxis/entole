@@ -1,15 +1,14 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 
 import { Amount } from '@/components/ui/Amount';
 import { AllowanceCard } from '@/components/ui/AllowanceCard';
 import { ActivityRow } from '@/components/ui/ActivityRow';
 import { Button } from '@/components/ui/Button';
-import { Header } from '@/components/ui/Header';
 import { SectionHeading } from '@/components/ui/Rows';
-import { ActionBar, Screen } from '@/components/ui/Screen';
+import { Screen } from '@/components/ui/Screen';
 import {
   AllowanceCardSkeleton,
   BalanceSkeleton,
@@ -26,32 +25,36 @@ export default function Home() {
   const store = useStore();
   const loading = store.status === 'loading';
   const announced = useRef(false);
+  const { height } = useWindowDimensions();
 
-  // The assistant proposes on its own; the undo window opens over the balance
-  // rather than waiting to be found.
   useEffect(() => {
-    if (loading || store.paused || !store.proposal || announced.current) return;
+    if (loading || !store.proposal || announced.current) return;
     announced.current = true;
     const timer = setTimeout(() => router.push('/assistant-action'), 1200);
     return () => clearTimeout(timer);
-  }, [loading, router, store.paused, store.proposal]);
+  }, [loading, router, store.proposal]);
 
   return (
-    <Screen>
-      <Header leading="brand" />
+    <Screen edges={{ bottom: false }}>
+      <View className="px-5 pt-4 pb-4">
+        <Text className="font-strong text-headline text-ink">Good morning, Evan 👋</Text>
+      </View>
 
       <FlashList<Activity>
-        data={loading ? [] : store.activity}
+        data={loading ? [] : store.activity.slice(0, 5)}
         keyExtractor={(entry) => entry.id}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View className="h-2" />}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
             {loading ? (
-              <BalanceSkeleton />
+              <View className="px-5"><BalanceSkeleton /></View>
             ) : (
-              <View className="px-1 pb-[34px] pt-[22px]">
+              <View 
+                style={{ height: height * 0.3 }} 
+                className="mx-5 mb-5 rounded-3xl border border-line bg-card/60 p-6 justify-center"
+              >
                 <Text className="font-strong text-label-sm text-mist">Available balance</Text>
                 <View className="mt-2.5">
                   <Amount value={store.balance} />
@@ -62,16 +65,22 @@ export default function Home() {
               </View>
             )}
 
+            <View className="flex-row gap-3 px-5 mb-8">
+              <Button label="Send" onPress={() => router.push('/send')} />
+              <Button label="Deposit" variant="secondary" onPress={() => router.push('/receive')} />
+              <Button label="Invest" variant="secondary" onPress={() => router.push('/invest')} />
+            </View>
+
             <SectionHeading
               title="Allowances"
               action="Manage"
+              className="px-5"
               onActionPress={() => router.push('/rules/new')}
             />
 
-            <View className="gap-2.5">
+            <View className="gap-2.5 px-5">
               {loading ? (
                 <>
-                  <AllowanceCardSkeleton />
                   <AllowanceCardSkeleton />
                   <AllowanceCardSkeleton />
                 </>
@@ -90,12 +99,12 @@ export default function Home() {
             <SectionHeading
               title="Recent activity"
               action="All"
-              className="pt-[30px]"
+              className="pt-[30px] px-5"
               onActionPress={() => router.push('/activity')}
             />
 
             {loading ? (
-              <View className="gap-2">
+              <View className="gap-2 px-5">
                 <RowSkeleton />
                 <RowSkeleton />
                 <RowSkeleton />
@@ -104,36 +113,17 @@ export default function Home() {
           </View>
         }
         renderItem={({ item }) => (
-          <ActivityRow
-            entry={item}
-            contact={store.contact(item.contactId)}
-            onPress={
-              item.allowanceId ? () => router.push({ pathname: '/rules/[id]', params: { id: item.allowanceId } }) : undefined
-            }
-          />
+          <View className="px-5">
+            <ActivityRow
+              entry={item}
+              contact={store.contact(item.contactId)}
+              onPress={
+                item.allowanceId ? () => router.push({ pathname: '/rules/[id]', params: { id: item.allowanceId! } }) : undefined
+              }
+            />
+          </View>
         )}
       />
-
-      {store.paused ? <PausedBanner onResume={() => void store.setPaused(false)} /> : null}
-
-      <ActionBar divided>
-        <Button label="Send money" onPress={() => router.push('/send')} />
-        <Button label="Receive" variant="secondary" onPress={() => router.push('/receive')} />
-      </ActionBar>
     </Screen>
-  );
-}
-
-function PausedBanner({ onResume }: { onResume: () => void }) {
-  return (
-    <View className="mx-gutter mb-2 flex-row items-center gap-3 rounded-control bg-ink px-4 py-3.5">
-      <View className="h-2.5 w-2.5 flex-none rounded-[2px] bg-halt" />
-      <Text className="flex-1 font-body text-label text-paper">
-        All allowances paused. Nothing is lost.
-      </Text>
-      <Pressable accessibilityRole="button" hitSlop={10} onPress={onResume}>
-        <Text className="font-strong text-label text-card underline">Resume</Text>
-      </Pressable>
-    </View>
   );
 }

@@ -67,7 +67,7 @@ export function Sheet({ children, onDismiss, locked = false, topInset }: Props) 
 
       <GestureDetector gesture={pan}>
         <Animated.View
-          className="rounded-t-sheet bg-card px-[22px] pt-[22px]"
+          className="rounded-t-sheet bg-white px-[22px] pt-[22px]"
           entering={SlideInDown.springify().damping(SHEET_SPRING.damping).stiffness(
             SHEET_SPRING.stiffness,
           )}
