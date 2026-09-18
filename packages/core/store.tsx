@@ -11,7 +11,7 @@ import {
   type SendInput,
 } from './gateway';
 import { kobo, type Naira } from './money';
-import type { Activity, Contact, Invoice, Pot, Proposal, Receipt, Snapshot, TaxReserve } from './schemas';
+import type { Activity, Contact, GrowPosition, Invoice, Proposal, Receipt, Snapshot, TaxReserve } from './schemas';
 
 type Status = 'loading' | 'ready' | 'failed';
 
@@ -23,18 +23,16 @@ type Store = {
   contacts: Contact[];
   allowances: AllowanceView[];
   activity: Activity[];
-  pots: Pot[];
   seats: SeatView[];
   invoices: Invoice[];
   taxReserves: TaxReserve[];
+  growPosition: GrowPosition | null;
   proposal: Proposal | null;
   request: Snapshot['request'] | null;
   contact(id: string): Contact | undefined;
   allowance(id: string): AllowanceView | undefined;
-  pot(id: string): Pot | undefined;
   seat(id: string): SeatView | undefined;
   invoice(id: string): Invoice | undefined;
-  settlePotShare(potId: string): Promise<void>;
   setPaused(next: boolean): Promise<void>;
   send(input: SendInput): Promise<Receipt>;
   saveAllowance(draft: AllowanceDraft): Promise<void>;
@@ -46,6 +44,11 @@ type Store = {
   revokeSeat(id: string): Promise<void>;
   createInvoice(draft: InvoiceDraft): Promise<Invoice>;
   settleInvoice(invoiceId: string, taxFraction?: number): Promise<void>;
+  /** Re-checks a `'pending-release'` invoice's condition against `rate`.
+   * Resolves `true` if it released, `false` if it's still not met. */
+  requestConditionalRelease(invoiceId: string, rate: Rate): Promise<boolean>;
+  depositGrow(amountMinor: number): Promise<void>;
+  withdrawGrow(amountMinor: number): Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -214,18 +217,36 @@ export function StoreProvider({
     [gateway],
   );
 
-  const settlePotShare = useCallback(
-    async (potId: string) => {
-      const updated = await gateway.settlePotShare(potId);
+  const requestConditionalRelease = useCallback(
+    async (invoiceId: string, rate: Rate) => {
+      const result = await gateway.requestConditionalRelease(invoiceId, rate);
+      if (!result) return false;
+      const { invoice, taxReserve } = result;
       setSnapshot((current) => {
         if (!current) return current;
         return {
           ...current,
-          pots: updated
-            ? current.pots.map((pot) => (pot.id === potId ? updated : pot))
-            : current.pots.filter((pot) => pot.id !== potId),
+          invoices: current.invoices.map((entry) => (entry.id === invoiceId ? invoice : entry)),
+          taxReserves: [taxReserve, ...current.taxReserves],
         };
       });
+      return true;
+    },
+    [gateway],
+  );
+
+  const depositGrow = useCallback(
+    async (amountMinor: number) => {
+      const growPosition = await gateway.depositGrow(amountMinor);
+      setSnapshot((current) => (current ? { ...current, growPosition } : current));
+    },
+    [gateway],
+  );
+
+  const withdrawGrow = useCallback(
+    async (amountMinor: number) => {
+      const growPosition = await gateway.withdrawGrow(amountMinor);
+      setSnapshot((current) => (current ? { ...current, growPosition } : current));
     },
     [gateway],
   );
@@ -245,7 +266,6 @@ export function StoreProvider({
   const value = useMemo<Store>(() => {
     const contacts = snapshot?.contacts ?? [];
     const allowances = (snapshot?.allowances ?? []).map(viewAllowance);
-    const pots = snapshot?.pots ?? [];
     const seats = (snapshot?.seats ?? []).map(viewSeat);
     const invoices = snapshot?.invoices ?? [];
     const taxReserves = snapshot?.taxReserves ?? [];
@@ -260,15 +280,14 @@ export function StoreProvider({
       contacts,
       allowances,
       activity: snapshot?.activity ?? [],
-      pots,
       seats,
       invoices,
       taxReserves,
+      growPosition: snapshot?.growPosition ?? null,
       proposal,
       request: snapshot?.request ?? null,
       contact: (id) => contacts.find((c) => c.id === id),
       allowance: (id) => allowances.find((a) => a.id === id),
-      pot: (id) => pots.find((p) => p.id === id),
       seat: (id) => seats.find((s) => s.id === id),
       invoice: (id) => invoices.find((i) => i.id === id),
       setPaused,
@@ -282,13 +301,17 @@ export function StoreProvider({
       revokeSeat,
       createInvoice,
       settleInvoice,
-      settlePotShare,
+      requestConditionalRelease,
+      depositGrow,
+      withdrawGrow,
     };
   }, [
     cancelProposal,
     createInvoice,
+    depositGrow,
     proposal,
     receipts,
+    requestConditionalRelease,
     revokeAllowance,
     revokeSeat,
     runProposal,
@@ -297,9 +320,9 @@ export function StoreProvider({
     send,
     setPaused,
     settleInvoice,
-    settlePotShare,
     snapshot,
     status,
+    withdrawGrow,
   ]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -38,10 +38,24 @@ const colors = {
   caution: { DEFAULT: '#B8860B' },
   halt: { DEFAULT: '#C4362F', deep: '#A82C26', wash: '#FDF1F0', tint: '#FDF4F3' },
 
-  // Contact avatar grounds
+  // Contact avatar grounds, and one deeper stop per ground for a soft
+  // two-stop gradient fill — same warm-neutral family, no new hue.
   avatar: { 1: '#E4DACB', 2: '#EDE6DA', 3: '#E7E2D6' },
+  'avatar-deep': { 1: '#C5BCAF', 2: '#CCC6BB', 3: '#C7C3B8' },
 
   scrim: 'rgba(18,16,14,0.28)',
 };
 
-module.exports = { colors };
+/**
+ * Elevation. Two levels only: `raised` (balance card, sheet header — paper
+ * lifted off a desk) and `floating` (the tab bar, which needs to separate
+ * from scrolling content behind it). Everything else stays flat — a
+ * `border-line` card, no shadow. Both are ink-tinted, low-opacity; there is
+ * no neutral "grey" shadow anywhere in this system.
+ */
+const shadow = {
+  raised: { offsetX: 0, offsetY: 4, blur: 12, opacity: 0.07 },
+  floating: { offsetX: 0, offsetY: 6, blur: 16, opacity: 0.1 },
+};
+
+module.exports = { colors, shadow };

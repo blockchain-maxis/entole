@@ -123,7 +123,18 @@ directly from RPC in the app.
 Add only if the core is done. Each is a self-contained bounty claim.
 
 1. Chainlink CRE workflow — gate a payment release on an off-chain condition
-   (FX threshold, compliance check) before it executes.
+   (FX threshold, compliance check) before it executes. **Built**: an
+   invoice can carry an `fx-rate-at-or-below` `releaseCondition`
+   (`packages/core/schemas.ts`), evaluated by the real, tested
+   `evaluateReleaseCondition` (`packages/core/chainlink-cre.ts`) — both from
+   the in-app "Check condition" action (live today, no account needed) and
+   from `apps/web/app/api/chainlink-cre/release/route.ts`, the callback
+   target a real CRE workflow POSTs to once registered
+   (`CHAINLINK_CRE_WEBHOOK_SECRET`, unset by default). That route can
+   validate and re-evaluate but not yet mutate a specific user's live
+   invoice — this demo's store has no server-side persistence, the same gap
+   the Telegram webhook already discloses. See
+   `packages/core/chainlink-cre.ts`'s header for the full design.
 2. Nansen — flow intelligence on the corridor.
 3. Alchemy Account Kit gas sponsorship, if not already covered by the auth path.
 

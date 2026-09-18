@@ -1,0 +1,13 @@
+{
+  "name": "@entole/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start"
+  },
+  "dependencies": {
+    "envio": "^3.12.1"
+  }
+}

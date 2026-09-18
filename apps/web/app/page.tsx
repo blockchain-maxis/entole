@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+
 import { toDollars } from '@entole/core/fx';
-import { formatDollars, formatNaira, kobo } from '@entole/core/money';
+import { formatDollars } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
 import { ActivityRow } from '@/components/ActivityRow';
@@ -23,11 +25,11 @@ export default function Home() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
       <Header />
 
-      <div className="flex-1 px-gutter pb-8">
+      <div className="flex-1 px-gutter pb-28">
         {loading ? (
           <BalanceSkeleton />
         ) : (
-          <section className="px-1 pb-[34px] pt-[22px]">
+          <section className="rounded-panel bg-card p-6 shadow-raised">
             <p className="font-strong text-label-sm text-mist">Available balance</p>
             <div className="mt-2.5">
               <Amount value={store.balance} />
@@ -38,7 +40,13 @@ export default function Home() {
           </section>
         )}
 
-        <SectionHeading title="Allowances" />
+        <div className="mt-5 flex gap-2.5">
+          <ButtonLink href="/transfer" label="Send" />
+          <ButtonLink href="/receive" label="Deposit" variant="secondary" />
+          <ButtonLink href="/business" label="Business" variant="secondary" />
+        </div>
+
+        <SectionHeading title="Allowances" action={{ label: 'Manage', href: '/rules/new' }} />
 
         <ul className="flex flex-col gap-2.5">
           {loading ? (
@@ -49,11 +57,9 @@ export default function Home() {
             </>
           ) : (
             store.allowances.map((allowance) => (
-              <AllowanceCard
-                key={allowance.id}
-                allowance={allowance}
-                resetsAt={allowance.resetsAt}
-              />
+              <Link key={allowance.id} href={`/rules/${allowance.id}`} className="block">
+                <AllowanceCard allowance={allowance} resetsAt={allowance.resetsAt} />
+              </Link>
             ))
           )}
         </ul>
@@ -76,51 +82,7 @@ export default function Home() {
           )}
         </ul>
 
-        {!loading && (store.seats.length > 0 || store.invoices.length > 0) ? (
-          <>
-            <SectionHeading title="Business" />
-
-            {store.taxReserves.length > 0 ? (
-              <div className="mb-3 rounded-card border border-line bg-card p-5">
-                <span className="rounded-md bg-indigo-wash px-2 py-1 font-heavy text-badge uppercase text-indigo">
-                  Tax reserve
-                </span>
-                <p className="tabular mt-3 font-strong text-amount-sm text-ink">
-                  {formatNaira(kobo(store.taxReserves[0]!.balanceMinor))}
-                </p>
-              </div>
-            ) : null}
-
-            <ul className="flex flex-col gap-2.5">
-              {store.seats.map((seat) => (
-                <AllowanceCard key={seat.id} allowance={seat} resetsAt={seat.resetsAt} />
-              ))}
-            </ul>
-
-            {store.invoices.length > 0 ? (
-              <ul className="mt-2.5 flex flex-col gap-2">
-                {store.invoices.map((invoice) => (
-                  <li
-                    key={invoice.id}
-                    className="flex items-center justify-between rounded-row border border-line bg-card px-4 py-3"
-                  >
-                    <span className="font-strong text-body-sm text-ink">{invoice.clientName}</span>
-                    <span className="tabular font-body text-label-sm text-slate">
-                      {formatNaira(kobo(invoice.amountMinor))} · {invoice.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </>
-        ) : null}
-
         {store.paused ? <PausedBanner onResume={() => void store.setPaused(false)} /> : null}
-      </div>
-
-      <div className="sticky bottom-0 flex gap-2.5 border-t border-hairline bg-paper px-gutter pt-4 safe-bottom">
-        <ButtonLink href="/activity" label="Send money" />
-        <ButtonLink href="/activity" label="Receive" variant="secondary" />
       </div>
     </main>
   );

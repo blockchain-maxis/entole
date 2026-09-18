@@ -1,6 +1,25 @@
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+import { token } from '@entole/tokens';
+
 import { PauseControl } from './PauseControl';
+
+/** Monoline rounded arch — safe passage for money, nothing coin- or
+ * chain-shaped. Mirrors `apps/mobile/components/ui/BrandMark.tsx`. */
+export function BrandGlyph({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 20V10a6 6 0 0 1 12 0v10"
+        stroke={token.ink}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 /**
  * The pause control rides in every header, so every page gets one of these.
@@ -10,22 +29,13 @@ export function Header({ title, back }: { title?: string; back?: string }) {
     <header className="flex flex-none items-center justify-between px-gutter pb-3.5 pt-4">
       <div className="flex flex-1 items-center gap-3.5">
         {back ? (
-          <Link
-            href={back}
-            aria-label="Go back"
-            className="font-body text-title leading-none text-slate hover:text-ink"
-          >
-            ←
+          <Link href={back} aria-label="Go back" className="flex text-slate hover:text-ink">
+            <ArrowLeft size={22} strokeWidth={1.5} />
           </Link>
         ) : (
           <>
-            <span
-              aria-hidden
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-pip bg-ink font-heavy text-body text-paper"
-            >
-              E
-            </span>
-            <span className="font-heavy text-headline text-ink">Entole</span>
+            <BrandGlyph size={22} />
+            <span className="font-strong text-headline tracking-tight text-ink">entole</span>
           </>
         )}
 

@@ -1,4 +1,4 @@
-import { parseTelegramMessage } from '@entole/core/telegram-intake';
+import { parseTelegramMessageWithAssistant } from '@entole/core/telegram-intake';
 import { NextResponse } from 'next/server';
 
 /**
@@ -17,6 +17,12 @@ import { NextResponse } from 'next/server';
  * exists here. This route proves the parsing half end to end; wiring the
  * other half is a deploy-config and persistence change, not a rewrite of
  * `parseTelegramMessage` itself.
+ *
+ * Parsing itself goes through `parseTelegramMessageWithAssistant` — the
+ * deterministic grammar first, Qwen only for what it can't parse, and only
+ * when `QWEN_API_KEY` is set (server-side only, same rule as
+ * `TELEGRAM_BOT_TOKEN`). Unset, this route behaves exactly as it did before
+ * the assistant layer existed.
  */
 export async function POST(request: Request) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -35,7 +41,8 @@ export async function POST(request: Request) {
   // update.message.chat.id here. Until chat linking exists, this proves the
   // grammar against an empty book — every message will read as "no contact
   // matches," which is the correct, safe failure mode for an unlinked chat.
-  const parsed = parseTelegramMessage(text, []);
+  const qwenApiKey = process.env.QWEN_API_KEY;
+  const parsed = await parseTelegramMessageWithAssistant(text, [], qwenApiKey ? { apiKey: qwenApiKey } : undefined);
 
   return NextResponse.json({ ok: true, parsed });
 }

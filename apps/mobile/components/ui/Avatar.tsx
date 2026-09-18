@@ -1,13 +1,17 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 
 import type { AvatarTone } from '@entole/core/schemas';
+import { token } from '@entole/tokens';
 
 import { Text } from './Text';
 
-const TONES: Record<AvatarTone, string> = {
-  1: 'bg-avatar-1',
-  2: 'bg-avatar-2',
-  3: 'bg-avatar-3',
+/** Ground → deep, per tone — the same warm-neutral family, one stop
+ * darker, for a soft gradient fill instead of a flat tint. */
+const GRADIENTS: Record<AvatarTone, [string, string]> = {
+  1: [token.avatar[1], token['avatar-deep'][1]],
+  2: [token.avatar[2], token['avatar-deep'][2]],
+  3: [token.avatar[3], token['avatar-deep'][3]],
 };
 
 const SIZES = {
@@ -35,11 +39,16 @@ export function Avatar({
   const { box, text } = SIZES[size];
   return (
     <View
-      className={`${box} ${TONES[tone]} flex-none items-center justify-center rounded-pill ${
-        stacked ? 'border-2 border-card' : ''
-      }`}
+      className={`${box} flex-none rounded-pill ${stacked ? 'border-2 border-card' : 'border border-white/40'}`}
     >
-      <Text className={`font-strong ${text} text-slate`}>{initials}</Text>
+      <LinearGradient
+        colors={GRADIENTS[tone]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Text className={`font-strong ${text} text-slate`}>{initials}</Text>
+      </LinearGradient>
     </View>
   );
 }

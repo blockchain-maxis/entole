@@ -54,9 +54,9 @@ export default function Home() {
             {loading ? (
               <View className="px-5"><BalanceSkeleton /></View>
             ) : (
-              <View 
-                style={{ height: height * 0.3 }} 
-                className="mx-5 mb-5 rounded-3xl border border-line bg-card/60 p-6 justify-center"
+              <View
+                style={{ height: height * 0.3 }}
+                className="mx-5 mb-5 rounded-panel bg-card p-6 justify-center shadow-raised"
               >
                 <Text className="font-strong text-label-sm text-mist">Available balance</Text>
                 <View className="mt-2.5">
@@ -69,7 +69,7 @@ export default function Home() {
             )}
 
             <View className="flex-row gap-3 px-5 mb-8">
-              <Button label="Send" onPress={() => router.push('/send')} />
+              <Button label="Send" variant="raised" onPress={() => router.push('/send')} />
               <Button label="Deposit" variant="secondary" onPress={() => router.push('/receive')} />
               <Button label="Business" variant="secondary" onPress={() => router.push('/business')} />
             </View>

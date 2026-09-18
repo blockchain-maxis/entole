@@ -14,12 +14,19 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StoreProvider } from '@entole/core/store';
 import { token } from '@entole/tokens';
 
-import { AccountProvider } from '@/lib/account';
+import { AccountProvider, useAccount } from '@/lib/account';
+import { useOnChainGateway } from '@/lib/onchain';
 
 import '../global.css';
 import '@/lib/interop';
 
 void SplashScreen.preventAutoHideAsync();
+
+function OnChainStoreProvider({ children }: { children: React.ReactNode }) {
+  const { account } = useAccount();
+  const gateway = useOnChainGateway(account);
+  return <StoreProvider gateway={gateway}>{children}</StoreProvider>;
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -39,7 +46,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AccountProvider>
-          <StoreProvider>
+          <OnChainStoreProvider>
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -74,7 +81,7 @@ export default function RootLayout() {
                 options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
               />
             </Stack>
-          </StoreProvider>
+          </OnChainStoreProvider>
         </AccountProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

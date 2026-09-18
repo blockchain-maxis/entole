@@ -1,5 +1,8 @@
+import { evaluateReleaseCondition } from './chainlink-cre';
 import { SNAPSHOT } from './fixtures';
+import type { Rate } from './fx';
 import {
+  growPositionSchema,
   invoiceSchema,
   receiptSchema,
   seatSchema,
@@ -7,9 +10,10 @@ import {
   taxReserveSchema,
   type Allowance,
   type Cadence,
+  type GrowPosition,
   type Invoice,
-  type Pot,
   type Receipt,
+  type ReleaseCondition,
   type Seat,
   type SeatRole,
   type Snapshot,
@@ -32,10 +36,6 @@ export interface PaymentsGateway {
   saveAllowance(draft: AllowanceDraft): Promise<Allowance>;
   revokeAllowance(allowanceId: string): Promise<void>;
   cancelProposal(proposalId: string): Promise<void>;
-  /** Confirms your own share of a pot as paid. Returns the updated pot, or
-   * `null` once every member has settled — the terminal state PRODUCT.md
-   * promises: the pot resolves to zero and closes, it doesn't linger. */
-  settlePotShare(potId: string): Promise<Pot | null>;
 
   /** Business layer — see docs/SCOPE.md. Every one of these is a caveat
    * grant or a plain record, never a second trust model. */
@@ -46,6 +46,22 @@ export interface PaymentsGateway {
    * tax reserve, at source — the same instant the money arrives, not a
    * step someone has to remember. */
   settleInvoice(invoiceId: string, taxFraction: number): Promise<{ invoice: Invoice; taxReserve: TaxReserve }>;
+  /** The Chainlink CRE bounty's callback target — see
+   * `packages/core/chainlink-cre.ts`. Re-evaluates the invoice's own
+   * `releaseCondition` against `observedRate` itself rather than trusting
+   * the caller; returns `null` (invoice stays `'pending-release'`) when the
+   * condition doesn't hold yet, or the same settlement `settleInvoice`
+   * produces once it does. */
+  requestConditionalRelease(
+    invoiceId: string,
+    observedRate: Rate,
+  ): Promise<{ invoice: Invoice; taxReserve: TaxReserve } | null>;
+
+  /** "Grow" — the owner acting on their own deposited balance directly, no
+   * delegate/allowance involved. Both resolve only once settled, same
+   * promise `submitPayment` makes. */
+  depositGrow(amountMinor: number): Promise<GrowPosition>;
+  withdrawGrow(amountMinor: number): Promise<GrowPosition>;
 }
 
 export type SendInput = {
@@ -79,6 +95,8 @@ export type InvoiceDraft = {
   amountMinor: number;
   note: string;
   dueAt: string;
+  /** Present only for a Chainlink CRE-gated invoice — see chainlink-cre.ts. */
+  releaseCondition?: ReleaseCondition;
 };
 
 /** Flat corridor fee, quoted before the money moves. */
@@ -97,6 +115,30 @@ function reference(): string {
   const block = () =>
     Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4).padEnd(4, '0');
   return `${block()}-${block()}-${block().slice(0, 2)}`;
+}
+
+/** Shared by `settleInvoice` and the Chainlink CRE-gated
+ * `requestConditionalRelease` — both mark an invoice paid and split
+ * `taxFraction` into the tax reserve the same way, the moment the money is
+ * actually free to release. */
+function settleInvoiceRecord(
+  invoice: Invoice,
+  koboPerDollar: number,
+  taxFraction: number,
+): { invoice: Invoice; taxReserve: TaxReserve } {
+  const paidAt = new Date().toISOString();
+  const reserveShare = Math.round(invoice.amountMinor * taxFraction);
+
+  return {
+    invoice: invoiceSchema.parse({ ...invoice, status: 'paid', koboPerDollar, paidAt }),
+    taxReserve: taxReserveSchema.parse({
+      id: `tr-${Date.now()}`,
+      name: 'Q3 tax reserve',
+      balanceMinor: reserveShare,
+      payoutAt: '2026-10-15T00:00:00.000+01:00',
+      sourceInvoiceId: invoice.id,
+    }),
+  };
 }
 
 /**
@@ -186,45 +228,50 @@ export const demoGateway: PaymentsGateway = {
       amountMinor: draft.amountMinor,
       note: draft.note,
       dueAt: draft.dueAt,
-      status: 'sent',
+      status: draft.releaseCondition ? 'pending-release' : 'sent',
       link: `entole.to/${id}`,
+      ...(draft.releaseCondition ? { releaseCondition: draft.releaseCondition } : {}),
     });
   },
 
   async settleInvoice(invoiceId, taxFraction) {
     await wait(320);
     const snapshot = snapshotSchema.parse(SNAPSHOT);
-    const rate = snapshot.account.koboPerDollar;
     const invoice = snapshot.invoices.find((entry) => entry.id === invoiceId);
     if (!invoice) throw new Error(`No invoice ${invoiceId}`);
-
-    const paidAt = new Date().toISOString();
-    const reserveShare = Math.round(invoice.amountMinor * taxFraction);
-
-    return {
-      invoice: invoiceSchema.parse({ ...invoice, status: 'paid', koboPerDollar: rate, paidAt }),
-      taxReserve: taxReserveSchema.parse({
-        id: `tr-${Date.now()}`,
-        name: 'Q3 tax reserve',
-        balanceMinor: reserveShare,
-        payoutAt: '2026-10-15T00:00:00.000+01:00',
-        sourceInvoiceId: invoiceId,
-      }),
-    };
+    return settleInvoiceRecord(invoice, snapshot.account.koboPerDollar, taxFraction);
   },
 
-  async settlePotShare(potId) {
+  async requestConditionalRelease(invoiceId, observedRate) {
+    await wait(280);
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    const invoice = snapshot.invoices.find((entry) => entry.id === invoiceId);
+    if (!invoice) throw new Error(`No invoice ${invoiceId}`);
+    if (!invoice.releaseCondition) {
+      throw new Error(`Invoice ${invoiceId} has no release condition to evaluate`);
+    }
+    if (!evaluateReleaseCondition(invoice.releaseCondition, observedRate)) return null;
+    return settleInvoiceRecord(invoice, observedRate.koboPerDollar, 0.2);
+  },
+
+  async depositGrow(amountMinor) {
     await wait(320);
     const snapshot = snapshotSchema.parse(SNAPSHOT);
-    const pot = snapshot.pots.find((entry) => entry.id === potId);
-    if (!pot) throw new Error(`No pot ${potId}`);
+    return growPositionSchema.parse({
+      ...snapshot.growPosition,
+      balanceMinor: snapshot.growPosition.balanceMinor + amountMinor,
+    });
+  },
 
-    const members = pot.members.map((member) =>
-      member.isYou ? { ...member, paidMinor: member.paidMinor + member.owedMinor, owedMinor: 0 } : member,
-    );
-    const collectedMinor = pot.collectedMinor + (pot.members.find((m) => m.isYou)?.owedMinor ?? 0);
-    const allSettled = members.every((member) => member.owedMinor === 0);
-
-    return allSettled ? null : { ...pot, members, collectedMinor };
+  async withdrawGrow(amountMinor) {
+    await wait(320);
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    if (amountMinor > snapshot.growPosition.balanceMinor) {
+      throw new Error('Cannot withdraw more than the growing balance');
+    }
+    return growPositionSchema.parse({
+      ...snapshot.growPosition,
+      balanceMinor: snapshot.growPosition.balanceMinor - amountMinor,
+    });
   },
 };

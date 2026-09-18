@@ -87,7 +87,6 @@ learn to read it at a glance.
 | `app/send` | `send.png` | Contact, keypad, live conversion |
 | `app/send/receipt` | `receipt.png` | Timestamped, settled, shareable |
 | `app/receive` | `receive.png` | Link + QR, no app needed |
-| `app/pots/[id]` | `group-pot.png` | Members, balances, settle up |
 | `app/pause` | `pause.png` | Kill switch confirmation |
 | `app/onboarding` | `onboarding-*.png` | Three screens, under 30 seconds |
 | sheet | `assistant-action.png` | Undo countdown over home |

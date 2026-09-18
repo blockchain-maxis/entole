@@ -50,9 +50,6 @@ pay on your behalf inside a hard limit. Send ₦50,000 to Mom every month, never
 more than ₦100,000 a month. The limit is on-chain. The app cannot exceed it and
 neither can the assistant.
 
-**Group pots.** Shared money with a terminal state. Members contribute, balances
-resolve, the pot settles to zero.
-
 ## Product rules
 
 **The blockchain is never mentioned.** Not in copy, not in iconography, not in

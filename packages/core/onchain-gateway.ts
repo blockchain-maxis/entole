@@ -9,12 +9,15 @@ import {
   type PaymentsGateway,
   type SendInput,
 } from './gateway';
+import { fetchIndexedActivity } from './indexed-activity';
 import { kobo } from './money';
 import {
+  growPositionSchema,
   receiptSchema,
   snapshotSchema,
   type Allowance,
   type Cadence,
+  type GrowPosition,
   type Receipt,
   type Snapshot,
 } from './schemas';
@@ -99,6 +102,51 @@ export const ENTOLE_POLICY_ABI = [
   },
 ] as const;
 
+/** Minimal ERC20 fragment — a direct owner→contact send never touches the
+ * policy contract at all. The owner's balance is never custodied by
+ * `EntolePolicy` (it only ever draws against an `approve`), so a plain
+ * transfer signed by the owner's own wallet client is the whole story. */
+export const ERC20_ABI = [
+  {
+    type: 'function',
+    name: 'transfer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+/** `GrowthVault` — a separate contract from `EntolePolicy`, which never
+ * custodies funds by design. Depositing/withdrawing your own "Grow" balance
+ * is an owner action, same trust level as a direct send — no delegate, no
+ * allowance, nothing the assistant can touch. */
+export const GROWTH_VAULT_ABI = [
+  {
+    type: 'function',
+    name: 'deposit',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'withdraw',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const;
+
 /** Deterministic bytes32 the contract uses to key an allowance, derived from
  * the app's own string id so both sides always agree without a lookup. */
 export function toChainAllowanceId(appId: string): Hex {
@@ -125,6 +173,10 @@ export type OnChainGatewayConfig = {
   delegateWalletClient: WalletClient;
   policyAddress: Address;
   tokenAddress: Address;
+  /** `GrowthVault`'s address, once deployed — see contracts/README.md's
+   * Status section. Left undefined until then; `depositGrow`/`withdrawGrow`
+   * fail loudly rather than pretend to settle if it's missing. */
+  growthVaultAddress?: Address;
   /** Settlement token's on-chain decimals (6 for the demo eUSD and for
    * USDC; confirm against whatever Agora AUSD actually uses before
    * swapping it in). */
@@ -135,12 +187,23 @@ export type OnChainGatewayConfig = {
    * that an address must never reach the UI, and keeping resolution here
    * makes that structurally true rather than a convention to remember. */
   resolveRecipient: (contactId: string) => Address;
-  /** Everything the contract doesn't own — contacts, pots, the payment
-   * request, and activity history. Until this is replaced by Envio
-   * HyperIndex per docs/ARCHITECTURE.md ("do not read history directly from
-   * RPC in the app"), it's the same fixture shape `demoGateway` uses; this
-   * adapter only overlays live allowance state from the contract on top. */
+  /** Everything the contract doesn't own — contacts, the payment
+   * request, and activity history. Serves as the activity fallback when
+   * `indexerUrl` is unset or the indexer request fails — see
+   * `loadSnapshot`'s comment below. */
   loadOffChainSnapshot: () => Promise<Snapshot>;
+  /** Envio HyperIndex's GraphQL endpoint, once `indexer/` is actually
+   * running (see `indexer/README.md` — needs an `ENVIO_API_TOKEN` this repo
+   * doesn't have committed anywhere). Left undefined, `loadSnapshot` uses
+   * `loadOffChainSnapshot`'s activity as it always has. Set, it tries the
+   * indexer first and only falls back on a failed/empty response — this is
+   * docs/ARCHITECTURE.md's "do not read history directly from RPC" rule,
+   * satisfied for real once the indexer is up. */
+  indexerUrl?: string;
+  /** The reverse of `resolveRecipient` — an indexed on-chain event only
+   * carries an address, never the contact id a screen renders. Required
+   * whenever `indexerUrl` is set. */
+  resolveContactId?: (address: Address) => string | undefined;
   cadenceSeconds?: Record<Cadence, bigint>;
 };
 
@@ -148,6 +211,61 @@ function toTokenMinor(amountMinorNaira: number, config: OnChainGatewayConfig): b
   const dollarsCents = toDollars(kobo(amountMinorNaira), config.rate);
   const scale = 10n ** BigInt(config.tokenDecimals - 2);
   return BigInt(dollarsCents) * scale;
+}
+
+function fromTokenMinor(amountToken: bigint, config: OnChainGatewayConfig): number {
+  const tokenToNairaCents = Number(amountToken) / 10 ** (config.tokenDecimals - 2);
+  return Math.round((tokenToNairaCents * config.rate.koboPerDollar) / 100);
+}
+
+function requireGrowthVaultAddress(config: OnChainGatewayConfig): Address {
+  if (!config.growthVaultAddress) {
+    throw new Error(
+      'GrowthVault is not deployed yet on this network — see contracts/README.md\'s Status section.',
+    );
+  }
+  return config.growthVaultAddress;
+}
+
+/** Re-reads the vault after a deposit/withdraw settles. `accruedMinor`/
+ * `nextPayoutAt` stay whatever the off-chain snapshot already projects —
+ * see `GrowthVault.sol`'s doc comment on why accrual is display-only. */
+async function growthPositionAfterChange(
+  config: OnChainGatewayConfig,
+  vaultAddress: Address,
+): Promise<GrowPosition> {
+  const base = await config.loadOffChainSnapshot();
+  const balance = await config.publicClient.readContract({
+    address: vaultAddress,
+    abi: GROWTH_VAULT_ABI,
+    functionName: 'balanceOf',
+    args: [config.ownerWalletClient.account!.address],
+  });
+  return growPositionSchema.parse({ ...base.growPosition, balanceMinor: fromTokenMinor(balance, config) });
+}
+
+/** Indexed history when `indexerUrl` is configured and reachable; the
+ * off-chain snapshot's activity otherwise — the one pre-existing fallback
+ * path, never a second fabricated source. A failed/unreachable indexer
+ * degrades to that fallback rather than failing the whole snapshot load. */
+async function loadActivity(
+  config: OnChainGatewayConfig,
+  base: Snapshot,
+  allowances: Allowance[],
+): Promise<Snapshot['activity']> {
+  if (!config.indexerUrl || !config.resolveContactId) return base.activity;
+
+  try {
+    return await fetchIndexedActivity({
+      indexerUrl: config.indexerUrl,
+      resolveContactId: config.resolveContactId,
+      knownAllowances: allowances,
+      tokenDecimals: config.tokenDecimals,
+      rate: config.rate,
+    });
+  } catch {
+    return base.activity;
+  }
 }
 
 export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGateway {
@@ -169,38 +287,54 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
             args: [id],
           });
           const [, , , , periodCap, , , spentInPeriod, , revoked] = onchain;
-          const tokenToNairaCents = Number(spentInPeriod) / 10 ** (config.tokenDecimals - 2);
-          const spentMinor = Math.round((tokenToNairaCents * config.rate.koboPerDollar) / 100);
-          const limitTokenToNairaCents = Number(periodCap) / 10 ** (config.tokenDecimals - 2);
-          const limitMinor = Math.round((limitTokenToNairaCents * config.rate.koboPerDollar) / 100);
+          const spentMinor = fromTokenMinor(spentInPeriod, config);
+          const limitMinor = fromTokenMinor(periodCap, config);
           return { ...a, spentMinor, limitMinor: limitMinor || a.limitMinor, paused: revoked || a.paused };
         }),
       );
 
-      return snapshotSchema.parse({ ...base, allowances });
+      const growPosition = config.growthVaultAddress
+        ? {
+            ...base.growPosition,
+            balanceMinor: fromTokenMinor(
+              await config.publicClient.readContract({
+                address: config.growthVaultAddress,
+                abi: GROWTH_VAULT_ABI,
+                functionName: 'balanceOf',
+                args: [config.ownerWalletClient.account!.address],
+              }),
+              config,
+            ),
+          }
+        : base.growPosition;
+
+      const activity = await loadActivity(config, base, allowances);
+
+      return snapshotSchema.parse({ ...base, allowances, activity, growPosition });
     },
 
     async submitPayment(input: SendInput): Promise<Receipt> {
-      if (!input.allowanceId) {
-        throw new Error(
-          'On-chain gateway only settles proposals through an allowance today; a direct owner-initiated ' +
-            'send needs its own owner-signed contract call, not yet wired here — see contracts/README.md.',
-        );
-      }
-
       const recipient = config.resolveRecipient(input.contactId);
       const amount = toTokenMinor(input.amountMinor, config);
-      const id = toChainAllowanceId(input.allowanceId);
 
       const sentAt = new Date();
-      const hash = await config.delegateWalletClient.writeContract({
-        chain: config.delegateWalletClient.chain,
-        account: config.delegateWalletClient.account!,
-        address: config.policyAddress,
-        abi: ENTOLE_POLICY_ABI,
-        functionName: 'execute',
-        args: [id, recipient, amount],
-      });
+      const hash = input.allowanceId
+        ? await config.delegateWalletClient.writeContract({
+            chain: config.delegateWalletClient.chain,
+            account: config.delegateWalletClient.account!,
+            address: config.policyAddress,
+            abi: ENTOLE_POLICY_ABI,
+            functionName: 'execute',
+            args: [toChainAllowanceId(input.allowanceId), recipient, amount],
+          })
+        : await config.ownerWalletClient.writeContract({
+            chain: config.ownerWalletClient.chain,
+            account: config.ownerWalletClient.account!,
+            address: config.tokenAddress,
+            abi: ERC20_ABI,
+            functionName: 'transfer',
+            args: [recipient, amount],
+          });
 
       const settledReceipt = await config.publicClient.waitForTransactionReceipt({ hash });
       const settledAt = new Date();
@@ -284,6 +418,36 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
       await config.publicClient.waitForTransactionReceipt({ hash });
     },
 
+    async depositGrow(amountMinor: number) {
+      const vaultAddress = requireGrowthVaultAddress(config);
+      const amount = toTokenMinor(amountMinor, config);
+      const hash = await config.ownerWalletClient.writeContract({
+        chain: config.ownerWalletClient.chain,
+        account: config.ownerWalletClient.account!,
+        address: vaultAddress,
+        abi: GROWTH_VAULT_ABI,
+        functionName: 'deposit',
+        args: [amount],
+      });
+      await config.publicClient.waitForTransactionReceipt({ hash });
+      return growthPositionAfterChange(config, vaultAddress);
+    },
+
+    async withdrawGrow(amountMinor: number) {
+      const vaultAddress = requireGrowthVaultAddress(config);
+      const amount = toTokenMinor(amountMinor, config);
+      const hash = await config.ownerWalletClient.writeContract({
+        chain: config.ownerWalletClient.chain,
+        account: config.ownerWalletClient.account!,
+        address: vaultAddress,
+        abi: GROWTH_VAULT_ABI,
+        functionName: 'withdraw',
+        args: [amount],
+      });
+      await config.publicClient.waitForTransactionReceipt({ hash });
+      return growthPositionAfterChange(config, vaultAddress);
+    },
+
     async cancelProposal(): Promise<void> {
       // Nothing on-chain to undo: the undo window is exactly the promise
       // that `execute` is never called until it expires. Cancelling is a
@@ -302,6 +466,6 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
     revokeSeat: demoGateway.revokeSeat,
     createInvoice: demoGateway.createInvoice,
     settleInvoice: demoGateway.settleInvoice,
-    settlePotShare: demoGateway.settlePotShare,
+    requestConditionalRelease: demoGateway.requestConditionalRelease,
   };
 }

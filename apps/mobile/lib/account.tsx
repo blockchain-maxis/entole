@@ -2,6 +2,12 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 
 import type { EntoleKeyAccount } from '@entole/core/passkey';
 
+/** The owner key and its session (delegate) key, derived from the same
+ * passkey at sign-in — see `@entole/core/passkey`. Both are needed to
+ * construct the real on-chain gateway (owner signs direct sends and
+ * allowance management, the session key signs allowance-gated executes). */
+export type SignedInAccount = { owner: EntoleKeyAccount; session: EntoleKeyAccount };
+
 /**
  * The live signing session for whoever is currently signed in — in memory
  * only, for exactly as long as the app is open. Nothing here is written to
@@ -10,20 +16,23 @@ import type { EntoleKeyAccount } from '@entole/core/passkey';
  * for a store that could have kept it.
  */
 type AccountContextValue = {
-  account: EntoleKeyAccount | null;
-  /** Replacing the account ends the previous one's signing session first,
+  account: SignedInAccount | null;
+  /** Replacing the account ends the previous one's signing sessions first,
    * so there is never a live key left behind by accident. */
-  setAccount: (next: EntoleKeyAccount | null) => void;
+  setAccount: (next: SignedInAccount | null) => void;
 };
 
 const AccountContext = createContext<AccountContextValue | null>(null);
 
 export function AccountProvider({ children }: { children: React.ReactNode }) {
-  const [account, setAccountState] = useState<EntoleKeyAccount | null>(null);
+  const [account, setAccountState] = useState<SignedInAccount | null>(null);
 
-  const setAccount = useCallback((next: EntoleKeyAccount | null) => {
+  const setAccount = useCallback((next: SignedInAccount | null) => {
     setAccountState((current) => {
-      if (current && current !== next) current.end();
+      if (current && current !== next) {
+        current.owner.end();
+        current.session.end();
+      }
       return next;
     });
   }, []);

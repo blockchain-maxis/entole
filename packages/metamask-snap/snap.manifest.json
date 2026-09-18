@@ -1,0 +1,26 @@
+{
+  "version": "0.1.0",
+  "description": "Grant Entole's assistant a scoped, revocable spending permission on Monad testnet, and confirm every payment it makes inside that limit.",
+  "proposedName": "Entole Agent Permissions",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/entole/entole"
+  },
+  "source": {
+    "shasum": "REPLACE_AFTER_BUILD",
+    "location": {
+      "npm": {
+        "filePath": "dist/bundle.js",
+        "packageName": "@entole/metamask-snap",
+        "registry": "https://registry.npmjs.org/"
+      }
+    }
+  },
+  "initialPermissions": {
+    "endowment:rpc": { "dapps": true, "snaps": false },
+    "endowment:ethereum-provider": {},
+    "snap_dialog": {},
+    "snap_manageState": {}
+  },
+  "manifestVersion": "0.1"
+}

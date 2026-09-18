@@ -143,54 +143,6 @@ export const SNAPSHOT: unknown = {
       state: 'settled',
     },
   ],
-  pots: [
-    {
-      id: 'p-lagos-trip',
-      name: 'Lagos trip',
-      targetMinor: 48_000_000,
-      collectedMinor: 30_000_000,
-      startedByYou: true,
-      assistantNote: "I'll nudge Tunde and Ngozi on Friday if they haven't paid.",
-      members: [
-        {
-          id: 'm-you',
-          name: 'Adaeze (you)',
-          initials: 'AE',
-          tone: 1,
-          paidMinor: 8_000_000,
-          owedMinor: 4_000_000,
-          isYou: true,
-        },
-        {
-          id: 'm-chidi',
-          name: 'Chidi Okafor',
-          initials: 'CO',
-          tone: 2,
-          paidMinor: 12_000_000,
-          owedMinor: 0,
-          isYou: false,
-        },
-        {
-          id: 'm-tunde',
-          name: 'Tunde Bello',
-          initials: 'TB',
-          tone: 3,
-          paidMinor: 10_000_000,
-          owedMinor: 2_000_000,
-          isYou: false,
-        },
-        {
-          id: 'm-ngozi',
-          name: 'Ngozi Udo',
-          initials: 'NU',
-          tone: 1,
-          paidMinor: 0,
-          owedMinor: 12_000_000,
-          isYou: false,
-        },
-      ],
-    },
-  ],
   seats: [
     {
       id: 's-chidi-officer',
@@ -238,6 +190,16 @@ export const SNAPSHOT: unknown = {
       koboPerDollar: 158_000,
       paidAt: '2026-09-09T14:22:00.000+01:00',
     },
+    {
+      id: 'inv-3',
+      clientName: 'Kaduna Grain Traders',
+      amountMinor: 26_400_000,
+      note: 'Bulk millet order',
+      dueAt: '2026-10-02T00:00:00.000+01:00',
+      status: 'pending-release',
+      link: 'entole.to/inv-kaduna-26',
+      releaseCondition: { type: 'fx-rate-at-or-below', maxKoboPerDollar: 155_000 },
+    },
   ],
   taxReserves: [
     {
@@ -248,6 +210,11 @@ export const SNAPSHOT: unknown = {
       sourceInvoiceId: 'inv-2',
     },
   ],
+  growPosition: {
+    balanceMinor: 22_000_000,
+    accruedMinor: 640_000,
+    nextPayoutAt: '2026-10-01T00:00:00.000+01:00',
+  },
   request: {
     id: 'q-1',
     requesterName: 'Adaeze',

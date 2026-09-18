@@ -75,7 +75,7 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
           style={[sheetStyle]}
         >
           <View
-            className="bg-card"
+            className="bg-card shadow-raised"
             style={{
               borderTopLeftRadius: 26,
               borderTopRightRadius: 26,

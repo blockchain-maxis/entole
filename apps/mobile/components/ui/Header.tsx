@@ -1,6 +1,10 @@
 import { useRouter } from 'expo-router';
+import { ArrowLeft, X } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
+import { token } from '@entole/tokens';
+
+import { BrandMark } from './BrandMark';
 import { Text } from './Text';
 
 type Props = {
@@ -20,14 +24,7 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
   return (
     <View className="flex-none flex-row items-center justify-between px-gutter pb-3.5 pt-2">
       <View className="flex-1 flex-row items-center gap-3.5">
-        {leading === 'brand' ? (
-          <>
-            <View className="h-[30px] w-[30px] items-center justify-center rounded-pip bg-ink">
-              <Text className="font-heavy text-body text-paper">E</Text>
-            </View>
-            <Text className="font-heavy text-headline text-ink">Entole</Text>
-          </>
-        ) : null}
+        {leading === 'brand' ? <BrandMark /> : null}
 
         {leading === 'back' || leading === 'close' ? (
           <Pressable
@@ -36,7 +33,11 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
             hitSlop={14}
             onPress={goBack}
           >
-            <Text className="font-body text-title text-slate">{leading === 'back' ? '←' : '✕'}</Text>
+            {leading === 'back' ? (
+              <ArrowLeft size={24} color={token.slate} strokeWidth={1.5} />
+            ) : (
+              <X size={24} color={token.slate} strokeWidth={1.5} />
+            )}
           </Pressable>
         ) : null}
 

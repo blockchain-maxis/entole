@@ -43,12 +43,6 @@ describe('snapshot', () => {
     for (const amount of amounts) expect(Number.isInteger(amount)).toBe(true);
   });
 
-  it('never lets a pot collect more than its target', () => {
-    for (const pot of snapshot.pots) {
-      expect(pot.collectedMinor).toBeLessThanOrEqual(pot.targetMinor);
-    }
-  });
-
   it('points every seat at a real person', () => {
     const ids = new Set(snapshot.contacts.map((contact) => contact.id));
     for (const seat of snapshot.seats) expect(ids.has(seat.contactId)).toBe(true);
@@ -74,5 +68,10 @@ describe('snapshot', () => {
     for (const invoice of snapshot.invoices) {
       if (invoice.status === 'paid') expect(invoice.paidAt).toBeDefined();
     }
+  });
+
+  it('keeps the grow position in whole minor units', () => {
+    expect(Number.isInteger(snapshot.growPosition.balanceMinor)).toBe(true);
+    expect(Number.isInteger(snapshot.growPosition.accruedMinor)).toBe(true);
   });
 });

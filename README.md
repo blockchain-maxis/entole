@@ -46,8 +46,7 @@ What's real and tested:
   passkey-signed), pause. See [`docs/SECURITY.md`](docs/SECURITY.md).
 - **The consumer core**, phone and web: onboarding, send, receive by link,
   allowances (sentence-builder, meter, revoke), the assistant undo-window
-  flow, group pots with a settle-to-zero terminal state, pause reachable
-  from every header, activity feed.
+  flow, pause reachable from every header, activity feed.
 - **A business layer** (seats, invoicing, a tax reserve) riding the same
   allowance primitive — no second trust model. See
   [`docs/SCOPE.md`](docs/SCOPE.md).

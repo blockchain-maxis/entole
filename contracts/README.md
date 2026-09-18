@@ -39,6 +39,15 @@ own `createAllowance` call already said it could.
     never used anywhere else. Not verified on Monadscan yet (needs
     `MONADSCAN_API_KEY`, unset in this environment) — `forge verify-contract`
     against the address above once one exists.
+- `GrowthVault` (backs the app's "Grow" feature) — **written and tested
+  locally, not yet deployed**. 8/8 passing, `forge test`. Deliberately a
+  separate contract from `EntolePolicy`, which never custodies funds by
+  design — a deposit vault has to hold a balance, so it sits outside that
+  contract's trust boundary rather than compromising it. `script/Deploy.s.sol`
+  now deploys it alongside `MockERC20` on chain `10143`; run the same
+  deploy command below to pick it up on the next (re)deploy, and update
+  `apps/mobile/app.json`'s `extra.entole` block and `apps/web/.env` with the
+  address it logs.
 
 ## Proving the P256 path
 

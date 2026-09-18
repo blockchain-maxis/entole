@@ -3,7 +3,9 @@ import * as SecureStore from 'expo-secure-store';
 
 import { isMeraError, type PasskeyCredentialMetadata } from '@category-labs/mera';
 import { reactNativeWebAuthnClient } from '@category-labs/mera/react-native-webauthn-client';
-import { createOwnerAccount, signInToOwnerAccount, type EntoleKeyAccount } from '@entole/core/passkey';
+import { createOwnerAccount, deriveSessionAccount, signInToOwnerAccount } from '@entole/core/passkey';
+
+import type { SignedInAccount } from './account';
 
 /**
  * There is no phrase to write down and nothing to lose. The account is
@@ -34,7 +36,7 @@ export async function markOnboarded(): Promise<void> {
   await SecureStore.setItemAsync(ONBOARDED_KEY, 'true');
 }
 
-export type SignInResult = { ok: true; account: EntoleKeyAccount } | { ok: false; reason: string };
+export type SignInResult = { ok: true; account: SignedInAccount } | { ok: false; reason: string };
 
 async function storeCredential(credential: PasskeyCredentialMetadata): Promise<void> {
   await SecureStore.setItemAsync(CREDENTIAL_KEY, JSON.stringify(credential));
@@ -65,8 +67,10 @@ function reasonFor(error: unknown): string {
 }
 
 /**
- * Registers a new passkey and derives the owner account from it. Called
- * once, from onboarding. Runs a real WebAuthn ceremony — on a device without
+ * Registers a new passkey and derives both the owner account and its
+ * session (delegate) key from it — two ceremonies against the same passkey,
+ * different PRF salts, per `@entole/core/passkey`. Called once, from
+ * onboarding. Runs a real WebAuthn ceremony — on a device without
  * `entole.to`'s associated-domain files reachable, or without the target
  * platform's passkey support, this fails with a `MeraError`, not silently.
  */
@@ -75,23 +79,29 @@ export async function registerAccount(displayName: string): Promise<SignInResult
   if (deviceProblem) return { ok: false, reason: deviceProblem };
 
   try {
-    const account = await createOwnerAccount({
+    const owner = await createOwnerAccount({
       rp: RP,
       displayName,
       webAuthnClient: reactNativeWebAuthnClient,
     });
-    await storeCredential(account.credential);
+    await storeCredential(owner.credential);
+    const session = await deriveSessionAccount({
+      rpId: RP_ID,
+      credential: owner.credential,
+      webAuthnClient: reactNativeWebAuthnClient,
+    });
     await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
-    return { ok: true, account };
+    return { ok: true, account: { owner, session } };
   } catch (error) {
     return { ok: false, reason: reasonFor(error) };
   }
 }
 
 /**
- * Re-derives the owner account from the passkey created during onboarding —
- * the sign-in / re-auth path. Never fails into an unauthenticated state
- * that looks signed in: the caller only advances on `ok`.
+ * Re-derives the owner account and session key from the passkey created
+ * during onboarding — the sign-in / re-auth path. Never fails into an
+ * unauthenticated state that looks signed in: the caller only advances on
+ * `ok`.
  */
 export async function reauthenticate(): Promise<SignInResult> {
   const deviceProblem = await checkDeviceCanAuthenticate();
@@ -99,13 +109,18 @@ export async function reauthenticate(): Promise<SignInResult> {
 
   try {
     const credential = await loadCredential();
-    const account = await signInToOwnerAccount({
+    const owner = await signInToOwnerAccount({
       rpId: RP_ID,
       ...(credential ? { credential } : {}),
       webAuthnClient: reactNativeWebAuthnClient,
     });
+    const session = await deriveSessionAccount({
+      rpId: RP_ID,
+      credential: owner.credential,
+      webAuthnClient: reactNativeWebAuthnClient,
+    });
     await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
-    return { ok: true, account };
+    return { ok: true, account: { owner, session } };
   } catch (error) {
     return { ok: false, reason: reasonFor(error) };
   }

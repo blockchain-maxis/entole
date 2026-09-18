@@ -19,13 +19,23 @@ doesn't have.
 `contracts/out/EntolePolicy.sol/EntolePolicy.json` — not hand-written), so
 codegen has the right shape to work from once a token exists.
 
+Now a proper pnpm workspace member (`@entole/indexer`) so `envio` is an
+installed dependency, not a one-off `dlx`. `packages/core/indexed-activity.ts`
+already queries the GraphQL endpoint this produces and maps it into the same
+`Activity` shape every screen renders — see its file header. Wire the
+endpoint URL into `apps/mobile/app.json`'s `extra.entole.indexerUrl` and
+`apps/web/.env`'s `NEXT_PUBLIC_INDEXER_URL` once it's running; until then,
+the app keeps reading activity from the off-chain snapshot exactly as it
+already does — the indexer is additive, never load-bearing.
+
 ## To finish
 
 ```bash
-# Get an API token at envio.dev, then:
+# Get an API token at envio.dev, then, from the repo root:
 export ENVIO_API_TOKEN=...
-pnpm dlx envio codegen
-pnpm dlx envio dev
+pnpm install
+pnpm --filter @entole/indexer codegen
+pnpm --filter @entole/indexer dev   # serves GraphQL at http://localhost:8080/v1/graphql
 ```
 
 `src/EventHandlers.ts` may need adjusting once codegen produces the actual

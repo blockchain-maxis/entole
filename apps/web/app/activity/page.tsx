@@ -14,7 +14,7 @@ export default function ActivityPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
       <Header title="Activity" back="/" />
 
-      <ul className="flex flex-1 flex-col gap-2 px-gutter pb-8 pt-2">
+      <ul className="flex flex-1 flex-col gap-2 px-gutter pb-28 pt-2">
         {loading ? (
           <>
             <RowSkeleton />

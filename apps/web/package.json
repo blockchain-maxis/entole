@@ -12,11 +12,14 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@category-labs/mera": "^0.2.0",
     "@entole/core": "workspace:*",
     "@entole/tokens": "workspace:*",
+    "lucide-react": "^1.47.0",
     "next": "16.3.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "viem": "^2.21.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

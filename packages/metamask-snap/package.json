@@ -1,0 +1,23 @@
+{
+  "name": "@entole/metamask-snap",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Entole's agent-wallet MetaMask Snap — grants and redeems a scoped ERC-7715 permission against the deployed EntolePolicy contract via ERC-7710 delegation redemption.",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "mm-snap build",
+    "watch": "mm-snap watch",
+    "typecheck:local": "tsc --noEmit",
+    "lint:local": "eslint ."
+  },
+  "dependencies": {
+    "@metamask/delegation-toolkit": "^0.12.0",
+    "@metamask/snaps-sdk": "^7.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@metamask/snaps-cli": "^6.0.0",
+    "eslint": "^9.39.5",
+    "typescript": "~6.0.3"
+  }
+}

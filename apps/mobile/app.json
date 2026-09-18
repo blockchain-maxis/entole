@@ -42,6 +42,16 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "entole": {
+        "contractAddress": "0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7",
+        "tokenAddress": "0xaca20A081Ab69148E291e65dcf4f69Ef9B0674A6",
+        "growthVaultAddress": "",
+        "rpcUrl": "https://testnet-rpc.monad.xyz",
+        "chainId": 10143,
+        "indexerUrl": ""
+      }
     }
   }
 }

@@ -113,7 +113,12 @@ describe('the pause control is reachable from every screen header', () => {
 });
 
 describe('money amounts never use the system keyboard', () => {
-  const amountScreens = ['app/send/index.tsx', 'app/rules/new.tsx', 'app/onboarding/phone.tsx'];
+  const amountScreens = [
+    'app/send/index.tsx',
+    'app/rules/new.tsx',
+    'app/onboarding/phone.tsx',
+    'app/(tabs)/grow.tsx',
+  ];
 
   it.each(amountScreens)('%s enters digits through the custom keypad', (path) => {
     const source = read(join(ROOT, path));

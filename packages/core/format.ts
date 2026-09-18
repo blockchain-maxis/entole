@@ -59,6 +59,18 @@ export function resetLabel(iso: string): string {
   return `Resets ${date.getDate()} ${month}`;
 }
 
+/** "Payout 1 Oct" — same shape as `resetLabel`, different word. */
+export function payoutLabel(iso: string): string {
+  const date = new Date(iso);
+  const month = FULL.format(date).split(' ')[1];
+  return `Payout ${date.getDate()} ${month}`;
+}
+
+/** Whole days between now and a future ISO date, floored at 0. */
+export function daysUntil(iso: string, now: Date = new Date()): number {
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - now.getTime()) / 86_400_000));
+}
+
 export function secondsWords(seconds: number): string {
   return seconds === 1 ? '1 second' : `${seconds} seconds`;
 }

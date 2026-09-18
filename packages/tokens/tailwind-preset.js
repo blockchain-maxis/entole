@@ -6,13 +6,22 @@
  * references tokens by name only — never a hex value.
  * Source of truth: docs/DESIGN.md and the `Entole - Screens` design export.
  */
-const { colors } = require('./design-tokens');
+const { colors, shadow } = require('./design-tokens');
+
+function boxShadow({ offsetX, offsetY, blur, opacity }) {
+  return `${offsetX}px ${offsetY}px ${blur}px 0 rgba(18,16,14,${opacity})`;
+}
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   theme: {
 extend: {
   colors,
+
+  boxShadow: {
+    raised: boxShadow(shadow.raised),
+    floating: boxShadow(shadow.floating),
+  },
 
   // Named so they never collide with Tailwind's font-weight utilities.
   fontFamily: {

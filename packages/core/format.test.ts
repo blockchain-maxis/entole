@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { arrivalEstimate, relativeMoment, resetLabel, secondsWords, settledAt } from './format';
+import {
+  arrivalEstimate,
+  daysUntil,
+  payoutLabel,
+  relativeMoment,
+  resetLabel,
+  secondsWords,
+  settledAt,
+} from './format';
 
 // Fixtures are quoted in West Africa Time, and the test script pins TZ to match.
 const NOW = new Date('2026-09-02T10:00:00.000+01:00');
@@ -33,6 +41,22 @@ describe('settledAt', () => {
 describe('resetLabel', () => {
   it('reads as a date, not a duration', () => {
     expect(resetLabel('2026-10-01T00:00:00.000+01:00')).toBe('Resets 1 Oct');
+  });
+});
+
+describe('payoutLabel', () => {
+  it('reads as a date, not a duration', () => {
+    expect(payoutLabel('2026-10-01T00:00:00.000+01:00')).toBe('Payout 1 Oct');
+  });
+});
+
+describe('daysUntil', () => {
+  it('counts whole days ahead', () => {
+    expect(daysUntil('2026-09-05T10:00:00.000+01:00', NOW)).toBe(3);
+  });
+
+  it('never goes negative for a past date', () => {
+    expect(daysUntil('2026-08-01T10:00:00.000+01:00', NOW)).toBe(0);
   });
 });
 

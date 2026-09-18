@@ -54,26 +54,6 @@ export const activitySchema = z.object({
   allowanceId: z.string().optional(),
 });
 
-export const potMemberSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  initials: z.string().min(1).max(2),
-  tone: avatarToneSchema,
-  paidMinor: nonNegativeMinor,
-  owedMinor: nonNegativeMinor,
-  isYou: z.boolean(),
-});
-
-export const potSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  targetMinor: nonNegativeMinor,
-  collectedMinor: nonNegativeMinor,
-  startedByYou: z.boolean(),
-  members: z.array(potMemberSchema).min(1),
-  assistantNote: z.string().optional(),
-});
-
 /**
  * Business layer — added 17 September 2026, see docs/SCOPE.md. Every shape
  * here rides the same caveat model as a personal allowance: a cap, a
@@ -101,7 +81,19 @@ export const seatSchema = z.object({
   paused: z.boolean(),
 });
 
-export const invoiceStatusSchema = z.enum(['draft', 'sent', 'paid']);
+export const invoiceStatusSchema = z.enum(['draft', 'sent', 'pending-release', 'paid']);
+
+/**
+ * An off-chain condition gating an invoice's release — the Chainlink CRE
+ * bounty claim, see `packages/core/chainlink-cre.ts`. `'pending-release'`
+ * invoices carry one of these; released only once it evaluates true.
+ */
+export const releaseConditionSchema = z.object({
+  type: z.literal('fx-rate-at-or-below'),
+  /** Release only once the settlement rate is at or below this — protects
+   * the business from an adverse FX swing between invoice and release. */
+  maxKoboPerDollar: z.number().int().positive(),
+});
 
 export const invoiceSchema = z.object({
   id: z.string().min(1),
@@ -115,6 +107,7 @@ export const invoiceSchema = z.object({
   link: z.string().min(1),
   koboPerDollar: z.number().int().positive().optional(),
   paidAt: isoDate.optional(),
+  releaseCondition: releaseConditionSchema.optional(),
 });
 
 export const taxReserveSchema = z.object({
@@ -125,6 +118,20 @@ export const taxReserveSchema = z.object({
    * "Cut from the pitch." */
   payoutAt: isoDate,
   sourceInvoiceId: z.string().optional(),
+});
+
+/**
+ * A "Grow" position — the balance behind the growth-vault feature. Accrual
+ * is display-layer projection only (see `packages/core/grow.ts`); the only
+ * number this schema is honest about is what actually settled on-chain:
+ * deposited minus withdrawn.
+ */
+export const growPositionSchema = z.object({
+  balanceMinor: nonNegativeMinor,
+  /** Simulated/projected earnings not yet paid out — never treated as
+   * spendable balance, only shown as a projection. */
+  accruedMinor: nonNegativeMinor,
+  nextPayoutAt: isoDate,
 });
 
 export const paymentRequestSchema = z.object({
@@ -169,10 +176,10 @@ export const snapshotSchema = z.object({
   contacts: z.array(contactSchema),
   allowances: z.array(allowanceSchema),
   activity: z.array(activitySchema),
-  pots: z.array(potSchema),
   seats: z.array(seatSchema),
   invoices: z.array(invoiceSchema),
   taxReserves: z.array(taxReserveSchema),
+  growPosition: growPositionSchema,
   request: paymentRequestSchema,
   proposal: proposalSchema,
 });
@@ -181,8 +188,6 @@ export type Contact = z.infer<typeof contactSchema>;
 export type Allowance = z.infer<typeof allowanceSchema>;
 export type Activity = z.infer<typeof activitySchema>;
 export type Cadence = z.infer<typeof cadenceSchema>;
-export type Pot = z.infer<typeof potSchema>;
-export type PotMember = z.infer<typeof potMemberSchema>;
 export type PaymentRequest = z.infer<typeof paymentRequestSchema>;
 export type Receipt = z.infer<typeof receiptSchema>;
 export type Proposal = z.infer<typeof proposalSchema>;
@@ -193,4 +198,6 @@ export type SeatRole = z.infer<typeof seatRoleSchema>;
 export type Seat = z.infer<typeof seatSchema>;
 export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>;
 export type Invoice = z.infer<typeof invoiceSchema>;
+export type ReleaseCondition = z.infer<typeof releaseConditionSchema>;
 export type TaxReserve = z.infer<typeof taxReserveSchema>;
+export type GrowPosition = z.infer<typeof growPositionSchema>;

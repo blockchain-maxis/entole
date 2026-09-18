@@ -33,8 +33,10 @@ export function ActivityRow({
       }`}
       disabled={!onPress}
       onPress={onPress}
-      className={`flex-row items-center gap-3 rounded-row border px-3.5 py-3 ${
-        byAssistant ? 'border-indigo-line bg-indigo-wash' : 'border-line bg-card'
+      className={`flex-row items-center gap-3 rounded-row px-3.5 py-3 ${
+        byAssistant
+          ? 'border border-indigo-line bg-indigo-wash'
+          : 'border border-transparent active:border-line active:bg-press'
       }`}
     >
       <Avatar initials={contact?.initials ?? '?'} tone={contact?.tone ?? 1} />

@@ -10,9 +10,11 @@ import { ContactRow, SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import { AllowanceCardSkeleton, RowSkeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
+import { formatRate } from '@entole/core/fx';
 import { formatNaira, kobo } from '@entole/core/money';
 import { resetLabel } from '@entole/core/format';
 import { useStore } from '@entole/core/store';
+import { useState } from 'react';
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Admin', officer: 'Officer', bookkeeper: 'Bookkeeper' };
 
@@ -25,6 +27,16 @@ export default function Business() {
   const router = useRouter();
   const store = useStore();
   const loading = store.status === 'loading';
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+
+  async function checkRelease(invoiceId: string) {
+    setCheckingId(invoiceId);
+    try {
+      await store.requestConditionalRelease(invoiceId, store.rate);
+    } finally {
+      setCheckingId(null);
+    }
+  }
 
   const spendingSeats = store.seats.filter((seat) => seat.limitMinor > 0);
   const otherSeats = store.seats.filter((seat) => seat.limitMinor === 0);
@@ -49,7 +61,7 @@ export default function Business() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         {store.taxReserves.length > 0 ? (
-          <View className="mb-7 rounded-card border border-line bg-card p-5">
+          <View className="mb-7 rounded-panel bg-card p-5 shadow-raised">
             <AssistantTag>Tax reserve</AssistantTag>
             <View className="mt-3 flex-row items-baseline gap-1.5">
               <Text tabular className="font-strong text-amount text-ink">
@@ -83,14 +95,30 @@ export default function Business() {
                       invoice.status === 'paid' ? 'text-settled' : 'text-slate'
                     }`}
                   >
-                    {invoice.status}
+                    {invoice.status === 'pending-release' ? 'Held' : invoice.status}
                   </Text>
                 </View>
                 <Text tabular className="mt-1.5 font-strong text-amount-sm text-ink">
                   {formatNaira(kobo(invoice.amountMinor))}
                 </Text>
                 <Text className="mt-0.5 font-body text-caption-sm text-slate">{invoice.note}</Text>
-                {invoice.status !== 'paid' ? (
+                {invoice.releaseCondition ? (
+                  <Text className="mt-1.5 font-body text-caption-sm text-slate">
+                    Releases at {formatRate({ koboPerDollar: invoice.releaseCondition.maxKoboPerDollar, quotedAt: '' })} or
+                    better · now {formatRate(store.rate)}
+                  </Text>
+                ) : null}
+                {invoice.status === 'pending-release' ? (
+                  <View className="mt-3">
+                    <Button
+                      label="Check condition"
+                      variant="secondary"
+                      width="hug"
+                      busy={checkingId === invoice.id}
+                      onPress={() => void checkRelease(invoice.id)}
+                    />
+                  </View>
+                ) : invoice.status !== 'paid' ? (
                   <View className="mt-3">
                     <Button
                       label="Mark as paid"

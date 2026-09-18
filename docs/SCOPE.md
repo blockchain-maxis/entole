@@ -36,7 +36,6 @@ repo, clean commit history, dated tags. This is an advantage, not a burden.
 - Receive by link, no app required on the far end
 - Allowances: create as a sentence, enforce on-chain, view, revoke
 - Assistant proposes a payment inside an allowance, with an undo window
-- Group pot with a settle-to-zero terminal state
 - Pause everything, from any screen
 - Activity feed distinguishing assistant actions from user actions
 - A web app, as a separate Next.js build over the shared core. The phone demo
@@ -126,8 +125,8 @@ this sprint.**
 **2–6 Oct.** Business layer: seats, invoicing, tax reserve, Telegram intake.
 **Business-layer feature freeze at the end of this sprint.**
 
-**7–10 Oct.** Group pots. Bounty integrations in priority order, dropping any
-that resists. Envio-backed activity.
+**7–10 Oct.** Bounty integrations in priority order, dropping any that
+resists. Envio-backed activity.
 
 **11–13 Oct.** Polish, demo video, write-up, security section. No new
 features.
@@ -159,9 +158,9 @@ Decide fast, do not agonise.
 - Mera PRF unreliable on target Android by 21 Sep → Privy, drop two Mera
   bounties, move on the same day.
 - Policy contract not live on Monad testnet with caps, allow-list, expiry and
-  revocation working by 26 Sep → cut the business layer and group pots
-  entirely, ship consumer core only. This is the deadline that protects the
-  submission; treat it as load-bearing.
+  revocation working by 26 Sep → cut the business layer entirely, ship
+  consumer core only. This is the deadline that protects the submission;
+  treat it as load-bearing.
 - Agora API blocking by 1 Oct → settle in USDC, forgo the Agora bounty rather
   than delay.
 - Business layer not usably demoable by 6 Oct → cut whichever piece is
