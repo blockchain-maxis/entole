@@ -24,26 +24,59 @@ check. Move it into the contract or drop the feature.
 
 ## Accounts and auth
 
-**Primary path: Mera.** Derives standard BIP-44 EVM accounts client-side from a
-passkey via the WebAuthn PRF extension. No seed phrase, no bundler, no MPC, no
-custody. The same passkey reproduces the same account across web, iOS and
-Android. Signing sessions avoid a biometric prompt on every action.
+**Primary path: Mera** (`@category-labs/mera`, `packages/core/passkey.ts`).
+A WebAuthn PRF ceremony returns 32 bytes; those bytes are the secp256k1
+private key directly — not a BIP-44 seed, no HD derivation tree. (Earlier
+drafts of this doc said BIP-44; that was wrong, corrected here.) No seed
+phrase, no bundler, no MPC, no custody. The same passkey, the same relying
+party, the same salt reproduces the same account, on any platform.
+
+One passkey derives more than one key by varying the PRF salt — the
+mechanism behind the "Mera: one passkey, many keys" bounty. `passkey.ts`
+uses this for exactly the split the trust boundary above needs: an owner
+key (one salt) and a session/delegate key (a different salt), both from the
+same passkey, two different WebAuthn ceremonies. The session key holds no
+funds and is exactly the `delegate` `createAllowance` names — see
+`contracts/src/EntolePolicy.sol`.
 
 Monad implements the RIP-7212 P256 precompile at `0x0100`, which makes on-chain
-verification of passkey signatures cheap (roughly 3,450 gas against ~300k in pure
-Solidity). This is what makes the model practical here and not elsewhere.
+verification of passkey signatures cheap (6900 gas per Monad's own docs,
+confirmed in `contracts/README.md`'s network reference — the "~3,450" figure
+in earlier drafts of this doc was the generic RIP-7212 proposal number, not
+Monad's measured cost). This is what makes the model practical here and not
+elsewhere, and `EntolePolicy.revokeWithPasskey` uses it directly — proven
+live on Monad testnet, see `contracts/README.md`.
 
-**Week-one spike, before anything else is built.** PRF support on native mobile
-depends on the passkey provider, not just the OS. Test on a real mid-range
-Android with Google Password Manager, not a simulator.
+**Status**: `packages/core/passkey.ts` is written and tested — 6 tests
+against a stub `WebAuthnClient` matching Mera's own documented interface,
+covering account derivation, sign-in determinism, session-key derivation via
+a distinct salt, real viem signature verification, and session termination.
+`apps/mobile/lib/session.ts` wires it to `react-native-passkey` for the
+phone app.
 
-**Fallback if PRF is unreliable: Privy embedded wallets.** React Native and Expo
-support is first-class, server signers and delegated actions cover the agent
-path, and ZeroDev gives account abstraction with gas sponsorship. Decide by end
-of week one and do not revisit.
+**Not yet provable, the same honest way the P256 revoke path was before its
+own live proof**: an actual WebAuthn ceremony, on a real device, against
+Monad's actual precompile. Two real gaps remain, not skipped so much as
+genuinely blocked in this environment:
 
-Note: Privy's WebCrypto path requires a secure context. It fails silently over
-plain HTTP.
+- **A real relying-party domain.** `entole.to/.well-known/apple-app-site-association`
+  (iOS) and `entole.to/.well-known/assetlinks.json` (Android) need to be
+  hosted with the real Apple Team ID and Android signing-certificate SHA256
+  fingerprint before a passkey ceremony succeeds on a physical device —
+  `apps/mobile/app.json`'s `ios.associatedDomains` is set, but the files
+  themselves need a domain this environment doesn't control.
+- **A real mid-range Android**, per the original week-one spike this
+  section used to describe. PRF support on native mobile depends on the
+  passkey provider, not just the OS — this claim needs a physical device to
+  confirm, same as it always did.
+
+**Fallback if PRF is unreliable on the target device: Privy embedded
+wallets.** Not implemented — Mera was built first per direct instruction.
+If the device spike above fails, `packages/core/passkey.ts`'s three
+functions (`createOwnerAccount`, `signInToOwnerAccount`,
+`deriveSessionAccount`) are the seam to replace; everything downstream
+(the viem `LocalAccount`, `createOnChainGateway`) only depends on getting a
+`LocalAccount<"mera">`-shaped object back, not on how it was derived.
 
 ## Allowances
 

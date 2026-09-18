@@ -1,5 +1,5 @@
 import { kobo, remaining, type Naira } from './money';
-import type { Allowance } from './schemas';
+import type { Allowance, Seat } from './schemas';
 
 /**
  * An allowance is rendered as one thing only: the balance still left in it.
@@ -62,6 +62,26 @@ export function viewAllowance(allowance: Allowance): AllowanceView {
  */
 export function wouldExceed(allowance: Allowance, amountMinor: number): boolean {
   return allowance.spentMinor + amountMinor > allowance.limitMinor;
+}
+
+/** A business seat, viewed through the exact same meter the app already
+ * has — same tone thresholds, same shape. A seat is spending power granted
+ * to a person instead of to the assistant, not a second kind of gauge. */
+export type SeatView = AllowanceView & { role: Seat['role'] };
+
+export function viewSeat(seat: Seat): SeatView {
+  const view = viewAllowance({
+    id: seat.id,
+    name: seat.name,
+    recipientId: seat.contactId,
+    limitMinor: seat.limitMinor,
+    spentMinor: seat.spentMinor,
+    perRunMinor: seat.perRunMinor,
+    cadence: seat.cadence,
+    resetsAt: seat.resetsAt,
+    paused: seat.paused,
+  });
+  return { ...view, role: seat.role };
 }
 
 const CADENCE_WORDS = {

@@ -74,6 +74,59 @@ export const potSchema = z.object({
   assistantNote: z.string().optional(),
 });
 
+/**
+ * Business layer — added 17 September 2026, see docs/SCOPE.md. Every shape
+ * here rides the same caveat model as a personal allowance: a cap, a
+ * cadence, a balance. A seat is spending power granted to a person instead
+ * of to the assistant; nothing here introduces a second trust model.
+ */
+
+export const seatRoleSchema = z.enum(['admin', 'officer', 'bookkeeper']);
+
+export const seatSchema = z.object({
+  id: z.string().min(1),
+  /** "Officer — travel & supplies" — chosen at grant time, same as an
+   * allowance's own name. */
+  name: z.string().min(1),
+  contactId: z.string().min(1),
+  role: seatRoleSchema,
+  /** Officer seats carry a real cap. Admin and bookkeeper seats carry a
+   * zero cap — admin manages seats and allowances rather than spending
+   * directly, bookkeeper is read-only. */
+  limitMinor: nonNegativeMinor,
+  spentMinor: nonNegativeMinor,
+  perRunMinor: nonNegativeMinor,
+  cadence: cadenceSchema,
+  resetsAt: isoDate,
+  paused: z.boolean(),
+});
+
+export const invoiceStatusSchema = z.enum(['draft', 'sent', 'paid']);
+
+export const invoiceSchema = z.object({
+  id: z.string().min(1),
+  clientName: z.string().min(1),
+  amountMinor: nonNegativeMinor,
+  note: z.string().min(1),
+  dueAt: isoDate,
+  status: invoiceStatusSchema,
+  /** Reuses the same receive-by-link surface a personal payment request
+   * already has — not a second flow. */
+  link: z.string().min(1),
+  koboPerDollar: z.number().int().positive().optional(),
+  paidAt: isoDate.optional(),
+});
+
+export const taxReserveSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  balanceMinor: nonNegativeMinor,
+  /** Earmarking, not investment — no yield accrues here. See docs/SCOPE.md,
+   * "Cut from the pitch." */
+  payoutAt: isoDate,
+  sourceInvoiceId: z.string().optional(),
+});
+
 export const paymentRequestSchema = z.object({
   id: z.string().min(1),
   requesterName: z.string().min(1),
@@ -117,6 +170,9 @@ export const snapshotSchema = z.object({
   allowances: z.array(allowanceSchema),
   activity: z.array(activitySchema),
   pots: z.array(potSchema),
+  seats: z.array(seatSchema),
+  invoices: z.array(invoiceSchema),
+  taxReserves: z.array(taxReserveSchema),
   request: paymentRequestSchema,
   proposal: proposalSchema,
 });
@@ -133,3 +189,8 @@ export type Proposal = z.infer<typeof proposalSchema>;
 export type Account = z.infer<typeof accountSchema>;
 export type Snapshot = z.infer<typeof snapshotSchema>;
 export type AvatarTone = z.infer<typeof avatarToneSchema>;
+export type SeatRole = z.infer<typeof seatRoleSchema>;
+export type Seat = z.infer<typeof seatSchema>;
+export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>;
+export type Invoice = z.infer<typeof invoiceSchema>;
+export type TaxReserve = z.infer<typeof taxReserveSchema>;

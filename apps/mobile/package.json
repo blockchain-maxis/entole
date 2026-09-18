@@ -13,6 +13,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@category-labs/mera": "^0.2.0",
     "@entole/core": "workspace:*",
     "@entole/tokens": "workspace:*",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
@@ -36,6 +37,7 @@
     "react-native-css-interop": "^0.2.6",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-pager-view": "^9.0.4",
+    "react-native-passkey": "3.6.1",
     "react-native-qrcode-svg": "^6.3.22",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",

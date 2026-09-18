@@ -5,7 +5,8 @@ import { View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { signIn } from '@/lib/session';
+import { useAccount } from '@/lib/account';
+import { registerAccount } from '@/lib/session';
 
 const PROMISES = ['No password to remember', 'Your face is the key', 'Ready in half a minute'];
 
@@ -15,16 +16,21 @@ const PROMISES = ['No password to remember', 'Your face is the key', 'Ready in h
  */
 export default function Welcome() {
   const router = useRouter();
+  const { setAccount } = useAccount();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   async function start() {
     setBusy(true);
     setProblem(null);
-    const result = await signIn();
+    const result = await registerAccount('Entole account');
     setBusy(false);
-    if (result.ok) router.push('/onboarding/phone');
-    else setProblem(result.reason);
+    if (result.ok) {
+      setAccount(result.account);
+      router.push('/onboarding/phone');
+    } else {
+      setProblem(result.reason);
+    }
   }
 
   return (

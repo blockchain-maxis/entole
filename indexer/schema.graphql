@@ -1,0 +1,35 @@
+# Entities the app reads instead of walking RPC logs itself, per
+# docs/ARCHITECTURE.md. Shapes are deliberately close to
+# packages/core/schemas.ts's Allowance and Activity types — the boundary
+# between "what the indexer stores" and "what the app renders" should stay
+# thin, not become a second data model to keep in sync by hand.
+
+type Allowance @entity {
+  id: ID! # the on-chain bytes32 allowance id, as a hex string
+  owner: String!
+  delegate: String!
+  revoked: Boolean!
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+  createdAtTx: String!
+}
+
+# One row per settled execute() call — the on-chain source of truth for the
+# activity feed's "assistant-initiated" entries. The app still resolves the
+# human-facing contact name and note off-chain; this entity only carries
+# what actually happened on-chain.
+type Execution @entity {
+  id: ID! # `${txHash}-${logIndex}`
+  allowance: Allowance!
+  recipient: String!
+  amountMinor: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+type PauseChange @entity {
+  id: ID! # `${txHash}-${logIndex}`
+  owner: String!
+  paused: Boolean!
+  timestamp: BigInt!
+}

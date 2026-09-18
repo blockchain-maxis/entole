@@ -1,21 +1,54 @@
 import { createMaterialTopTabNavigator } from 'expo-router/js-top-tabs';
-import { withLayoutContext } from 'expo-router';
+import { useRouter, withLayoutContext } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { token } from '@entole/tokens';
+
+import { sessionIsFresh } from '@/lib/session';
 
 const TopTabs = createMaterialTopTabNavigator().Navigator;
 const MaterialTopTabs = withLayoutContext(TopTabs);
 
+/** A stale session never lapses into a screen that still looks signed in —
+ * every return to the foreground, and once on mount, re-checks and routes to
+ * `/lock` instead of letting a tab render on an expired session. */
+function useSessionGuard() {
+  const router = useRouter();
+  const checking = useRef(false);
+
+  useEffect(() => {
+    async function check() {
+      if (checking.current) return;
+      checking.current = true;
+      try {
+        if (!(await sessionIsFresh())) router.push('/lock');
+      } finally {
+        checking.current = false;
+      }
+    }
+
+    void check();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void check();
+    });
+    return () => subscription.remove();
+  }, [router]);
+}
+
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  useSessionGuard();
 
   return (
     <MaterialTopTabs
       tabBarPosition="bottom"
       screenOptions={{
-        tabBarActiveTintColor: '#000',
-        tabBarInactiveTintColor: '#888',
+        tabBarActiveTintColor: token.ink,
+        tabBarInactiveTintColor: token.mist,
         tabBarIndicatorStyle: {
-          backgroundColor: '#000',
+          backgroundColor: token.ink,
           height: 3,
           position: 'absolute',
           top: 0,
@@ -26,9 +59,9 @@ export default function TabsLayout() {
           fontWeight: 'bold',
         },
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: token.card,
           borderTopWidth: 1,
-          borderTopColor: '#eee',
+          borderTopColor: token.line,
           paddingBottom: insets.bottom,
           height: 50 + insets.bottom,
         },
@@ -47,12 +80,8 @@ export default function TabsLayout() {
         options={{ title: 'Transfer' }}
       />
       <MaterialTopTabs.Screen
-        name="lifestyle"
-        options={{ title: 'Lifestyle' }}
-      />
-      <MaterialTopTabs.Screen
-        name="invest"
-        options={{ title: 'Invest' }}
+        name="business"
+        options={{ title: 'Business' }}
       />
       <MaterialTopTabs.Screen
         name="me"

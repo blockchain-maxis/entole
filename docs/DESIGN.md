@@ -92,6 +92,17 @@ learn to read it at a glance.
 | `app/onboarding` | `onboarding-*.png` | Three screens, under 30 seconds |
 | sheet | `assistant-action.png` | Undo countdown over home |
 
+No PNG exports exist in `design/` for any route as of this writing — every
+screen above, including the ones with an export listed, was built to this
+table's descriptions and the patterns below, not against an image. Treat
+that as the current reality, not a rule.
+
+The business layer added 17 September 2026 (`docs/SCOPE.md`) has no exports
+either: `app/(tabs)/business`, `app/business/new-seat`,
+`app/business/new-invoice`. Same rule as any other unexported screen — they
+follow the patterns below, particularly the allowance meter and the
+sentence-builder pattern, rather than introducing new ones.
+
 ## Test conditions
 
 Build and test on a mid-range Android on a throttled connection. Not an iPhone on

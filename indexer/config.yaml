@@ -1,0 +1,33 @@
+# Envio HyperIndex config for EntolePolicy — see docs/ARCHITECTURE.md:
+# "Envio HyperIndex for activity feeds and allowance history. Do not read
+# history directly from RPC in the app." This file is that indexer's
+# contract-facing half.
+#
+# Status: written against the documented HyperIndex config schema, not yet
+# run through `envio codegen` — that needs an ENVIO_API_TOKEN for the
+# codegen CLI's login flow, which this environment doesn't have. Runs
+# against plain RPC below, not HyperSync, so no token is needed for the
+# indexer itself once codegen has produced the generated/ folder.
+#
+# EntolePolicy deployed 17 Sep 2026 — address and start_block below are
+# real, from contracts/broadcast/Deploy.s.sol/10143/run-latest.json.
+name: entole-indexer
+
+contracts:
+  - name: EntolePolicy
+    abi_file_path: abis/EntolePolicy.json
+    events:
+      - event: "AllowanceCreated(bytes32 indexed id, address indexed owner, address indexed delegate)"
+      - event: "AllowanceRevoked(bytes32 indexed id, address indexed owner)"
+      - event: "Paused(address indexed owner, bool paused)"
+      - event: "Executed(bytes32 indexed id, address indexed recipient, uint256 amount)"
+      - event: "PasskeyRegistered(address indexed owner, uint256 x, uint256 y)"
+
+chains:
+  - id: 10143 # Monad testnet — see contracts/README.md's network reference
+    rpc: https://testnet-rpc.monad.xyz
+    start_block: 63375345 # EntolePolicy's deployment block, 17 Sep 2026
+    contracts:
+      - name: EntolePolicy
+        address:
+          - "0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7"

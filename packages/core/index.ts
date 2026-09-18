@@ -13,5 +13,8 @@ export * from './format';
 export * from './fx';
 export * from './gateway';
 export * from './money';
+export * from './onchain-gateway';
+export * from './passkey';
 export * from './schemas';
 export * from './store';
+export * from './telegram-intake';

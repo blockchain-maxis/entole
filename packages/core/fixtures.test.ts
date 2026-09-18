@@ -48,4 +48,31 @@ describe('snapshot', () => {
       expect(pot.collectedMinor).toBeLessThanOrEqual(pot.targetMinor);
     }
   });
+
+  it('points every seat at a real person', () => {
+    const ids = new Set(snapshot.contacts.map((contact) => contact.id));
+    for (const seat of snapshot.seats) expect(ids.has(seat.contactId)).toBe(true);
+  });
+
+  it('never lets a non-spending seat carry a cap', () => {
+    for (const seat of snapshot.seats) {
+      if (seat.role !== 'officer') {
+        expect(seat.limitMinor).toBe(0);
+        expect(seat.perRunMinor).toBe(0);
+      }
+    }
+  });
+
+  it('points every tax reserve at an invoice that exists', () => {
+    const ids = new Set(snapshot.invoices.map((invoice) => invoice.id));
+    for (const reserve of snapshot.taxReserves) {
+      if (reserve.sourceInvoiceId) expect(ids.has(reserve.sourceInvoiceId)).toBe(true);
+    }
+  });
+
+  it('never marks an invoice paid without a paid timestamp', () => {
+    for (const invoice of snapshot.invoices) {
+      if (invoice.status === 'paid') expect(invoice.paidAt).toBeDefined();
+    }
+  });
 });

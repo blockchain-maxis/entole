@@ -10,7 +10,8 @@
     "backgroundColor": "#FBF9F5",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "to.entole.app"
+      "bundleIdentifier": "to.entole.app",
+      "associatedDomains": ["webcredentials:entole.to"]
     },
     "android": {
       "package": "to.entole.app",

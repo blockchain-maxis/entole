@@ -74,15 +74,14 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
           )}
           style={[sheetStyle]}
         >
-          {/* This inner View strictly handles the background color and padding without any className interference */}
-          <View 
-            style={{ 
-              backgroundColor: '#FFFFFF', 
-              borderTopLeftRadius: 26, 
-              borderTopRightRadius: 26, 
-              paddingHorizontal: 22, 
-              paddingTop: 22, 
-              paddingBottom: Math.max(insets.bottom, 12) 
+          <View
+            className="bg-card"
+            style={{
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              paddingHorizontal: 22,
+              paddingTop: 22,
+              paddingBottom: Math.max(insets.bottom, 12),
             }}
           >
             <View className="mx-auto mb-5 h-1 w-10 rounded-pill bg-line" />

@@ -1,0 +1,28 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.26"
+optimizer = true
+optimizer_runs = 200
+gas_reports = ["EntolePolicy"]
+
+[rpc_endpoints]
+monad_testnet = "https://testnet-rpc.monad.xyz"
+
+# FFI shells out to script/sign_p256.py so the P256 passkey-revoke test can
+# sign a real digest and verify against the RIP-7212 precompile on a Monad
+# fork. Kept out of the default profile deliberately — FFI runs arbitrary
+# commands, so it only turns on when explicitly requested:
+#   FOUNDRY_PROFILE=ffi forge test --fork-url monad_testnet --match-test P256
+[profile.ffi]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.26"
+ffi = true
+
+[etherscan]
+monad_testnet = { key = "${MONADSCAN_API_KEY}", url = "https://testnet.monadscan.com/api", chain = 10143 }
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

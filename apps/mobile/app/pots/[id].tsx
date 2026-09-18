@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Amount } from '@/components/ui/Amount';
@@ -22,6 +24,18 @@ export default function GroupPot() {
   const store = useStore();
   const { id } = useLocalSearchParams<{ id: string }>();
   const pot = store.pot(id);
+  const [settling, setSettling] = useState(false);
+
+  async function settleShare() {
+    if (settling) return;
+    setSettling(true);
+    try {
+      await store.settlePotShare(id);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } finally {
+      setSettling(false);
+    }
+  }
 
   if (!pot) {
     return (
@@ -41,6 +55,8 @@ export default function GroupPot() {
   const outstanding = remaining(target, collected);
   const share = Math.round(pot.targetMinor / pot.members.length);
   const fraction = pot.targetMinor > 0 ? pot.collectedMinor / pot.targetMinor : 0;
+  const you = pot.members.find((member) => member.isYou);
+  const youOwe = you?.owedMinor ?? 0;
 
   return (
     <Screen>
@@ -92,8 +108,13 @@ export default function GroupPot() {
       </ScrollView>
 
       <ActionBar>
-        <Button label="Settle up" onPress={() => router.push('/send')} />
-        <Button label="Add" variant="secondary" width="hug" onPress={() => router.push('/send/pick')} />
+        <Button
+          label={settling ? 'Settling' : youOwe > 0 ? `Settle ${formatNaira(kobo(youOwe))}` : 'You’re settled'}
+          busy={settling}
+          disabled={youOwe === 0}
+          onPress={() => void settleShare()}
+        />
+        <Button label="Invite" variant="secondary" width="hug" onPress={() => router.push('/send/pick')} />
       </ActionBar>
     </Screen>
   );

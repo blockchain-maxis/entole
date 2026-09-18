@@ -1,11 +1,19 @@
 import { SNAPSHOT } from './fixtures';
 import {
+  invoiceSchema,
   receiptSchema,
+  seatSchema,
   snapshotSchema,
+  taxReserveSchema,
   type Allowance,
   type Cadence,
+  type Invoice,
+  type Pot,
   type Receipt,
+  type Seat,
+  type SeatRole,
   type Snapshot,
+  type TaxReserve,
 } from './schemas';
 
 /**
@@ -24,6 +32,20 @@ export interface PaymentsGateway {
   saveAllowance(draft: AllowanceDraft): Promise<Allowance>;
   revokeAllowance(allowanceId: string): Promise<void>;
   cancelProposal(proposalId: string): Promise<void>;
+  /** Confirms your own share of a pot as paid. Returns the updated pot, or
+   * `null` once every member has settled — the terminal state PRODUCT.md
+   * promises: the pot resolves to zero and closes, it doesn't linger. */
+  settlePotShare(potId: string): Promise<Pot | null>;
+
+  /** Business layer — see docs/SCOPE.md. Every one of these is a caveat
+   * grant or a plain record, never a second trust model. */
+  saveSeat(draft: SeatDraft): Promise<Seat>;
+  revokeSeat(seatId: string): Promise<void>;
+  createInvoice(draft: InvoiceDraft): Promise<Invoice>;
+  /** Marks an invoice paid and splits `taxFraction` of it into the named
+   * tax reserve, at source — the same instant the money arrives, not a
+   * step someone has to remember. */
+  settleInvoice(invoiceId: string, taxFraction: number): Promise<{ invoice: Invoice; taxReserve: TaxReserve }>;
 }
 
 export type SendInput = {
@@ -40,6 +62,23 @@ export type AllowanceDraft = {
   perRunMinor: number;
   limitMinor: number;
   cadence: Cadence;
+};
+
+export type SeatDraft = {
+  id?: string;
+  name: string;
+  contactId: string;
+  role: SeatRole;
+  perRunMinor: number;
+  limitMinor: number;
+  cadence: Cadence;
+};
+
+export type InvoiceDraft = {
+  clientName: string;
+  amountMinor: number;
+  note: string;
+  dueAt: string;
 };
 
 /** Flat corridor fee, quoted before the money moves. */
@@ -116,5 +155,76 @@ export const demoGateway: PaymentsGateway = {
 
   async cancelProposal() {
     await wait(120);
+  },
+
+  async saveSeat(draft) {
+    await wait(220);
+    return seatSchema.parse({
+      id: draft.id ?? `s-${Date.now()}`,
+      name: draft.name,
+      contactId: draft.contactId,
+      role: draft.role,
+      limitMinor: draft.limitMinor,
+      spentMinor: 0,
+      perRunMinor: draft.perRunMinor,
+      cadence: draft.cadence,
+      resetsAt: '2026-10-01T00:00:00.000+01:00',
+      paused: false,
+    });
+  },
+
+  async revokeSeat() {
+    await wait(200);
+  },
+
+  async createInvoice(draft) {
+    await wait(220);
+    const id = `inv-${Date.now()}`;
+    return invoiceSchema.parse({
+      id,
+      clientName: draft.clientName,
+      amountMinor: draft.amountMinor,
+      note: draft.note,
+      dueAt: draft.dueAt,
+      status: 'sent',
+      link: `entole.to/${id}`,
+    });
+  },
+
+  async settleInvoice(invoiceId, taxFraction) {
+    await wait(320);
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    const rate = snapshot.account.koboPerDollar;
+    const invoice = snapshot.invoices.find((entry) => entry.id === invoiceId);
+    if (!invoice) throw new Error(`No invoice ${invoiceId}`);
+
+    const paidAt = new Date().toISOString();
+    const reserveShare = Math.round(invoice.amountMinor * taxFraction);
+
+    return {
+      invoice: invoiceSchema.parse({ ...invoice, status: 'paid', koboPerDollar: rate, paidAt }),
+      taxReserve: taxReserveSchema.parse({
+        id: `tr-${Date.now()}`,
+        name: 'Q3 tax reserve',
+        balanceMinor: reserveShare,
+        payoutAt: '2026-10-15T00:00:00.000+01:00',
+        sourceInvoiceId: invoiceId,
+      }),
+    };
+  },
+
+  async settlePotShare(potId) {
+    await wait(320);
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    const pot = snapshot.pots.find((entry) => entry.id === potId);
+    if (!pot) throw new Error(`No pot ${potId}`);
+
+    const members = pot.members.map((member) =>
+      member.isYou ? { ...member, paidMinor: member.paidMinor + member.owedMinor, owedMinor: 0 } : member,
+    );
+    const collectedMinor = pot.collectedMinor + (pot.members.find((m) => m.isYou)?.owedMinor ?? 0);
+    const allSettled = members.every((member) => member.owedMinor === 0);
+
+    return allSettled ? null : { ...pot, members, collectedMinor };
   },
 };

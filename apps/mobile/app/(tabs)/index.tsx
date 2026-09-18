@@ -1,12 +1,14 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 
 import { Amount } from '@/components/ui/Amount';
 import { AllowanceCard } from '@/components/ui/AllowanceCard';
 import { ActivityRow } from '@/components/ui/ActivityRow';
 import { Button } from '@/components/ui/Button';
+import { Header } from '@/components/ui/Header';
+import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import {
@@ -36,7 +38,8 @@ export default function Home() {
 
   return (
     <Screen edges={{ bottom: false }}>
-      <View className="px-5 pt-4 pb-4">
+      <Header leading="brand" trailing={<PauseButton />} />
+      <View className="px-5 pt-2 pb-4">
         <Text className="font-strong text-headline text-ink">Good morning, Evan 👋</Text>
       </View>
 
@@ -68,7 +71,7 @@ export default function Home() {
             <View className="flex-row gap-3 px-5 mb-8">
               <Button label="Send" onPress={() => router.push('/send')} />
               <Button label="Deposit" variant="secondary" onPress={() => router.push('/receive')} />
-              <Button label="Invest" variant="secondary" onPress={() => router.push('/invest')} />
+              <Button label="Business" variant="secondary" onPress={() => router.push('/business')} />
             </View>
 
             <SectionHeading

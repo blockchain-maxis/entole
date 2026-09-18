@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { cadenceWords, meterTone, viewAllowance, wouldExceed } from './allowance';
+import { cadenceWords, meterTone, viewAllowance, viewSeat, wouldExceed } from './allowance';
 import { naira } from './money';
-import { allowanceSchema, type Allowance } from './schemas';
+import { allowanceSchema, seatSchema, type Allowance, type Seat } from './schemas';
 
 function build(overrides: Partial<Allowance> = {}): Allowance {
   return allowanceSchema.parse({
@@ -73,5 +73,49 @@ describe('cadenceWords', () => {
     expect(cadenceWords('monthly')).toBe('every month');
     expect(cadenceWords('weekly')).toBe('every week');
     expect(cadenceWords('on-request')).toBe('only when I ask');
+  });
+});
+
+function buildSeat(overrides: Partial<Seat> = {}): Seat {
+  return seatSchema.parse({
+    id: 's-chidi-officer',
+    name: 'Officer — supplies',
+    contactId: 'c-chidi',
+    role: 'officer',
+    limitMinor: naira(200_000),
+    spentMinor: naira(65_000),
+    perRunMinor: naira(50_000),
+    cadence: 'monthly',
+    resetsAt: '2026-10-01T00:00:00.000+01:00',
+    paused: false,
+    ...overrides,
+  });
+}
+
+describe('viewSeat', () => {
+  it('reads through the exact same meter as a personal allowance', () => {
+    const seat = viewSeat(buildSeat());
+    const asAllowance = viewAllowance(
+      allowanceSchema.parse({
+        id: 's-chidi-officer',
+        name: 'Officer — supplies',
+        recipientId: 'c-chidi',
+        limitMinor: naira(200_000),
+        spentMinor: naira(65_000),
+        perRunMinor: naira(50_000),
+        cadence: 'monthly',
+        resetsAt: '2026-10-01T00:00:00.000+01:00',
+        paused: false,
+      }),
+    );
+    expect(seat.remainingMinor).toBe(asAllowance.remainingMinor);
+    expect(seat.tone).toBe(asAllowance.tone);
+    expect(seat.usedPercent).toBe(asAllowance.usedPercent);
+  });
+
+  it('carries the role alongside the meter', () => {
+    expect(viewSeat(buildSeat({ role: 'bookkeeper', limitMinor: 0, perRunMinor: 0 })).role).toBe(
+      'bookkeeper',
+    );
   });
 });

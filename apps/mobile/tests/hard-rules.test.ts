@@ -86,9 +86,16 @@ describe('design tokens are referenced by name', () => {
 });
 
 describe('the pause control is reachable from every screen header', () => {
-  // Onboarding has no allowances to pause yet, and the two sheets are presented
-  // over a screen whose header already carries the control.
-  const exempt = ['app/onboarding', 'app/index.tsx', 'app/rules/[id].tsx', 'app/assistant-action.tsx'];
+  // Onboarding and the lock screen have no allowances to pause yet — there is
+  // no signed-in account behind them — and the two sheets are presented over a
+  // screen whose header already carries the control.
+  const exempt = [
+    'app/onboarding',
+    'app/index.tsx',
+    'app/lock.tsx',
+    'app/rules/[id].tsx',
+    'app/assistant-action.tsx',
+  ];
 
   const screens = walk(SCREENS).filter((file) => {
     const path = relative(ROOT, file);

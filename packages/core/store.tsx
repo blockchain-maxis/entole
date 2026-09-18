@@ -1,10 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { viewAllowance, type AllowanceView } from './allowance';
+import { viewAllowance, viewSeat, type AllowanceView, type SeatView } from './allowance';
 import { DEMO_RATE, type Rate } from './fx';
-import { demoGateway, type AllowanceDraft, type PaymentsGateway, type SendInput } from './gateway';
+import {
+  demoGateway,
+  type AllowanceDraft,
+  type InvoiceDraft,
+  type PaymentsGateway,
+  type SeatDraft,
+  type SendInput,
+} from './gateway';
 import { kobo, type Naira } from './money';
-import type { Activity, Contact, Pot, Proposal, Receipt, Snapshot } from './schemas';
+import type { Activity, Contact, Invoice, Pot, Proposal, Receipt, Snapshot, TaxReserve } from './schemas';
 
 type Status = 'loading' | 'ready' | 'failed';
 
@@ -17,11 +24,17 @@ type Store = {
   allowances: AllowanceView[];
   activity: Activity[];
   pots: Pot[];
+  seats: SeatView[];
+  invoices: Invoice[];
+  taxReserves: TaxReserve[];
   proposal: Proposal | null;
   request: Snapshot['request'] | null;
   contact(id: string): Contact | undefined;
   allowance(id: string): AllowanceView | undefined;
   pot(id: string): Pot | undefined;
+  seat(id: string): SeatView | undefined;
+  invoice(id: string): Invoice | undefined;
+  settlePotShare(potId: string): Promise<void>;
   setPaused(next: boolean): Promise<void>;
   send(input: SendInput): Promise<Receipt>;
   saveAllowance(draft: AllowanceDraft): Promise<void>;
@@ -29,6 +42,10 @@ type Store = {
   cancelProposal(): Promise<void>;
   runProposal(): Promise<Receipt>;
   receipt(id: string): Receipt | undefined;
+  saveSeat(draft: SeatDraft): Promise<void>;
+  revokeSeat(id: string): Promise<void>;
+  createInvoice(draft: InvoiceDraft): Promise<Invoice>;
+  settleInvoice(invoiceId: string, taxFraction?: number): Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -148,6 +165,71 @@ export function StoreProvider({
     setProposal(null);
   }, [gateway, proposal]);
 
+  const saveSeat = useCallback(
+    async (draft: SeatDraft) => {
+      const saved = await gateway.saveSeat(draft);
+      setSnapshot((current) => {
+        if (!current) return current;
+        const exists = current.seats.some((s) => s.id === saved.id);
+        return {
+          ...current,
+          seats: exists
+            ? current.seats.map((s) => (s.id === saved.id ? { ...saved, spentMinor: s.spentMinor } : s))
+            : [...current.seats, saved],
+        };
+      });
+    },
+    [gateway],
+  );
+
+  const revokeSeat = useCallback(
+    async (id: string) => {
+      await gateway.revokeSeat(id);
+      setSnapshot((current) => (current ? { ...current, seats: current.seats.filter((s) => s.id !== id) } : current));
+    },
+    [gateway],
+  );
+
+  const createInvoice = useCallback(
+    async (draft: InvoiceDraft) => {
+      const invoice = await gateway.createInvoice(draft);
+      setSnapshot((current) => (current ? { ...current, invoices: [invoice, ...current.invoices] } : current));
+      return invoice;
+    },
+    [gateway],
+  );
+
+  const settleInvoice = useCallback(
+    async (invoiceId: string, taxFraction = 0.2) => {
+      const { invoice, taxReserve } = await gateway.settleInvoice(invoiceId, taxFraction);
+      setSnapshot((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          invoices: current.invoices.map((entry) => (entry.id === invoiceId ? invoice : entry)),
+          taxReserves: [taxReserve, ...current.taxReserves],
+        };
+      });
+    },
+    [gateway],
+  );
+
+  const settlePotShare = useCallback(
+    async (potId: string) => {
+      const updated = await gateway.settlePotShare(potId);
+      setSnapshot((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          pots: updated
+            ? current.pots.map((pot) => (pot.id === potId ? updated : pot))
+            : current.pots.filter((pot) => pot.id !== potId),
+        };
+      });
+    },
+    [gateway],
+  );
+
   const runProposal = useCallback(async () => {
     if (!proposal) throw new Error('No assistant payment is waiting');
     const settledReceipt = await send({
@@ -164,6 +246,9 @@ export function StoreProvider({
     const contacts = snapshot?.contacts ?? [];
     const allowances = (snapshot?.allowances ?? []).map(viewAllowance);
     const pots = snapshot?.pots ?? [];
+    const seats = (snapshot?.seats ?? []).map(viewSeat);
+    const invoices = snapshot?.invoices ?? [];
+    const taxReserves = snapshot?.taxReserves ?? [];
 
     return {
       status,
@@ -176,11 +261,16 @@ export function StoreProvider({
       allowances,
       activity: snapshot?.activity ?? [],
       pots,
+      seats,
+      invoices,
+      taxReserves,
       proposal,
       request: snapshot?.request ?? null,
       contact: (id) => contacts.find((c) => c.id === id),
       allowance: (id) => allowances.find((a) => a.id === id),
       pot: (id) => pots.find((p) => p.id === id),
+      seat: (id) => seats.find((s) => s.id === id),
+      invoice: (id) => invoices.find((i) => i.id === id),
       setPaused,
       send,
       saveAllowance,
@@ -188,16 +278,26 @@ export function StoreProvider({
       cancelProposal,
       runProposal,
       receipt: (id) => receipts[id],
+      saveSeat,
+      revokeSeat,
+      createInvoice,
+      settleInvoice,
+      settlePotShare,
     };
   }, [
     cancelProposal,
+    createInvoice,
     proposal,
     receipts,
     revokeAllowance,
+    revokeSeat,
     runProposal,
     saveAllowance,
+    saveSeat,
     send,
     setPaused,
+    settleInvoice,
+    settlePotShare,
     snapshot,
     status,
   ]);
