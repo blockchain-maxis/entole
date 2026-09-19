@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { z } from 'zod';
 
 import { isMeraError, type PasskeyCredentialMetadata } from '@category-labs/mera';
@@ -137,12 +138,48 @@ async function checkDomainAssociation(): Promise<string> {
   }
 }
 
+const googleStatementsSchema = z.object({
+  statements: z
+    .array(z.object({ target: z.object({ androidApp: z.object({ packageName: z.string() }).optional() }) }))
+    .optional(),
+});
+
+/** Development builds only. The passkey check is made by Google Play services
+ * using Google's own Digital Asset Links service, not by reading the site
+ * directly — so a phone that can reach the site but not Google (VPN, private
+ * DNS, an ad blocker) fails here with the same "RP ID cannot be validated". */
+async function checkGoogleView(): Promise<string> {
+  const packageName = Constants.expoConfig?.android?.package ?? 'to.entole.app';
+  const url =
+    'https://digitalassetlinks.googleapis.com/v1/statements:list' +
+    `?source.web.site=https://${RP_ID}&relation=delegate_permission/common.get_login_creds`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return `google checker HTTP ${response.status}`;
+    const parsed = googleStatementsSchema.safeParse(await response.json());
+    if (!parsed.success) return 'google checker reachable but answered in an unexpected format';
+    const listed = (parsed.data.statements ?? []).some((s) => s.target.androidApp?.packageName === packageName);
+    return listed ? `google checker sees ${packageName}` : `google checker does NOT list ${packageName}`;
+  } catch (error) {
+    return `google checker unreachable from this phone: ${describeCause(error)}`;
+  }
+}
+
+/** Development builds only — which phone and Android version this is, since
+ * passkey support and the provider that answers vary by both. */
+function describeDevice(): string {
+  if (Platform.OS !== 'android') return Platform.OS;
+  const { Manufacturer, Brand, Model, Release } = Platform.constants;
+  return `Android ${Release} (API ${Platform.Version}), ${Manufacturer ?? Brand} ${Model}`;
+}
+
 async function failed(error: unknown): Promise<{ ok: false; reason: string }> {
   const reason = reasonFor(error);
   if (process.env.NODE_ENV === 'production') return { ok: false, reason };
-  const domain = await checkDomainAssociation();
-  console.warn('[passkey] domain check:', RP_ID, domain);
-  return { ok: false, reason: `${reason} [dev rp=${RP_ID}; ${domain}]` };
+  const [domain, google] = await Promise.all([checkDomainAssociation(), checkGoogleView()]);
+  const device = describeDevice();
+  console.warn('[passkey] domain check:', RP_ID, domain, '|', google, '|', device);
+  return { ok: false, reason: `${reason} [dev rp=${RP_ID}; ${domain}; ${google}; ${device}]` };
 }
 
 /**
