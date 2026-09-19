@@ -37,7 +37,7 @@ export default function FirstPayment() {
           >
             <Text className="font-body text-title text-slate">←</Text>
           </Pressable>
-          <StepDots total={3} done={3} />
+          <StepDots total={4} done={4} />
         </View>
         <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void finish('/(tabs)')}>
           <Text className="font-strong text-label text-indigo">Skip</Text>

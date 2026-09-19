@@ -37,7 +37,7 @@ export default function PhoneStep() {
         >
           <Text className="font-body text-title text-slate">←</Text>
         </Pressable>
-        <StepDots total={3} done={2} />
+        <StepDots total={4} done={3} />
       </View>
 
       <View className="flex-1 px-7 pt-[34px]">

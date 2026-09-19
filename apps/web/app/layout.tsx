@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import { token } from '@entole/tokens';
 
 import { ServiceWorker } from '@/components/ServiceWorker';
+import { BLOCKING_THEME_SCRIPT } from '@/lib/theme';
 
 import './globals.css';
 import { Providers } from './providers';
@@ -71,6 +72,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         } as React.CSSProperties
       }
     >
+      <head>
+        {/* Runs before React hydrates — applies `.dark` from the stored
+            preference (or the OS preference, for `system`) so a returning
+            dark-mode visitor never sees a light flash first. */}
+        <script dangerouslySetInnerHTML={{ __html: BLOCKING_THEME_SCRIPT }} />
+      </head>
       <body>
         <Providers>{children}</Providers>
         <ServiceWorker />

@@ -7,9 +7,9 @@ import { Header } from '@/components/ui/Header';
 import { Keypad } from '@/components/ui/Keypad';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { useThemeColors } from '@/lib/theme';
 import { entryDisplay, entryToMinor, pressKey, type AmountEntry, EMPTY_ENTRY } from '@entole/core/amount-entry';
 import { useStore } from '@entole/core/store';
-import { token } from '@entole/tokens';
 
 const DUE_IN_DAYS = 14;
 
@@ -18,6 +18,7 @@ const DUE_IN_DAYS = 14;
 export default function NewInvoice() {
   const router = useRouter();
   const store = useStore();
+  const colors = useThemeColors();
 
   const [clientName, setClientName] = useState('');
   const [note, setNote] = useState('');
@@ -54,7 +55,7 @@ export default function NewInvoice() {
           value={clientName}
           onChangeText={setClientName}
           placeholder="Client or business name"
-          placeholderTextColor={token.mist}
+          placeholderTextColor={colors.mist}
           className="mt-2.5 rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink"
         />
 
@@ -63,7 +64,7 @@ export default function NewInvoice() {
           value={note}
           onChangeText={setNote}
           placeholder="What this invoice is for"
-          placeholderTextColor={token.mist}
+          placeholderTextColor={colors.mist}
           className="mt-2.5 rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink"
         />
 

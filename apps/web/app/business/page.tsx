@@ -1,5 +1,6 @@
 'use client';
 
+import { ClipboardList, FileText, Truck, UserPlus, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -15,8 +16,17 @@ import { AllowanceCardSkeleton, RowSkeleton } from '@/components/Skeleton';
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Admin', officer: 'Officer', bookkeeper: 'Bookkeeper' };
 
+type Service = { label: string; hint: string; Icon: LucideIcon; href: string };
+
+const SERVICES: Service[] = [
+  { label: 'Send invoice', hint: 'Bill a client', Icon: FileText, href: '/business/new-invoice' },
+  { label: 'Pay a supplier', hint: 'Send money out', Icon: Truck, href: '/business/pay-supplier' },
+  { label: 'Order supplies', hint: 'Draft a request', Icon: ClipboardList, href: '/business/order-supplies' },
+  { label: 'Add team member', hint: 'Give a seat', Icon: UserPlus, href: '/business/new-seat' },
+];
+
 /**
- * Seats, invoices and the tax reserve. Everything on this page either is an
+ * Services on top, records below. Everything on this page either is an
  * allowance already, or settles into one — mirrors
  * `apps/mobile/app/(tabs)/business.tsx`.
  */
@@ -50,6 +60,23 @@ export default function BusinessPage() {
           </div>
         ) : (
           <>
+            <p className="pb-3 pt-[10px] font-strong text-body-lg text-ink">Services</p>
+            <div className="mb-7 grid grid-cols-2 gap-3">
+              {SERVICES.map(({ label, hint, Icon, href }) => (
+                <Link
+                  key={label}
+                  href={href}
+                  className="rounded-card border border-line bg-card p-4 transition-colors hover:border-mist"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-chip bg-indigo-wash text-indigo">
+                    <Icon size={20} strokeWidth={1.5} />
+                  </span>
+                  <p className="mt-3 font-strong text-body-sm text-ink">{label}</p>
+                  <p className="mt-0.5 font-body text-caption-sm text-slate">{hint}</p>
+                </Link>
+              ))}
+            </div>
+
             {store.taxReserves.length > 0 ? (
               <div className="mb-7 rounded-panel bg-card p-5 shadow-raised">
                 <span className="rounded-chip bg-indigo-wash px-2 py-1 font-heavy text-badge uppercase text-indigo">
@@ -146,6 +173,33 @@ export default function BusinessPage() {
               {store.seats.length === 0 ? (
                 <p className="font-body text-label-sm text-mist">No seats granted yet.</p>
               ) : null}
+            </div>
+
+            <div className="flex items-baseline justify-between pb-3 pt-[30px]">
+              <p className="font-strong text-body-lg text-ink">Requests</p>
+              <Link href="/business/order-supplies" className="font-strong text-label text-indigo hover:underline">
+                New
+              </Link>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {store.procurementRequests.length === 0 ? (
+                <p className="font-body text-label-sm text-mist">No supply requests yet.</p>
+              ) : (
+                store.procurementRequests.map((request) => (
+                  <div key={request.id} className="rounded-row border border-line bg-card px-4 py-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="flex-1 font-strong text-body text-ink">{request.supplierName}</span>
+                      <span className="font-heavy text-caption-sm uppercase text-slate">{request.status}</span>
+                    </div>
+                    <p className="mt-1.5 font-body text-caption-sm text-slate">
+                      {request.items.map((item) => `${item.quantity} × ${item.name}`).join(', ')}
+                    </p>
+                    {request.note ? (
+                      <p className="mt-0.5 font-body text-caption-sm text-slate">{request.note}</p>
+                    ) : null}
+                  </div>
+                ))
+              )}
             </div>
           </>
         )}

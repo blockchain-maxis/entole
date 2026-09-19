@@ -27,6 +27,17 @@ const RP = { id: RP_ID, name: 'Entole' };
 const ONBOARDED_KEY = 'entole.onboarded';
 const SESSION_KEY = 'entole.session';
 const CREDENTIAL_KEY = 'entole.passkey.credential';
+const DISPLAY_NAME_KEY = 'entole.display-name';
+
+/** The name captured in `onboarding/name.tsx` — not the passkey ceremony's
+ * own (unrelated) display label. Survives restarts; never key material. */
+export async function storeDisplayName(name: string): Promise<void> {
+  await SecureStore.setItemAsync(DISPLAY_NAME_KEY, name);
+}
+
+export async function loadDisplayName(): Promise<string> {
+  return (await SecureStore.getItemAsync(DISPLAY_NAME_KEY)) ?? '';
+}
 
 export async function hasOnboarded(): Promise<boolean> {
   return (await SecureStore.getItemAsync(ONBOARDED_KEY)) === 'true';
@@ -91,7 +102,9 @@ export async function registerAccount(displayName: string): Promise<SignInResult
       webAuthnClient: reactNativeWebAuthnClient,
     });
     await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
-    return { ok: true, account: { owner, session } };
+    // Not known yet — captured a step later in `onboarding/name.tsx`, which
+    // merges the real name into the account already in context.
+    return { ok: true, account: { owner, session, displayName: '' } };
   } catch (error) {
     return { ok: false, reason: reasonFor(error) };
   }
@@ -120,7 +133,8 @@ export async function reauthenticate(): Promise<SignInResult> {
       webAuthnClient: reactNativeWebAuthnClient,
     });
     await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
-    return { ok: true, account: { owner, session } };
+    const displayName = await loadDisplayName();
+    return { ok: true, account: { owner, session, displayName } };
   } catch (error) {
     return { ok: false, reason: reasonFor(error) };
   }
@@ -137,4 +151,22 @@ export async function sessionIsFresh(): Promise<boolean> {
 
 export async function signOut(): Promise<void> {
   await SecureStore.deleteItemAsync(SESSION_KEY);
+}
+
+/** The hard version — clears the stored credential, name and onboarded
+ * flag too, not just the session. The next launch starts at onboarding
+ * from scratch, a fresh passkey ceremony, not a quick re-auth. */
+export async function forgetEverything(): Promise<void> {
+  await Promise.all([
+    SecureStore.deleteItemAsync(SESSION_KEY),
+    SecureStore.deleteItemAsync(CREDENTIAL_KEY),
+    SecureStore.deleteItemAsync(ONBOARDED_KEY),
+    SecureStore.deleteItemAsync(DISPLAY_NAME_KEY),
+  ]);
+}
+
+/** Whether a passkey has ever been registered on this device — for the
+ * Security section's "Manage passkey" status line. */
+export async function hasStoredCredential(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(CREDENTIAL_KEY)) !== null;
 }

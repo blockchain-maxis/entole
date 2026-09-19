@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
-import { token } from '@entole/tokens';
+import { useThemeColors } from '@/lib/theme';
 
 import { Text } from './Text';
 
@@ -36,6 +36,7 @@ export function Countdown({
   const progress = useSharedValue(1);
   const [remaining, setRemaining] = useState(seconds);
   const elapsedRef = useRef(onElapsed);
+  const colors = useThemeColors();
 
   useEffect(() => {
     elapsedRef.current = onElapsed;
@@ -74,7 +75,7 @@ export function Countdown({
           cx={SIZE / 2}
           cy={SIZE / 2}
           r={RADIUS}
-          stroke={token.line}
+          stroke={colors.line}
           strokeWidth={STROKE}
           fill="none"
         />
@@ -82,7 +83,7 @@ export function Countdown({
           cx={SIZE / 2}
           cy={SIZE / 2}
           r={RADIUS}
-          stroke={token.indigo.DEFAULT}
+          stroke={colors.indigo.DEFAULT}
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}

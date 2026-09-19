@@ -72,3 +72,30 @@ describe('demoGateway.requestConditionalRelease', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('demoGateway stocks', () => {
+  it('reports itself available and finds symbols by name or ticker', async () => {
+    expect(demoGateway.stocksAvailable).toBe(true);
+    expect((await demoGateway.searchStocks('apple')).map((r) => r.symbol)).toEqual(['AAPL']);
+    expect((await demoGateway.searchStocks('msft')).map((r) => r.symbol)).toEqual(['MSFT']);
+    expect(await demoGateway.searchStocks('  ')).toEqual([]);
+  });
+
+  it('quotes a known symbol in whole minor units and rejects an unknown one', async () => {
+    const quote = await demoGateway.getStockQuote('aapl');
+    expect(quote.symbol).toBe('AAPL');
+    expect(Number.isInteger(quote.priceMinor)).toBe(true);
+    await expect(demoGateway.getStockQuote('NOPE')).rejects.toThrow();
+  });
+
+  it('opens a position on a buy', async () => {
+    const positions = await demoGateway.buyStock('AAPL', 25_000);
+    expect(positions).toHaveLength(1);
+    expect(positions[0]).toMatchObject({ symbol: 'AAPL', quantityScaled: 25_000 });
+  });
+
+  it('cannot sell a stock that is not held', async () => {
+    await expect(demoGateway.sellStock('AAPL', 1)).rejects.toThrow();
+  });
+});
+

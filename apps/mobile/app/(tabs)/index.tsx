@@ -21,10 +21,13 @@ import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
+import { useAccount } from '@/lib/account';
 
 export default function Home() {
   const router = useRouter();
   const store = useStore();
+  const { account } = useAccount();
+  const firstName = account?.displayName.trim().split(/\s+/)[0] || 'there';
   const loading = store.status === 'loading';
   const announced = useRef(false);
   const { height } = useWindowDimensions();
@@ -40,7 +43,7 @@ export default function Home() {
     <Screen edges={{ bottom: false }}>
       <Header leading="brand" trailing={<PauseButton />} />
       <View className="px-5 pt-2 pb-4">
-        <Text className="font-strong text-headline text-ink">Good morning, Evan 👋</Text>
+        <Text className="font-strong text-headline text-ink">Good morning, {firstName} 👋</Text>
       </View>
 
       <FlashList<Activity>

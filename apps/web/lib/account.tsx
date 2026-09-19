@@ -8,7 +8,7 @@ import type { EntoleKeyAccount } from '@entole/core/passkey';
  * passkey at sign-in — see `@entole/core/passkey`. Both are needed to
  * construct the real on-chain gateway (owner signs direct sends and
  * allowance management, the session key signs allowance-gated executes). */
-export type SignedInAccount = { owner: EntoleKeyAccount; session: EntoleKeyAccount };
+export type SignedInAccount = { owner: EntoleKeyAccount; session: EntoleKeyAccount; displayName: string };
 
 /**
  * The live signing session for whoever is currently signed in — in memory

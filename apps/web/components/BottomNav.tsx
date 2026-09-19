@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 /** Same 5 tabs, same order, same icons as `apps/mobile/app/(tabs)/_layout.tsx`. */
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/', label: 'Home', icon: House },
-  { href: '/transfer', label: 'Transfer', icon: SendHorizontal },
+  { href: '/transfer', label: 'Pay', icon: SendHorizontal },
   { href: '/business', label: 'Business', icon: Briefcase },
   { href: '/grow', label: 'Grow', icon: Sprout },
   { href: '/me', label: 'Me', icon: User },

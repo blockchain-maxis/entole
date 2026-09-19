@@ -1,7 +1,7 @@
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
 import { keccak256, toHex } from 'viem';
 
-import { toDollars, type Rate } from './fx';
+import { toDollars, toNaira, type Rate } from './fx';
 import {
   demoGateway,
   FEE_MINOR,
@@ -10,7 +10,7 @@ import {
   type SendInput,
 } from './gateway';
 import { fetchIndexedActivity } from './indexed-activity';
-import { kobo } from './money';
+import { cents, kobo } from './money';
 import {
   growPositionSchema,
   receiptSchema,
@@ -20,7 +20,18 @@ import {
   type GrowPosition,
   type Receipt,
   type Snapshot,
+  type StockPosition,
+  stockPositionSchema,
 } from './schemas';
+import {
+  buyStock as brokerBuyStock,
+  getQuote,
+  listPositions,
+  searchTicker,
+  sellStock as brokerSellStock,
+  type OrderResult,
+  type StockBrokerConfig,
+} from './stock-broker';
 
 /**
  * The real `PaymentsGateway`. Swapping this in for `demoGateway` is the
@@ -177,6 +188,12 @@ export type OnChainGatewayConfig = {
    * Status section. Left undefined until then; `depositGrow`/`withdrawGrow`
    * fail loudly rather than pretend to settle if it's missing. */
   growthVaultAddress?: Address;
+  /** Stocks broker credentials (Alpaca — see `stock-broker.ts`). Left
+   * undefined, `stocksAvailable` is false and every stocks call throws that
+   * module's "not configured" error. These are real secrets: the phone app
+   * cannot hold them safely, so they belong to a server-side proxy — no app
+   * wires this today, same disclosure as Agora/Aurora in `apps/web/.env`. */
+  stockBroker?: StockBrokerConfig;
   /** Settlement token's on-chain decimals (6 for the demo eUSD and for
    * USDC; confirm against whatever Agora AUSD actually uses before
    * swapping it in). */
@@ -206,6 +223,32 @@ export type OnChainGatewayConfig = {
   resolveContactId?: (address: Address) => string | undefined;
   cadenceSeconds?: Record<Cadence, bigint>;
 };
+
+/** Holdings from the broker, converted from its dollars into the account's
+ * own currency at the same rate everything else here uses. */
+async function loadStockPositions(config: OnChainGatewayConfig): Promise<StockPosition[]> {
+  const positions = await listPositions(config.stockBroker);
+  return positions.map((p) =>
+    stockPositionSchema.parse({
+      symbol: p.symbol,
+      companyName: p.companyName,
+      quantityScaled: p.quantityScaled,
+      costBasisMinor: toNaira(cents(p.costBasisCents), config.rate),
+      currentValueMinor: toNaira(cents(p.marketValueCents), config.rate),
+    }),
+  );
+}
+
+/** A market order the broker has only queued (e.g. placed outside trading
+ * hours) has not settled — say so rather than report a success that hasn't
+ * happened yet. */
+function requireFilled(order: OrderResult): void {
+  if (order.status !== 'filled' && order.status !== 'partially_filled') {
+    throw new Error(
+      `Your order was received but hasn't filled yet (${order.status}). It will show under Holdings once the market fills it.`,
+    );
+  }
+}
 
 function toTokenMinor(amountMinorNaira: number, config: OnChainGatewayConfig): bigint {
   const dollarsCents = toDollars(kobo(amountMinorNaira), config.rate);
@@ -310,7 +353,15 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
 
       const activity = await loadActivity(config, base, allowances);
 
-      return snapshotSchema.parse({ ...base, allowances, activity, growPosition });
+      // Real holdings when a broker is configured; the (empty) off-chain
+      // default otherwise. A failed broker request degrades to that default
+      // rather than failing the whole snapshot — Holdings then reads empty
+      // until the next successful load.
+      const stockPositions = config.stockBroker
+        ? await loadStockPositions(config).catch(() => base.stockPositions)
+        : base.stockPositions;
+
+      return snapshotSchema.parse({ ...base, allowances, activity, growPosition, stockPositions });
     },
 
     async submitPayment(input: SendInput): Promise<Receipt> {
@@ -448,6 +499,32 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
       return growthPositionAfterChange(config, vaultAddress);
     },
 
+    stocksAvailable: Boolean(config.stockBroker?.apiKeyId && config.stockBroker.apiSecretKey),
+
+    async searchStocks(query: string) {
+      const results = await searchTicker(query, config.stockBroker);
+      return results.map(({ symbol, name }) => ({ symbol, name }));
+    },
+
+    async getStockQuote(symbol: string) {
+      const quote = await getQuote(symbol, config.stockBroker);
+      return {
+        symbol: quote.symbol,
+        priceMinor: toNaira(cents(quote.midPriceCents), config.rate),
+        asOf: quote.asOf,
+      };
+    },
+
+    async buyStock(symbol: string, quantityScaled: number) {
+      requireFilled(await brokerBuyStock(symbol, quantityScaled, config.stockBroker));
+      return loadStockPositions(config);
+    },
+
+    async sellStock(symbol: string, quantityScaled: number) {
+      requireFilled(await brokerSellStock(symbol, quantityScaled, config.stockBroker));
+      return loadStockPositions(config);
+    },
+
     async cancelProposal(): Promise<void> {
       // Nothing on-chain to undo: the undo window is exactly the promise
       // that `execute` is never called until it expires. Cancelling is a
@@ -467,5 +544,6 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
     createInvoice: demoGateway.createInvoice,
     settleInvoice: demoGateway.settleInvoice,
     requestConditionalRelease: demoGateway.requestConditionalRelease,
+    createProcurementRequest: demoGateway.createProcurementRequest,
   };
 }

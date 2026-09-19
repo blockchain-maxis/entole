@@ -1,9 +1,11 @@
 import { evaluateReleaseCondition } from './chainlink-cre';
 import { SNAPSHOT } from './fixtures';
 import type { Rate } from './fx';
+import { applyStockTrade } from './stock-broker';
 import {
   growPositionSchema,
   invoiceSchema,
+  procurementRequestSchema,
   receiptSchema,
   seatSchema,
   snapshotSchema,
@@ -12,11 +14,14 @@ import {
   type Cadence,
   type GrowPosition,
   type Invoice,
+  type ProcurementItem,
+  type ProcurementRequest,
   type Receipt,
   type ReleaseCondition,
   type Seat,
   type SeatRole,
   type Snapshot,
+  type StockPosition,
   type TaxReserve,
 } from './schemas';
 
@@ -57,12 +62,33 @@ export interface PaymentsGateway {
     observedRate: Rate,
   ): Promise<{ invoice: Invoice; taxReserve: TaxReserve } | null>;
 
+  /** "Order Supplies" — a request-drafting record, not a fulfillment
+   * integration. See `procurementRequestSchema`'s own doc comment. */
+  createProcurementRequest(draft: ProcurementRequestDraft): Promise<ProcurementRequest>;
+
   /** "Grow" — the owner acting on their own deposited balance directly, no
    * delegate/allowance involved. Both resolve only once settled, same
    * promise `submitPayment` makes. */
   depositGrow(amountMinor: number): Promise<GrowPosition>;
   withdrawGrow(amountMinor: number): Promise<GrowPosition>;
+
+  /** "Stocks" — the Grow hub's second product. `stocksAvailable` is false
+   * until a broker is configured (see `packages/core/stock-broker.ts`); the
+   * UI reads it to show the "not available yet" state up front instead of
+   * discovering it from a failed call. Quantities are fixed-point, 4 decimal
+   * places — see `stockPositionSchema`. Buy/sell resolve with the account's
+   * holdings after the order, and only once the broker reports the order. */
+  readonly stocksAvailable: boolean;
+  searchStocks(query: string): Promise<StockSearchResult[]>;
+  getStockQuote(symbol: string): Promise<StockQuote>;
+  buyStock(symbol: string, quantityScaled: number): Promise<StockPosition[]>;
+  sellStock(symbol: string, quantityScaled: number): Promise<StockPosition[]>;
 }
+
+export type StockSearchResult = { symbol: string; name: string };
+
+/** A live quote in the account's own currency (kobo per share). */
+export type StockQuote = { symbol: string; priceMinor: number; asOf: string };
 
 export type SendInput = {
   contactId: string;
@@ -97,6 +123,12 @@ export type InvoiceDraft = {
   dueAt: string;
   /** Present only for a Chainlink CRE-gated invoice — see chainlink-cre.ts. */
   releaseCondition?: ReleaseCondition;
+};
+
+export type ProcurementRequestDraft = {
+  supplierName: string;
+  items: ProcurementItem[];
+  note?: string;
 };
 
 /** Flat corridor fee, quoted before the money moves. */
@@ -139,6 +171,19 @@ function settleInvoiceRecord(
       sourceInvoiceId: invoice.id,
     }),
   };
+}
+
+/** Test-only catalogue for `demoGateway` — never reachable from a shipped
+ * app, which builds its gateway from a real broker or shows "not available". */
+const DEMO_STOCKS = [
+  { symbol: 'AAPL', name: 'Apple Inc.', priceMinor: 30_000_000 },
+  { symbol: 'MSFT', name: 'Microsoft Corporation', priceMinor: 65_000_000 },
+];
+
+function demoStock(symbol: string) {
+  const stock = DEMO_STOCKS.find((s) => s.symbol === symbol.toUpperCase());
+  if (!stock) throw new Error(`Unknown symbol ${symbol}`);
+  return stock;
 }
 
 /**
@@ -254,6 +299,18 @@ export const demoGateway: PaymentsGateway = {
     return settleInvoiceRecord(invoice, observedRate.koboPerDollar, 0.2);
   },
 
+  async createProcurementRequest(draft) {
+    await wait(220);
+    return procurementRequestSchema.parse({
+      id: `po-${Date.now()}`,
+      supplierName: draft.supplierName,
+      items: draft.items,
+      ...(draft.note ? { note: draft.note } : {}),
+      status: 'requested',
+      requestedAt: new Date().toISOString(),
+    });
+  },
+
   async depositGrow(amountMinor) {
     await wait(320);
     const snapshot = snapshotSchema.parse(SNAPSHOT);
@@ -273,5 +330,46 @@ export const demoGateway: PaymentsGateway = {
       ...snapshot.growPosition,
       balanceMinor: snapshot.growPosition.balanceMinor - amountMinor,
     });
+  },
+
+  stocksAvailable: true,
+
+  async searchStocks(query) {
+    await wait(120);
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    return DEMO_STOCKS.filter(
+      (s) => s.symbol.toLowerCase().includes(needle) || s.name.toLowerCase().includes(needle),
+    ).map(({ symbol, name }) => ({ symbol, name }));
+  },
+
+  async getStockQuote(symbol) {
+    await wait(120);
+    const stock = demoStock(symbol);
+    return { symbol: stock.symbol, priceMinor: stock.priceMinor, asOf: new Date().toISOString() };
+  },
+
+  async buyStock(symbol, quantityScaled) {
+    await wait(320);
+    const stock = demoStock(symbol);
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    return applyStockTrade(
+      snapshot.stockPositions,
+      { symbol: stock.symbol, companyName: stock.name },
+      quantityScaled,
+      stock.priceMinor,
+    );
+  },
+
+  async sellStock(symbol, quantityScaled) {
+    await wait(320);
+    const stock = demoStock(symbol);
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    return applyStockTrade(
+      snapshot.stockPositions,
+      { symbol: stock.symbol, companyName: stock.name },
+      -quantityScaled,
+      stock.priceMinor,
+    );
   },
 };

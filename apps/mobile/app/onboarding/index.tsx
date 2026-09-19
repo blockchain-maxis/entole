@@ -27,7 +27,7 @@ export default function Welcome() {
     setBusy(false);
     if (result.ok) {
       setAccount(result.account);
-      router.push('/onboarding/phone');
+      router.push('/onboarding/name');
     } else {
       setProblem(result.reason);
     }

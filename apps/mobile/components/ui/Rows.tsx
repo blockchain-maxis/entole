@@ -1,6 +1,9 @@
+import { ChevronRight } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import type { Contact } from '@entole/core/schemas';
+
+import { useThemeColors } from '@/lib/theme';
 
 import { Avatar } from './Avatar';
 import { Text } from './Text';
@@ -22,6 +25,37 @@ export function DetailRow({
         {value}
       </Text>
     </View>
+  );
+}
+
+/** A tappable settings row — a label, an optional trailing value, a
+ * chevron. Used throughout the expanded Me screen (Security/Support/Legal
+ * rows); `tone="danger"` for a destructive action like signing out
+ * everywhere. */
+export function LinkRow({
+  label,
+  value,
+  onPress,
+  tone = 'default',
+}: {
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  tone?: 'default' | 'danger';
+}) {
+  const colors = useThemeColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      className="flex-row items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 active:border-mist"
+    >
+      <Text className={`font-body text-body-sm ${tone === 'danger' ? 'text-halt' : 'text-ink'}`}>{label}</Text>
+      <View className="flex-row items-center gap-1.5">
+        {value ? <Text className="font-body text-body-sm text-slate">{value}</Text> : null}
+        <ChevronRight size={16} strokeWidth={1.5} color={tone === 'danger' ? colors.halt.DEFAULT : colors.mist} />
+      </View>
+    </Pressable>
   );
 }
 

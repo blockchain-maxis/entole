@@ -1,18 +1,22 @@
 import { useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pause, Play } from 'lucide-react-native';
+import { Pressable } from 'react-native';
 
 import { useStore } from '@entole/core/store';
 
-import { Text } from './Text';
+import { useThemeColors } from '@/lib/theme';
 
 /**
  * The exit. Every screen header carries this — never buried, never a second
  * tap away. Pressing it opens the confirmation screen; it never toggles
- * silently from the header itself.
+ * silently from the header itself. Icon-only by design — a text label here
+ * reads as a loud header element on every single screen; the icon + tint
+ * carries the same one-tap affordance without the visual weight.
  */
 export function PauseButton() {
   const router = useRouter();
   const { paused } = useStore();
+  const colors = useThemeColors();
 
   return (
     <Pressable
@@ -20,14 +24,15 @@ export function PauseButton() {
       accessibilityLabel={paused ? 'Resume everything Entole does for you' : 'Pause everything Entole does for you'}
       hitSlop={14}
       onPress={() => router.push('/pause')}
-      className={`flex-row items-center gap-2 rounded-pill border px-3 py-2 ${
+      className={`h-9 w-9 items-center justify-center rounded-pill border ${
         paused ? 'border-halt bg-halt-wash' : 'border-line bg-card'
       }`}
     >
-      <View className="h-2.5 w-2.5 rounded-[3px] bg-halt" />
-      <Text className={`font-strong text-label-sm ${paused ? 'text-halt' : 'text-slate'}`}>
-        {paused ? 'Paused' : 'Pause'}
-      </Text>
+      {paused ? (
+        <Play size={16} strokeWidth={1.5} color={colors.halt.DEFAULT} />
+      ) : (
+        <Pause size={16} strokeWidth={1.5} color={colors.slate} />
+      )}
     </Pressable>
   );
 }

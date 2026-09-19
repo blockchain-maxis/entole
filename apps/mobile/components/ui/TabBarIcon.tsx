@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { token } from '@entole/tokens';
+import { useThemeColors } from '@/lib/theme';
 
 import { Text } from './Text';
 
@@ -21,13 +21,14 @@ export function TabBarIcon({
   label: string;
   focused: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <View
       className={`flex-row items-center gap-1.5 rounded-pill px-3.5 py-2 ${
         focused ? 'bg-indigo-wash' : ''
       }`}
     >
-      <Icon size={20} color={focused ? token.ink : token.mist} strokeWidth={1.5} />
+      <Icon size={20} color={focused ? colors.ink : colors.mist} strokeWidth={1.5} />
       <Text className={`font-strong text-label-sm ${focused ? 'text-ink' : 'text-mist'}`}>{label}</Text>
     </View>
   );

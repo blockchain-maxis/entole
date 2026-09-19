@@ -74,4 +74,16 @@ describe('snapshot', () => {
     expect(Number.isInteger(snapshot.growPosition.balanceMinor)).toBe(true);
     expect(Number.isInteger(snapshot.growPosition.accruedMinor)).toBe(true);
   });
+
+  it('starts with no stock holdings — no fabricated positions', () => {
+    expect(snapshot.stockPositions).toEqual([]);
+  });
+
+  it('keeps any stock position in whole minor units and a whole fixed-point share count', () => {
+    for (const p of snapshot.stockPositions) {
+      expect(Number.isInteger(p.quantityScaled)).toBe(true);
+      expect(Number.isInteger(p.costBasisMinor)).toBe(true);
+      expect(Number.isInteger(p.currentValueMinor)).toBe(true);
+    }
+  });
 });

@@ -110,6 +110,19 @@ describe('the pause control is reachable from every screen header', () => {
   it.each(screens)('%s renders the shared header', (file) => {
     expect(read(file)).toMatch(/<Header/);
   });
+
+  // Rendering `<Header` alone proves nothing about the pause control — the
+  // header has to carry it *by default*, so no screen can forget it.
+  it('the shared header renders the pause control unless a screen opts out', () => {
+    const header = read(join(ROOT, 'components/ui/Header.tsx'));
+    expect(header).toMatch(/import \{ PauseButton \} from '\.\/PauseButton'/);
+    expect(header).toMatch(/trailing === undefined \? <PauseButton \/> : trailing/);
+  });
+
+  it('only the pause screen itself opts out of the header pause control', () => {
+    const optedOut = screens.filter((file) => /trailing=\{null\}/.test(read(file)));
+    expect(optedOut.map((file) => relative(ROOT, file))).toEqual(['app/pause.tsx']);
+  });
 });
 
 describe('money amounts never use the system keyboard', () => {
@@ -117,7 +130,10 @@ describe('money amounts never use the system keyboard', () => {
     'app/send/index.tsx',
     'app/rules/new.tsx',
     'app/onboarding/phone.tsx',
-    'app/(tabs)/grow.tsx',
+    'app/grow/savings.tsx',
+    'app/grow/stock/[symbol].tsx',
+    'app/business/pay-supplier.tsx',
+    'app/bill/pay.tsx',
   ];
 
   it.each(amountScreens)('%s enters digits through the custom keypad', (path) => {

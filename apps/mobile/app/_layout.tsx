@@ -12,10 +12,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { StoreProvider } from '@entole/core/store';
-import { token } from '@entole/tokens';
 
 import { AccountProvider, useAccount } from '@/lib/account';
 import { useOnChainGateway } from '@/lib/onchain';
+import { ThemeProvider, useThemeColors } from '@/lib/theme';
 
 import '../global.css';
 import '@/lib/interop';
@@ -26,6 +26,47 @@ function OnChainStoreProvider({ children }: { children: React.ReactNode }) {
   const { account } = useAccount();
   const gateway = useOnChainGateway(account);
   return <StoreProvider gateway={gateway}>{children}</StoreProvider>;
+}
+
+function ThemedStack() {
+  const themeColors = useThemeColors();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: themeColors.paper },
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="pause" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen
+        name="lock"
+        options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="assistant-action"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'fade',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      <Stack.Screen
+        name="rules/[id]"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'fade',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      <Stack.Screen
+        name="send/receipt"
+        options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
@@ -45,44 +86,13 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AccountProvider>
-          <OnChainStoreProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: token.paper },
-                animation: 'slide_from_right',
-              }}
-            >
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="pause" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-              <Stack.Screen
-                name="lock"
-                options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
-              />
-              <Stack.Screen
-                name="assistant-action"
-                options={{
-                  presentation: 'transparentModal',
-                  animation: 'fade',
-                  contentStyle: { backgroundColor: 'transparent' },
-                }}
-              />
-              <Stack.Screen
-                name="rules/[id]"
-                options={{
-                  presentation: 'transparentModal',
-                  animation: 'fade',
-                  contentStyle: { backgroundColor: 'transparent' },
-                }}
-              />
-              <Stack.Screen
-                name="send/receipt"
-                options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
-              />
-            </Stack>
-          </OnChainStoreProvider>
-        </AccountProvider>
+        <ThemeProvider>
+          <AccountProvider>
+            <OnChainStoreProvider>
+              <ThemedStack />
+            </OnChainStoreProvider>
+          </AccountProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

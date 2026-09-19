@@ -110,6 +110,28 @@ export const invoiceSchema = z.object({
   releaseCondition: releaseConditionSchema.optional(),
 });
 
+export const procurementItemSchema = z.object({
+  name: z.string().min(1),
+  quantity: z.number().int().positive(),
+});
+
+export const procurementStatusSchema = z.enum(['requested']);
+
+/**
+ * "Order Supplies" — a request-drafting record, not a fulfillment
+ * integration. There is no supplier marketplace behind this; it exists so a
+ * request has a real, Zod-validated home instead of vanishing as
+ * ephemeral client state the moment the screen closes.
+ */
+export const procurementRequestSchema = z.object({
+  id: z.string().min(1),
+  supplierName: z.string().min(1),
+  items: z.array(procurementItemSchema).min(1),
+  note: z.string().optional(),
+  status: procurementStatusSchema,
+  requestedAt: isoDate,
+});
+
 export const taxReserveSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -132,6 +154,22 @@ export const growPositionSchema = z.object({
    * spendable balance, only shown as a projection. */
   accruedMinor: nonNegativeMinor,
   nextPayoutAt: isoDate,
+});
+
+/**
+ * A "Stocks" holding — the Grow hub's second product, alongside the
+ * growth-vault Savings position above. Share counts can be fractional, so
+ * `quantityScaled` is a fixed-point integer (4 decimal places — e.g. 2.5
+ * shares is stored as `25000`) rather than a float, the same discipline
+ * `amountMinor` applies to money. Cash fields stay integer minor units.
+ */
+export const stockPositionSchema = z.object({
+  symbol: z.string().min(1),
+  companyName: z.string().min(1),
+  /** Fixed-point, 4 decimal places — see this schema's own doc comment. */
+  quantityScaled: z.number().int().nonnegative(),
+  costBasisMinor: nonNegativeMinor,
+  currentValueMinor: nonNegativeMinor,
 });
 
 export const paymentRequestSchema = z.object({
@@ -178,8 +216,10 @@ export const snapshotSchema = z.object({
   activity: z.array(activitySchema),
   seats: z.array(seatSchema),
   invoices: z.array(invoiceSchema),
+  procurementRequests: z.array(procurementRequestSchema),
   taxReserves: z.array(taxReserveSchema),
   growPosition: growPositionSchema,
+  stockPositions: z.array(stockPositionSchema),
   request: paymentRequestSchema,
   proposal: proposalSchema,
 });
@@ -197,7 +237,10 @@ export type AvatarTone = z.infer<typeof avatarToneSchema>;
 export type SeatRole = z.infer<typeof seatRoleSchema>;
 export type Seat = z.infer<typeof seatSchema>;
 export type InvoiceStatus = z.infer<typeof invoiceStatusSchema>;
+export type ProcurementItem = z.infer<typeof procurementItemSchema>;
+export type ProcurementRequest = z.infer<typeof procurementRequestSchema>;
 export type Invoice = z.infer<typeof invoiceSchema>;
 export type ReleaseCondition = z.infer<typeof releaseConditionSchema>;
 export type TaxReserve = z.infer<typeof taxReserveSchema>;
 export type GrowPosition = z.infer<typeof growPositionSchema>;
+export type StockPosition = z.infer<typeof stockPositionSchema>;

@@ -5,10 +5,11 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { nativeShadowStyle, token } from '@entole/tokens';
+import { nativeShadowStyle } from '@entole/tokens';
 
 import { TabBarIcon } from '@/components/ui/TabBarIcon';
 import { sessionIsFresh } from '@/lib/session';
+import { useThemeColors } from '@/lib/theme';
 
 /** Panel radius, matching `packages/tokens`' `panel` token — screenOptions
  * takes a plain style object, not a className, so the value is repeated
@@ -53,6 +54,7 @@ function useSessionGuard() {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const themeColors = useThemeColors();
   useSessionGuard();
 
   return (
@@ -70,7 +72,7 @@ export default function TabsLayout() {
           bottom: insets.bottom + 12,
           height: 64,
           borderRadius: PANEL_RADIUS,
-          backgroundColor: token.card,
+          backgroundColor: themeColors.card,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-evenly',
@@ -94,7 +96,7 @@ export default function TabsLayout() {
       <MaterialTopTabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon(House, 'Home') }} />
       <MaterialTopTabs.Screen
         name="transfer"
-        options={{ title: 'Transfer', tabBarIcon: tabIcon(SendHorizontal, 'Transfer') }}
+        options={{ title: 'Pay', tabBarIcon: tabIcon(SendHorizontal, 'Pay') }}
       />
       <MaterialTopTabs.Screen
         name="business"

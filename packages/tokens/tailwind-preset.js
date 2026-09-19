@@ -6,11 +6,78 @@
  * references tokens by name only — never a hex value.
  * Source of truth: docs/DESIGN.md and the `Entole - Screens` design export.
  */
-const { colors, shadow } = require('./design-tokens');
+const { light, dark, constants, shadow } = require('./design-tokens');
 
 function boxShadow({ offsetX, offsetY, blur, opacity }) {
   return `${offsetX}px ${offsetY}px ${blur}px 0 rgba(18,16,14,${opacity})`;
 }
+
+function hexToRgbTriplet(hex) {
+  const value = hex.replace('#', '');
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+/** Walks a token tree, turning every leaf hex into a `--color-<path>` CSS
+ * variable name (e.g. `indigo.deep` -> `--color-indigo-deep`, `avatar.1` ->
+ * `--color-avatar-1`). Both `themeCssVars()` (the variable *declarations*,
+ * for a stylesheet's `:root`/`.dark` blocks) and `themeColors()` (the
+ * Tailwind `colors` extension, all `rgb(var(...) / <alpha-value>)`
+ * references) walk from this so the two can never drift apart. */
+function walk(tree, path, onLeaf) {
+  for (const [key, value] of Object.entries(tree)) {
+    const nextPath = [...path, key];
+    if (typeof value === 'string') {
+      onLeaf(nextPath, value);
+    } else {
+      walk(value, nextPath, onLeaf);
+    }
+  }
+}
+
+/** `['indigo', 'DEFAULT']` -> `--color-indigo`, `['indigo', 'deep']` ->
+ * `--color-indigo-deep`, `['ink']` -> `--color-ink` — `DEFAULT` collapses
+ * into its parent, matching Tailwind's own nested-color convention. */
+function varName(path) {
+  const segments = path.filter((segment) => segment !== 'DEFAULT');
+  return `--color-${segments.join('-')}`;
+}
+
+/** `{ '--color-ink': '18 16 14', ... }` for one palette (light or dark) —
+ * spread into a stylesheet's `:root { ... }` / `.dark { ... }` block. */
+function themeCssVars(palette) {
+  const vars = {};
+  walk(palette, [], (path, hex) => {
+    vars[varName(path)] = hexToRgbTriplet(hex);
+  });
+  return vars;
+}
+
+/** Rebuilds the nested `colors` shape Tailwind expects, but every leaf is a
+ * `rgb(var(--color-x) / <alpha-value>)` reference instead of a literal hex —
+ * opacity modifiers (`bg-ink/50`) keep working, and which palette resolves
+ * depends only on which `:root`/`.dark` block is active. `DEFAULT` collapses
+ * into the parent key exactly like Tailwind's own convention. */
+function themeColors(palette) {
+  function build(tree, path) {
+    const out = {};
+    for (const [key, value] of Object.entries(tree)) {
+      const nextPath = [...path, key];
+      if (typeof value === 'string') {
+        out[key] = `rgb(var(${varName(nextPath)}) / <alpha-value>)`;
+      } else {
+        out[key] = build(value, nextPath);
+      }
+    }
+    return out;
+  }
+  return { ...build(palette, []), ...constants };
+}
+
+const colors = themeColors(light);
+const cssVars = { light: themeCssVars(light), dark: themeCssVars(dark) };
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -83,3 +150,12 @@ extend: {
 },
   },
 };
+
+/**
+ * The `:root`/`.dark` CSS custom-property declarations both
+ * `apps/web/app/globals.css` and `apps/mobile/global.css` currently
+ * hand-author — exported so a sync script can regenerate/verify them
+ * against `design-tokens.js` instead of the two staying in sync by hand.
+ * Not consumed anywhere yet; this is that seam.
+ */
+module.exports.cssVars = cssVars;

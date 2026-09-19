@@ -7,11 +7,25 @@ import {
   type AllowanceDraft,
   type InvoiceDraft,
   type PaymentsGateway,
+  type ProcurementRequestDraft,
   type SeatDraft,
   type SendInput,
+  type StockQuote,
+  type StockSearchResult,
 } from './gateway';
 import { kobo, type Naira } from './money';
-import type { Activity, Contact, GrowPosition, Invoice, Proposal, Receipt, Snapshot, TaxReserve } from './schemas';
+import type {
+  Activity,
+  Contact,
+  GrowPosition,
+  Invoice,
+  ProcurementRequest,
+  Proposal,
+  Receipt,
+  Snapshot,
+  StockPosition,
+  TaxReserve,
+} from './schemas';
 
 type Status = 'loading' | 'ready' | 'failed';
 
@@ -25,8 +39,13 @@ type Store = {
   activity: Activity[];
   seats: SeatView[];
   invoices: Invoice[];
+  procurementRequests: ProcurementRequest[];
   taxReserves: TaxReserve[];
   growPosition: GrowPosition | null;
+  stockPositions: StockPosition[];
+  /** False until a broker is configured — the Stocks screen shows its
+   * "not available yet" state from this, not from a failed call. */
+  stocksAvailable: boolean;
   proposal: Proposal | null;
   request: Snapshot['request'] | null;
   contact(id: string): Contact | undefined;
@@ -44,11 +63,17 @@ type Store = {
   revokeSeat(id: string): Promise<void>;
   createInvoice(draft: InvoiceDraft): Promise<Invoice>;
   settleInvoice(invoiceId: string, taxFraction?: number): Promise<void>;
+  createProcurementRequest(draft: ProcurementRequestDraft): Promise<ProcurementRequest>;
   /** Re-checks a `'pending-release'` invoice's condition against `rate`.
    * Resolves `true` if it released, `false` if it's still not met. */
   requestConditionalRelease(invoiceId: string, rate: Rate): Promise<boolean>;
   depositGrow(amountMinor: number): Promise<void>;
   withdrawGrow(amountMinor: number): Promise<void>;
+  searchStocks(query: string): Promise<StockSearchResult[]>;
+  getStockQuote(symbol: string): Promise<StockQuote>;
+  /** Quantities are fixed-point, 4 decimal places — see `stockPositionSchema`. */
+  buyStock(symbol: string, quantityScaled: number): Promise<void>;
+  sellStock(symbol: string, quantityScaled: number): Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -217,6 +242,17 @@ export function StoreProvider({
     [gateway],
   );
 
+  const createProcurementRequest = useCallback(
+    async (draft: ProcurementRequestDraft) => {
+      const request = await gateway.createProcurementRequest(draft);
+      setSnapshot((current) =>
+        current ? { ...current, procurementRequests: [request, ...current.procurementRequests] } : current,
+      );
+      return request;
+    },
+    [gateway],
+  );
+
   const requestConditionalRelease = useCallback(
     async (invoiceId: string, rate: Rate) => {
       const result = await gateway.requestConditionalRelease(invoiceId, rate);
@@ -251,6 +287,25 @@ export function StoreProvider({
     [gateway],
   );
 
+  const searchStocks = useCallback((query: string) => gateway.searchStocks(query), [gateway]);
+  const getStockQuote = useCallback((symbol: string) => gateway.getStockQuote(symbol), [gateway]);
+
+  const buyStock = useCallback(
+    async (symbol: string, quantityScaled: number) => {
+      const stockPositions = await gateway.buyStock(symbol, quantityScaled);
+      setSnapshot((current) => (current ? { ...current, stockPositions } : current));
+    },
+    [gateway],
+  );
+
+  const sellStock = useCallback(
+    async (symbol: string, quantityScaled: number) => {
+      const stockPositions = await gateway.sellStock(symbol, quantityScaled);
+      setSnapshot((current) => (current ? { ...current, stockPositions } : current));
+    },
+    [gateway],
+  );
+
   const runProposal = useCallback(async () => {
     if (!proposal) throw new Error('No assistant payment is waiting');
     const settledReceipt = await send({
@@ -268,6 +323,7 @@ export function StoreProvider({
     const allowances = (snapshot?.allowances ?? []).map(viewAllowance);
     const seats = (snapshot?.seats ?? []).map(viewSeat);
     const invoices = snapshot?.invoices ?? [];
+    const procurementRequests = snapshot?.procurementRequests ?? [];
     const taxReserves = snapshot?.taxReserves ?? [];
 
     return {
@@ -282,8 +338,11 @@ export function StoreProvider({
       activity: snapshot?.activity ?? [],
       seats,
       invoices,
+      procurementRequests,
       taxReserves,
       growPosition: snapshot?.growPosition ?? null,
+      stockPositions: snapshot?.stockPositions ?? [],
+      stocksAvailable: gateway.stocksAvailable,
       proposal,
       request: snapshot?.request ?? null,
       contact: (id) => contacts.find((c) => c.id === id),
@@ -301,14 +360,23 @@ export function StoreProvider({
       revokeSeat,
       createInvoice,
       settleInvoice,
+      createProcurementRequest,
       requestConditionalRelease,
       depositGrow,
       withdrawGrow,
+      searchStocks,
+      getStockQuote,
+      buyStock,
+      sellStock,
     };
   }, [
+    buyStock,
     cancelProposal,
     createInvoice,
+    createProcurementRequest,
     depositGrow,
+    gateway,
+    getStockQuote,
     proposal,
     receipts,
     requestConditionalRelease,
@@ -317,6 +385,8 @@ export function StoreProvider({
     runProposal,
     saveAllowance,
     saveSeat,
+    searchStocks,
+    sellStock,
     send,
     setPaused,
     settleInvoice,

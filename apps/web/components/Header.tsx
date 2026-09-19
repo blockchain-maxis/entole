@@ -1,18 +1,26 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-import { token } from '@entole/tokens';
-
 import { PauseControl } from './PauseControl';
 
 /** Monoline rounded arch — safe passage for money, nothing coin- or
- * chain-shaped. Mirrors `apps/mobile/components/ui/BrandMark.tsx`. */
+ * chain-shaped. Mirrors `apps/mobile/components/ui/BrandMark.tsx`.
+ * `currentColor` + the `text-ink` className (not a raw token value) is what
+ * makes this repaint on theme change without needing a client component or
+ * a theme hook — the CSS variable behind `text-ink` is what actually moves. */
 export function BrandGlyph({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className="text-ink"
+    >
       <path
         d="M6 20V10a6 6 0 0 1 12 0v10"
-        stroke={token.ink}
+        stroke="currentColor"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"

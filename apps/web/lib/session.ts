@@ -29,6 +29,20 @@ const RP = { id: RP_ID, name: 'Entole' };
 const ONBOARDED_KEY = 'entole.onboarded';
 const SESSION_KEY = 'entole.session';
 const CREDENTIAL_KEY = 'entole.passkey.credential';
+const DISPLAY_NAME_KEY = 'entole.display-name';
+
+/** The name captured in `AuthGate`'s onboarding step — not the passkey
+ * ceremony's own (unrelated) display label. Survives reloads; never key
+ * material. */
+export function storeDisplayName(name: string): void {
+  if (!storageAvailable()) return;
+  window.localStorage.setItem(DISPLAY_NAME_KEY, name);
+}
+
+export function loadDisplayName(): string {
+  if (!storageAvailable()) return '';
+  return window.localStorage.getItem(DISPLAY_NAME_KEY) ?? '';
+}
 
 function storageAvailable(): boolean {
   return typeof window !== 'undefined' && 'localStorage' in window;
@@ -79,7 +93,9 @@ export async function registerAccount(displayName: string): Promise<SignInResult
     storeCredential(owner.credential);
     const session = await deriveSessionAccount({ rpId: RP_ID, credential: owner.credential });
     window.localStorage.setItem(SESSION_KEY, String(Date.now()));
-    return { ok: true, account: { owner, session } };
+    // Not known yet — captured a step later in `AuthGate`'s onboarding flow,
+    // which merges the real name into the account already in context.
+    return { ok: true, account: { owner, session, displayName: '' } };
   } catch (error) {
     return { ok: false, reason: reasonFor(error) };
   }
@@ -95,7 +111,7 @@ export async function reauthenticate(): Promise<SignInResult> {
     const owner = await signInToOwnerAccount({ rpId: RP_ID, ...(credential ? { credential } : {}) });
     const session = await deriveSessionAccount({ rpId: RP_ID, credential: owner.credential });
     window.localStorage.setItem(SESSION_KEY, String(Date.now()));
-    return { ok: true, account: { owner, session } };
+    return { ok: true, account: { owner, session, displayName: loadDisplayName() } };
   } catch (error) {
     return { ok: false, reason: reasonFor(error) };
   }
@@ -114,4 +130,22 @@ export function sessionIsFresh(): boolean {
 export function signOut(): void {
   if (!storageAvailable()) return;
   window.localStorage.removeItem(SESSION_KEY);
+}
+
+/** The hard version — clears the stored credential, name and onboarded
+ * flag too, not just the session. The next visit starts at onboarding
+ * from scratch, a fresh passkey ceremony, not a quick re-auth. */
+export function forgetEverything(): void {
+  if (!storageAvailable()) return;
+  window.localStorage.removeItem(SESSION_KEY);
+  window.localStorage.removeItem(CREDENTIAL_KEY);
+  window.localStorage.removeItem(ONBOARDED_KEY);
+  window.localStorage.removeItem(DISPLAY_NAME_KEY);
+}
+
+/** Whether a passkey has ever been registered in this browser — for the
+ * Security section's "Manage passkey" status line. */
+export function hasStoredCredential(): boolean {
+  if (!storageAvailable()) return false;
+  return window.localStorage.getItem(CREDENTIAL_KEY) !== null;
 }

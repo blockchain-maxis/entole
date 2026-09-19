@@ -5,6 +5,7 @@ import { StoreProvider } from '@entole/core/store';
 import { AuthGate } from '@/components/AuthGate';
 import { AccountProvider, useAccount } from '@/lib/account';
 import { useOnChainGateway } from '@/lib/onchain';
+import { ThemeProvider } from '@/lib/theme';
 
 /**
  * The store is the same one the phone app runs, over the same gateway
@@ -26,8 +27,10 @@ function GatewayBoundary({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AccountProvider>
-      <GatewayBoundary>{children}</GatewayBoundary>
-    </AccountProvider>
+    <ThemeProvider>
+      <AccountProvider>
+        <GatewayBoundary>{children}</GatewayBoundary>
+      </AccountProvider>
+    </ThemeProvider>
   );
 }

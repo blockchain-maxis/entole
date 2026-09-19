@@ -1,6 +1,6 @@
 import { Path, Svg } from 'react-native-svg';
 
-import { token } from '@entole/tokens';
+import { useThemeColors } from '@/lib/theme';
 
 import { Text } from './Text';
 
@@ -8,11 +8,12 @@ import { Text } from './Text';
  * Monoline, 2px, no fill. Pairs with the wordmark; never stands alone as a
  * favicon-style mark since the product has no app-icon design pass yet. */
 export function BrandGlyph({ size = 22 }: { size?: number }) {
+  const colors = useThemeColors();
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M6 20V10a6 6 0 0 1 12 0v10"
-        stroke={token.ink}
+        stroke={colors.ink}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"

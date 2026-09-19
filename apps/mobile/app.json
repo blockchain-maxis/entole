@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "entole",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#FBF9F5",
     "ios": {
       "supportsTablet": false,
@@ -50,7 +50,10 @@
         "growthVaultAddress": "",
         "rpcUrl": "https://testnet-rpc.monad.xyz",
         "chainId": 10143,
-        "indexerUrl": ""
+        "indexerUrl": "",
+        "billPaymentApiBase": "",
+        "billPaymentProxyToken": "",
+        "billItemCodes": {}
       }
     }
   }

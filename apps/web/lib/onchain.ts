@@ -51,8 +51,14 @@ const pendingGateway: PaymentsGateway = {
   createInvoice: () => Promise.reject(new Error('Not signed in yet')),
   settleInvoice: () => Promise.reject(new Error('Not signed in yet')),
   requestConditionalRelease: () => Promise.reject(new Error('Not signed in yet')),
+  createProcurementRequest: () => Promise.reject(new Error('Not signed in yet')),
   depositGrow: () => Promise.reject(new Error('Not signed in yet')),
   withdrawGrow: () => Promise.reject(new Error('Not signed in yet')),
+  stocksAvailable: false,
+  searchStocks: () => Promise.reject(new Error('Not signed in yet')),
+  getStockQuote: () => Promise.reject(new Error('Not signed in yet')),
+  buyStock: () => Promise.reject(new Error('Not signed in yet')),
+  sellStock: () => Promise.reject(new Error('Not signed in yet')),
 };
 
 /**

@@ -1,7 +1,12 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { colors, shadow } = require('./design-tokens') as { colors: TokenTree; shadow: ShadowTree };
+const { colors, light, dark, shadow } = require('./design-tokens') as {
+  colors: TokenTree;
+  light: PaletteTree;
+  dark: PaletteTree;
+  shadow: ShadowTree;
+};
 
-type TokenTree = {
+type PaletteTree = {
   ink: string;
   slate: string;
   mist: string;
@@ -17,8 +22,9 @@ type TokenTree = {
   halt: { DEFAULT: string; deep: string; wash: string; tint: string };
   avatar: Record<1 | 2 | 3, string>;
   'avatar-deep': Record<1 | 2 | 3, string>;
-  scrim: string;
 };
+
+type TokenTree = PaletteTree & { white: string; black: string; scrim: string };
 
 type ShadowValue = { offsetX: number; offsetY: number; blur: number; opacity: number };
 type ShadowTree = { raised: ShadowValue; floating: ShadowValue };
@@ -43,6 +49,19 @@ function nativeShadow(value: ShadowValue) {
  * truth, not a second one.
  */
 export const token = colors;
+
+/** The dark palette, same shape as `token` minus the never-themed
+ * `white`/`black`/`scrim` (those stay on `token` regardless of scheme — see
+ * `design-tokens.js`'s `constants`). */
+export const darkToken: PaletteTree = dark;
+
+/** `themeTokens('dark')` for the rare native call site that needs the
+ * *current* scheme's raw value (SVG strokes, shadow colors) rather than a
+ * `bg-x`/`text-x` className — see each platform's `useThemeColors()` in
+ * `lib/theme.tsx`, which is what components should actually call. */
+export function themeTokens(scheme: 'light' | 'dark'): PaletteTree {
+  return scheme === 'dark' ? dark : light;
+}
 
 /** Shadow tokens as ready-to-spread React Native style objects, for the
  * rare case (e.g. an `Animated.View`) that can't take a `shadow-*`

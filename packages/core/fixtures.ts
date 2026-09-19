@@ -201,6 +201,19 @@ export const SNAPSHOT: unknown = {
       releaseCondition: { type: 'fx-rate-at-or-below', maxKoboPerDollar: 155_000 },
     },
   ],
+  procurementRequests: [
+    {
+      id: 'po-1',
+      supplierName: 'Kano Packaging Ltd',
+      items: [
+        { name: 'Carton boxes (medium)', quantity: 500 },
+        { name: 'Packing tape rolls', quantity: 40 },
+      ],
+      note: 'For the October shipment run',
+      status: 'requested',
+      requestedAt: '2026-09-10T09:00:00.000+01:00',
+    },
+  ],
   taxReserves: [
     {
       id: 'tr-1',
@@ -215,6 +228,7 @@ export const SNAPSHOT: unknown = {
     accruedMinor: 640_000,
     nextPayoutAt: '2026-10-01T00:00:00.000+01:00',
   },
+  stockPositions: [],
   request: {
     id: 'q-1',
     requesterName: 'Adaeze',

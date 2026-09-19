@@ -34,7 +34,7 @@ export default function Pause() {
 
   return (
     <Screen>
-      <Header title="Pause" leading="close" />
+      <Header title="Pause" leading="close" trailing={null} />
 
       <View className="flex-1 items-center px-gutter-lg pt-6">
         <KillSwitchBadge />
