@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "expo start",
+    "dev-client": "expo start --dev-client",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "test": "vitest run",
@@ -21,6 +22,7 @@
     "expo": "~57.0.19",
     "expo-clipboard": "^57.0.1",
     "expo-constants": "~57.0.17",
+    "expo-dev-client": "~57.0.19",
     "expo-font": "~57.0.3",
     "expo-haptics": "~57.0.2",
     "expo-linear-gradient": "~57.0.2",
@@ -54,6 +56,7 @@
   "devDependencies": {
     "@types/node": "^26.4.1",
     "@types/react": "~19.2.2",
+    "eas-cli": "^24.7.0",
     "eslint": "^9.39.5",
     "eslint-config-expo": "^57.0.2",
     "eslint-import-resolver-typescript": "^4.4.4",
