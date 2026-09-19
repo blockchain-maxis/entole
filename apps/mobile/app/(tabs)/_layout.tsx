@@ -1,5 +1,5 @@
 import { createMaterialTopTabNavigator } from 'expo-router/js-top-tabs';
-import { useRouter, withLayoutContext } from 'expo-router';
+import { usePathname, useRouter, withLayoutContext } from 'expo-router';
 import { Briefcase, House, SendHorizontal, Sprout, User, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { nativeShadowStyle } from '@entole/tokens';
 
 import { TabBarIcon } from '@/components/ui/TabBarIcon';
+import { useAccount } from '@/lib/account';
 import { sessionIsFresh } from '@/lib/session';
 import { useThemeColors } from '@/lib/theme';
 
@@ -28,17 +29,32 @@ const MaterialTopTabs = withLayoutContext(TopTabs);
 
 /** A stale session never lapses into a screen that still looks signed in —
  * every return to the foreground, and once on mount, re-checks and routes to
- * `/lock` instead of letting a tab render on an expired session. */
+ * `/lock` instead of letting a tab render on an expired session.
+ *
+ * "Signed in" means two things: the session timestamp is fresh *and* the
+ * signing account is actually in memory. The timestamp is on disk and survives
+ * the app closing; the account is deliberately never written to disk, so a
+ * cold start inside the window has a fresh timestamp and no account — tabs
+ * would render forever waiting on a gateway that has nothing to sign with. */
 function useSessionGuard() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { account } = useAccount();
   const checking = useRef(false);
+  const onLock = useRef(false);
+
+  useEffect(() => {
+    onLock.current = pathname === '/lock';
+  }, [pathname]);
 
   useEffect(() => {
     async function check() {
-      if (checking.current) return;
+      // The passkey sheet opening and closing returns the app to the
+      // foreground; without this each return would stack another lock screen.
+      if (checking.current || onLock.current) return;
       checking.current = true;
       try {
-        if (!(await sessionIsFresh())) router.push('/lock');
+        if (!account || !(await sessionIsFresh())) router.push('/lock');
       } finally {
         checking.current = false;
       }
@@ -49,7 +65,7 @@ function useSessionGuard() {
       if (state === 'active') void check();
     });
     return () => subscription.remove();
-  }, [router]);
+  }, [router, account]);
 }
 
 export default function TabsLayout() {

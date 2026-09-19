@@ -7,6 +7,7 @@ import { BrandGlyph } from '@/components/Header';
 import { useAccount } from '@/lib/account';
 import {
   hasOnboarded,
+  hasStoredCredential,
   markOnboarded,
   reauthenticate,
   registerAccount,
@@ -34,7 +35,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function check() {
-      setOnboarded(hasOnboarded());
+      // "Returning" needs a saved passkey as well as the onboarded flag — the
+      // sign-in below can only confirm a passkey that exists.
+      setOnboarded(hasOnboarded() && hasStoredCredential());
     }
     check();
   }, []);
@@ -129,7 +132,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </h1>
           <p className="mt-2 text-center font-body text-body-sm text-slate">
             Send naira home, share costs with friends, and set limits Entole will keep for you.
-            No password to remember — your face or fingerprint is the key.
+            No password to remember — unlocking your device is the key.
           </p>
         </>
       )}

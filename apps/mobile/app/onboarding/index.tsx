@@ -8,10 +8,11 @@ import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { registerAccount } from '@/lib/session';
 
-const PROMISES = ['No password to remember', 'Your face is the key', 'Ready in half a minute'];
+const PROMISES = ['No password to remember', 'Your phone unlock is the key', 'Ready in half a minute'];
 
 /**
- * Sign-in is a biometric check. There is no phrase to write down, so there is
+ * Sign-in is a passkey — confirmed with whatever unlocks the phone (face,
+ * fingerprint or screen lock). There is no phrase to write down, so there is
  * nothing here to lose, screenshot or be talked out of.
  */
 export default function Welcome() {
@@ -63,7 +64,7 @@ export default function Welcome() {
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">
-          <Button label="Continue with Face ID" busy={busy} onPress={() => void start()} />
+          <Button label="Continue with passkey" busy={busy} onPress={() => void start()} />
         </View>
         <Text className="mt-3.5 text-center font-body text-caption text-mist">
           By continuing you agree to our terms and privacy notice.

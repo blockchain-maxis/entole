@@ -150,3 +150,33 @@ describe('assistant actions are visually distinct', () => {
     expect(feed).toMatch(/AssistantBadge/);
   });
 });
+
+describe('a signed-in session needs a live account, not only a fresh timestamp', () => {
+  // The timestamp is on disk and survives the app closing; the signing account
+  // is deliberately memory-only. Checking only the timestamp lets a cold start
+  // render the tabs with nothing to sign with, so they load forever.
+  const tabs = read(join(ROOT, 'app/(tabs)/_layout.tsx'));
+
+  it('the tabs guard sends an account-less launch to the lock screen', () => {
+    expect(tabs).toMatch(/!account \|\| !\(await sessionIsFresh\(\)\)/);
+  });
+
+  it('the guard does not stack another lock screen while one is already showing', () => {
+    expect(tabs).toMatch(/onLock\.current/);
+  });
+});
+
+describe('a phone that is "onboarded" but has no passkey is not stranded on the lock screen', () => {
+  // The lock screen can only confirm a passkey that exists. Trusting the
+  // onboarded flag alone left a phone with the flag and no passkey stuck there
+  // for good, with no way back to the screen that creates one.
+  it('the entry route needs a saved passkey, not only the onboarded flag', () => {
+    expect(read(join(ROOT, 'app/index.tsx'))).toMatch(/hasStoredCredential/);
+  });
+
+  it('the lock screen sends a passkey-less phone to setup instead of prompting', () => {
+    const lock = read(join(ROOT, 'app/lock.tsx'));
+    expect(lock).toMatch(/!\(await hasStoredCredential\(\)\)/);
+    expect(lock).toMatch(/router\.replace\('\/onboarding'\)/);
+  });
+});

@@ -1,5 +1,7 @@
+import Constants from 'expo-constants';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import { z } from 'zod';
 
 import { isMeraError, type PasskeyCredentialMetadata } from '@category-labs/mera';
 import { reactNativeWebAuthnClient } from '@category-labs/mera/react-native-webauthn-client';
@@ -63,7 +65,7 @@ async function checkDeviceCanAuthenticate(): Promise<string | undefined> {
   const supported = await LocalAuthentication.hasHardwareAsync();
   const enrolled = await LocalAuthentication.isEnrolledAsync();
   if (!supported || !enrolled) {
-    return 'Set up Face ID or a fingerprint on this phone first.';
+    return 'Set up a screen lock, fingerprint or face unlock on this phone first.';
   }
   return undefined;
 }
@@ -107,6 +109,42 @@ function reasonFor(error: unknown): string {
     : 'We could not confirm it was you.';
 }
 
+const assetLinksSchema = z.array(
+  z.object({
+    target: z.object({
+      package_name: z.string().optional(),
+      sha256_cert_fingerprints: z.array(z.string()).optional(),
+    }),
+  }),
+);
+
+/** Development builds only. "RP ID cannot be validated" doesn't say whether
+ * the domain is wrong, unreachable from the phone, or lists a different app —
+ * each needs a different fix — so ask the phone's own network for the linking
+ * file and report what it actually saw. */
+async function checkDomainAssociation(): Promise<string> {
+  const packageName = Constants.expoConfig?.android?.package ?? 'to.entole.app';
+  try {
+    const response = await fetch(`https://${RP_ID}/.well-known/assetlinks.json`);
+    if (!response.ok) return `assetlinks HTTP ${response.status}`;
+    const parsed = assetLinksSchema.safeParse(await response.json());
+    if (!parsed.success) return 'assetlinks reachable but not in the expected format';
+    const entry = parsed.data.find((item) => item.target.package_name === packageName);
+    if (!entry) return `assetlinks reachable but does not list ${packageName}`;
+    return `assetlinks ok, lists ${packageName}`;
+  } catch (error) {
+    return `assetlinks unreachable from this phone: ${describeCause(error)}`;
+  }
+}
+
+async function failed(error: unknown): Promise<{ ok: false; reason: string }> {
+  const reason = reasonFor(error);
+  if (process.env.NODE_ENV === 'production') return { ok: false, reason };
+  const domain = await checkDomainAssociation();
+  console.warn('[passkey] domain check:', RP_ID, domain);
+  return { ok: false, reason: `${reason} [dev rp=${RP_ID}; ${domain}]` };
+}
+
 /**
  * Registers a new passkey and derives both the owner account and its
  * session (delegate) key from it — two ceremonies against the same passkey,
@@ -136,7 +174,7 @@ export async function registerAccount(displayName: string): Promise<SignInResult
     // merges the real name into the account already in context.
     return { ok: true, account: { owner, session, displayName: '' } };
   } catch (error) {
-    return { ok: false, reason: reasonFor(error) };
+    return failed(error);
   }
 }
 
@@ -166,7 +204,7 @@ export async function reauthenticate(): Promise<SignInResult> {
     const displayName = await loadDisplayName();
     return { ok: true, account: { owner, session, displayName } };
   } catch (error) {
-    return { ok: false, reason: reasonFor(error) };
+    return failed(error);
   }
 }
 

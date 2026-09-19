@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
-import { reauthenticate } from '@/lib/session';
+import { hasStoredCredential, reauthenticate } from '@/lib/session';
 
 /**
  * A stale session re-prompts here rather than lapsing into a screen that
@@ -25,6 +25,13 @@ export default function Lock() {
     let cancelled = false;
 
     async function run() {
+      // There is no passkey to confirm, so this screen could never succeed —
+      // send the person to set one up rather than leave them here.
+      if (!(await hasStoredCredential())) {
+        if (!cancelled) router.replace('/onboarding');
+        return;
+      }
+
       const result = await reauthenticate();
       if (cancelled) return;
       if (result.ok) {
