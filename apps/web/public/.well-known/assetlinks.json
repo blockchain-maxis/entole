@@ -4,7 +4,9 @@
     "target": {
       "namespace": "android_app",
       "package_name": "to.entole.app",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_ANDROID_SIGNING_CERT_SHA256_FINGERPRINT"]
+      "sha256_cert_fingerprints": [
+        "3D:46:52:D8:CB:1D:48:4C:EC:03:77:48:FF:FA:72:29:8E:97:5E:ED:97:AB:CF:0D:AC:DF:9C:F0:86:97:92:77"
+      ]
     }
   }
 ]

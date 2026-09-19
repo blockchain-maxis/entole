@@ -68,13 +68,43 @@ async function checkDeviceCanAuthenticate(): Promise<string | undefined> {
   return undefined;
 }
 
+/** The underlying failure, for a development build only — the generic
+ * message below tells a person nothing about *why* a passkey ceremony failed,
+ * and that is exactly what someone debugging a device needs to see. */
+function describeCause(cause: unknown): string {
+  if (cause instanceof Error) return `${cause.name}: ${cause.message}`;
+  // The phone's passkey library rejects with a plain `{ error, message }`
+  // object, not an Error — printing it as `[object Object]` hides the reason.
+  if (cause && typeof cause === 'object') {
+    try {
+      return JSON.stringify(cause);
+    } catch {
+      return String(cause);
+    }
+  }
+  return String(cause);
+}
+
+function describeError(error: unknown): string {
+  if (isMeraError(error)) {
+    const cause = error.cause === undefined ? '' : ` / cause: ${describeCause(error.cause)}`;
+    return `${error.code}: ${error.message}${cause}`;
+  }
+  return describeCause(error);
+}
+
 function reasonFor(error: unknown): string {
+  const inDevelopment = process.env.NODE_ENV !== 'production';
+  if (inDevelopment) console.warn('[passkey]', describeError(error));
+
   if (isMeraError(error)) {
     if (error.code === 'PRF_UNAVAILABLE') {
       return 'This device can’t confirm it’s you the way Entole needs. Try updating it, or use another device.';
     }
   }
-  return 'We could not confirm it was you.';
+  return inDevelopment
+    ? `We could not confirm it was you. [dev] ${describeError(error)}`
+    : 'We could not confirm it was you.';
 }
 
 /**

@@ -19,6 +19,7 @@ import { ThemeProvider, useThemeColors } from '@/lib/theme';
 
 import '../global.css';
 import '@/lib/interop';
+import '@/lib/polyfills';
 
 void SplashScreen.preventAutoHideAsync();
 
