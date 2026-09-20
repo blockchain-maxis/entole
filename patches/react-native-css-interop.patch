@@ -1,0 +1,66 @@
+diff --git a/dist/runtime/native/render-component.js b/dist/runtime/native/render-component.js
+index eba25ece1cf3fe3170cd55134df6b70c7aabd70e..c880f64d99a7b70f021cb8f8fc9b0f2bbe6c6081 100644
+--- a/dist/runtime/native/render-component.js
++++ b/dist/runtime/native/render-component.js
+@@ -120,23 +120,53 @@ function createAnimatedComponent(Component) {
+ function printUpgradeWarning(warning, originalProps) {
+     console.log(`CssInterop upgrade warning.\n\n${warning}.\n\nThis warning was caused by a component with the props:\n${stringify(originalProps)}\n\nIf adding or removing sibling components caused this warning you should add a unique "key" prop to your components. https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key\n`);
+ }
++// Patched: the original walked every property of the offending component's
++// props, including React's internal `_owner` fiber links, and read getters on
++// context objects that deliberately throw (e.g. React Navigation's default
++// context) — so building this *warning* crashed the app with an unrelated
++// error. This version skips React's private `_`-prefixed fields, tolerates
++// unreadable properties, and caps depth, so the warning prints the props
++// (className, style, ...) that identify the component instead of crashing.
+ function stringify(object) {
+     const seen = new WeakSet();
+-    return JSON.stringify(object, function replace(_, value) {
++    function replace(value, depth) {
+         if (!(value !== null && typeof value === "object")) {
+-            return value;
++            return typeof value === "function" ? "[Function]" : value;
+         }
+         if (seen.has(value)) {
+             return "[Circular]";
+         }
++        if (depth > 6) {
++            return "[Object]";
++        }
+         seen.add(value);
+-        const newValue = Array.isArray(value) ? [] : {};
+-        for (const entry of Object.entries(value)) {
+-            newValue[entry[0]] = replace(entry[0], entry[1]);
++        try {
++            const newValue = Array.isArray(value) ? [] : {};
++            for (const key of Object.keys(value)) {
++                if (key.startsWith("_")) {
++                    continue;
++                }
++                let entry;
++                try {
++                    entry = value[key];
++                }
++                catch {
++                    entry = "[Unreadable]";
++                }
++                newValue[key] = replace(entry, depth + 1);
++            }
++            return newValue;
++        }
++        finally {
++            seen.delete(value);
+         }
+-        seen.delete(value);
+-        return newValue;
+-    }, 2);
++    }
++    try {
++        return JSON.stringify(replace(object, 0), null, 2);
++    }
++    catch {
++        return "[Unserializable props]";
++    }
+ }
+ function getDebugReplacer() {
+     const seen = new WeakSet();

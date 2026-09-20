@@ -162,7 +162,7 @@ describe('a signed-in session needs a live account, not only a fresh timestamp',
   });
 
   it('the guard does not stack another lock screen while one is already showing', () => {
-    expect(tabs).toMatch(/onLock\.current/);
+    expect(tabs).toMatch(/lockScreen\.visible/);
   });
 });
 

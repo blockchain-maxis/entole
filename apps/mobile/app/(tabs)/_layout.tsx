@@ -1,5 +1,5 @@
 import { createMaterialTopTabNavigator } from 'expo-router/js-top-tabs';
-import { usePathname, useRouter, withLayoutContext } from 'expo-router';
+import { useRouter, withLayoutContext } from 'expo-router';
 import { Briefcase, House, SendHorizontal, Sprout, User, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -9,6 +9,7 @@ import { nativeShadowStyle } from '@entole/tokens';
 
 import { TabBarIcon } from '@/components/ui/TabBarIcon';
 import { useAccount } from '@/lib/account';
+import { lockScreen } from '@/lib/lock-state';
 import { sessionIsFresh } from '@/lib/session';
 import { useThemeColors } from '@/lib/theme';
 
@@ -38,20 +39,14 @@ const MaterialTopTabs = withLayoutContext(TopTabs);
  * would render forever waiting on a gateway that has nothing to sign with. */
 function useSessionGuard() {
   const router = useRouter();
-  const pathname = usePathname();
   const { account } = useAccount();
   const checking = useRef(false);
-  const onLock = useRef(false);
-
-  useEffect(() => {
-    onLock.current = pathname === '/lock';
-  }, [pathname]);
 
   useEffect(() => {
     async function check() {
       // The passkey sheet opening and closing returns the app to the
       // foreground; without this each return would stack another lock screen.
-      if (checking.current || onLock.current) return;
+      if (checking.current || lockScreen.visible) return;
       checking.current = true;
       try {
         if (!account || !(await sessionIsFresh())) router.push('/lock');

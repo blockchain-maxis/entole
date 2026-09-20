@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
+import { lockScreen } from '@/lib/lock-state';
 import { hasStoredCredential, reauthenticate } from '@/lib/session';
 
 /**
@@ -20,6 +21,15 @@ export default function Lock() {
   // mount, so there is no synchronous frame where this should read false.
   const [checking, setChecking] = useState(true);
   const [attempts, setAttempts] = useState(0);
+
+  // Tells the tabs' session guard this screen is up, so it does not stack a
+  // second one when the passkey sheet closes and the app returns to the front.
+  useEffect(() => {
+    lockScreen.visible = true;
+    return () => {
+      lockScreen.visible = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
