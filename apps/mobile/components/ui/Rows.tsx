@@ -71,30 +71,38 @@ export function ReceiptLine({ label, value }: { label: string; value: string }) 
   );
 }
 
-/** Contacts first. A name and a face, never anything the recipient can't read. */
+/** People first. A name and a face, never anything the recipient can't read. */
 export function ContactRow({
   contact,
   trailing,
   onPress,
+  caption,
+  accessibilityLabel,
 }: {
   contact: Contact;
   trailing?: React.ReactNode;
   onPress?: () => void;
+  /** Small print under the name — a country, say. Replaces a phone number. */
+  caption?: string;
+  accessibilityLabel?: string;
 }) {
+  const subtitle = caption ?? contact.phone;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Send to ${contact.name}`}
+      accessibilityLabel={accessibilityLabel ?? `Send to ${contact.name}`}
       disabled={!onPress}
       onPress={onPress}
       className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
     >
       <Avatar initials={contact.initials} tone={contact.tone} size="lg" />
       <View className="min-w-0 flex-1">
-        <Text className="font-strong text-body text-ink">{contact.name}</Text>
-        {contact.phone ? (
-          <Text tabular className="mt-0.5 font-body text-caption text-slate">
-            {contact.phone}
+        <Text numberOfLines={1} className="font-strong text-body text-ink">
+          {contact.name}
+        </Text>
+        {subtitle ? (
+          <Text tabular numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+            {subtitle}
           </Text>
         ) : null}
       </View>

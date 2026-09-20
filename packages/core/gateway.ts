@@ -36,6 +36,10 @@ import {
  */
 export interface PaymentsGateway {
   loadSnapshot(): Promise<Snapshot>;
+  /** What sending `amountMinor` will cost, asked before anything is signed —
+   * the confirmation sheet shows it. Fee is whatever the settlement contract
+   * will actually charge, never an estimate. */
+  quoteSend(amountMinor: number): Promise<SendQuote>;
   submitPayment(input: SendInput): Promise<Receipt>;
   setPaused(paused: boolean): Promise<void>;
   saveAllowance(draft: AllowanceDraft): Promise<Allowance>;
@@ -84,6 +88,17 @@ export interface PaymentsGateway {
   buyStock(symbol: string, quantityScaled: number): Promise<StockPosition[]>;
   sellStock(symbol: string, quantityScaled: number): Promise<StockPosition[]>;
 }
+
+/** The real cost of a send, in the account's own currency. */
+export type SendQuote = {
+  amountMinor: number;
+  feeMinor: number;
+  /** What leaves the account: amount plus fee. */
+  totalMinor: number;
+  /** What the recipient receives, in dollar cents. */
+  receivesCents: number;
+  rate: Rate;
+};
 
 export type StockSearchResult = { symbol: string; name: string };
 
@@ -194,6 +209,18 @@ export const demoGateway: PaymentsGateway = {
   async loadSnapshot() {
     await wait(320);
     return snapshotSchema.parse(SNAPSHOT);
+  },
+
+  async quoteSend(amountMinor) {
+    const snapshot = snapshotSchema.parse(SNAPSHOT);
+    const rate = { koboPerDollar: snapshot.account.koboPerDollar, quotedAt: new Date().toISOString() };
+    return {
+      amountMinor,
+      feeMinor: FEE_MINOR,
+      totalMinor: amountMinor + FEE_MINOR,
+      receivesCents: Math.round((amountMinor * 100) / rate.koboPerDollar),
+      rate,
+    };
   },
 
   async submitPayment(input) {
@@ -316,19 +343,19 @@ export const demoGateway: PaymentsGateway = {
     const snapshot = snapshotSchema.parse(SNAPSHOT);
     return growPositionSchema.parse({
       ...snapshot.growPosition,
-      balanceMinor: snapshot.growPosition.balanceMinor + amountMinor,
+      balanceMinor: snapshot.growPosition!.balanceMinor + amountMinor,
     });
   },
 
   async withdrawGrow(amountMinor) {
     await wait(320);
     const snapshot = snapshotSchema.parse(SNAPSHOT);
-    if (amountMinor > snapshot.growPosition.balanceMinor) {
+    if (amountMinor > snapshot.growPosition!.balanceMinor) {
       throw new Error('Cannot withdraw more than the growing balance');
     }
     return growPositionSchema.parse({
       ...snapshot.growPosition,
-      balanceMinor: snapshot.growPosition.balanceMinor - amountMinor,
+      balanceMinor: snapshot.growPosition!.balanceMinor - amountMinor,
     });
   },
 

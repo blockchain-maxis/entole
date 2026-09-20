@@ -2,14 +2,18 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { countryName } from '@entole/core/countries';
+import { formatNaira } from '@entole/core/money';
+import { useStore } from '@entole/core/store';
+
 import { Button } from '@/components/ui/Button';
 import { ContactRow, StepDots } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
-import { RowSkeleton } from '@/components/ui/Skeleton';
+import { RowSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import { formatNaira, kobo } from '@entole/core/money';
 import { markOnboarded } from '@/lib/session';
-import { useStore } from '@entole/core/store';
+
+type Destination = { to: 'home' } | { to: 'send'; contactId: string } | { to: 'add-money' };
 
 /** Last step. Picking a person is the whole task — nothing else is asked for. */
 export default function FirstPayment() {
@@ -17,12 +21,22 @@ export default function FirstPayment() {
   const store = useStore();
   const [leaving, setLeaving] = useState(false);
 
-  async function finish(next: '/(tabs)' | '/send', contactId?: string) {
+  const loading = store.status === 'loading';
+  const empty = !loading && store.contacts.length === 0;
+  const noMoney = !loading && store.status === 'ready' && store.balance <= 0;
+
+  async function finish(destination: Destination) {
     if (leaving) return;
     setLeaving(true);
     await markOnboarded();
-    if (next === '/send' && contactId) router.replace({ pathname: '/send', params: { contactId } });
-    else router.replace('/(tabs)');
+    if (destination.to === 'send') {
+      router.replace({ pathname: '/send', params: { contactId: destination.contactId } });
+    } else if (destination.to === 'add-money') {
+      router.replace('/(tabs)');
+      router.push('/add-money');
+    } else {
+      router.replace('/(tabs)');
+    }
   }
 
   return (
@@ -39,7 +53,7 @@ export default function FirstPayment() {
           </Pressable>
           <StepDots total={4} done={4} />
         </View>
-        <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void finish('/(tabs)')}>
+        <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void finish({ to: 'home' })}>
           <Text className="font-strong text-label text-indigo">Skip</Text>
         </Pressable>
       </View>
@@ -50,47 +64,63 @@ export default function FirstPayment() {
       >
         <Text className="font-strong text-title-xl text-ink">Send your first payment</Text>
         <Text className="mt-3 font-body text-body-sm text-slate">
-          Pick someone from your contacts. They don’t need Entole to receive it.
+          {empty
+            ? 'Add someone with their payment code, then send them money.'
+            : 'Choose who you are sending to.'}
         </Text>
 
-        <View className="mt-[22px] flex-row items-center gap-3 rounded-control border border-line bg-card px-4 py-3.5">
-          <View className="h-[15px] w-[15px] flex-none rounded-pill border-2 border-mist" />
-          <Text className="font-body text-body-sm text-mist">Search contacts</Text>
-        </View>
-
-        <View className="mt-[18px] gap-2">
-          {store.status === 'loading' ? (
+        <View className="mt-[22px] gap-2">
+          {loading ? (
             <>
               <RowSkeleton />
               <RowSkeleton />
               <RowSkeleton />
             </>
           ) : (
-            store.contacts.map((contact) => (
-              <ContactRow
-                key={contact.id}
-                contact={contact}
-                trailing={<Text className="font-strong text-caption-sm text-indigo">Send</Text>}
-                onPress={() => void finish('/send', contact.id)}
-              />
-            ))
+            store.contacts.map((contact) => {
+              const where = countryName(contact.place);
+              return (
+                <ContactRow
+                  key={contact.id}
+                  contact={contact}
+                  {...(where ? { caption: where } : {})}
+                  trailing={<Text className="font-strong text-caption-sm text-indigo">Send</Text>}
+                  onPress={() => void finish({ to: 'send', contactId: contact.id })}
+                />
+              );
+            })
           )}
         </View>
       </ScrollView>
 
       <View className="flex-none border-t border-hairline px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row items-baseline justify-between px-0.5 pb-3">
-          <Text className="font-strong text-label-sm text-slate">Your balance is ready</Text>
-          <Text tabular className="font-strong text-body-sm text-ink">
-            {formatNaira(kobo(0))}
-          </Text>
+          <Text className="font-strong text-label-sm text-slate">Your balance</Text>
+          {loading ? (
+            <Skeleton className="h-4 w-20 rounded-md" />
+          ) : (
+            <Text tabular className="font-strong text-body-sm text-ink">
+              {formatNaira(store.balance)}
+            </Text>
+          )}
         </View>
-        <View className="flex-row">
-          <Button
-            label="Add money first"
-            variant="secondary"
-            onPress={() => void finish('/(tabs)')}
-          />
+        <View className="gap-2.5">
+          <View className="flex-row">
+            <Button
+              label="Add a beneficiary"
+              variant={empty ? 'primary' : 'secondary'}
+              onPress={() => router.push('/beneficiaries/new')}
+            />
+          </View>
+          {noMoney ? (
+            <View className="flex-row">
+              <Button
+                label="Add money first"
+                variant="secondary"
+                onPress={() => void finish({ to: 'add-money' })}
+              />
+            </View>
+          ) : null}
         </View>
       </View>
     </Screen>

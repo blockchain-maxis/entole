@@ -12,11 +12,12 @@ import { Pressable, ScrollView, Text as PlainText, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { BackendProvider } from '@entole/core/backend';
 import { StoreProvider } from '@entole/core/store';
 
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
-import { useOnChainGateway } from '@/lib/onchain';
+import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
 
 import '../global.css';
@@ -28,8 +29,12 @@ void SplashScreen.preventAutoHideAsync();
 function OnChainStoreProvider({ children }: { children: React.ReactNode }) {
   const { account } = useAccount();
   const assistant = useAssistant();
-  const gateway = useOnChainGateway(account, assistant);
-  return <StoreProvider gateway={gateway}>{children}</StoreProvider>;
+  const { gateway, backend } = useOnChainBackend(account, assistant);
+  return (
+    <BackendProvider value={backend}>
+      <StoreProvider gateway={gateway}>{children}</StoreProvider>
+    </BackendProvider>
+  );
 }
 
 function ThemedStack() {

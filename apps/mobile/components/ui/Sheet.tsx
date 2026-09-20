@@ -24,13 +24,16 @@ type Props = {
   /** Leaves the top of the underlying screen visible. */
   topInset?: number;
   className?: string;
+  /** Only the grabber drags the sheet. For a sheet that holds a scrolling
+   * list, where a drag on the list has to scroll it instead of closing. */
+  handleOnly?: boolean;
 };
 
 /**
  * Bottom sheet, not a modal. Dismissible by gesture, operable one-handed, and
  * anchored so its primary action sits under the thumb.
  */
-export function Sheet({ children, onDismiss, locked = false, topInset, className }: Props) {
+export function Sheet({ children, onDismiss, locked = false, topInset, className, handleOnly = false }: Props) {
   const insets = useSafeAreaInsets();
   // Drag only. The entrance is a layout animation, so nothing here is driven
   // from an effect.
@@ -66,7 +69,7 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
         />
       </Animated.View>
 
-      <GestureDetector gesture={pan}>
+      <DragZone enabled={!handleOnly} gesture={pan}>
         <Animated.View
           className={className}
           entering={SlideInDown.springify().damping(SHEET_SPRING.damping).stiffness(
@@ -77,6 +80,7 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
           <View
             className="bg-card shadow-raised"
             style={{
+              flexShrink: 1,
               borderTopLeftRadius: 26,
               borderTopRightRadius: 26,
               paddingHorizontal: 22,
@@ -84,11 +88,38 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
               paddingBottom: Math.max(insets.bottom, 12),
             }}
           >
-            <View className="mx-auto mb-5 h-1 w-10 rounded-pill bg-line" />
+            <DragZone enabled={handleOnly} gesture={pan}>
+              <View className={handleOnly ? '-mt-3 pb-5 pt-3' : 'pb-5'}>
+                <View className="mx-auto h-1 w-10 rounded-pill bg-line" />
+              </View>
+            </DragZone>
             {children}
           </View>
         </Animated.View>
-      </GestureDetector>
+      </DragZone>
+    </View>
+  );
+}
+
+/** Attaches the drag gesture around its child, or leaves the child alone. */
+function DragZone({
+  enabled,
+  gesture,
+  children,
+}: {
+  enabled: boolean;
+  gesture: ReturnType<typeof Gesture.Pan>;
+  children: React.ReactNode;
+}) {
+  return enabled ? <GestureDetector gesture={gesture}>{children as React.ReactElement}</GestureDetector> : <>{children}</>;
+}
+
+/** Lays a sheet over the whole screen, status bar and home bar included, from
+ * inside a screen that is not itself presented as a sheet. */
+export function SheetLayer({ children }: { children: React.ReactNode }) {
+  return (
+    <View className="absolute inset-0" pointerEvents="box-none">
+      {children}
     </View>
   );
 }

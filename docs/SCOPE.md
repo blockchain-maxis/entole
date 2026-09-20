@@ -139,7 +139,7 @@ Track: Consumer Products & Payments ($30,000).
 |---|---|---|
 | Agora — cross-border payments | $10,000 | AUSD settlement via routes API |
 | Aurora Intents | $5,000 | Any-chain funding into Monad |
-| Privy or Dynamic | $5,000 | Embedded wallet + delegated signer |
+| ~~Privy or Dynamic~~ | $5,000 | Dropped — accounts are Mera passkeys |
 | Nansen | $5,000 | Corridor flow intelligence |
 | Mera — one passkey, many keys | $2,500 | Passkey-derived session keys |
 | Mera — best UX | $2,500 | Passkey onboarding |

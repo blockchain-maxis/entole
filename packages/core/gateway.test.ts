@@ -12,7 +12,7 @@ describe('demoGateway.depositGrow', () => {
   it('adds the deposit to the growing balance', async () => {
     const before = await demoGateway.loadSnapshot();
     const after = await demoGateway.depositGrow(10_000_00);
-    expect(after.balanceMinor).toBe(before.growPosition.balanceMinor + 10_000_00);
+    expect(after.balanceMinor).toBe(before.growPosition!.balanceMinor + 10_000_00);
   });
 });
 
@@ -20,12 +20,12 @@ describe('demoGateway.withdrawGrow', () => {
   it('subtracts the withdrawal from the growing balance', async () => {
     const before = await demoGateway.loadSnapshot();
     const after = await demoGateway.withdrawGrow(5_000_00);
-    expect(after.balanceMinor).toBe(before.growPosition.balanceMinor - 5_000_00);
+    expect(after.balanceMinor).toBe(before.growPosition!.balanceMinor - 5_000_00);
   });
 
   it('throws rather than let a withdrawal exceed the growing balance', async () => {
     const before = await demoGateway.loadSnapshot();
-    await expect(demoGateway.withdrawGrow(before.growPosition.balanceMinor + 1)).rejects.toThrow();
+    await expect(demoGateway.withdrawGrow(before.growPosition!.balanceMinor + 1)).rejects.toThrow();
   });
 });
 

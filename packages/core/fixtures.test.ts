@@ -31,7 +31,7 @@ describe('snapshot', () => {
     for (const entry of snapshot.activity) {
       if (entry.allowanceId) expect(ids.has(entry.allowanceId)).toBe(true);
     }
-    expect(ids.has(snapshot.proposal.allowanceId)).toBe(true);
+    expect(ids.has(snapshot.proposal!.allowanceId)).toBe(true);
   });
 
   it('keeps every amount in whole minor units', () => {
@@ -71,8 +71,8 @@ describe('snapshot', () => {
   });
 
   it('keeps the grow position in whole minor units', () => {
-    expect(Number.isInteger(snapshot.growPosition.balanceMinor)).toBe(true);
-    expect(Number.isInteger(snapshot.growPosition.accruedMinor)).toBe(true);
+    expect(Number.isInteger(snapshot.growPosition!.balanceMinor)).toBe(true);
+    expect(Number.isInteger(snapshot.growPosition!.accruedMinor)).toBe(true);
   });
 
   it('starts with no stock holdings — no fabricated positions', () => {

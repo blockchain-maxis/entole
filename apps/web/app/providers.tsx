@@ -1,11 +1,12 @@
 'use client';
 
+import { BackendProvider } from '@entole/core/backend';
 import { StoreProvider } from '@entole/core/store';
 
 import { AuthGate } from '@/components/AuthGate';
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
-import { useOnChainGateway } from '@/lib/onchain';
+import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider } from '@/lib/theme';
 
 /**
@@ -19,11 +20,13 @@ import { ThemeProvider } from '@/lib/theme';
 function GatewayBoundary({ children }: { children: React.ReactNode }) {
   const { account } = useAccount();
   const assistant = useAssistant();
-  const gateway = useOnChainGateway(account, assistant);
+  const { gateway, backend } = useOnChainBackend(account, assistant);
   return (
-    <StoreProvider gateway={gateway}>
-      <AuthGate>{children}</AuthGate>
-    </StoreProvider>
+    <BackendProvider value={backend}>
+      <StoreProvider gateway={gateway}>
+        <AuthGate>{children}</AuthGate>
+      </StoreProvider>
+    </BackendProvider>
   );
 }
 

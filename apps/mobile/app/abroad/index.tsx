@@ -1,25 +1,25 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useMemo } from 'react';
+import { ScrollView, View } from 'react-native';
 
+import { useStore } from '@entole/core/store';
+
+import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { ContactRow, SectionHeading } from '@/components/ui/Rows';
-import { Screen } from '@/components/ui/Screen';
+import { ActionBar, Screen } from '@/components/ui/Screen';
 import { RowSkeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import { corridorsFor } from '@entole/core/pay-hub';
-import { useStore } from '@entole/core/store';
+import { groupByCountry } from '@/lib/send';
 
-/** Pick the country first, then the person — the send flow itself is unchanged. */
+/** Send abroad starts from the country the beneficiary is in, then the person. */
 export default function SendAbroad() {
   const router = useRouter();
   const store = useStore();
   const loading = store.status === 'loading';
 
-  const corridors = useMemo(() => corridorsFor(store.contacts), [store.contacts]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = corridors.find((corridor) => corridor.id === selectedId) ?? corridors[0];
+  const groups = useMemo(() => groupByCountry(store.contacts), [store.contacts]);
 
   return (
     <Screen>
@@ -31,51 +31,54 @@ export default function SendAbroad() {
             <RowSkeleton />
             <RowSkeleton />
           </View>
-        ) : selected ? (
-          <>
-            <SectionHeading title="Send to" />
-            <View className="flex-row flex-wrap gap-2 pb-6">
-              {corridors.map((corridor) => {
-                const active = corridor.id === selected.id;
-                return (
-                  <Pressable
-                    key={corridor.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setSelectedId(corridor.id)}
-                    className={`rounded-pill border px-4 py-2.5 ${
-                      active ? 'border-indigo bg-indigo-wash' : 'border-line bg-card active:border-mist'
-                    }`}
-                  >
-                    <Text className={`font-strong text-label ${active ? 'text-indigo' : 'text-ink'}`}>
-                      Nigeria → {corridor.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+        ) : store.status === 'failed' ? (
+          <View className="pt-6">
+            <Text className="font-strong text-body text-ink">We couldn&apos;t load your beneficiaries.</Text>
+            <Text className="mt-1.5 font-body text-label-sm text-slate">
+              Check your connection and try again.
+            </Text>
+            <View className="mt-4 flex-row">
+              <Button label="Try again" variant="secondary" width="hug" onPress={() => void store.refresh()} />
             </View>
-
-            <SectionHeading title="Who are you sending to?" />
-            <View className="gap-2">
-              {selected.contacts.map((contact) => (
-                <ContactRow
-                  key={contact.id}
-                  contact={contact}
-                  trailing={<Text className="font-strong text-caption-sm text-indigo">Send</Text>}
-                  onPress={() => router.push({ pathname: '/send', params: { contactId: contact.id } })}
-                />
-              ))}
-            </View>
-          </>
-        ) : (
-          <View className="rounded-control border border-line bg-card px-4 py-3.5">
-            <Text className="font-strong text-body-sm text-ink">No countries yet</Text>
-            <Text className="mt-1 font-body text-label-sm text-slate">
-              Once you have a contact abroad, their country shows up here.
+          </View>
+        ) : groups.length === 0 ? (
+          <View className="pt-6">
+            <Text className="font-strong text-title text-ink">No beneficiaries yet</Text>
+            <Text className="mt-2 font-body text-body-sm text-slate">
+              Add someone with their payment code and their country, and they appear here under it.
             </Text>
           </View>
+        ) : (
+          groups.map((group) => (
+            <View key={group.code ?? 'none'} className="pb-6">
+              <SectionHeading title={group.name} />
+              {group.code === null ? (
+                <Text className="-mt-1.5 px-1 pb-3 font-body text-label-sm text-slate">
+                  Set their country under Beneficiaries to see them with the others.
+                </Text>
+              ) : null}
+              <View className="gap-2">
+                {group.contacts.map((contact) => (
+                  <ContactRow
+                    key={contact.id}
+                    contact={contact}
+                    trailing={<Text className="font-strong text-caption-sm text-indigo">Send</Text>}
+                    onPress={() => router.push({ pathname: '/send', params: { contactId: contact.id } })}
+                  />
+                ))}
+              </View>
+            </View>
+          ))
         )}
       </ScrollView>
+
+      <ActionBar>
+        <Button
+          label="Add a beneficiary"
+          variant={groups.length === 0 && !loading ? 'primary' : 'secondary'}
+          onPress={() => router.push('/beneficiaries/new')}
+        />
+      </ActionBar>
     </Screen>
   );
 }

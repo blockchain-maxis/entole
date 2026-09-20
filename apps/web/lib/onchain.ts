@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
 import { createPublicClient, createWalletClient, http, type Address, type Chain, type WalletClient } from 'viem';
 
-import { resolveContactId, resolveRecipient } from '@entole/core/address-book';
-import { DEMO_RATE } from '@entole/core/fx';
-import { demoGateway, type PaymentsGateway } from '@entole/core/gateway';
+import { createAccountSource } from '@entole/core/account-snapshot';
+import { createRateProvider } from '@entole/core/fx';
+import { pendingBackend, type Backend } from '@entole/core/backend';
+import type { PaymentsGateway } from '@entole/core/gateway';
 import { createOnChainGateway } from '@entole/core/onchain-gateway';
 import type { EntoleKeyAccount } from '@entole/core/passkey';
+import { encodePaymentCode } from '@entole/core/payment-code';
+import { createRecords } from '@entole/core/records';
+import { createEnsureGas, createRelayClient } from '@entole/core/relay-client';
 
 import type { SignedInAccount } from './account';
+import { deviceRecordStore } from './records-store';
 
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS ??
   '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7') as Address;
@@ -16,6 +21,9 @@ const TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS ??
 /** Left unset until `GrowthVault` is deployed — see contracts/README.md's
  * Status section. `undefined` here is what makes `depositGrow`/`withdrawGrow`
  * fail loudly instead of pretending to settle. */
+const ROUTER_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_ROUTER_ADDRESS
+  ? (process.env.NEXT_PUBLIC_ENTOLE_ROUTER_ADDRESS as Address)
+  : undefined;
 const GROWTH_VAULT_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS
   ? (process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS as Address)
   : undefined;
@@ -26,6 +34,11 @@ const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || undefined;
 /** `MockERC20` ("eUSD") decimals — see contracts/README.md. Update when
  * Agora AUSD or USDC replaces it (Phase 6). */
 const TOKEN_DECIMALS = 6;
+
+/** One live-rate provider for the whole app, so every page shares the cache. */
+const getRate = createRateProvider();
+/** Same origin: the sponsor routes live in this Next app. */
+const relay = createRelayClient({ baseUrl: '' });
 
 const monadTestnet: Chain = {
   id: CHAIN_ID,
@@ -42,6 +55,7 @@ const monadTestnet: Chain = {
  */
 const pendingGateway: PaymentsGateway = {
   loadSnapshot: () => new Promise(() => {}),
+  quoteSend: () => Promise.reject(new Error('Not signed in yet')),
   submitPayment: () => Promise.reject(new Error('Not signed in yet')),
   setPaused: () => Promise.reject(new Error('Not signed in yet')),
   saveAllowance: () => Promise.reject(new Error('Not signed in yet')),
@@ -77,16 +91,18 @@ export type AssistantForGateway = {
  * source (env vars here, `expo-constants` there) differs. The assistant's key
  * is fetched lazily, only when an allowance-gated action needs it.
  */
-export function useOnChainGateway(
+export function useOnChainBackend(
   account: SignedInAccount | null,
   assistant: AssistantForGateway,
-): PaymentsGateway {
+): { gateway: PaymentsGateway; backend: Backend } {
   const owner = account?.owner ?? null;
   const { enabled, address, ensureKey } = assistant;
 
   return useMemo(() => {
-    if (!owner) return pendingGateway;
+    if (!owner) return { gateway: pendingGateway, backend: pendingBackend };
 
+    const records = createRecords(deviceRecordStore, owner.viemAccount.address);
+    const source = createAccountSource({ records, getRate });
     const publicClient = createPublicClient({ chain: monadTestnet, transport: http(RPC_URL) });
     const ownerWalletClient = createWalletClient({
       account: owner.viemAccount,
@@ -108,7 +124,7 @@ export function useOnChainGateway(
       return delegate.client;
     };
 
-    return createOnChainGateway({
+    const gateway = createOnChainGateway({
       publicClient,
       ownerWalletClient,
       ...(enabled && address ? { delegateAddress: address, getDelegateWalletClient } : {}),
@@ -116,10 +132,15 @@ export function useOnChainGateway(
       tokenAddress: TOKEN_ADDRESS,
       ...(GROWTH_VAULT_ADDRESS ? { growthVaultAddress: GROWTH_VAULT_ADDRESS } : {}),
       tokenDecimals: TOKEN_DECIMALS,
-      rate: DEMO_RATE,
-      resolveRecipient,
-      loadOffChainSnapshot: demoGateway.loadSnapshot,
-      ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId } : {}),
+      getRate,
+      ...(ROUTER_ADDRESS ? { routerAddress: ROUTER_ADDRESS, relay } : {}),
+      records,
+      ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
+      resolveRecipient: source.resolveRecipient,
+      loadOffChainSnapshot: source.loadSnapshot,
+      ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
     });
+    const backend: Backend = { source, relay, paymentCode: encodePaymentCode(owner.viemAccount.address) };
+    return { gateway, backend };
   }, [owner, enabled, address, ensureKey]);
 }

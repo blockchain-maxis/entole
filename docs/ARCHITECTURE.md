@@ -104,6 +104,17 @@ short-lived session token, with routes for minting and redeeming against fiat or
 other stablecoins. Wrap it behind an interface so swapping to USDC is a one-file
 change.
 
+**Sending, gasless and single-signature.** A send is one ERC-3009
+`receiveWithAuthorization` signed by the person's passkey-derived key, for
+`amount + fee`, paid to `EntoleRouter`. A sponsor server (`/api/relay`) submits
+it and pays the network fee; the router pays the recipient and the treasury in
+the same transaction. The signature's nonce commits to the recipient, amount and
+fee, so the server can submit but never alter it. The fee is 0.5%, minimum $0.10,
+maximum $2.50, computed by the contract. Proven against the live AUSD contract
+(`contracts/test/EntoleRouterFork.t.sol`, `packages/core/onchain-gateway.live.test.ts`).
+Things the person does from their own account (pause, allowances) are covered by
+`/api/gas`, a test-network top-up.
+
 **Funding:** Aurora Intents for any-chain deposits. A user funds from BTC, USDT
 on Tron, SOL or anything else the solver network covers, and receives the
 settlement asset on Monad. This directly attacks the last-mile funding problem in

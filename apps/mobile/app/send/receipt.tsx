@@ -8,10 +8,12 @@ import { Header } from '@/components/ui/Header';
 import { ReceiptLine } from '@/components/ui/Rows';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { countryName } from '@entole/core/countries';
 import { settledAt, timeWithSeconds } from '@entole/core/format';
-import { formatRate } from '@entole/core/fx';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
+
+import { rateLine } from '@/lib/send';
 
 /**
  * A payment is pending until it settles, and then it is this. Nothing on this
@@ -40,7 +42,6 @@ export default function Receipt() {
     );
   }
 
-  const rate = { koboPerDollar: receipt.koboPerDollar, quotedAt: receipt.settledAt };
   const summary = [
     `${formatNaira(kobo(receipt.amountMinor))} to ${contact?.name ?? 'your recipient'}`,
     settledAt(receipt.settledAt),
@@ -67,8 +68,8 @@ export default function Receipt() {
             <Avatar initials={contact?.initials ?? '?'} tone={contact?.tone ?? 1} size="lg" />
             <View className="flex-1">
               <Text className="font-strong text-body-lg text-ink">{contact?.name ?? 'Recipient'}</Text>
-              {contact?.destination ? (
-                <Text className="mt-0.5 font-body text-caption text-slate">{contact.destination}</Text>
+              {countryName(contact?.place) ? (
+                <Text className="mt-0.5 font-body text-caption text-slate">{countryName(contact?.place)}</Text>
               ) : null}
             </View>
             <SettledBadge>Final</SettledBadge>
@@ -76,7 +77,11 @@ export default function Receipt() {
 
           <ReceiptLine label="Amount sent" value={formatNaira(kobo(receipt.amountMinor))} />
           <ReceiptLine label="Fee" value={formatNaira(kobo(receipt.feeMinor))} />
-          <ReceiptLine label="Rate" value={formatRate(rate)} />
+          <ReceiptLine label="Total from you" value={formatNaira(kobo(receipt.amountMinor + receipt.feeMinor))} />
+          <ReceiptLine
+            label="Rate"
+            value={rateLine({ koboPerDollar: receipt.koboPerDollar, quotedAt: receipt.settledAt })}
+          />
           <ReceiptLine label="Sent at" value={timeWithSeconds(receipt.sentAt)} />
           <ReceiptLine
             label="Delivered in"

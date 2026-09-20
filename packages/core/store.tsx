@@ -10,6 +10,7 @@ import {
   type ProcurementRequestDraft,
   type SeatDraft,
   type SendInput,
+  type SendQuote,
   type StockQuote,
   type StockSearchResult,
 } from './gateway';
@@ -53,6 +54,11 @@ type Store = {
   seat(id: string): SeatView | undefined;
   invoice(id: string): Invoice | undefined;
   setPaused(next: boolean): Promise<void>;
+  /** The real fee and total for a send, asked before anything is signed. */
+  quoteSend(amountMinor: number): Promise<SendQuote>;
+  /** Re-reads the balance, allowances and activity — after money is added, or
+   * when the person pulls to refresh. Keeps what is on screen while it loads. */
+  refresh(): Promise<void>;
   send(input: SendInput): Promise<Receipt>;
   saveAllowance(draft: AllowanceDraft): Promise<void>;
   revokeAllowance(id: string): Promise<void>;
@@ -89,6 +95,7 @@ export function StoreProvider({
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [receipts, setReceipts] = useState<Record<string, Receipt>>({});
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [quotedAt, setQuotedAt] = useState(() => new Date().toISOString());
 
   useEffect(() => {
     let live = true;
@@ -97,6 +104,7 @@ export function StoreProvider({
       .then((next) => {
         if (!live) return;
         setSnapshot(next);
+        setQuotedAt(new Date().toISOString());
         setProposal(next.proposal);
         setStatus('ready');
       })
@@ -107,6 +115,18 @@ export function StoreProvider({
       live = false;
     };
   }, [gateway]);
+
+  const refresh = useCallback(async () => {
+    const next = await gateway.loadSnapshot();
+    setSnapshot(next);
+    setQuotedAt(new Date().toISOString());
+    setProposal(next.proposal);
+    // A re-read that succeeds after a failed first load is what "Retry" means:
+    // without this the store stayed 'failed' with a good snapshot behind it.
+    setStatus('ready');
+  }, [gateway]);
+
+  const quoteSend = useCallback((amountMinor: number) => gateway.quoteSend(amountMinor), [gateway]);
 
   const setPaused = useCallback(
     async (next: boolean) => {
@@ -329,9 +349,9 @@ export function StoreProvider({
     return {
       status,
       balance: kobo(snapshot?.account.balanceMinor ?? 0),
-      rate: snapshot
-        ? { koboPerDollar: snapshot.account.koboPerDollar, quotedAt: DEMO_RATE.quotedAt }
-        : DEMO_RATE,
+      // Until a snapshot arrives screens show skeletons, not numbers, so this
+      // placeholder is never rendered as a real rate.
+      rate: snapshot ? { koboPerDollar: snapshot.account.koboPerDollar, quotedAt } : DEMO_RATE,
       paused: snapshot?.account.paused ?? false,
       contacts,
       allowances,
@@ -350,6 +370,8 @@ export function StoreProvider({
       seat: (id) => seats.find((s) => s.id === id),
       invoice: (id) => invoices.find((i) => i.id === id),
       setPaused,
+      quoteSend,
+      refresh,
       send,
       saveAllowance,
       revokeAllowance,
@@ -378,7 +400,10 @@ export function StoreProvider({
     gateway,
     getStockQuote,
     proposal,
+    quoteSend,
+    quotedAt,
     receipts,
+    refresh,
     requestConditionalRelease,
     revokeAllowance,
     revokeSeat,

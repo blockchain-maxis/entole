@@ -218,10 +218,13 @@ export const snapshotSchema = z.object({
   invoices: z.array(invoiceSchema),
   procurementRequests: z.array(procurementRequestSchema),
   taxReserves: z.array(taxReserveSchema),
-  growPosition: growPositionSchema,
+  /** Null until a savings vault exists for this account. */
+  growPosition: growPositionSchema.nullable(),
   stockPositions: z.array(stockPositionSchema),
-  request: paymentRequestSchema,
-  proposal: proposalSchema,
+  /** Null until there is a real request to show. */
+  request: paymentRequestSchema.nullable(),
+  /** Null unless the assistant has actually proposed something. */
+  proposal: proposalSchema.nullable(),
 });
 
 export type Contact = z.infer<typeof contactSchema>;

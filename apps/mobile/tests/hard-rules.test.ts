@@ -331,3 +331,207 @@ describe('the assistant is a setting the person turns on, never a default', () =
     expect(screen).toMatch(/Turn on the assistant/);
   });
 });
+
+describe('Home, Add money and Receive show the account, never a fixture', () => {
+  const home = stripComments(read(join(ROOT, 'app/(tabs)/index.tsx')));
+  const addMoney = stripComments(read(join(ROOT, 'app/add-money.tsx')));
+  const receive = stripComments(read(join(ROOT, 'app/receive.tsx')));
+  const paymentCode = stripComments(read(join(COMPONENTS, 'ui/PaymentCode.tsx')));
+  const built = { home, addMoney, receive, paymentCode };
+
+  it.each(Object.entries(built))('%s imports no fixture, demo rate or demo gateway', (_name, source) => {
+    expect(source).not.toMatch(/DEMO_RATE|fixtures|demoGateway/);
+  });
+
+  it('never renders an address, or a slice of one', () => {
+    for (const source of Object.values(built)) {
+      expect(source).not.toMatch(/shortAddress|truncateAddress|formatAddress|slice\(0,\s*6\)/);
+    }
+    // The only place the address is read is the argument of the request for test money.
+    for (const source of [home, receive, paymentCode]) expect(source).not.toMatch(/\.address\b/);
+    const reads = addMoney.match(/[\w.?]*\.address\b/g) ?? [];
+    expect(reads).toEqual(['account?.owner.viemAccount.address']);
+    expect(addMoney).toMatch(/relay\.requestFunds\(address\)/);
+  });
+
+  it('Home has no fake Deposit — the action is Add money, and it leads to the real screen', () => {
+    expect(home).not.toMatch(/Deposit/);
+    expect(home).toMatch(/label="Add money"/);
+    expect(home).toMatch(/router\.push\('\/add-money'\)/);
+    expect(home).toMatch(/router\.push\('\/beneficiaries\/new'\)/);
+  });
+
+  it('Home says so when the rate cannot be reached, and Retry re-reads instead of leaving a blank screen', () => {
+    expect(home).toMatch(/store\.status === 'failed'/);
+    expect(home).toMatch(/We can’t reach the exchange rate/);
+    expect(home).toMatch(/label=\{retrying \? 'Trying again' : 'Retry'\}/);
+    expect(home).toMatch(/await refresh\(\)/);
+  });
+
+  it('Home pulls to refresh, and an empty account gets a first-run block, not invented rows', () => {
+    expect(home).toMatch(/onRefresh=\{\(\) => void pullToRefresh\(\)\}/);
+    expect(home).toMatch(/store\.balance === 0 && store\.activity\.length === 0/);
+    expect(home).toMatch(/Payments you send and receive will show up here/);
+  });
+
+  it('an empty Allowances section only offers set-up once the assistant is on', () => {
+    expect(home).toMatch(/assistant\.enabled \?[\s\S]*?router\.push\('\/rules\/new'\)[\s\S]*?router\.push\('\/assistant'\)/);
+  });
+
+  it('Add money explains it is test money and waits for the real balance to move', () => {
+    expect(addMoney).toMatch(/Add test money to try Entole\. It’s not real money\./);
+    expect(addMoney).toMatch(/label="Add test money"/);
+    // Pending is a labelled state, and completion is the balance rising — never a guess.
+    expect(addMoney).toMatch(/label="Adding money…"/);
+    expect(addMoney).toMatch(/store\.balance <= startBalance\.current/);
+    expect(addMoney).toMatch(/await refresh\(\)/);
+    expect(addMoney).toMatch(/POLL_EVERY_MS = 1500/);
+    expect(addMoney).toMatch(/POLL_FOR_MS = 20_000/);
+    expect(addMoney).not.toMatch(/balance:\s*store\.balance\s*\+/);
+  });
+
+  it('Add money shows the sponsor\'s own plain-language failure and never a raw error', () => {
+    expect(addMoney).toMatch(/error instanceof RelayError/);
+    expect(addMoney).toMatch(/error\.message/);
+    expect(addMoney).not.toMatch(/String\(error\)|error\.stack|JSON\.stringify\(error/);
+  });
+
+  it('credits the live rate feed where the rate is shown', () => {
+    expect(addMoney).toMatch(/Rates by Exchange Rate API/);
+    expect(addMoney).toMatch(/https:\/\/www\.exchangerate-api\.com/);
+  });
+
+  it('Receive shows the real payment code as a QR and as text, and copies it', () => {
+    expect(receive).toMatch(/useBackend\(\)/);
+    expect(receive).toMatch(/paymentCode/);
+    expect(receive).toMatch(/<PaymentCode code=\{paymentCode\}/);
+    expect(receive).toMatch(/<PaymentCodeText code=\{paymentCode\}/);
+    expect(receive).toMatch(/Clipboard\.setStringAsync\(paymentCode\)/);
+    expect(receive).toMatch(/Share this code so anyone can pay you\./);
+    expect(receive).not.toMatch(/store\.request|useStore/);
+  });
+
+  it('Receive copes with no code yet by showing a skeleton and a disabled Copy', () => {
+    expect(receive).toMatch(/<Skeleton/);
+    expect(receive).toMatch(/disabled=\{!paymentCode\}/);
+  });
+
+  it('the QR encodes the code itself, not a link or an address', () => {
+    expect(paymentCode).toMatch(/<QRCode value=\{code\}/);
+  });
+
+  it('no route still points at a removed Deposit screen', () => {
+    for (const file of sourceFiles) {
+      expect(stripComments(read(file)), relative(ROOT, file)).not.toMatch(/['"`]\/deposit['"`]/);
+    }
+  });
+});
+
+describe('beneficiaries, and a send that shows only what is real', () => {
+  // Every screen a person can send money from, plus the shared review sheet.
+  const sendFlow = [
+    'app/send/index.tsx',
+    'app/send/pick.tsx',
+    'app/send/receipt.tsx',
+    'app/(tabs)/transfer.tsx',
+    'app/abroad/index.tsx',
+    'app/onboarding/first-payment.tsx',
+    'app/business/pay-supplier.tsx',
+    'components/ui/ConfirmSendSheet.tsx',
+  ];
+  const beneficiaryScreens = [
+    'app/beneficiaries/index.tsx',
+    'app/beneficiaries/new.tsx',
+    'app/beneficiaries/[id].tsx',
+    'components/ui/BeneficiaryForm.tsx',
+    'components/ui/CountryPicker.tsx',
+  ];
+  const touched = [...sendFlow, ...beneficiaryScreens];
+
+  it.each(sendFlow)('%s shows no fee constant, arrival time, fixture or address book', (path) => {
+    const source = stripComments(read(join(ROOT, path)));
+    expect(source).not.toMatch(/FEE_MINOR|ESTIMATED_ARRIVAL_SECONDS|arrivalEstimate/);
+    expect(source).not.toMatch(/fixtures|address-book|corridorsFor/);
+  });
+
+  // The word was replaced by "beneficiary" in everything a person reads. Code
+  // identifiers (`contact`, `ContactRow`) are internal and stay.
+  it.each(touched)('%s no longer says "contact" in what a person reads', (path) => {
+    // `=>` would read as the end of a tag, and swallow code as "copy".
+    const offences = userFacingCopy(read(join(ROOT, path)).replace(/=>/g, '='))
+      // `${contact.name}` inside a label is an identifier, not a word a person reads.
+      .map((copy) => copy.replace(/\$\{[^}]*\}/g, ''))
+      // The JSX-text scan also catches stretches of code between two tags.
+      .filter((copy) => !/^\)|\.contacts?\b|===|\bstore\./.test(copy))
+      .filter((copy) => /\bcontacts?\b/i.test(copy));
+    expect(offences, `${path}\n${offences.join('\n')}`).toEqual([]);
+  });
+
+  it.each(sendFlow.filter((path) => !path.endsWith('receipt.tsx')))('%s does not hardcode a country or corridor', (path) => {
+    expect(stripComments(read(join(ROOT, path)))).not.toMatch(/Nigeria|Lagos|→/);
+  });
+
+  it('fees appear on the review sheet, from a real quote, not on the amount screens', () => {
+    const sheet = stripComments(read(join(ROOT, 'components/ui/ConfirmSendSheet.tsx')));
+    expect(sheet).toMatch(/quoteSend/);
+    for (const label of ['They receive', 'Fee', 'Total from you', 'Confirm and send']) {
+      expect(sheet).toContain(label);
+    }
+    // A send that has not settled is pending, not done: success is the receipt.
+    expect(sheet).toMatch(/await store\.send\(/);
+    expect(sheet).toMatch(/router\.replace\(\{ pathname: '\/send\/receipt'/);
+
+    for (const path of ['app/send/index.tsx', 'app/business/pay-supplier.tsx']) {
+      const amountScreen = stripComments(read(join(ROOT, path)));
+      expect(amountScreen).toMatch(/<ConfirmSendSheet/);
+      expect(amountScreen).not.toMatch(/store\.send\(/);
+      expect(amountScreen).not.toMatch(/>\s*Fee\b|`Fee /);
+    }
+  });
+
+  it('the only place a person-initiated payment is sent is the review sheet', () => {
+    const senders = sourceFiles.filter((file) => /\bstore\.send\(/.test(stripComments(read(file))));
+    // The assistant's own payment runs through its undo countdown (`runProposal`) instead.
+    expect(senders.map((file) => relative(ROOT, file))).toEqual(['components/ui/ConfirmSendSheet.tsx']);
+  });
+
+  it('adding a beneficiary decodes a payment code and never renders an address', () => {
+    for (const path of beneficiaryScreens) {
+      const source = stripComments(read(join(ROOT, path)));
+      // The address may travel in the record; it may not reach a screen.
+      expect(source, path).not.toMatch(/\{[^{}]*\baddress\b[^{}]*\}\s*<\/Text>|<Text[^>]*>\s*\{[^{}]*\baddress\b/);
+      expect(source, path).not.toMatch(/shortAddress|truncateAddress|formatAddress|slice\(0,\s*6\)/);
+    }
+    const add = stripComments(read(join(ROOT, 'app/beneficiaries/new.tsx')));
+    expect(add).toMatch(/decodePaymentCode\(/);
+    expect(add).toMatch(/source\.saveBeneficiary\(/);
+    expect(add).toMatch(/store\.refresh\(\)/);
+    expect(add).toMatch(/That code doesn't look right — check it and try again/);
+    expect(add).toMatch(/your own payment code/);
+    expect(add).toMatch(/already have/);
+    expect(add).not.toMatch(/CameraView|expo-camera|BarcodeScanner/);
+  });
+
+  it('bank details are optional and honest that nothing uses them yet', () => {
+    const form = stripComments(read(join(ROOT, 'components/ui/BeneficiaryForm.tsx')));
+    expect(form).toMatch(/Bank details/);
+    expect(form).toMatch(/Saved for when bank payouts open/);
+  });
+
+  it('the amount screens explain a payment that is too small, too large or unaffordable', () => {
+    const rules = read(join(ROOT, 'lib/send.ts'));
+    expect(rules).toMatch(/The smallest payment is/);
+    expect(rules).toMatch(/The largest payment is/);
+    expect(rules).toMatch(/more than your balance/);
+    for (const path of ['app/send/index.tsx', 'app/business/pay-supplier.tsx']) {
+      expect(read(join(ROOT, path))).toMatch(/Add money first/);
+    }
+  });
+
+  it('Me leads to the beneficiaries, and the list can remove one behind a sheet', () => {
+    expect(read(join(ROOT, 'app/(tabs)/me.tsx'))).toMatch(/router\.push\('\/beneficiaries'\)/);
+    const edit = stripComments(read(join(ROOT, 'app/beneficiaries/[id].tsx')));
+    expect(edit).toMatch(/<Sheet /);
+    expect(edit).toMatch(/source\.removeBeneficiary\(/);
+  });
+});

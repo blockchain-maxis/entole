@@ -149,6 +149,11 @@ export default function Me() {
                 value={!assistant.enabled ? 'Off' : store.paused ? 'Paused' : 'On'}
                 onPress={() => router.push('/assistant')}
               />
+              <LinkRow
+                label="Beneficiaries"
+                value={String(store.contacts.length)}
+                onPress={() => router.push('/beneficiaries')}
+              />
             </View>
           )}
         </View>
