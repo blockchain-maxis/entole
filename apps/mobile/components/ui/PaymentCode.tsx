@@ -1,24 +1,25 @@
 import { Platform, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { useThemeColors } from '@/lib/theme';
+import { token } from '@entole/tokens';
 
 import { Text } from './Text';
 
 /**
- * The person's payment code as a scannable square. The code is opaque text —
- * whoever scans it (or types it) can pay this account, and nothing in it reads
- * as an address.
+ * A scannable square. It encodes whatever it is given: on Receive that is the
+ * checkout link, which names the account by its payment code. Nothing in it
+ * reads as an address, and whoever scans it goes to the same door as pasting.
  */
-export function PaymentCode({ code, size = 176 }: { code: string; size?: number }) {
-  const colors = useThemeColors();
+export function PaymentCode({ value, size = 208 }: { value: string; size?: number }) {
+  // Always dark on white, in either theme: a light-on-dark square is one many
+  // scanners will not read.
   return (
     <View
       accessibilityRole="image"
-      accessibilityLabel="Scannable payment code"
-      className="rounded-row border border-hairline bg-paper p-3"
+      accessibilityLabel="Scannable QR code for your payment link"
+      className="rounded-row border border-hairline bg-white p-3"
     >
-      <QRCode value={code} size={size} color={colors.ink} backgroundColor={colors.paper} />
+      <QRCode value={value} size={size} color={token.ink} backgroundColor={token.white} />
     </View>
   );
 }
@@ -42,7 +43,11 @@ export function PaymentCodeText({ code }: { code: string }) {
   const style = { fontFamily: MONO, fontVariant: ['tabular-nums' as const] };
 
   return (
-    <View accessible accessibilityLabel={`Payment code ${code.split('-').join(' ')}`} className="items-center">
+    <View
+      accessible
+      accessibilityLabel={`Payment code ${code.split('-').join(' ')}`}
+      className="items-center"
+    >
       <Text className="font-heavy text-badge uppercase text-mist">{prefix}</Text>
       <View className="mt-1.5 gap-1.5">
         {rows.map((row, index) => (

@@ -5,6 +5,11 @@ import { useThemeColors } from '@/lib/theme';
 
 import { Text } from './Text';
 
+/** The bar's slots are 56px tall (68 minus 6 padding a side), so half of that
+ * is a full capsule. The highlight and the ripple share it: a ripple clipped to
+ * anything less draws a square on Android. */
+export const TAB_PILL_RADIUS = 28;
+
 /**
  * One tab: icon over a short label, filling its slot in the bar. The active
  * state is a soft `indigo.wash` pill behind the stack.
@@ -37,7 +42,7 @@ export function TabBarIcon({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 18,
+        borderRadius: TAB_PILL_RADIUS,
         backgroundColor: focused ? colors.indigo.wash : 'transparent',
       }}
     >

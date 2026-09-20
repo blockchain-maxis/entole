@@ -52,6 +52,11 @@ product: where it touches a screen, the screen says so plainly.
   self-contained bounty integration, gated off until its key exists.
 - Apple Team ID for the iOS `apple-app-site-association` file (Android-only
   passkeys today).
+- `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE` — the fiat on-ramp partner for checkout
+  links (Mercuryo is a Metropolis sponsor; any provider with a URL-driven
+  widget works). A template with `{address}`, `{amount}`, `{currency}` and
+  `{reference}` placeholders (`apps/web/lib/onramp.ts`). Until it is set, the
+  checkout page shows "Bank and card payments open soon" and nothing else.
 
 ## Going to mainnet
 

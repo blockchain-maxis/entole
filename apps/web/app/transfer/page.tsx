@@ -10,8 +10,8 @@ import { Header } from '@/components/Header';
 import { RowSkeleton } from '@/components/Skeleton';
 
 const ACTIONS: { label: string; caption: string; icon: LucideIcon; href: string }[] = [
-  { label: 'Send money', caption: 'To someone you know', icon: SendHorizontal, href: '/transfer/send' },
-  { label: 'Request money', caption: 'Share a link or code', icon: ArrowDownLeft, href: '/receive' },
+  { label: 'Send money', caption: 'To a payment code or link', icon: SendHorizontal, href: '/transfer/send' },
+  { label: 'Get paid', caption: 'Share your payment link', icon: ArrowDownLeft, href: '/receive' },
   { label: 'Pay a bill', caption: 'Power, airtime, TV', icon: Receipt, href: '/transfer/bill' },
   { label: 'Send abroad', caption: 'Pick a country first', icon: Globe, href: '/transfer/abroad' },
 ];
@@ -42,12 +42,30 @@ export default function PayPage() {
           ))}
         </div>
 
-        <p className="pb-3 font-heavy text-body-sm text-ink">Contacts</p>
+        <p className="pb-3 font-heavy text-body-sm text-ink">Saved beneficiaries</p>
         {loading ? (
           <div className="flex flex-col gap-2">
             <RowSkeleton />
             <RowSkeleton />
             <RowSkeleton />
+          </div>
+        ) : store.status === 'failed' ? (
+          <div>
+            <p className="font-body text-label-sm text-slate">We couldn&apos;t load your saved beneficiaries.</p>
+            <button
+              type="button"
+              onClick={() => void store.refresh().catch(() => undefined)}
+              className="mt-2 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+            >
+              Try again
+            </button>
+          </div>
+        ) : store.contacts.length === 0 ? (
+          <div className="rounded-control border border-line bg-card px-4 py-3.5">
+            <p className="font-strong text-body-sm text-ink">No one saved yet</p>
+            <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+              You can still pay anyone with their payment code or link. Choose Send money to start.
+            </p>
           </div>
         ) : (
           <ul className="flex flex-col gap-2">

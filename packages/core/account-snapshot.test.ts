@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createAccountSource } from './account-snapshot';
+import { encodePaymentCode } from './payment-code';
 import { createRecords, type Beneficiary, type RecordStore } from './records';
 
 const memory = (): RecordStore => {
@@ -73,5 +74,46 @@ describe('account source', () => {
       },
     });
     await expect(s.loadSnapshot()).rejects.toThrow('no rate');
+  });
+});
+
+describe('account source: business records', () => {
+  const invoice = {
+    id: 'inv-1',
+    reference: 'INV-0001',
+    clientName: 'Bello Foods',
+    amountMinor: 5_000_000,
+    note: 'Deliveries',
+    dueAt: '2026-10-14T22:59:59.000Z',
+    status: 'sent' as const,
+    link: 'https://entole.vercel.app/pay/x?t=invoice',
+  };
+
+  it('loads the invoices the business saved into the snapshot', async () => {
+    const records = createRecords(memory(), OWNER);
+    const s = createAccountSource({ records, getRate: async () => rate });
+    await records.invoices.upsert(invoice);
+    expect((await s.loadSnapshot()).invoices).toEqual([invoice]);
+  });
+
+  it('keeps and merges staff, and never puts them in the snapshot as an address', async () => {
+    const s = source();
+    expect(await s.listStaff()).toEqual([]);
+    const person = {
+      id: 's-1',
+      name: 'Ada',
+      code: encodePaymentCode(MOM),
+      cadence: null,
+      createdAt: '2026-09-20T10:00:00.000Z',
+    };
+    await s.saveManyStaff([person, { ...person, id: 's-2', name: 'Tunde' }]);
+    await s.saveStaff({ ...person, payAmountMinor: 100 });
+    expect((await s.listStaff()).map((p) => [p.id, p.payAmountMinor])).toEqual([
+      ['s-1', 100],
+      ['s-2', undefined],
+    ]);
+    await s.removeStaff('s-2');
+    expect((await s.listStaff()).map((p) => p.id)).toEqual(['s-1']);
+    expect(JSON.stringify(await s.loadSnapshot())).not.toMatch(/0x[0-9a-fA-F]{40}/);
   });
 });

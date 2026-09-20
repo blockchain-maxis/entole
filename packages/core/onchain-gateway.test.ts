@@ -4,6 +4,7 @@ import type { Address, PublicClient, WalletClient } from 'viem';
 import { DEMO_RATE } from './fx';
 import { demoGateway } from './gateway';
 import { AssistantNotEnabledError, createOnChainGateway } from './onchain-gateway';
+import { createRecords } from './records';
 
 /**
  * The assistant is opt-in. Until it is turned on the gateway has no assistant
@@ -96,5 +97,62 @@ describe('with the assistant on but its key not loaded yet', () => {
     expect(getDelegateWalletClient).toHaveBeenCalledTimes(1);
     expect(delegate.writeContract).toHaveBeenCalledTimes(1);
     expect(owner.writeContract).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('invoices are real records, not the demo', () => {
+  function memoryRecords() {
+    const data = new Map<string, string>();
+    return createRecords(
+      {
+        get: async (key) => data.get(key) ?? null,
+        set: async (key, value) => void data.set(key, value),
+        remove: async (key) => void data.delete(key),
+      },
+      ADDRESS,
+    );
+  }
+
+  const draft = {
+    clientName: ' Bello Foods ',
+    amountMinor: 5_000_000,
+    note: 'September deliveries',
+    dueAt: '2026-10-14T22:59:59.000Z',
+    link: 'https://entole.vercel.app/pay/PAY-X?t=invoice',
+  };
+
+  it('creates an invoice that is still there on the next load, numbered from 1', async () => {
+    const records = memoryRecords();
+    const { gateway } = build({ records });
+    const first = await gateway.createInvoice(draft);
+    const second = await gateway.createInvoice({ ...draft, clientName: 'Ada Stores' });
+    expect([first.reference, second.reference]).toEqual(['INV-0001', 'INV-0002']);
+    expect(first).toMatchObject({ clientName: 'Bello Foods', status: 'sent', link: draft.link });
+    expect((await records.invoices.list()).map((i) => i.reference)).toEqual(['INV-0002', 'INV-0001']);
+  });
+
+  it('refuses to reuse an invoice number', async () => {
+    const { gateway } = build({ records: memoryRecords() });
+    await gateway.createInvoice({ ...draft, reference: 'INV-0001' });
+    await expect(gateway.createInvoice({ ...draft, reference: 'INV-0001' })).rejects.toThrow(/already exists/);
+  });
+
+  it('marks an invoice paid on request and invents no tax reserve', async () => {
+    const records = memoryRecords();
+    const { gateway } = build({ records });
+    const invoice = await gateway.createInvoice(draft);
+    const settled = await gateway.settleInvoice(invoice.id, 0.2);
+    expect(settled.taxReserve).toBeNull();
+    expect(settled.invoice).toMatchObject({ id: invoice.id, status: 'paid' });
+    expect(settled.invoice.paidAt).toBeDefined();
+    expect((await records.invoices.list())[0]!.status).toBe('paid');
+    // Marking it again changes nothing.
+    expect((await gateway.settleInvoice(invoice.id, 0.2)).invoice.paidAt).toBe(settled.invoice.paidAt);
+  });
+
+  it('says so when the invoice is not there, or there is nowhere to keep it', async () => {
+    const { gateway } = build({ records: memoryRecords() });
+    await expect(gateway.settleInvoice('nope', 0.2)).rejects.toThrow("We couldn't find that invoice.");
+    await expect(build().gateway.createInvoice(draft)).rejects.toThrow(/can't be saved on this device/);
   });
 });

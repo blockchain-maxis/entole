@@ -6,25 +6,30 @@ import {
   demoGateway,
   FEE_MINOR,
   type AllowanceDraft,
+  type InvoiceDraft,
   type PaymentsGateway,
   type SendInput,
   type SendQuote,
 } from './gateway';
 import { fetchIndexedActivity } from './indexed-activity';
+import { nextInvoiceReference } from './invoices';
 import { cents, kobo } from './money';
 import type { Records } from './records';
 import type { RelayClient } from './relay-client';
 import {
   growPositionSchema,
+  invoiceSchema,
   receiptSchema,
   snapshotSchema,
   type Allowance,
   type Cadence,
   type GrowPosition,
+  type Invoice,
   type Receipt,
   type Snapshot,
   type StockPosition,
   stockPositionSchema,
+  type TaxReserve,
 } from './schemas';
 import {
   buyStock as brokerBuyStock,
@@ -137,6 +142,26 @@ export const ERC20_ABI = [
     stateMutability: 'view',
     inputs: [{ name: '', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'approve',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     type: 'function',
@@ -350,6 +375,12 @@ function toTokenMinor(amountMinorNaira: number, config: ResolvedConfig): bigint 
 function fromTokenMinor(amountToken: bigint, config: ResolvedConfig): number {
   const tokenToNairaCents = Number(amountToken) / 10 ** (config.tokenDecimals - 2);
   return Math.round((tokenToNairaCents * config.rate.koboPerDollar) / 100);
+}
+
+/** The device's own records, or a plain refusal when there are none to keep them in. */
+function requireRecords(config: ResolvedConfig): Records {
+  if (!config.records) throw new Error("Invoices can't be saved on this device yet.");
+  return config.records;
 }
 
 function requireGrowthVaultAddress(config: ResolvedConfig): Address {
@@ -763,8 +794,32 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
 
     async depositGrow(amountMinor: number) {
       const vaultAddress = requireGrowthVaultAddress(config);
+      await refreshRate();
       const amount = toTokenMinor(amountMinor, config);
+      if (amount <= 0n) throw new Error('Enter an amount to save.');
       await withGas();
+
+      // The vault pulls the money with `transferFrom`, so it must be approved
+      // for at least this amount first. Only asks when the current approval
+      // doesn't already cover it.
+      const approved = await config.publicClient.readContract({
+        address: config.tokenAddress,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [ownerAddress(), vaultAddress],
+      });
+      if (approved < amount) {
+        const approval = await config.ownerWalletClient.writeContract({
+          chain: config.ownerWalletClient.chain,
+          account: config.ownerWalletClient.account!,
+          address: config.tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [vaultAddress, amount],
+        });
+        await config.publicClient.waitForTransactionReceipt({ hash: approval });
+      }
+
       const hash = await config.ownerWalletClient.writeContract({
         chain: config.ownerWalletClient.chain,
         account: config.ownerWalletClient.account!,
@@ -826,18 +881,56 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       // never a confirmation dialog."
     },
 
-    // The business layer (seats, invoicing, tax reserve) is record-keeping
-    // and UI composition on top of the same allowance primitive, not a
-    // second settlement path — a seat's actual spending power is an
-    // allowance like any other, created via `saveAllowance` above. Nothing
-    // here needs its own contract call yet, so these stay on the same demo
-    // records everything else in `loadOffChainSnapshot` provides, until
-    // seats/invoices get their own indexed backing store.
+    // Seats and spending power are out of the product's UI; these two stay on
+    // the demo behaviour and nothing shipped calls them.
     saveSeat: demoGateway.saveSeat,
     revokeSeat: demoGateway.revokeSeat,
-    createInvoice: demoGateway.createInvoice,
-    settleInvoice: demoGateway.settleInvoice,
+
+    // Invoices are the business's own records, kept on the device like
+    // beneficiaries. There is no second settlement path: a client pays the
+    // invoice's checkout link and the money arrives in the balance.
+    async createInvoice(draft: InvoiceDraft): Promise<Invoice> {
+      const records = requireRecords(config);
+      const existing = await records.invoices.list();
+      const reference = draft.reference?.trim() || nextInvoiceReference(existing);
+      if (existing.some((entry) => entry.reference === reference)) {
+        throw new Error(`Invoice ${reference} already exists. Go back and try again.`);
+      }
+      const invoice = invoiceSchema.parse({
+        id: `inv-${Date.now()}`,
+        reference,
+        clientName: draft.clientName.trim(),
+        amountMinor: draft.amountMinor,
+        note: draft.note.trim(),
+        dueAt: draft.dueAt,
+        status: draft.releaseCondition ? 'pending-release' : 'sent',
+        link: draft.link ?? '',
+        ...(draft.releaseCondition ? { releaseCondition: draft.releaseCondition } : {}),
+      });
+      await records.invoices.upsert(invoice);
+      return invoice;
+    },
+
+    /** A manual mark: it records that the client paid. Nothing here watches the
+     * balance, and no tax reserve is invented — that stays `null`. */
+    async settleInvoice(invoiceId: string): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }> {
+      const records = requireRecords(config);
+      const found = (await records.invoices.list()).find((entry) => entry.id === invoiceId);
+      if (!found) throw new Error("We couldn't find that invoice.");
+      if (found.status === 'paid') return { invoice: found, taxReserve: null };
+      const invoice = invoiceSchema.parse({
+        ...found,
+        status: 'paid',
+        paidAt: new Date().toISOString(),
+        koboPerDollar: config.rate.koboPerDollar,
+      });
+      await records.invoices.upsert(invoice);
+      return { invoice, taxReserve: null };
+    },
+
+    // Chainlink-gated release stays gated as it was: it needs the CRE workflow.
     requestConditionalRelease: demoGateway.requestConditionalRelease,
+    // No screen creates a supply request any more; the method is left as it was.
     createProcurementRequest: demoGateway.createProcurementRequest,
   };
 }

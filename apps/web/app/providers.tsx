@@ -1,5 +1,7 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
+
 import { BackendProvider } from '@entole/core/backend';
 import { StoreProvider } from '@entole/core/store';
 
@@ -7,7 +9,19 @@ import { AuthGate } from '@/components/AuthGate';
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
 import { useOnChainBackend } from '@/lib/onchain';
+import { isPublicPath } from '@/lib/public-routes';
 import { ThemeProvider } from '@/lib/theme';
+
+/**
+ * Public routes (`/pay/…`, the checkout page) are for people with no account:
+ * they skip the account gate and the tab bar, and render as themselves.
+ * Everything else is gated exactly as before.
+ */
+function Gate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  if (isPublicPath(pathname)) return <>{children}</>;
+  return <AuthGate>{children}</AuthGate>;
+}
 
 /**
  * The store is the same one the phone app runs, over the same gateway
@@ -24,7 +38,7 @@ function GatewayBoundary({ children }: { children: React.ReactNode }) {
   return (
     <BackendProvider value={backend}>
       <StoreProvider gateway={gateway}>
-        <AuthGate>{children}</AuthGate>
+        <Gate>{children}</Gate>
       </StoreProvider>
     </BackendProvider>
   );

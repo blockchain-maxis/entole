@@ -159,6 +159,12 @@ export default function Me() {
         </View>
 
         <View>
+          <SectionHeading title="Preferences" />
+          <Text className="mb-2.5 px-1 font-body text-label-sm text-slate">Theme</Text>
+          <ThemePicker />
+        </View>
+
+        <View>
           <SectionHeading title="Security" />
           <View className="gap-2">
             <DetailRow
@@ -177,12 +183,6 @@ export default function Me() {
               onPress={() => void signOutEverywhere()}
             />
           </View>
-        </View>
-
-        <View>
-          <SectionHeading title="Preferences" />
-          <Text className="mb-2.5 px-1 font-body text-label-sm text-slate">Theme</Text>
-          <ThemePicker />
         </View>
 
         <View>

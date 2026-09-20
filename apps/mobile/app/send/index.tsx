@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { countryName } from '@entole/core/countries';
-import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import { entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
@@ -17,19 +17,25 @@ import { Keypad } from '@/components/ui/Keypad';
 import { Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
+import { cleanNote, entryFromParam } from '@/lib/recipient';
 import { checkSendAmount } from '@/lib/send';
 
 /**
  * Amount entry. No fee is shown here: the fee is only real once it is quoted,
  * so it appears on the review sheet after Review is tapped, next to what the
  * person will actually be charged.
+ *
+ * Params: `contactId` is the recipient (a saved one, or a `code:` one-off);
+ * `amount` (kobo) pre-fills the keypad — a link that asks for an amount sends
+ * it here — and `note` pre-fills the review sheet's note. The amount is only a
+ * starting point: the keypad still edits it.
  */
 export default function Send() {
   const router = useRouter();
   const store = useStore();
-  const params = useLocalSearchParams<{ contactId?: string }>();
+  const params = useLocalSearchParams<{ contactId?: string; amount?: string; note?: string }>();
 
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const [entry, setEntry] = useState<AmountEntry>(() => entryFromParam(params.amount));
   const [reviewing, setReviewing] = useState(false);
 
   const loading = store.status === 'loading';
@@ -40,6 +46,9 @@ export default function Send() {
 
   const check = checkSendAmount({ amount, balance: store.balance, rate: store.rate });
   const reason = check.ok || check.kind === 'empty' || check.kind === 'no-balance' ? null : check.reason;
+  const defaultNote = cleanNote(params.note);
+  const changeRecipient = () =>
+    router.replace({ pathname: '/send/pick', params: defaultNote ? { note: defaultNote } : {} });
   const canReview = store.status === 'ready' && Boolean(contact) && check.ok;
 
   return (
@@ -61,9 +70,9 @@ export default function Send() {
                 {where ? <Text className="font-body text-label-sm text-slate">{where}</Text> : null}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Change beneficiary"
+                  accessibilityLabel="Change who you are sending to"
                   hitSlop={10}
-                  onPress={() => router.replace('/send/pick')}
+                  onPress={changeRecipient}
                 >
                   <Text className="font-strong text-label-sm text-indigo">Change</Text>
                 </Pressable>
@@ -74,10 +83,10 @@ export default function Send() {
               <Text className="font-strong text-headline text-ink">Who are you sending to?</Text>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.replace('/send/pick')}
+                onPress={changeRecipient}
                 className="mt-3 rounded-pill border border-line bg-card px-4 py-2.5 active:border-mist"
               >
-                <Text className="font-strong text-label text-indigo">Choose a beneficiary</Text>
+                <Text className="font-strong text-label text-indigo">Choose who to send to</Text>
               </Pressable>
             </View>
           )}
@@ -125,7 +134,12 @@ export default function Send() {
       </Screen>
 
       {reviewing && contact ? (
-        <ConfirmSendSheet contact={contact} amountMinor={amount} onDismiss={() => setReviewing(false)} />
+        <ConfirmSendSheet
+          contact={contact}
+          amountMinor={amount}
+          {...(defaultNote ? { defaultNote } : {})}
+          onDismiss={() => setReviewing(false)}
+        />
       ) : null}
     </View>
   );

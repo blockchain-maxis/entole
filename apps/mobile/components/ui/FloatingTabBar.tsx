@@ -6,7 +6,7 @@ import { nativeShadowStyle } from '@entole/tokens';
 
 import { useThemeColors } from '@/lib/theme';
 
-import { TabBarIcon } from './TabBarIcon';
+import { TAB_PILL_RADIUS, TabBarIcon } from './TabBarIcon';
 
 /** Panel radius, matching `packages/tokens`' `panel` token — a plain style
  * object can't take a className, so the value is repeated here. */
@@ -93,8 +93,10 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: focused }}
               onPress={onPress}
-              android_ripple={{ color: colors.line, borderless: false, radius: 32 }}
-              style={StyleSheet.absoluteFill}
+              android_ripple={{ color: colors.line, borderless: false }}
+              // The ripple is drawn to the view's bounds; without a matching
+              // radius and a clip it fills a square over the round highlight.
+              style={[StyleSheet.absoluteFill, { borderRadius: TAB_PILL_RADIUS, overflow: 'hidden' }]}
             />
           </View>
         );

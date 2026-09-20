@@ -89,7 +89,12 @@ describe('the pause control is reachable from every page header', () => {
     expect(pages.length).toBeGreaterThan(0);
   });
 
-  it.each(pages)('%s renders the shared header', (file) => {
+  // The public checkout page (`/pay/[code]`) is for people who may not have an
+  // account, so it renders `CheckoutHeader`, which draws the same pause control
+  // whenever someone is signed in (asserted in "the public checkout page" below).
+  const isCheckout = (file: string) => relative(PAGES, file).startsWith(join('pay', ''));
+
+  it.each(pages.filter((file) => !isCheckout(file)))('%s renders the shared header', (file) => {
     expect(read(file)).toMatch(/<Header/);
   });
 
@@ -141,5 +146,152 @@ describe('the assistant is a setting the person turns on, never a default', () =
     const screen = stripComments(read(join(ROOT, 'app/assistant/page.tsx')));
     expect(screen).not.toMatch(/type="checkbox"|role="switch"/);
     expect(screen).toMatch(/Turn on the assistant/);
+  });
+});
+
+describe('the public checkout page', () => {
+  const page = read(join(PAGES, 'pay/[code]/page.tsx'));
+  const checkoutFiles = [
+    join(PAGES, 'pay/[code]/page.tsx'),
+    join(COMPONENTS, 'Checkout.tsx'),
+    join(COMPONENTS, 'CheckoutHeader.tsx'),
+  ];
+
+  it('reads params and searchParams as promises, the Next 16 way', () => {
+    expect(page).toMatch(/params: Promise</);
+    expect(page).toMatch(/searchParams: Promise</);
+    expect(page).toMatch(/await params|await Promise\.all\(\[params/);
+  });
+
+  it('rebuilds the checkout through the parser and never reads the URL itself', () => {
+    expect(read(join(ROOT, 'lib/checkout.ts'))).toMatch(/parseCheckout\(/);
+    expect(page).toMatch(/checkoutFromRequest\(/);
+    expect(stripComments(page)).not.toMatch(/searchParams\)?\.(?:a|n|m|r|d|c|t)\b/);
+  });
+
+  it('is kept out of search indexes and carries its own title and description', () => {
+    expect(page).toMatch(/index: false/);
+    expect(page).toMatch(/generateMetadata/);
+    expect(page).toMatch(/openGraph/);
+  });
+
+  it('skips the account gate and the tab bar, and only for checkout routes', () => {
+    const providers = stripComments(read(join(PAGES, 'providers.tsx')));
+    expect(providers).toMatch(/isPublicPath\(pathname\)/);
+    expect(providers).toMatch(/return <>\{children\}<\/>/);
+    // The tab bar lives inside the gate, so a public route never draws it.
+    expect(stripComments(read(join(COMPONENTS, 'AuthGate.tsx')))).toMatch(/<BottomNav \/>/);
+    const routes = stripComments(read(join(ROOT, 'lib/public-routes.ts')));
+    expect(routes).toMatch(/PUBLIC_PREFIXES = \['\/pay\/'\]/);
+  });
+
+  it('draws the pause control in its header whenever someone is signed in', () => {
+    expect(page).toMatch(/<CheckoutHeader/);
+    const header = stripComments(read(join(COMPONENTS, 'CheckoutHeader.tsx')));
+    expect(header).toMatch(/account \? \(/);
+    expect(header).toMatch(/<PauseControl\s*\/>/);
+  });
+
+  it('never prints an address — only the last group of the code, as a label', () => {
+    for (const file of checkoutFiles) {
+      const source = stripComments(read(file));
+      expect(source, relative(ROOT, file)).not.toMatch(/\{[^}]*\.address\b[^}]*\}/);
+      expect(source, relative(ROOT, file)).not.toMatch(/0x[0-9a-fA-F]{6,}/);
+    }
+    const checkout = stripComments(read(join(COMPONENTS, 'Checkout.tsx')));
+    // The address reaches the page only through the on-ramp URL and the code label.
+    expect(checkout).toMatch(/codeLabel\(checkout\)/);
+    expect(checkout).not.toMatch(/\{checkout\.code\}/);
+  });
+
+  it('imports no fixtures', () => {
+    for (const file of [...checkoutFiles, join(PAGES, 'receive/page.tsx'), join(PAGES, 'transfer/send/page.tsx')]) {
+      expect(read(file), relative(ROOT, file)).not.toMatch(/fixtures|DEMO_|SNAPSHOT|store\.request/);
+    }
+  });
+
+  it('shows amounts with the shared naira component, never as float math', () => {
+    const checkout = stripComments(read(join(COMPONENTS, 'Checkout.tsx')));
+    expect(checkout).toMatch(/<Amount value=\{kobo\(/);
+    const lib = stripComments(read(join(ROOT, 'lib/checkout.ts')) + read(join(ROOT, 'lib/onramp.ts')));
+    expect(lib).not.toMatch(/parseFloat|toFixed|Number\(\w*amount/i);
+  });
+});
+
+describe('the bank-and-card option is honest about whether it exists', () => {
+  const checkout = stripComments(read(join(COMPONENTS, 'Checkout.tsx')));
+
+  it('is a disabled button, not a link, until a partner URL is configured', () => {
+    expect(checkout).toMatch(/onrampUrl \? \(/);
+    expect(checkout).toMatch(/<button[^>]*\n?\s*type="button"\s*\n\s*disabled/);
+    expect(checkout).toMatch(/Bank and card payments open soon/);
+    expect(checkout).toMatch(/href=\{onrampUrl\}/);
+  });
+
+  it('only ever links to the adapter’s answer, never a URL of its own', () => {
+    expect(checkout).not.toMatch(/https?:\/\//);
+    expect(stripComments(read(join(PAGES, 'pay/[code]/page.tsx')))).toMatch(/onrampUrl=\{onrampUrlFor\(checkout\)\}/);
+  });
+
+  it('reads its partner from one documented variable and names no secret', () => {
+    const onramp = read(join(ROOT, 'lib/onramp.ts'));
+    expect(onramp).toMatch(/NEXT_PUBLIC_ONRAMP_URL_TEMPLATE/);
+    expect(onramp).toMatch(/Mercuryo/);
+  });
+});
+
+describe('receive shows the checkout link, not a fixture', () => {
+  const receive = stripComments(read(join(PAGES, 'receive/page.tsx')));
+
+  it('builds the link from the payment code and the runtime origin', () => {
+    expect(receive).toMatch(/buildCheckoutLink\(origin/);
+    expect(receive).toMatch(/useBackend\(\)/);
+    expect(receive).toMatch(/window\.location\.origin/);
+  });
+
+  it('shares with the Web Share API when there is one, and confirms a copy', () => {
+    expect(receive).toMatch(/navigator\.share/);
+    expect(receive).toMatch(/'Copied'/);
+  });
+
+  it('renders a QR of the link and skeletons while the code loads', () => {
+    expect(receive).toMatch(/<QrCode value=\{link\}/);
+    expect(receive).toMatch(/<Skeleton/);
+  });
+
+  it('uses no spinner', () => {
+    expect(receive).not.toMatch(/spinner|animate-spin/i);
+  });
+});
+
+describe('sending pays a code or link, and never asks for an address', () => {
+  const send = stripComments(read(join(PAGES, 'transfer/send/page.tsx')));
+
+  it('validates the recipient with the same parser the link uses', () => {
+    expect(send).toMatch(/parseCheckout\(/);
+    expect(send).toMatch(/oneOffId\(/);
+  });
+
+  it('enters the amount on the keypad and confirms through a quote', () => {
+    expect(send).toMatch(/<Keypad/);
+    expect(send).not.toMatch(/type="number"|inputMode="(?:decimal|numeric)"/);
+    const sheet = stripComments(read(join(COMPONENTS, 'ConfirmSendSheet.tsx')));
+    expect(sheet).toMatch(/quoteSend\(/);
+    expect(sheet).toMatch(/store\.send\(/);
+  });
+
+  it('never shows optimistic settlement — the receipt only renders from the store', () => {
+    expect(send).toMatch(/store\.receipt\(receiptId\)/);
+    const sheet = stripComments(read(join(COMPONENTS, 'ConfirmSendSheet.tsx')));
+    // The settled state is set only after `store.send` has resolved.
+    expect(sheet.indexOf('await store.send')).toBeLessThan(sheet.indexOf('setSettled(true)'));
+  });
+
+  it('no longer speaks of contacts', () => {
+    const copy = [send, stripComments(read(join(PAGES, 'transfer/page.tsx')))]
+      .flatMap((source) => userFacingCopy(source))
+      // Text between `>` and `<` can be code (`=> x.contacts ? (`), which is not copy.
+      .filter((text) => !/[(){}=?;]/.test(text) && /\bcontacts?\b/i.test(text));
+    expect(copy).toEqual([]);
   });
 });

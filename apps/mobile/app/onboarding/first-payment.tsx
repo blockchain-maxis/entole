@@ -13,7 +13,7 @@ import { RowSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
 import { markOnboarded } from '@/lib/session';
 
-type Destination = { to: 'home' } | { to: 'send'; contactId: string } | { to: 'add-money' };
+type Destination = { to: 'home' } | { to: 'send'; contactId: string } | { to: 'pick' } | { to: 'add-money' };
 
 /** Last step. Picking a person is the whole task — nothing else is asked for. */
 export default function FirstPayment() {
@@ -31,6 +31,9 @@ export default function FirstPayment() {
     await markOnboarded();
     if (destination.to === 'send') {
       router.replace({ pathname: '/send', params: { contactId: destination.contactId } });
+    } else if (destination.to === 'pick') {
+      router.replace('/(tabs)');
+      router.push('/send/pick');
     } else if (destination.to === 'add-money') {
       router.replace('/(tabs)');
       router.push('/add-money');
@@ -65,8 +68,8 @@ export default function FirstPayment() {
         <Text className="font-strong text-title-xl text-ink">Send your first payment</Text>
         <Text className="mt-3 font-body text-body-sm text-slate">
           {empty
-            ? 'Add someone with their payment code, then send them money.'
-            : 'Choose who you are sending to.'}
+            ? 'Send money to someone with their code or the link they shared.'
+            : 'Choose who you are sending to, or use a code or link.'}
         </Text>
 
         <View className="mt-[22px] gap-2">
@@ -107,9 +110,9 @@ export default function FirstPayment() {
         <View className="gap-2.5">
           <View className="flex-row">
             <Button
-              label="Add a beneficiary"
+              label="Use a code or link"
               variant={empty ? 'primary' : 'secondary'}
-              onPress={() => router.push('/beneficiaries/new')}
+              onPress={() => void finish({ to: 'pick' })}
             />
           </View>
           {noMoney ? (

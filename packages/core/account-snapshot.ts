@@ -1,7 +1,8 @@
 import { getAddress, type Address } from 'viem';
 
 import type { Rate } from './fx';
-import { beneficiaryAddress, toContact, type Beneficiary, type Records } from './records';
+import { oneOffAddress } from './one-off';
+import { beneficiaryAddress, toContact, type Beneficiary, type Records, type Staff } from './records';
 import { snapshotSchema, type Snapshot } from './schemas';
 
 /**
@@ -25,11 +26,12 @@ export function createAccountSource(options: { records: Records; getRate: () => 
 
   return {
     async loadSnapshot(): Promise<Snapshot> {
-      const [rate, beneficiaries, allowances, activity] = await Promise.all([
+      const [rate, beneficiaries, allowances, activity, invoices] = await Promise.all([
         options.getRate(),
         options.records.beneficiaries.list(),
         options.records.allowances.list(),
         options.records.activity.list(),
+        options.records.invoices.list(),
       ]);
       index(beneficiaries);
 
@@ -40,7 +42,7 @@ export function createAccountSource(options: { records: Records; getRate: () => 
         allowances,
         activity,
         seats: [],
-        invoices: [],
+        invoices,
         procurementRequests: [],
         taxReserves: [],
         growPosition: null,
@@ -50,9 +52,10 @@ export function createAccountSource(options: { records: Records; getRate: () => 
       });
     },
 
-    /** Where a beneficiary's money lands. Never rendered. */
+    /** Where a beneficiary's (or a one-off payment code's) money lands. Never rendered. */
     resolveRecipient(contactId: string): Address {
-      const address = addresses.get(contactId);
+      // A payment code paid without saving the person first.
+      const address = addresses.get(contactId) ?? oneOffAddress(contactId);
       if (!address) throw new Error("We couldn't find that beneficiary.");
       return address;
     },
@@ -68,6 +71,13 @@ export function createAccountSource(options: { records: Records; getRate: () => 
       index(list);
       return list;
     },
+
+    /** The people the business pays regularly. Codes only — never an address. */
+    listStaff: () => options.records.staff.list(),
+    saveStaff: (person: Staff) => options.records.staff.upsert(person),
+    /** Merges an import in one write: existing people (same id) are updated. */
+    saveManyStaff: (people: Staff[]) => options.records.staff.upsertMany(people),
+    removeStaff: (id: string) => options.records.staff.remove(id),
 
     /** Saves a beneficiary and makes it payable straight away. */
     async saveBeneficiary(beneficiary: Beneficiary): Promise<void> {

@@ -40,10 +40,11 @@ export default function NewBeneficiary() {
   const store = useStore();
   const { source, paymentCode } = useBackend();
   const { account } = useAccount();
-  const { next } = useLocalSearchParams<{ next?: string }>();
+  const { next, code: presetCode } = useLocalSearchParams<{ next?: string; code?: string }>();
 
-  const [code, setCode] = useState('');
-  const [codeTouched, setCodeTouched] = useState(false);
+  // `code` pre-fills the field when saving someone just paid by their code.
+  const [code, setCode] = useState(presetCode ?? '');
+  const [codeTouched, setCodeTouched] = useState(Boolean(presetCode));
   const [pasteNote, setPasteNote] = useState<string | null>(null);
   const [draft, setDraft] = useState<BeneficiaryDraft>(EMPTY_DRAFT);
   const [pickingCountry, setPickingCountry] = useState(false);

@@ -15,6 +15,7 @@ import {
   type StockSearchResult,
 } from './gateway';
 import { kobo, type Naira } from './money';
+import { oneOffContact } from './one-off';
 import type {
   Activity,
   Contact,
@@ -255,7 +256,8 @@ export function StoreProvider({
         return {
           ...current,
           invoices: current.invoices.map((entry) => (entry.id === invoiceId ? invoice : entry)),
-          taxReserves: [taxReserve, ...current.taxReserves],
+          // The real gateway keeps no reserve, so there may be none to add.
+          taxReserves: taxReserve ? [taxReserve, ...current.taxReserves] : current.taxReserves,
         };
       });
     },
@@ -365,7 +367,8 @@ export function StoreProvider({
       stocksAvailable: gateway.stocksAvailable,
       proposal,
       request: snapshot?.request ?? null,
-      contact: (id) => contacts.find((c) => c.id === id),
+      // A one-off payment code has no saved record; it is named by its code.
+      contact: (id) => contacts.find((c) => c.id === id) ?? oneOffContact(id),
       allowance: (id) => allowances.find((a) => a.id === id),
       seat: (id) => seats.find((s) => s.id === id),
       invoice: (id) => invoices.find((i) => i.id === id),

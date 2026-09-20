@@ -1,158 +1,162 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+
+import { EMPTY_ENTRY, entryFromMinor, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import { toDollars } from '@entole/core/fx';
+import { formatDollars, formatNaira, kobo } from '@entole/core/money';
+import { useStore } from '@entole/core/store';
 
 import { Amount } from '@/components/ui/Amount';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { Keypad } from '@/components/ui/Keypad';
-import { Meter } from '@/components/ui/Meter';
-import { PauseButton } from '@/components/ui/PauseButton';
+import { LoadFailed } from '@/components/ui/LoadFailed';
+import { SavingsSheet } from '@/components/ui/SavingsSheet';
 import { Screen } from '@/components/ui/Screen';
-import { Sentence, type SentencePart } from '@/components/ui/Sentence';
-import { BalanceSkeleton } from '@/components/ui/Skeleton';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import { EMPTY_ENTRY, entryDisplay, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
-import { daysUntil, payoutLabel } from '@entole/core/format';
-import { formatNaira, kobo } from '@entole/core/money';
-import { useStore } from '@entole/core/store';
-
-type Mode = 'view' | 'deposit' | 'withdraw';
+import { checkSavingsAmount, type SavingsMode } from '@/lib/savings';
 
 /**
- * "Savings" — the Grow hub's first product: the owner's own money, growing. No delegate, no allowance;
- * moving money in or out here is always a direct owner action, same trust
- * level as a plain send. Earnings shown are a projection, never treated as
- * spendable until they actually settle into the balance above.
+ * Savings — moving your own money between what you can spend and what you have
+ * set aside. One screen, two directions: the hub sends you here already on the
+ * one you chose (`?mode=deposit` or `?mode=withdraw`), and the switch at the
+ * top changes it. The amount goes in on the custom keypad; Review opens a sheet,
+ * and nothing is shown as moved until it has settled.
  */
 export default function Savings() {
+  const router = useRouter();
   const store = useStore();
-  const loading = store.status === 'loading';
-  const position = store.growPosition;
+  const params = useLocalSearchParams<{ mode?: string }>();
 
-  const [mode, setMode] = useState<Mode>('view');
+  const [mode, setMode] = useState<SavingsMode>(params.mode === 'withdraw' ? 'withdraw' : 'deposit');
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
 
-  const amount = entryToMinor(entry);
+  const loading = store.status === 'loading';
+  const failed = store.status === 'failed';
+  const position = store.growPosition;
+  const spendable = store.balance;
+  const saved = position?.balanceMinor ?? 0;
+  const deposit = mode === 'deposit';
 
-  function openMode(next: Mode) {
-    setEntry(EMPTY_ENTRY);
-    setProblem(null);
+  const amount = useMemo(() => entryToMinor(entry), [entry]);
+  const check = checkSavingsAmount({ mode, amount, spendable, saved, rate: store.rate });
+  const reason = check.ok || check.kind === 'empty' ? null : check.reason;
+  const ready = !loading && !failed && Boolean(position);
+
+  function pickMode(next: SavingsMode) {
     setMode(next);
+    setEntry(EMPTY_ENTRY);
   }
 
-  async function submit() {
-    if (amount <= 0 || busy || !position) return;
-    if (mode === 'withdraw' && amount > position.balanceMinor) {
-      setProblem('That is more than what you have growing.');
-      return;
-    }
-    setBusy(true);
-    setProblem(null);
-    try {
-      if (mode === 'deposit') {
-        await store.depositGrow(amount);
-      } else if (mode === 'withdraw') {
-        await store.withdrawGrow(amount);
-      }
-      setMode('view');
-      setEntry(EMPTY_ENTRY);
-    } catch {
-      setProblem('That did not go through. Nothing changed.');
-    } finally {
-      setBusy(false);
-    }
+  function finish() {
+    setReviewing(false);
+    setEntry(EMPTY_ENTRY);
+    if (router.canGoBack()) router.back();
   }
-
-  const sentenceParts: SentencePart[] = [
-    { kind: 'words', text: 'Grow ' },
-    { kind: 'pill', id: 'amount', text: 'more money', tabular: false },
-    { kind: 'words', text: '.' },
-  ];
 
   return (
-    <Screen edges={{ bottom: false }}>
-      <Header title="Savings" trailing={<PauseButton />} />
+    <View className="flex-1">
+      <Screen>
+        <Header title="Savings" />
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        {loading || !position ? (
-          <BalanceSkeleton />
-        ) : mode === 'view' ? (
-          <>
-            <View className="rounded-panel bg-card p-6 shadow-raised">
-              <Text className="font-strong text-label-sm text-mist">What&apos;s growing</Text>
-              <View className="mt-2.5">
-                <Amount value={kobo(position.balanceMinor)} />
-              </View>
-              {position.accruedMinor > 0 ? (
-                <Text tabular className="mt-2 font-body text-body-sm text-settled">
-                  + {formatNaira(kobo(position.accruedMinor))} earned so far
-                </Text>
-              ) : null}
-
-              <View className="mt-5">
-                <Meter fraction={1} tone="settled" label="Growing" />
-              </View>
-              <View className="mt-2.5 flex-row items-baseline justify-between">
-                <Text className="font-body text-label-sm text-slate">{payoutLabel(position.nextPayoutAt)}</Text>
-                <Text tabular className="font-strong text-label-sm text-mist">
-                  {daysUntil(position.nextPayoutAt)} days away
-                </Text>
-              </View>
-            </View>
-
-            <View className="mt-6 px-1">
-              <Pressable accessibilityRole="button" onPress={() => openMode('deposit')}>
-                <Sentence parts={sentenceParts} onPressPill={() => openMode('deposit')} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Move money out of Grow"
-                className="mt-4"
-                onPress={() => openMode('withdraw')}
-              >
-                <Text className="font-strong text-label-sm text-indigo">Move money out</Text>
-              </Pressable>
-            </View>
-          </>
-        ) : (
-          <View className="pt-2">
-            <View className="flex-row items-baseline justify-between px-1">
-              <Text className="font-heavy text-body-sm text-ink">
-                {mode === 'deposit' ? 'Add to Grow' : 'Move out of Grow'}
-              </Text>
-              <Text tabular className="font-strong text-amount-sm text-ink">
-                ₦{entryDisplay(entry)}
-              </Text>
-            </View>
-
-            <View className="mt-3">
-              <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
-            </View>
-
-            {problem ? (
-              <Text className="mt-3 text-center font-body text-label-sm text-halt">{problem}</Text>
-            ) : null}
-
-            <View className="mt-4 flex-row gap-3">
-              <Button variant="secondary" label="Cancel" width="hug" onPress={() => openMode('view')} />
-              <Button
-                label={
-                  busy
-                    ? 'Working'
-                    : mode === 'deposit'
-                      ? `Add ${formatNaira(amount)}`
-                      : `Move out ${formatNaira(amount)}`
-                }
-                busy={busy}
-                disabled={amount <= 0}
-                onPress={() => void submit()}
-              />
+        {loading ? (
+          <View className="px-gutter pt-2">
+            <Skeleton className="h-11 w-full rounded-control" />
+            <View className="items-center">
+              <Skeleton className="mt-9 h-[54px] w-56 rounded-chip" />
+              <Skeleton className="mt-4 h-4 w-28 rounded-md" />
             </View>
           </View>
+        ) : failed ? (
+          <View className="px-gutter pt-2">
+            <LoadFailed
+              title="We can't load your savings"
+              body="Your balances couldn't be read just now. Nothing has changed. Check your connection and try again."
+            />
+          </View>
+        ) : !position ? (
+          <View className="px-gutter pt-2">
+            <View className="rounded-panel bg-card p-6 shadow-raised">
+              <Text className="font-strong text-title text-ink">Savings isn&apos;t available yet</Text>
+              <Text className="mt-2 font-body text-body-sm text-slate">
+                It isn&apos;t switched on for your account yet. Your money hasn&apos;t moved.
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            <View className="flex-1 px-gutter pt-1">
+              <View className="flex-row gap-2">
+                {(['deposit', 'withdraw'] as const).map((option) => {
+                  const active = mode === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => pickMode(option)}
+                      className={`flex-1 items-center rounded-control border py-3 ${
+                        active ? 'border-indigo bg-indigo-wash' : 'border-line bg-card'
+                      }`}
+                    >
+                      <Text className={`font-strong text-body-sm ${active ? 'text-indigo' : 'text-slate'}`}>
+                        {option === 'deposit' ? 'Add to savings' : 'Take out'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View className="flex-1 items-center justify-center">
+                <Amount value={kobo(amount)} size="large" caret />
+                <Text tabular className="mt-2.5 font-body text-body-sm text-slate">
+                  {amount > 0 ? `≈ ${formatDollars(toDollars(kobo(amount), store.rate))}` : 'Enter an amount'}
+                </Text>
+
+                <View className="mt-3 min-h-[52px] items-center px-2">
+                  <Text tabular className="text-center font-body text-label-sm text-slate">
+                    {deposit
+                      ? `You can spend ${formatNaira(kobo(spendable))}`
+                      : `You have ${formatNaira(kobo(saved))} in savings`}
+                  </Text>
+                  {reason ? (
+                    <Text className="mt-1 text-center font-body text-label-sm text-caution">{reason}</Text>
+                  ) : null}
+                  {!reason && !deposit && saved > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={10}
+                      onPress={() => setEntry(entryFromMinor(kobo(saved)))}
+                      className="mt-1"
+                    >
+                      <Text className="font-strong text-label-sm text-indigo">Take out all of it</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+
+            <View className="flex-none px-3.5 pb-2.5">
+              <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
+              <View className="mt-3 flex-row">
+                <Button label="Review" disabled={!ready || !check.ok} onPress={() => setReviewing(true)} />
+              </View>
+            </View>
+          </>
         )}
-      </ScrollView>
-    </Screen>
+      </Screen>
+
+      {reviewing && ready ? (
+        <SavingsSheet
+          mode={mode}
+          amountMinor={amount}
+          onDismiss={() => setReviewing(false)}
+          onDone={finish}
+        />
+      ) : null}
+    </View>
   );
 }

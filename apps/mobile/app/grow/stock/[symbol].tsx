@@ -7,7 +7,9 @@ import { Header } from '@/components/ui/Header';
 import { Keypad } from '@/components/ui/Keypad';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { Screen } from '@/components/ui/Screen';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
+import { plainMessage } from '@/lib/send';
 import { EMPTY_ENTRY, entryDisplay, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import type { StockQuote } from '@entole/core/gateway';
 import { formatNaira, kobo } from '@entole/core/money';
@@ -34,26 +36,32 @@ export default function StockTrade() {
   const [side, setSide] = useState<Side>('buy');
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [quote, setQuote] = useState<StockQuote | null>(null);
-  const [quoteFailed, setQuoteFailed] = useState(false);
+  const [quoteProblem, setQuoteProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [sellAll, setSellAll] = useState(false);
 
-  const { getStockQuote } = store;
+  const { getStockQuote, stocksAvailable } = store;
 
   useEffect(() => {
+    // No broker, no quote to ask for.
+    if (!stocksAvailable) return;
     let live = true;
     getStockQuote(symbol)
       .then((next) => {
         if (live) setQuote(next);
       })
-      .catch(() => {
-        if (live) setQuoteFailed(true);
+      .catch((error: unknown) => {
+        if (live) {
+          setQuoteProblem(
+            plainMessage(error, `We couldn't get a live price for ${symbol}, so trading it is switched off for now.`),
+          );
+        }
       });
     return () => {
       live = false;
     };
-  }, [getStockQuote, symbol]);
+  }, [getStockQuote, stocksAvailable, symbol]);
 
   const amount = entryToMinor(entry);
   const held = holding?.quantityScaled ?? 0;
@@ -80,12 +88,7 @@ export default function StockTrade() {
       else await store.sellStock(symbol, quantity);
       router.back();
     } catch (error) {
-      const message = error instanceof Error ? error.message : '';
-      setProblem(
-        message.startsWith('Your order was received')
-          ? message
-          : 'That order did not go through. Nothing changed.',
-      );
+      setProblem(plainMessage(error, "That order didn't go through. Nothing changed."));
     } finally {
       setBusy(false);
     }
@@ -96,15 +99,24 @@ export default function StockTrade() {
       <Header title={holding?.companyName ?? symbol} trailing={<PauseButton />} />
 
       <View className="flex-1 px-gutter pt-1">
-        {quoteFailed ? (
-          <View className="rounded-panel border border-line bg-card p-5">
-            <Text className="font-heavy text-body text-ink">No price available right now</Text>
-            <Text className="mt-2 font-body text-body-sm text-slate">
-              We could not get a live price for {symbol}, so trading it is switched off for now.
+        {!stocksAvailable ? (
+          <View className="rounded-row border border-line bg-card p-4">
+            <Text className="font-heavy text-body-sm text-ink">Stocks</Text>
+            <Text className="mt-2 font-body text-label-sm text-slate">
+              Buying stocks opens when our brokerage partner is connected.
             </Text>
           </View>
+        ) : quoteProblem ? (
+          <View className="rounded-row border border-line bg-card p-4">
+            <Text className="font-heavy text-body-sm text-ink">No price available right now</Text>
+            <Text className="mt-2 font-body text-label-sm text-slate">{quoteProblem}</Text>
+          </View>
         ) : !quote ? (
-          <Text className="px-1 font-body text-body-sm text-slate">Getting the latest price</Text>
+          <View accessibilityLabel="Getting the latest price" className="px-1">
+            <Skeleton className="h-4 w-full rounded-md" />
+            <Skeleton className="mt-4 h-11 w-full rounded-control" />
+            <Skeleton className="mt-5 h-6 w-40 rounded-md" />
+          </View>
         ) : (
           <>
             <View className="flex-row items-baseline justify-between px-1">

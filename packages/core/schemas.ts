@@ -102,9 +102,12 @@ export const invoiceSchema = z.object({
   note: z.string().min(1),
   dueAt: isoDate,
   status: invoiceStatusSchema,
-  /** Reuses the same receive-by-link surface a personal payment request
-   * already has — not a second flow. */
-  link: z.string().min(1),
+  /** The checkout link the client pays through — the same surface a personal
+   * payment request has, in its invoice form. Empty only if no link could be
+   * built (no payment code yet); never a made-up address. */
+  link: z.string(),
+  /** Running number, `INV-0001`. Optional so records made before numbering existed still read. */
+  reference: z.string().min(1).optional(),
   koboPerDollar: z.number().int().positive().optional(),
   paidAt: isoDate.optional(),
   releaseCondition: releaseConditionSchema.optional(),

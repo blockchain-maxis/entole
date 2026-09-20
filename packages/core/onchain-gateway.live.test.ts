@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, type Address, type Chain, type Hex } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, type Address, type Chain, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { describe, expect, it } from 'vitest';
 
@@ -30,6 +30,7 @@ const chain: Chain = {
 const POLICY = '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7' as Address;
 const TOKEN = '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC' as Address;
 const ROUTER = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01' as Address;
+const VAULT = '0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd' as Address;
 const AGORA_FAUCET = '0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C' as Address;
 
 const ROUTER_PAY_ABI = [
@@ -110,6 +111,13 @@ describe.skipIf(!LIVE)('live: single-signature send on Monad testnet', () => {
       tokenDecimals: 6,
       getRate,
       records,
+      growthVaultAddress: VAULT,
+      // Stands in for /api/gas: the sponsor covers the account's own transactions.
+      ensureGas: async (owner) => {
+        if ((await publicClient.getBalance({ address: owner })) >= parseEther('0.02')) return;
+        const hash = await sponsorClient.sendTransaction({ to: owner, value: parseEther('0.05') });
+        await publicClient.waitForTransactionReceipt({ hash });
+      },
       resolveRecipient: source.resolveRecipient,
       loadOffChainSnapshot: source.loadSnapshot,
       relay: {
@@ -146,6 +154,12 @@ describe.skipIf(!LIVE)('live: single-signature send on Monad testnet', () => {
     const after = await gateway.loadSnapshot();
     expect(after.account.balanceMinor).toBeLessThan(before.account.balanceMinor);
     expect(after.activity.map((a) => a.note)).toContain('Live test');
-    expect(await publicClient.getBalance({ address: payer.address })).toBe(0n); // never needed gas
+    expect(await publicClient.getBalance({ address: payer.address })).toBe(0n); // sending never needed gas
+
+    // Savings: approve + deposit in the vault, then take it back out.
+    const saved = await gateway.depositGrow(amountMinor);
+    expect(saved.balanceMinor).toBeGreaterThan(0);
+    const withdrawn = await gateway.withdrawGrow(amountMinor);
+    expect(withdrawn.balanceMinor).toBeLessThan(saved.balanceMinor);
   }, 120_000);
 });

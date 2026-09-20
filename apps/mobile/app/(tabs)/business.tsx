@@ -1,85 +1,155 @@
 import { useRouter, type Href } from 'expo-router';
-import { ClipboardList, FileText, Truck, UserPlus, type LucideIcon } from 'lucide-react-native';
+import { ChevronRight, FileText, Truck, UserPlus, Users, type LucideIcon } from 'lucide-react-native';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { useThemeColors } from '@/lib/theme';
+import { dueDateLabel, INVOICE_STATUS_LABEL, invoiceDisplayStatus } from '@entole/core/invoices';
+import { formatNaira, kobo } from '@entole/core/money';
+import type { Invoice } from '@entole/core/schemas';
+import { useStore } from '@entole/core/store';
 
-import { AllowanceCard } from '@/components/ui/AllowanceCard';
-import { AssistantTag } from '@/components/ui/Badge';
+import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { PauseButton } from '@/components/ui/PauseButton';
-import { ContactRow, SectionHeading } from '@/components/ui/Rows';
+import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
-import { AllowanceCardSkeleton, RowSkeleton } from '@/components/ui/Skeleton';
+import { RowSkeleton } from '@/components/ui/Skeleton';
+import { StatusChip } from '@/components/ui/StatusChip';
 import { Text } from '@/components/ui/Text';
-import { formatRate } from '@entole/core/fx';
-import { formatNaira, kobo } from '@entole/core/money';
-import { resetLabel } from '@entole/core/format';
-import { useStore } from '@entole/core/store';
-import { useState } from 'react';
+import { cadenceWord, useStaff } from '@/lib/staff';
+import { useThemeColors } from '@/lib/theme';
+import { initialsFor } from '@entole/core/profile';
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', officer: 'Officer', bookkeeper: 'Bookkeeper' };
+const TONE = { sent: 'neutral', paid: 'settled', overdue: 'halt', draft: 'neutral', held: 'caution' } as const;
 
-type Service = { label: string; hint: string; Icon: LucideIcon; href: Href };
+type Hub = { label: string; hint: string; Icon: LucideIcon; href: Href };
 
-const SERVICES: Service[] = [
-  { label: 'Send invoice', hint: 'Bill a client', Icon: FileText, href: '/business/new-invoice' },
-  { label: 'Pay a supplier', hint: 'Send money out', Icon: Truck, href: '/business/pay-supplier' },
-  { label: 'Order supplies', hint: 'Draft a request', Icon: ClipboardList, href: '/business/order-supplies' },
-  { label: 'Add team member', hint: 'Give a seat', Icon: UserPlus, href: '/business/new-seat' },
-];
-
-function ServiceCard({ service, onPress }: { service: Service; onPress: () => void }) {
+/** One row per job the business does. Each says in a line what it is for and
+ * goes straight to the place that does it. */
+function HubRow({ hub, note, onPress }: { hub: Hub; note?: string | null; onPress: () => void }) {
   const colors = useThemeColors();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={service.label}
+      accessibilityLabel={hub.label}
       onPress={onPress}
-      className="w-[48.5%] rounded-card border border-line bg-card p-4 active:border-mist"
+      className="flex-row items-center gap-3.5 rounded-row border border-line bg-card px-4 py-3.5 active:border-mist"
     >
-      <View className="h-10 w-10 items-center justify-center rounded-chip bg-indigo-wash">
-        <service.Icon size={20} strokeWidth={1.5} color={colors.indigo.DEFAULT} />
+      <View className="h-11 w-11 items-center justify-center rounded-chip bg-track">
+        <hub.Icon size={21} strokeWidth={1.5} color={colors.ink} />
       </View>
-      <Text className="mt-3 font-strong text-body-sm text-ink">{service.label}</Text>
-      <Text className="mt-0.5 font-body text-caption-sm text-slate">{service.hint}</Text>
+      <View className="min-w-0 flex-1">
+        <Text className="font-strong text-body text-ink">{hub.label}</Text>
+        <Text numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+          {hub.hint}
+        </Text>
+      </View>
+      {note ? (
+        <Text tabular className="font-strong text-caption text-slate">
+          {note}
+        </Text>
+      ) : null}
+      <ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />
     </Pressable>
   );
 }
 
+function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => void }) {
+  const status = invoiceDisplayStatus(invoice);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Invoice for ${invoice.clientName}`}
+      onPress={onPress}
+      className="rounded-row border border-line bg-card px-4 py-3.5 active:border-mist"
+    >
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="font-strong text-body text-ink">
+            {invoice.clientName}
+          </Text>
+          <Text numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+            {invoice.reference ? `${invoice.reference} · ` : ''}
+            {status === 'paid' ? 'Paid' : `Due ${dueDateLabel(invoice.dueAt)}`}
+          </Text>
+        </View>
+        <View className="items-end gap-1.5">
+          <Text tabular className="font-strong text-body text-ink">
+            {formatNaira(kobo(invoice.amountMinor))}
+          </Text>
+          <StatusChip label={INVOICE_STATUS_LABEL[status]} tone={TONE[status]} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+/** A nothing-yet state that says what to do about it. */
+function EmptyCard({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View className="rounded-row border border-line bg-card px-4 py-4">
+      <Text className="font-strong text-body-sm text-ink">{title}</Text>
+      <Text className="mt-1 font-body text-label-sm text-slate">{body}</Text>
+      {children ? <View className="mt-3 flex-row gap-2.5">{children}</View> : null}
+    </View>
+  );
+}
+
 /**
- * Services on top, records below. Everything on this screen either is an
- * allowance already, or settles into one — the business layer added 17
- * September 2026 (docs/SCOPE.md).
+ * The business hub, in plain words: bill a client, pay your staff, pay a
+ * supplier, keep your team. Invoices and the team's people are listed under
+ * the four jobs. Everything here is a record on this phone or a payment through
+ * the ordinary send — nothing is invented to fill the page.
  */
 export default function Business() {
   const router = useRouter();
   const store = useStore();
+  const team = useStaff();
+
   const loading = store.status === 'loading';
-  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const owed = store.invoices.filter((invoice) => invoice.status !== 'paid');
+  const owedMinor = owed.reduce((sum, invoice) => sum + invoice.amountMinor, 0);
+  const overdue = owed.filter((invoice) => invoiceDisplayStatus(invoice) === 'overdue').length;
 
-  async function checkRelease(invoiceId: string) {
-    setCheckingId(invoiceId);
-    try {
-      await store.requestConditionalRelease(invoiceId, store.rate);
-    } finally {
-      setCheckingId(null);
-    }
-  }
+  const invoicesHint =
+    owed.length === 0
+      ? 'Bill a client with a link'
+      : `${formatNaira(kobo(owedMinor))} waiting${overdue > 0 ? ` · ${overdue} overdue` : ''}`;
 
-  const spendingSeats = store.seats.filter((seat) => seat.limitMinor > 0);
-  const otherSeats = store.seats.filter((seat) => seat.limitMinor === 0);
-  const outstandingInvoices = store.invoices.filter((invoice) => invoice.status !== 'paid');
+  const hubs = {
+    invoices: { label: 'Invoices', hint: invoicesHint, Icon: FileText, href: '/business/new-invoice' },
+    staff: {
+      label: 'Pay staff',
+      hint: team.staff.length > 0 ? 'Pay your team in one go' : 'From a spreadsheet, or by hand',
+      Icon: Users,
+      href: '/business/payroll',
+    },
+    supplier: {
+      label: 'Pay a supplier',
+      hint: 'Send money to anyone with their code',
+      Icon: Truck,
+      href: '/send/pick?note=Supplier%20payment',
+    },
+    team: { label: 'Team', hint: 'Add someone you pay regularly', Icon: UserPlus, href: '/business/payroll/add' },
+  } satisfies Record<string, Hub>;
 
   if (loading) {
     return (
       <Screen edges={{ bottom: false }}>
-        <Header title="Business" trailing={<PauseButton />} />
+        <Header title="Business" leading="none" trailing={<PauseButton />} />
         <View className="gap-2.5 px-5 pt-2">
           <RowSkeleton />
-          <AllowanceCardSkeleton />
-          <AllowanceCardSkeleton />
+          <RowSkeleton />
+          <RowSkeleton />
+          <RowSkeleton />
         </View>
       </Screen>
     );
@@ -90,135 +160,102 @@ export default function Business() {
       <Header title="Business" leading="none" trailing={<PauseButton />} />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        <SectionHeading title="Services" className="pt-1" />
-        <View className="mb-7 flex-row flex-wrap justify-between gap-y-3">
-          {SERVICES.map((service) => (
-            <ServiceCard key={service.label} service={service} onPress={() => router.push(service.href)} />
-          ))}
+        <View className="gap-2.5">
+          <HubRow hub={hubs.invoices} onPress={() => router.push(hubs.invoices.href)} />
+          <HubRow
+            hub={hubs.staff}
+            note={team.status === 'ready' && team.staff.length > 0 ? String(team.staff.length) : null}
+            onPress={() => router.push(hubs.staff.href)}
+          />
+          <HubRow hub={hubs.supplier} onPress={() => router.push(hubs.supplier.href)} />
+          <HubRow hub={hubs.team} onPress={() => router.push(hubs.team.href)} />
         </View>
-
-        {store.taxReserves.length > 0 ? (
-          <View className="mb-7 rounded-panel bg-card p-5 shadow-raised">
-            <AssistantTag>Tax reserve</AssistantTag>
-            <View className="mt-3 flex-row items-baseline gap-1.5">
-              <Text tabular className="font-strong text-amount text-ink">
-                {formatNaira(kobo(store.taxReserves[0]!.balanceMinor))}
-              </Text>
-            </View>
-            <Text className="mt-1.5 font-body text-label-sm text-slate">
-              Held aside, {resetLabel(store.taxReserves[0]!.payoutAt)}
-            </Text>
-          </View>
-        ) : null}
 
         <SectionHeading
           title="Invoices"
-          action="New"
+          action={store.invoices.length > 0 ? 'New' : undefined}
           onActionPress={() => router.push('/business/new-invoice')}
+          className="pt-8"
         />
         <View className="gap-2.5">
           {store.invoices.length === 0 ? (
-            <Text className="px-1 font-body text-label-sm text-mist">No invoices yet.</Text>
+            <EmptyCard
+              title="No invoices yet"
+              body="Make an invoice and you get a link to send. Your client pays it, and the money arrives in your balance."
+            >
+              <Button
+                label="Create an invoice"
+                variant="secondary"
+                width="hug"
+                onPress={() => router.push('/business/new-invoice')}
+              />
+            </EmptyCard>
           ) : (
             store.invoices.map((invoice) => (
-              <View
+              <InvoiceRow
                 key={invoice.id}
-                className="rounded-row border border-line bg-card px-4 py-3.5"
-              >
-                <View className="flex-row items-start justify-between gap-3">
-                  <Text className="flex-1 font-strong text-body text-ink">{invoice.clientName}</Text>
-                  <Text
-                    className={`font-heavy text-caption-sm uppercase ${
-                      invoice.status === 'paid' ? 'text-settled' : 'text-slate'
-                    }`}
-                  >
-                    {invoice.status === 'pending-release' ? 'Held' : invoice.status}
-                  </Text>
-                </View>
-                <Text tabular className="mt-1.5 font-strong text-amount-sm text-ink">
-                  {formatNaira(kobo(invoice.amountMinor))}
-                </Text>
-                <Text className="mt-0.5 font-body text-caption-sm text-slate">{invoice.note}</Text>
-                {invoice.releaseCondition ? (
-                  <Text className="mt-1.5 font-body text-caption-sm text-slate">
-                    Releases at {formatRate({ koboPerDollar: invoice.releaseCondition.maxKoboPerDollar, quotedAt: '' })} or
-                    better · now {formatRate(store.rate)}
-                  </Text>
-                ) : null}
-                {invoice.status === 'pending-release' ? (
-                  <View className="mt-3">
-                    <Button
-                      label="Check condition"
-                      variant="secondary"
-                      width="hug"
-                      busy={checkingId === invoice.id}
-                      onPress={() => void checkRelease(invoice.id)}
-                    />
-                  </View>
-                ) : invoice.status !== 'paid' ? (
-                  <View className="mt-3">
-                    <Button
-                      label="Mark as paid"
-                      variant="secondary"
-                      width="hug"
-                      onPress={() => void store.settleInvoice(invoice.id)}
-                    />
-                  </View>
-                ) : null}
-              </View>
+                invoice={invoice}
+                onPress={() => router.push({ pathname: '/business/invoice/[id]', params: { id: invoice.id } })}
+              />
             ))
           )}
         </View>
 
-        {outstandingInvoices.length === 0 && store.invoices.length > 0 ? (
-          <Text className="mt-2 px-1 font-body text-label-sm text-settled">All caught up.</Text>
-        ) : null}
-
-        <SectionHeading title="Seats" action="Add" className="pt-7" onActionPress={() => router.push('/business/new-seat')} />
-        <View className="gap-2.5">
-          {spendingSeats.map((seat) => (
-            <AllowanceCard key={seat.id} allowance={seat} resetsAt={seat.resetsAt} />
-          ))}
-          {otherSeats.map((seat) => {
-            const contact = store.contact(seat.recipientId);
-            return (
-              <ContactRow
-                key={seat.id}
-                contact={
-                  contact ?? { id: seat.recipientId, name: seat.name, initials: '?', tone: 1 }
-                }
-                trailing={<Text className="font-heavy text-caption-sm uppercase text-slate">{ROLE_LABEL[seat.role]}</Text>}
-              />
-            );
-          })}
-          {store.seats.length === 0 ? (
-            <Text className="px-1 font-body text-label-sm text-mist">No seats granted yet.</Text>
-          ) : null}
-        </View>
-
         <SectionHeading
-          title="Requests"
-          action="New"
-          className="pt-7"
-          onActionPress={() => router.push('/business/order-supplies')}
+          title="Your team"
+          action={team.staff.length > 0 ? 'Add' : undefined}
+          onActionPress={() => router.push('/business/payroll/add')}
+          className="pt-8"
         />
         <View className="gap-2.5">
-          {store.procurementRequests.length === 0 ? (
-            <Text className="px-1 font-body text-label-sm text-mist">No supply requests yet.</Text>
+          {team.status === 'loading' ? (
+            <>
+              <RowSkeleton />
+              <RowSkeleton />
+            </>
+          ) : team.status === 'failed' ? (
+            <EmptyCard title="We couldn't load your team" body="They are saved on this phone. Try again.">
+              <Button label="Try again" variant="secondary" width="hug" onPress={() => void team.reload()} />
+            </EmptyCard>
+          ) : team.staff.length === 0 ? (
+            <EmptyCard
+              title="No one on your team yet"
+              body="Add the people you pay with their payment code, or bring them in from a spreadsheet."
+            >
+              <Button
+                label="Add a person"
+                variant="secondary"
+                width="hug"
+                onPress={() => router.push('/business/payroll/add')}
+              />
+              <Button
+                label="Import"
+                variant="secondary"
+                width="hug"
+                onPress={() => router.push('/business/payroll/import')}
+              />
+            </EmptyCard>
           ) : (
-            store.procurementRequests.map((request) => (
-              <View key={request.id} className="rounded-row border border-line bg-card px-4 py-3.5">
-                <View className="flex-row items-start justify-between gap-3">
-                  <Text className="flex-1 font-strong text-body text-ink">{request.supplierName}</Text>
-                  <Text className="font-heavy text-caption-sm uppercase text-slate">{request.status}</Text>
+            team.staff.map((person) => (
+              <Pressable
+                key={person.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${person.name}`}
+                onPress={() => router.push({ pathname: '/business/payroll/add', params: { id: person.id } })}
+                className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
+              >
+                <Avatar initials={initialsFor(person.name)} tone={1} size="lg" />
+                <View className="min-w-0 flex-1">
+                  <Text numberOfLines={1} className="font-strong text-body text-ink">
+                    {person.name}
+                  </Text>
+                  <Text tabular numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+                    {person.payAmountMinor
+                      ? `${formatNaira(kobo(person.payAmountMinor))}${cadenceWord(person.cadence) ? ` · ${cadenceWord(person.cadence)}` : ''}`
+                      : 'No regular pay set'}
+                  </Text>
                 </View>
-                <Text className="mt-1.5 font-body text-caption-sm text-slate">
-                  {request.items.map((item) => `${item.quantity} × ${item.name}`).join(', ')}
-                </Text>
-                {request.note ? (
-                  <Text className="mt-0.5 font-body text-caption-sm text-slate">{request.note}</Text>
-                ) : null}
-              </View>
+              </Pressable>
             ))
           )}
         </View>

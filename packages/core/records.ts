@@ -1,14 +1,17 @@
 import { getAddress, isAddress, type Address } from 'viem';
 import { z } from 'zod';
 
+import { decodePaymentCode } from './payment-code';
 import { initialsFor } from './profile';
 import {
   activitySchema,
   allowanceSchema,
   avatarToneSchema,
+  invoiceSchema,
   type Activity,
   type Allowance,
   type Contact,
+  type Invoice,
 } from './schemas';
 
 /**
@@ -101,6 +104,22 @@ export function beneficiaryAddress(beneficiary: Beneficiary): Address {
   return getAddress(beneficiary.address);
 }
 
+/** Someone the business pays regularly. Just a person and their payment code —
+ * no address, no role, no permission. `payAmountMinor` and `cadence` are only
+ * what the owner wants pre-filled when running payroll; nothing pays on its own. */
+export const staffSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  /** Canonical `PAY-XXXX-…`. Validated, so a mistyped code never reaches a payment. */
+  code: z.string().refine((value) => decodePaymentCode(value) !== null, 'not a payment code'),
+  payAmountMinor: z.number().int().positive().optional(),
+  cadence: z.enum(['weekly', 'monthly']).nullable(),
+  note: z.string().min(1).optional(),
+  createdAt: z.string().datetime({ offset: true }),
+});
+
+export type Staff = z.infer<typeof staffSchema>;
+
 const ACTIVITY_LIMIT = 200;
 
 export type Records = ReturnType<typeof createRecords>;
@@ -145,6 +164,41 @@ export function createRecords(store: RecordStore, owner: Address) {
       async remove(id: string) {
         const current = await readList(chunked, key('allowances'), allowanceSchema);
         await write('allowances', current.filter((item) => item.id !== id));
+      },
+    },
+    staff: {
+      list: () => readList(chunked, key('staff'), staffSchema),
+      async upsert(input: Staff) {
+        const entry = staffSchema.parse(input); // never store what would not read back
+        const current = await readList(chunked, key('staff'), staffSchema);
+        const exists = current.some((item) => item.id === entry.id);
+        await write('staff', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [...current, entry]);
+      },
+      /** Adds or replaces many at once in a single write — an import is all or nothing. */
+      async upsertMany(inputs: Staff[]) {
+        const entries = inputs.map((entry) => staffSchema.parse(entry));
+        const current = await readList(chunked, key('staff'), staffSchema);
+        const byId = new Map(current.map((item) => [item.id, item]));
+        for (const entry of entries) byId.set(entry.id, entry);
+        await write('staff', [...byId.values()]);
+      },
+      async remove(id: string) {
+        const current = await readList(chunked, key('staff'), staffSchema);
+        await write('staff', current.filter((item) => item.id !== id));
+      },
+    },
+    invoices: {
+      /** Newest first. */
+      list: () => readList(chunked, key('invoices'), invoiceSchema),
+      async upsert(input: Invoice) {
+        const entry = invoiceSchema.parse(input);
+        const current = await readList(chunked, key('invoices'), invoiceSchema);
+        const exists = current.some((item) => item.id === entry.id);
+        await write('invoices', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [entry, ...current]);
+      },
+      async remove(id: string) {
+        const current = await readList(chunked, key('invoices'), invoiceSchema);
+        await write('invoices', current.filter((item) => item.id !== id));
       },
     },
     beneficiaries: {

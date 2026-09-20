@@ -10,6 +10,7 @@ import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { countryName } from '@entole/core/countries';
 import { settledAt, timeWithSeconds } from '@entole/core/format';
+import { isOneOffId, oneOffCode } from '@entole/core/one-off';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
@@ -106,6 +107,15 @@ export default function Receipt() {
           label="Share receipt"
           onPress={() => void Share.share({ message: summary })}
         />
+        {isOneOffId(receipt.contactId) ? (
+          <Button
+            label="Save as a beneficiary"
+            variant="secondary"
+            onPress={() =>
+              router.push({ pathname: '/beneficiaries/new', params: { code: oneOffCode(receipt.contactId) ?? '' } })
+            }
+          />
+        ) : null}
         <Button label="Done" variant="secondary" onPress={() => router.replace('/(tabs)')} />
       </ActionBar>
     </Screen>

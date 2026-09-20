@@ -44,6 +44,13 @@
           "faceIDPermission": "Entole uses Face ID to confirm it is you before money moves."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Entole uses the camera to scan a payment code."
+        }
+      ],
+      "expo-document-picker",
       "expo-splash-screen"
     ],
     "experiments": {
@@ -55,7 +62,7 @@
         "apiBase": "https://entole.vercel.app",
         "routerAddress": "0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01",
         "tokenAddress": "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC",
-        "growthVaultAddress": "",
+        "growthVaultAddress": "0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd",
         "rpcUrl": "https://testnet-rpc.monad.xyz",
         "chainId": 10143,
         "indexerUrl": "",

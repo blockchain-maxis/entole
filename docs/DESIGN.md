@@ -97,10 +97,11 @@ table's descriptions and the patterns below, not against an image. Treat
 that as the current reality, not a rule.
 
 The business layer added 17 September 2026 (`docs/SCOPE.md`) has no exports
-either: `app/(tabs)/business`, `app/business/new-seat`,
-`app/business/new-invoice`. Same rule as any other unexported screen — they
-follow the patterns below, particularly the allowance meter and the
-sentence-builder pattern, rather than introducing new ones.
+either: `app/(tabs)/business`, `app/business/new-invoice`,
+`app/business/invoice/[id]` and `app/business/payroll/*` (roster, add, import,
+run). Same rule as any other unexported screen — they follow the patterns
+below rather than introducing new ones. Seats were removed from the UI: a team
+member is a plain person you pay, with an optional regular amount.
 
 ## Test conditions
 

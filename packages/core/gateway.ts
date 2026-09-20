@@ -51,10 +51,13 @@ export interface PaymentsGateway {
   saveSeat(draft: SeatDraft): Promise<Seat>;
   revokeSeat(seatId: string): Promise<void>;
   createInvoice(draft: InvoiceDraft): Promise<Invoice>;
-  /** Marks an invoice paid and splits `taxFraction` of it into the named
-   * tax reserve, at source — the same instant the money arrives, not a
-   * step someone has to remember. */
-  settleInvoice(invoiceId: string, taxFraction: number): Promise<{ invoice: Invoice; taxReserve: TaxReserve }>;
+  /** Marks an invoice paid. The demo gateway also splits `taxFraction` of it
+   * into a tax reserve; the real one keeps no such balance, so `taxReserve` is
+   * `null` there — a reserve is never invented. */
+  settleInvoice(
+    invoiceId: string,
+    taxFraction: number,
+  ): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }>;
   /** The Chainlink CRE bounty's callback target — see
    * `packages/core/chainlink-cre.ts`. Re-evaluates the invoice's own
    * `releaseCondition` against `observedRate` itself rather than trusting
@@ -136,6 +139,11 @@ export type InvoiceDraft = {
   amountMinor: number;
   note: string;
   dueAt: string;
+  /** `INV-0001`. Numbered from the saved invoices when left out. */
+  reference?: string;
+  /** The checkout link the client pays through. The screen builds it — it knows
+   * the payment code and the profile name — and the gateway stores it as given. */
+  link?: string;
   /** Present only for a Chainlink CRE-gated invoice — see chainlink-cre.ts. */
   releaseCondition?: ReleaseCondition;
 };

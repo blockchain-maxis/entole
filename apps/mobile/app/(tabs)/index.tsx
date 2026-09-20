@@ -138,20 +138,16 @@ export default function Home() {
               <View className="mx-5 mb-8 rounded-row border border-line bg-card p-4">
                 <Text className="font-strong text-body text-ink">Start with some test money</Text>
                 <Text className="mt-1.5 font-body text-body-sm text-slate">
-                  Add test money to try Entole, then add someone you pay often.
+                  Add test money to try Entole. Or share your link and have someone pay you.
                 </Text>
                 <View className="mt-4 flex-row gap-3">
                   <Button label="Add money" variant="raised" onPress={() => router.push('/add-money')} />
-                  <Button
-                    label="Add a beneficiary"
-                    variant="secondary"
-                    onPress={() => router.push('/beneficiaries/new')}
-                  />
+                  <Button label="Receive" variant="secondary" onPress={() => router.push('/receive')} />
                 </View>
               </View>
             ) : !loading && !failed ? (
               <View className="flex-row gap-3 px-5 mb-8">
-                <Button label="Send" variant="raised" onPress={() => router.push('/send')} />
+                <Button label="Send" variant="raised" onPress={() => router.push('/send/pick')} />
                 <Button label="Add money" variant="secondary" onPress={() => router.push('/add-money')} />
                 <Button label="Business" variant="secondary" onPress={() => router.push('/business')} />
               </View>

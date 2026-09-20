@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -139,7 +139,7 @@ describe('money amounts never use the system keyboard', () => {
     'app/onboarding/phone.tsx',
     'app/grow/savings.tsx',
     'app/grow/stock/[symbol].tsx',
-    'app/business/pay-supplier.tsx',
+    // app/business/pay-supplier.tsx was removed: paying a supplier goes through the ordinary Send flow.
     'app/bill/pay.tsx',
   ];
 
@@ -358,7 +358,8 @@ describe('Home, Add money and Receive show the account, never a fixture', () => 
     expect(home).not.toMatch(/Deposit/);
     expect(home).toMatch(/label="Add money"/);
     expect(home).toMatch(/router\.push\('\/add-money'\)/);
-    expect(home).toMatch(/router\.push\('\/beneficiaries\/new'\)/);
+    // First run offers Receive (a link), not "Add a beneficiary": saved people are optional.
+    expect(home).toMatch(/router\.push\('\/receive'\)/);
   });
 
   it('Home says so when the rate cannot be reached, and Retry re-reads instead of leaving a blank screen', () => {
@@ -401,23 +402,24 @@ describe('Home, Add money and Receive show the account, never a fixture', () => 
     expect(addMoney).toMatch(/https:\/\/www\.exchangerate-api\.com/);
   });
 
-  it('Receive shows the real payment code as a QR and as text, and copies it', () => {
+  // Receive became a checkout link (QR of the link, the plain code underneath);
+  // the older assertions that it shows only the bare code were replaced with these.
+  it('Receive shows the real checkout link as a QR, and the real code as text', () => {
     expect(receive).toMatch(/useBackend\(\)/);
     expect(receive).toMatch(/paymentCode/);
-    expect(receive).toMatch(/<PaymentCode code=\{paymentCode\}/);
+    expect(receive).toMatch(/<PaymentCode value=\{link\}/);
     expect(receive).toMatch(/<PaymentCodeText code=\{paymentCode\}/);
-    expect(receive).toMatch(/Clipboard\.setStringAsync\(paymentCode\)/);
-    expect(receive).toMatch(/Share this code so anyone can pay you\./);
+    expect(receive).toMatch(/Your code/);
     expect(receive).not.toMatch(/store\.request|useStore/);
   });
 
-  it('Receive copes with no code yet by showing a skeleton and a disabled Copy', () => {
+  it('Receive copes with no code yet by showing a skeleton and a disabled Copy link', () => {
     expect(receive).toMatch(/<Skeleton/);
-    expect(receive).toMatch(/disabled=\{!paymentCode\}/);
+    expect(receive).toMatch(/disabled=\{!link\}/);
   });
 
-  it('the QR encodes the code itself, not a link or an address', () => {
-    expect(paymentCode).toMatch(/<QRCode value=\{code\}/);
+  it('the QR encodes exactly what it is given (the link), never an address', () => {
+    expect(paymentCode).toMatch(/<QRCode value=\{value\}/);
   });
 
   it('no route still points at a removed Deposit screen', () => {
@@ -434,9 +436,11 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     'app/send/pick.tsx',
     'app/send/receipt.tsx',
     'app/(tabs)/transfer.tsx',
-    'app/abroad/index.tsx',
+    // app/abroad was folded into Send (it only grouped saved people by country).
+    'app/send/scan.tsx',
+    'app/send/bank.tsx',
     'app/onboarding/first-payment.tsx',
-    'app/business/pay-supplier.tsx',
+    // (pay-supplier.tsx removed: a supplier is paid through /send/pick like anyone else.)
     'components/ui/ConfirmSendSheet.tsx',
   ];
   const beneficiaryScreens = [
@@ -481,7 +485,7 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     expect(sheet).toMatch(/await store\.send\(/);
     expect(sheet).toMatch(/router\.replace\(\{ pathname: '\/send\/receipt'/);
 
-    for (const path of ['app/send/index.tsx', 'app/business/pay-supplier.tsx']) {
+    for (const path of ['app/send/index.tsx']) {
       const amountScreen = stripComments(read(join(ROOT, path)));
       expect(amountScreen).toMatch(/<ConfirmSendSheet/);
       expect(amountScreen).not.toMatch(/store\.send\(/);
@@ -489,10 +493,14 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     }
   });
 
-  it('the only place a person-initiated payment is sent is the review sheet', () => {
+  it('the only places a person-initiated payment is sent are the review sheet and the payroll run', () => {
     const senders = sourceFiles.filter((file) => /\bstore\.send\(/.test(stripComments(read(file))));
     // The assistant's own payment runs through its undo countdown (`runProposal`) instead.
-    expect(senders.map((file) => relative(ROOT, file))).toEqual(['components/ui/ConfirmSendSheet.tsx']);
+    // Payroll (added with the Business rebuild) pays a whole team from one confirmation, one person at a time.
+    expect(senders.map((file) => relative(ROOT, file))).toEqual([
+      'app/business/payroll/run.tsx',
+      'components/ui/ConfirmSendSheet.tsx',
+    ]);
   });
 
   it('adding a beneficiary decodes a payment code and never renders an address', () => {
@@ -523,7 +531,7 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     expect(rules).toMatch(/The smallest payment is/);
     expect(rules).toMatch(/The largest payment is/);
     expect(rules).toMatch(/more than your balance/);
-    for (const path of ['app/send/index.tsx', 'app/business/pay-supplier.tsx']) {
+    for (const path of ['app/send/index.tsx']) {
       expect(read(join(ROOT, path))).toMatch(/Add money first/);
     }
   });
@@ -533,5 +541,477 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     const edit = stripComments(read(join(ROOT, 'app/beneficiaries/[id].tsx')));
     expect(edit).toMatch(/<Sheet /);
     expect(edit).toMatch(/source\.removeBeneficiary\(/);
+  });
+});
+
+describe('sending works without a saved beneficiary', () => {
+  // The separate "Send to a payment code" screen (app/send/code.tsx) is gone:
+  // the recipient step itself takes a code or link, so the old assertions about
+  // that screen were replaced by the ones below.
+  const pick = stripComments(read(join(ROOT, 'app/send/pick.tsx')));
+  const receipt = stripComments(read(join(ROOT, 'app/send/receipt.tsx')));
+
+  it('there is no separate payment-code screen any more', () => {
+    expect(existsSync(join(ROOT, 'app/send/code.tsx'))).toBe(false);
+    for (const file of sourceFiles) {
+      expect(stripComments(read(file)), relative(ROOT, file)).not.toMatch(/['"`]\/send\/code['"`]|Send to a payment code/);
+    }
+  });
+
+  it('after a one-off payment the receipt offers to save the person', () => {
+    expect(receipt).toMatch(/isOneOffId\(receipt\.contactId\)/);
+    expect(receipt).toMatch(/Save as a beneficiary/);
+  });
+
+  it('the recipient step is one code-or-link field, read through parseCheckout, with Paste and Scan', () => {
+    expect(pick).toMatch(/Who are you sending to\?/);
+    expect(pick).toMatch(/parseCheckout\(/);
+    expect(pick).toMatch(/That code doesn't look right — check it and try again\./);
+    expect(pick).toMatch(/Clipboard\.getStringAsync\(\)/);
+    expect(pick).toMatch(/>Paste</);
+    expect(pick).toMatch(/pathname: '\/send\/scan'/);
+    expect(pick).toMatch(/Scan their QR code/);
+    // A link's letters are case-sensitive; forcing capitals would break the link.
+    expect(pick).not.toMatch(/autoCapitalize="characters"/);
+  });
+});
+
+describe('Grow shows only what is real', () => {
+  // Savings is money held 1:1 in the person's account and it pays no interest,
+  // so nothing in Grow may show earnings, a payout date, a rate of return, a
+  // ticker or a holding that did not come from the store.
+  const growFiles = [
+    'app/(tabs)/grow.tsx',
+    'app/grow/savings.tsx',
+    'app/grow/stocks.tsx',
+    'app/grow/stock/[symbol].tsx',
+    'components/ui/SavingsSheet.tsx',
+    'components/ui/HoldingRow.tsx',
+    'components/ui/SplitBar.tsx',
+    'lib/savings.ts',
+  ];
+  const growSource = growFiles.map((path) => [path, stripComments(read(join(ROOT, path)))] as const);
+  const hub = stripComments(read(join(ROOT, 'app/(tabs)/grow.tsx')));
+  const savings = stripComments(read(join(ROOT, 'app/grow/savings.tsx')));
+  const sheet = stripComments(read(join(ROOT, 'components/ui/SavingsSheet.tsx')));
+  const stocks = stripComments(read(join(ROOT, 'app/grow/stocks.tsx')));
+  const trade = stripComments(read(join(ROOT, 'app/grow/stock/[symbol].tsx')));
+
+  it.each(growSource)('%s never reads accrued earnings or a payout date', (_path, source) => {
+    expect(source).not.toMatch(/accruedMinor|nextPayoutAt|payoutLabel|daysUntil|earned so far/);
+  });
+
+  it.each(growSource)('%s shows no yield, rate of return or percentage earned', (_path, source) => {
+    const copy = userFacingCopy(source).join('\n');
+    expect(copy).not.toMatch(/\b(yield|apy|apr|p\.a\.|per year|a year|annual|rate of return|returns on)\b/i);
+    expect(copy).not.toMatch(/\d\s*%\s*(interest|yield|return|apy|apr)/i);
+  });
+
+  it.each(growSource)('%s carries no demo ticker, price or holding', (_path, source) => {
+    expect(source).not.toMatch(/\b(AAPL|TSLA|NVDA|MSFT|GOOGL?|AMZN|META|NFLX)\b/);
+  });
+
+  it.each(growSource)('%s renders no address', (_path, source) => {
+    expect(source).not.toMatch(/0x[0-9a-fA-F]{4,}|\baddress\b/);
+  });
+
+  it('the permanently-full meter is gone from the Grow area', () => {
+    for (const [, source] of growSource) expect(source).not.toMatch(/<Meter|fraction=\{1\}/);
+  });
+
+  it('Savings moves money only through the store, and only through the review sheet', () => {
+    expect(sheet).toMatch(/store\.depositGrow\(/);
+    expect(sheet).toMatch(/store\.withdrawGrow\(/);
+    expect(sheet).toMatch(/<Sheet\b/);
+    expect(sheet).not.toMatch(/ConfirmSendSheet/);
+    expect(savings).toMatch(/<SavingsSheet/);
+    expect(savings).not.toMatch(/depositGrow|withdrawGrow/);
+  });
+
+  it('a savings change is a real pending state, then the real balance, never an optimistic one', () => {
+    expect(sheet).toMatch(/Waiting for it to settle/);
+    expect(sheet).toMatch(/locked=\{waiting\}/);
+    expect(sheet).toMatch(/store\.refresh\(\)/);
+    expect(sheet).not.toMatch(/setBalance|optimistic/i);
+  });
+
+  it('savings has no fee line and refuses amounts outside what is real', () => {
+    expect(sheet).not.toMatch(/label="Fee"/);
+    const rules = stripComments(read(join(ROOT, 'lib/savings.ts')));
+    expect(rules).toMatch(/smallestSavingsAmount/);
+    expect(rules).toMatch(/which is \$0\.01/);
+    expect(rules).toMatch(/you can spend/);
+    expect(rules).toMatch(/in savings/);
+  });
+
+  it('the hub states plainly that savings does not earn interest yet', () => {
+    expect(hub).toMatch(/It doesn&apos;t earn interest yet/);
+    expect(hub).toMatch(/Add to savings/);
+    expect(hub).toMatch(/Take out/);
+  });
+
+  it('the hub says savings is unavailable when there is no position', () => {
+    expect(hub).toMatch(/Savings isn&apos;t available yet/);
+    expect(savings).toMatch(/Savings isn&apos;t available yet/);
+  });
+
+  it('the hub draws a bar only when both amounts are real, and has loading and failed states', () => {
+    expect(hub).toMatch(/share !== null/);
+    expect(hub).toMatch(/<Skeleton/);
+    expect(hub).toMatch(/<LoadFailed/);
+    expect(hub).not.toMatch(/ActivityIndicator/);
+  });
+
+  it('Earn is one calm sentence and not a button', () => {
+    const earn = hub.slice(hub.indexOf('>Earn<') - 200);
+    expect(earn).toMatch(/Interest on savings is planned for when Entole goes live/);
+    expect(hub.slice(hub.indexOf('>Earn<'))).not.toMatch(/<Button/);
+  });
+
+  it('stocks are gated with the honest sentence until a broker is connected', () => {
+    for (const source of [hub, stocks, trade]) {
+      expect(source).toMatch(/Buying stocks opens when our brokerage partner is connected/);
+      expect(source).toMatch(/stocksAvailable/);
+    }
+  });
+
+  it('stocks show skeletons while loading and surface the error message inline', () => {
+    expect(stocks).toMatch(/RowSkeleton/);
+    expect(stocks).toMatch(/plainMessage\(error/);
+    expect(trade).toMatch(/<Skeleton/);
+    expect(trade).toMatch(/plainMessage\(error/);
+  });
+});
+
+describe('sending is one simple step: a code or a link, scanned or pasted', () => {
+  const scan = stripComments(read(join(ROOT, 'app/send/scan.tsx')));
+  const bank = stripComments(read(join(ROOT, 'app/send/bank.tsx')));
+  const send = stripComments(read(join(ROOT, 'app/send/index.tsx')));
+  const home = stripComments(read(join(ROOT, 'app/(tabs)/index.tsx')));
+  const pay = stripComments(read(join(ROOT, 'app/(tabs)/transfer.tsx')));
+  const recipient = stripComments(read(join(ROOT, 'lib/recipient.ts')));
+
+  it.each([
+    'app/send/index.tsx',
+    'app/send/pick.tsx',
+    'app/send/scan.tsx',
+    'app/send/bank.tsx',
+    'app/send/receipt.tsx',
+    'app/onboarding/first-payment.tsx',
+    'app/(tabs)/index.tsx',
+    'app/(tabs)/transfer.tsx',
+  ])('%s never asks for a beneficiary to be added before paying', (path) => {
+    const copy = userFacingCopy(read(join(ROOT, path))).join('\n');
+    expect(copy).not.toMatch(/Add a beneficiary|No beneficiaries yet/);
+    expect(stripComments(read(join(ROOT, path)))).not.toMatch(/router\.push\('\/beneficiaries\/new'\)/);
+  });
+
+  it('the recipient step passes a link’s amount and any note through to the amount screen and the review sheet', () => {
+    expect(recipient).toMatch(/parseCheckout\(/);
+    expect(recipient).toMatch(/oneOffId\(/);
+    expect(recipient).toMatch(/parsed\.currency === 'NGN'/);
+    expect(send).toMatch(/entryFromParam\(params\.amount\)/);
+    expect(send).toMatch(/cleanNote\(params\.note\)/);
+    expect(send).toMatch(/defaultNote/);
+    // The review sheet takes the note as its initial value.
+    expect(read(join(COMPONENTS, 'ui/ConfirmSendSheet.tsx'))).toMatch(/useState\(defaultNote \?\? ''\)/);
+  });
+
+  it('the scanner guards the camera import so a build without it never crashes', () => {
+    expect(scan).toMatch(/try \{[\s\S]*?require\('expo-camera'\)[\s\S]*?\} catch \{/);
+    // No top-level static import of the native module anywhere in the screen.
+    expect(scan).not.toMatch(/^import [^\n]*from 'expo-camera'/m);
+    expect(scan).toMatch(/Scanning needs the updated app/);
+    expect(scan).toMatch(/Paste/);
+    expect(scan).toMatch(/getDerivedStateFromError/);
+  });
+
+  it('the scanner reads QR codes only, asks plainly, and copes with a refusal', () => {
+    expect(scan).toMatch(/barcodeTypes: \['qr'\]/);
+    expect(scan).toMatch(/Entole uses the camera to scan a payment code\./);
+    expect(scan).toMatch(/Linking\.openSettings\(\)/);
+    expect(scan).toMatch(/That doesn't look like an Entole code\./);
+    expect(scan).toMatch(/label="Try again"/);
+    // A scan goes to the same door as a paste.
+    expect(scan).toMatch(/sendParamsFor\(/);
+    expect(scan).toMatch(/pathname: '\/send'/);
+  });
+
+  it('bank payouts are gated honestly: no amount, no account number, no send', () => {
+    expect(bank).toMatch(/aren’t available yet/);
+    expect(bank).toMatch(/payment partner/);
+    expect(bank).toMatch(/bank details/);
+    expect(bank).not.toMatch(/<Keypad|TextInput|<Field|store\.send\(|useStore|relay\./);
+  });
+
+  it('Home and Pay lead to the same places: Send, Receive and the honest bank screen', () => {
+    expect(home).toMatch(/router\.push\('\/send\/pick'\)/);
+    expect(pay).toMatch(/href: '\/send\/pick'/);
+    expect(pay).toMatch(/href: '\/receive'/);
+    expect(pay).toMatch(/Send to a bank account/);
+    expect(pay).toMatch(/href: '\/send\/bank'/);
+    // Not shipped: bill payments are not connected, and "Send abroad" only repeated Send.
+    expect(pay).not.toMatch(/href: '\/bill'|href: '\/abroad'/);
+    expect(existsSync(join(ROOT, 'app/abroad/index.tsx'))).toBe(false);
+  });
+});
+
+describe('Receive is a checkout link', () => {
+  const receive = stripComments(read(join(ROOT, 'app/receive.tsx')));
+  const sheet = stripComments(read(join(COMPONENTS, 'ui/RequestAmountSheet.tsx')));
+  const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
+
+  it('builds the link with buildCheckoutLink from the app’s own origin', () => {
+    expect(onchain).toMatch(/export const CHECKOUT_BASE = API_BASE/);
+    expect(receive).toMatch(/buildCheckoutLink\(CHECKOUT_BASE,/);
+    expect(receive).toMatch(/kind: 'pay'/);
+    expect(receive).toMatch(/currency: 'NGN'/);
+    expect(receive).toMatch(/payee/);
+  });
+
+  it('has Copy link and Share link, and shares through the platform sheet', () => {
+    expect(receive).toMatch(/'Copy link'/);
+    expect(receive).toMatch(/label="Share link"/);
+    expect(receive).toMatch(/Share\.share\(/);
+    expect(receive).toMatch(/Clipboard\.setStringAsync\(text\)/);
+  });
+
+  it('requesting an amount opens a bottom sheet with the custom keypad, never the system keyboard', () => {
+    expect(receive).toMatch(/<RequestAmountSheet/);
+    expect(sheet).toMatch(/<Sheet /);
+    expect(sheet).toMatch(/<Keypad/);
+    expect(sheet).not.toMatch(/TextInput|<Field/);
+    expect(sheet).not.toMatch(/<Modal/);
+  });
+
+  it('no leftover "Share on …" fixtures', () => {
+    expect(receive).not.toMatch(/Share on |WhatsApp|Telegram/);
+  });
+});
+
+describe('the bottom bar’s active tab is a capsule, and its ripple is clipped to it', () => {
+  const icon = read(join(COMPONENTS, 'ui/TabBarIcon.tsx'));
+  const bar = read(join(COMPONENTS, 'ui/FloatingTabBar.tsx'));
+
+  it('rounds the highlight to at least half its height', () => {
+    // Slots are 68 - 2 x 6 = 56 tall, so 28 is a full capsule.
+    expect(icon).toMatch(/export const TAB_PILL_RADIUS = 28;/);
+    expect(icon).toMatch(/borderRadius: TAB_PILL_RADIUS/);
+    expect(68 - 2 * 6).toBeLessThanOrEqual(2 * 28);
+  });
+
+  it('clips the Android ripple to the same radius instead of a square', () => {
+    expect(bar).toMatch(/borderRadius: TAB_PILL_RADIUS,\s*overflow: 'hidden'/);
+    expect(bar).toMatch(/android_ripple=\{\{[^}]*borderless: false/);
+  });
+});
+
+describe('Me is ordered Profile, Account, Preferences, Security, Support, Legal', () => {
+  const me = read(join(ROOT, 'app/(tabs)/me.tsx'));
+
+  it('lists Security below Preferences', () => {
+    const order = ['Profile', 'Account', 'Preferences', 'Security', 'Support', 'Legal'].map((title) =>
+      me.indexOf(`<SectionHeading title="${title}" />`),
+    );
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+});
+
+describe('the Business tab is plain jobs, not seats and templates', () => {
+  const business = stripComments(read(join(ROOT, 'app/(tabs)/business.tsx')));
+  const businessScreens = walk(join(SCREENS, 'business')).map((file) => relative(ROOT, file));
+
+  it('order supplies, the supplier form and seats are gone, and nothing points at them', () => {
+    for (const gone of ['order-supplies', 'pay-supplier', 'new-seat']) {
+      expect(existsSync(join(ROOT, `app/business/${gone}.tsx`)), gone).toBe(false);
+      for (const file of sourceFiles) {
+        expect(stripComments(read(file)), `${relative(ROOT, file)} still mentions ${gone}`).not.toContain(gone);
+      }
+    }
+  });
+
+  it('leads with Invoices, Pay staff, Pay a supplier and Team', () => {
+    for (const label of ['Invoices', 'Pay staff', 'Pay a supplier', 'Team']) {
+      expect(business).toContain(`label: '${label}'`);
+    }
+    expect(business).toMatch(/href: '\/business\/payroll'/);
+    expect(business).toMatch(/href: '\/business\/payroll\/add'/);
+  });
+
+  it('paying a supplier is the ordinary send, with the note filled in — not a second flow', () => {
+    expect(business).toContain("href: '/send/pick?note=Supplier%20payment'");
+    expect(business).not.toMatch(/store\.send\(|quoteSend|ConfirmSendSheet/);
+  });
+
+  it('says nothing about seats, presets, templates, roles or spending power', () => {
+    const copy = userFacingCopy(read(join(SCREENS, '(tabs)/business.tsx'))).join(' | ');
+    expect(copy).not.toMatch(/\b(seat|seats|preset|presets|template|templates|role|roles|spending power|permission|scope)\b/i);
+    for (const path of businessScreens) {
+      const words = userFacingCopy(read(join(ROOT, path))).join(' | ');
+      expect(words, path).not.toMatch(/\b(seat|seats|preset|presets|role|roles|spending power|permission)\b/i);
+    }
+  });
+
+  it('shows skeletons while it loads, and says what to do when there is nothing yet', () => {
+    expect(business).toMatch(/<RowSkeleton/);
+    expect(business).toMatch(/No invoices yet/);
+    expect(business).toMatch(/No one on your team yet/);
+    expect(business).toMatch(/useStaff\(\)/);
+    expect(business).not.toMatch(/ActivityIndicator/);
+  });
+
+  it('every business screen is a real record or a real payment: no fixtures, no demo gateway, no address', () => {
+    for (const path of ['app/(tabs)/business.tsx', ...businessScreens]) {
+      const source = stripComments(read(join(ROOT, path)));
+      expect(source, path).not.toMatch(/fixtures|demoGateway|address-book|procurement|saveSeat|revokeSeat|taxReserve/);
+      expect(source, path).not.toMatch(/0x[0-9a-fA-F]{6,}|\.address\b|shortAddress/);
+    }
+  });
+
+  it('the routes the redesign added exist', () => {
+    for (const route of [
+      'app/business/new-invoice.tsx',
+      'app/business/invoice/[id].tsx',
+      'app/business/payroll/index.tsx',
+      'app/business/payroll/add.tsx',
+      'app/business/payroll/import.tsx',
+      'app/business/payroll/run.tsx',
+    ]) {
+      expect(existsSync(join(ROOT, route)), route).toBe(true);
+    }
+  });
+});
+
+describe('invoices carry a real checkout link', () => {
+  const create = stripComments(read(join(ROOT, 'app/business/new-invoice.tsx')));
+  const detail = stripComments(read(join(ROOT, 'app/business/invoice/[id].tsx')));
+
+  it('the new-invoice screen builds an invoice checkout link from the payment code, amount and reference', () => {
+    expect(create).toMatch(/buildCheckoutLink\(CHECKOUT_BASE/);
+    expect(create).toMatch(/kind: 'invoice'/);
+    expect(create).toMatch(/currency: 'NGN'/);
+    for (const field of ['amountMinor', 'payee', 'reference', 'note', 'dueAt']) {
+      expect(create).toMatch(new RegExp(`\\b${field}\\b`));
+    }
+    expect(create).toMatch(/code: paymentCode/);
+    expect(create).toMatch(/store\.createInvoice\(/);
+    // A link that could not be built is a message, never an invented one.
+    expect(create).toMatch(/isn't ready yet/);
+  });
+
+  it('the amount goes in through the keypad sheet, and the due date through a sheet, not a modal or the system keyboard', () => {
+    expect(create).toMatch(/<AmountSheet/);
+    expect(create).toMatch(/<DueSheet/);
+    expect(create).not.toMatch(/\bTextInput\b|<Modal/);
+    expect(read(join(COMPONENTS, 'ui/AmountSheet.tsx'))).toMatch(/<Keypad/);
+    const due = read(join(COMPONENTS, 'ui/DueSheet.tsx'));
+    for (const choice of ['In {days} days', 'Pick a date']) expect(due).toContain(choice);
+  });
+
+  it('the invoice shows a big QR of the link, with Copy link and Share link', () => {
+    expect(detail).toMatch(/<PaymentCode value=\{link\}/);
+    expect(detail).toMatch(/Clipboard\.setStringAsync\(link\)/);
+    expect(detail).toMatch(/Share\.share\(/);
+    expect(detail).toContain("'Copy link'");
+    expect(detail).toContain('label="Share link"');
+    expect(detail).toMatch(/disabled=\{!link\}/);
+  });
+
+  it('marking paid is manual, confirmed in a sheet, and says nothing else moves', () => {
+    expect(detail).toMatch(/store\.settleInvoice\(/);
+    expect(detail).toMatch(/<ConfirmSheet/);
+    expect(detail).toMatch(/no money moves/);
+    expect(detail).toMatch(/marked paid automatically/);
+  });
+
+  it('status is Sent, Paid or Overdue, worked out from the due date', () => {
+    const helpers = read(join(ROOT, '../../packages/core/invoices.ts'));
+    expect(helpers).toMatch(/overdue/);
+    expect(detail).toMatch(/invoiceDisplayStatus\(/);
+  });
+});
+
+describe('payroll import never crashes an app that lacks the file picker', () => {
+  const importer = stripComments(read(join(ROOT, 'app/business/payroll/import.tsx')));
+
+  it('loads expo-document-picker inside a try, never as a top-level import', () => {
+    expect(importer).toMatch(/try \{[^}]*require\('expo-document-picker'\)[^}]*\} catch/);
+    for (const file of sourceFiles) {
+      expect(stripComments(read(file)), relative(ROOT, file)).not.toMatch(/from 'expo-document-picker'/);
+    }
+  });
+
+  it('says plainly that importing needs the updated app, and offers adding by hand', () => {
+    expect(importer).toContain('Importing needs the updated app — you can add people by hand meanwhile.');
+    expect(importer).toMatch(/Add someone by hand/);
+  });
+
+  it('copies the file to the cache and reads its bytes through the shared parser', () => {
+    expect(importer).toMatch(/copyToCacheDirectory: true/);
+    expect(importer).toMatch(/readFileBytes\(/);
+    expect(importer).toMatch(/parsePayrollBytes\(/);
+    expect(stripComments(read(join(ROOT, 'lib/read-file.ts')))).toMatch(/FileReader/);
+  });
+
+  it('reviews every row before saving, and shows each problem with its row', () => {
+    expect(importer).toMatch(/problem\.message/);
+    expect(importer).toMatch(/Use these/);
+    expect(importer).toMatch(/source\.saveManyStaff\(/);
+  });
+
+  it('offers a sample file, and is honest that Google Sheets is not connected', () => {
+    expect(importer).toMatch(/payrollTemplateCsv\(\)/);
+    expect(importer).toMatch(/Share\.share\(/);
+    expect(importer).toContain('Connect Google Sheets — coming soon');
+    // Not faked: nothing in the app talks to Google.
+    for (const file of sourceFiles) {
+      expect(stripComments(read(file)), relative(ROOT, file)).not.toMatch(/googleapis|accounts\.google|sheets\.google/);
+    }
+  });
+});
+
+describe('a payroll run pays one person at a time and never shows a state early', () => {
+  const run = stripComments(read(join(ROOT, 'app/business/payroll/run.tsx')));
+  const runner = stripComments(read(join(ROOT, 'lib/payroll-run.ts')));
+
+  it('sends each payment through store.send to a one-off recipient, with the note Payroll', () => {
+    expect(run).toMatch(/store\.send\(\{ contactId, amountMinor: line\.amountMinor, note: 'Payroll' \}\)/);
+    expect(run).toMatch(/oneOffId\(line\.code\)/);
+    expect(run).toMatch(/runPayroll\(/);
+  });
+
+  it('the runner awaits each payment in turn, and only then marks it settled', () => {
+    expect(runner).toMatch(/for \(const line of lines\) \{[\s\S]*await send\(line\)[\s\S]*status: 'settled'/);
+    expect(run).not.toMatch(/Promise\.all\(/);
+    expect(runner).not.toMatch(/Promise\.all|forEach\(async/);
+    expect(runner.indexOf("status: 'paying'")).toBeLessThan(runner.indexOf('await send(line)'));
+  });
+
+  it('works out the fees from real quotes, in parallel, with skeletons until they arrive', () => {
+    expect(run).toMatch(/Promise\.allSettled\(missing\.map\(\(amount\) => quoteSend\(amount\)\)\)/);
+    expect(run).toMatch(/<Skeleton/);
+    expect(run).not.toMatch(/FEE_MINOR/);
+  });
+
+  it('checks total plus fees against the balance and leads to adding money', () => {
+    expect(run).toMatch(/affordability\(totals\.totalMinor, store\.balance\)/);
+    expect(run).toMatch(/Add money first/);
+    expect(run).toMatch(/router\.push\('\/add-money'\)/);
+    expect(run).toMatch(/lineProblem\(/);
+  });
+
+  it('is confirmed once, from a bottom-anchored button, and can retry what did not go through', () => {
+    expect(run).toMatch(/Confirm and pay \$\{peopleWords\(lines\.length\)\}/);
+    expect(run).toMatch(/<ActionBar>/);
+    expect(run).toMatch(/Retry/);
+    expect(run).toMatch(/stoppedForBalance/);
+  });
+
+  it('cannot be left mid-run, and its amounts come from the keypad sheet', () => {
+    expect(run).toMatch(/hardwareBackPress/);
+    expect(run).toMatch(/gestureEnabled: phase !== 'running'/);
+    expect(run).toMatch(/<AmountSheet/);
+    expect(run).not.toMatch(/\bTextInput\b/);
   });
 });

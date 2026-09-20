@@ -4,10 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { entryDisplay, entryToMinor, pressKey, type AmountEntry, EMPTY_ENTRY } from '@entole/core/amount-entry';
+import { useBackend } from '@entole/core/backend';
+import { buildCheckoutLink } from '@entole/core/checkout-link';
+import { localDay, nextInvoiceReference } from '@entole/core/invoices';
 import { useStore } from '@entole/core/store';
 
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { useAccount } from '@/lib/account';
 
 const DUE_IN_DAYS = 14;
 
@@ -16,6 +20,8 @@ const DUE_IN_DAYS = 14;
 export default function NewInvoicePage() {
   const router = useRouter();
   const store = useStore();
+  const { paymentCode } = useBackend();
+  const { account } = useAccount();
 
   const [clientName, setClientName] = useState('');
   const [note, setNote] = useState('');
@@ -30,7 +36,31 @@ export default function NewInvoicePage() {
     setSaving(true);
     try {
       const dueAt = new Date(Date.now() + DUE_IN_DAYS * 86_400_000).toISOString();
-      await store.createInvoice({ clientName: clientName.trim(), amountMinor: amount, note: note.trim(), dueAt });
+      const reference = nextInvoiceReference(store.invoices);
+      const payee = account?.displayName.trim() ?? '';
+      // The link is what makes an invoice real: it opens the invoice-style
+      // checkout page, so it is built before anything is saved.
+      const link = paymentCode
+        ? buildCheckoutLink(window.location.origin, {
+            code: paymentCode,
+            kind: 'invoice',
+            amountMinor: amount,
+            currency: 'NGN',
+            ...(payee ? { payee } : {}),
+            reference,
+            note: note.trim(),
+            dueAt: localDay(dueAt),
+          })
+        : null;
+      if (!link) return;
+      await store.createInvoice({
+        clientName: clientName.trim(),
+        amountMinor: amount,
+        note: note.trim(),
+        dueAt,
+        reference,
+        link,
+      });
       router.push('/business');
     } finally {
       setSaving(false);

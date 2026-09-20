@@ -36,6 +36,9 @@ const TOKEN_ADDRESS = (extra.tokenAddress ?? '0xa9012a055bd4e0eDfF8Ce09f960291C0
  * `depositGrow`/`withdrawGrow` fail loudly instead of pretending to settle. */
 const ROUTER_ADDRESS = extra.routerAddress ? (extra.routerAddress as Address) : undefined;
 const API_BASE = extra.apiBase ?? 'https://entole.vercel.app';
+/** Where a checkout link points: the same origin as the sponsor server, whose
+ * `/pay/<code>` page is what opens for a payer who does not have the app. */
+export const CHECKOUT_BASE = API_BASE;
 const GROWTH_VAULT_ADDRESS = extra.growthVaultAddress ? (extra.growthVaultAddress as Address) : undefined;
 const RPC_URL = extra.rpcUrl ?? 'https://testnet-rpc.monad.xyz';
 const CHAIN_ID = extra.chainId ?? 10143;
