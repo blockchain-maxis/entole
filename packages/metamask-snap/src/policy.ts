@@ -50,7 +50,7 @@ export const ENTOLE_POLICY_ABI = [
 /** Monad testnet — see contracts/README.md. */
 export const MONAD_TESTNET_CHAIN_ID_HEX = '0x279f'; // 10143
 export const ENTOLE_POLICY_ADDRESS: Address = '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7';
-export const SETTLEMENT_TOKEN_ADDRESS: Address = '0xaca20A081Ab69148E291e65dcf4f69Ef9B0674A6';
+export const SETTLEMENT_TOKEN_ADDRESS: Address = '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC';
 
 /** Same deterministic id scheme `packages/core/onchain-gateway.ts` uses, so
  * an allowance created here and one created through Entole's own app can

@@ -110,10 +110,13 @@ than pretended solved:
   never trusts the app layer either way — but the product's other named
   differentiator, gas-abstracted passkey onboarding, is not represented in
   this document because it does not exist yet to describe.
-- **The settlement asset is a demo ERC20 (`MockERC20`, "eUSD"), not Agora
-  AUSD or USDC.** The contract is asset-agnostic — `execute()` only knows
-  `IERC20.transferFrom` — so this is a deploy-script swap, not a contract
-  change, exactly like the off-ramp interface.
+- **The settlement asset is Agora AUSD on Monad testnet**
+  (`0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`, 6 decimals), not yet mainnet
+  AUSD (`0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`, chain 143). The policy
+  contract is asset-agnostic — each allowance stores its own `token`, and
+  `execute()` only knows `IERC20.transferFrom` — so moving to mainnet is an
+  address change in config, not a contract change. `MockERC20` ("eUSD") remains
+  in `contracts/src/mocks` for tests only.
 
 ## If you're auditing this
 

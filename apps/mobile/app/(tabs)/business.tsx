@@ -87,7 +87,7 @@ export default function Business() {
 
   return (
     <Screen edges={{ bottom: false }}>
-      <Header title="Business" trailing={<PauseButton />} />
+      <Header title="Business" leading="none" trailing={<PauseButton />} />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         <SectionHeading title="Services" className="pt-1" />

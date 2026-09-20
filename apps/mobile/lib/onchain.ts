@@ -22,7 +22,7 @@ type ExtraConfig = {
 const extra = (Constants.expoConfig?.extra?.entole ?? {}) as ExtraConfig;
 
 const CONTRACT_ADDRESS = (extra.contractAddress ?? '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7') as Address;
-const TOKEN_ADDRESS = (extra.tokenAddress ?? '0xaca20A081Ab69148E291e65dcf4f69Ef9B0674A6') as Address;
+const TOKEN_ADDRESS = (extra.tokenAddress ?? '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC') as Address;
 /** Left unset (empty string in app.json) until `GrowthVault` is deployed —
  * see contracts/README.md's Status section. `undefined` here is what makes
  * `depositGrow`/`withdrawGrow` fail loudly instead of pretending to settle. */

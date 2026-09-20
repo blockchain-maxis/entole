@@ -7,9 +7,10 @@ import { z } from 'zod';
  * Wrap it behind an interface so swapping to USDC is a one-file change."
  *
  * That promise is already mostly kept structurally — `onchain-gateway.ts`
- * takes `tokenAddress`/`tokenDecimals` as config, so pointing at real AUSD
- * instead of the demo `MockERC20` is already a one-config-value change, not
- * a rewrite. What this file adds is the other half: actually minting AUSD
+ * takes `tokenAddress`/`tokenDecimals` as config. Both apps now point at
+ * Agora's AUSD on Monad testnet (`0xa9012a…22dC`); mainnet AUSD is
+ * `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a` on chain 143 — a config change,
+ * not a rewrite. What this file adds is the other half: actually minting AUSD
  * from fiat/another stablecoin and redeeming it back, via Agora's real API —
  * confirmed live against `docs.agora.finance` (not guessed):
  *

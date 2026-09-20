@@ -27,7 +27,7 @@ export default function Grow() {
 
   return (
     <Screen edges={{ bottom: false }}>
-      <Header title="Grow" trailing={<PauseButton />} />
+      <Header title="Grow" leading="none" trailing={<PauseButton />} />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         {loading || !savings ? (

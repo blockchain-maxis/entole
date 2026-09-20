@@ -33,7 +33,19 @@ own `createAllowance` call already said it could.
   - `EntolePolicy`: `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`, block
     63375345, [tx `0x577bdb…f37c6`](https://testnet.monadscan.com/tx/0x577bdb77dcfb669b9b6614b38c1775a29770cace44db5c6238cd04aacacf37c6)
   - `MockERC20` ("eUSD"): `0xaca20A081Ab69148E291e65dcf4f69Ef9B0674A6`,
-    10,000,000 minted to the deployer
+    10,000,000 minted to the deployer. **Superseded:** the app now settles in
+    Agora AUSD on Monad testnet, `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`
+    (Agora's own deployment, not ours; see `docs/SECURITY.md`). eUSD stays for
+    tests.
+  - `EntoleRouter`: `0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01`, block 64113781,
+    [tx `0xcabccaf5…16bf22`](https://testnet.monadscan.com/tx/0xcabccaf5b5c9906c53481fc26e5669b54dcd2cd2fe51325dbe5f043df516bf22)
+    — gasless single-signature payments in Agora AUSD. One ERC-3009
+    `receiveWithAuthorization` moves `amount + fee` to the router, which pays
+    the recipient and the treasury in the same transaction. Fee 0.5%, minimum
+    0.10 AUSD, maximum 2.50 AUSD, all immutable; treasury is the deployer. The
+    payer's signature commits to the recipient, amount and fee through the
+    authorization nonce, so a relayer cannot redirect funds. Proven against the
+    real AUSD on a fork: `forge test --fork-url monad_testnet --match-contract EntoleRouterFork`.
   - Deployer: `0xc0d9BC33696d2F5676A1AcB1e39d03046405eE80` — a throwaway
     key generated for this deployment only, funded from the public faucet,
     never used anywhere else. Not verified on Monadscan yet (needs

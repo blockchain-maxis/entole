@@ -98,7 +98,7 @@ export default function Me() {
 
   return (
     <Screen edges={{ bottom: false }}>
-      <Header title="Me" trailing={<PauseButton />} />
+      <Header title="Me" leading="none" trailing={<PauseButton />} />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, gap: 28 }}
