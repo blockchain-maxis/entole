@@ -6,7 +6,13 @@ import { z } from 'zod';
 
 import { isMeraError, type PasskeyCredentialMetadata } from '@category-labs/mera';
 import { reactNativeWebAuthnClient } from '@category-labs/mera/react-native-webauthn-client';
-import { createOwnerAccount, deriveSessionAccount, signInToOwnerAccount } from '@entole/core/passkey';
+import {
+  createOwnerAccount,
+  deriveSessionAccount,
+  signInToOwnerAccount,
+  type EntoleKeyAccount,
+} from '@entole/core/passkey';
+import { FULL_NAME_MIN, profileSchema, suggestUsername, type Profile } from '@entole/core/profile';
 
 import type { SignedInAccount } from './account';
 
@@ -32,14 +38,46 @@ const SESSION_KEY = 'entole.session';
 const CREDENTIAL_KEY = 'entole.passkey.credential';
 const DISPLAY_NAME_KEY = 'entole.display-name';
 
-/** The name captured in `onboarding/name.tsx` — not the passkey ceremony's
- * own (unrelated) display label. Survives restarts; never key material. */
-export async function storeDisplayName(name: string): Promise<void> {
-  await SecureStore.setItemAsync(DISPLAY_NAME_KEY, name);
+const PROFILE_KEY = 'entole.profile';
+
+/** Full name and username, captured in `onboarding/name.tsx` and editable in
+ * Me — not the passkey ceremony's own (unrelated) display label. One JSON
+ * value; survives restarts; never key material. */
+export async function storeProfile(profile: Profile): Promise<void> {
+  await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(profile));
 }
 
-export async function loadDisplayName(): Promise<string> {
-  return (await SecureStore.getItemAsync(DISPLAY_NAME_KEY)) ?? '';
+/** The saved profile, or null when none exists yet. A device that only ever
+ * saved the old single display name gets that name as the full name, with a
+ * username suggested from it, so nobody is sent back through onboarding. */
+export async function loadProfile(): Promise<Profile | null> {
+  const raw = await SecureStore.getItemAsync(PROFILE_KEY);
+  if (raw) {
+    try {
+      const parsed = profileSchema.safeParse(JSON.parse(raw));
+      if (parsed.success) return parsed.data;
+    } catch {
+      // Unreadable value: fall through to the legacy name, if any.
+    }
+  }
+
+  const legacy = (await SecureStore.getItemAsync(DISPLAY_NAME_KEY))?.trim();
+  if (legacy && legacy.length >= FULL_NAME_MIN) {
+    return { fullName: legacy, username: suggestUsername(legacy) || 'user' };
+  }
+  return null;
+}
+
+const PAUSE_INTRO_KEY = 'entole.pause-intro-seen';
+
+/** Whether the one-time "what the assistant chip does" card on Home has been
+ * dismissed. A yes/no flag only. */
+export async function hasSeenPauseIntro(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(PAUSE_INTRO_KEY)) === 'true';
+}
+
+export async function markPauseIntroSeen(): Promise<void> {
+  await SecureStore.setItemAsync(PAUSE_INTRO_KEY, 'true');
 }
 
 export async function hasOnboarded(): Promise<boolean> {
@@ -183,12 +221,14 @@ async function failed(error: unknown): Promise<{ ok: false; reason: string }> {
 }
 
 /**
- * Registers a new passkey and derives both the owner account and its
- * session (delegate) key from it — two ceremonies against the same passkey,
- * different PRF salts, per `@entole/core/passkey`. Called once, from
- * onboarding. Runs a real WebAuthn ceremony — on a device without
- * `entole.to`'s associated-domain files reachable, or without the target
- * platform's passkey support, this fails with a `MeraError`, not silently.
+ * Registers a new passkey and derives the owner account from it — one
+ * ceremony, one prompt. The assistant's key is NOT derived here: the
+ * assistant is opt-in, so its key (a second ceremony, a different PRF salt,
+ * per `@entole/core/passkey`) is only derived when the person approves it —
+ * see `deriveAssistantAccount`. Called once, from onboarding. Runs a real
+ * WebAuthn ceremony — on a device without `entole.to`'s associated-domain
+ * files reachable, or without the target platform's passkey support, this
+ * fails with a `MeraError`, not silently.
  */
 export async function registerAccount(displayName: string): Promise<SignInResult> {
   const deviceProblem = await checkDeviceCanAuthenticate();
@@ -201,25 +241,21 @@ export async function registerAccount(displayName: string): Promise<SignInResult
       webAuthnClient: reactNativeWebAuthnClient,
     });
     await storeCredential(owner.credential);
-    const session = await deriveSessionAccount({
-      rpId: RP_ID,
-      credential: owner.credential,
-      webAuthnClient: reactNativeWebAuthnClient,
-    });
     await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
     // Not known yet — captured a step later in `onboarding/name.tsx`, which
     // merges the real name into the account already in context.
-    return { ok: true, account: { owner, session, displayName: '' } };
+    return { ok: true, account: { owner, session: null, displayName: '', username: '' } };
   } catch (error) {
     return failed(error);
   }
 }
 
 /**
- * Re-derives the owner account and session key from the passkey created
- * during onboarding — the sign-in / re-auth path. Never fails into an
- * unauthenticated state that looks signed in: the caller only advances on
- * `ok`.
+ * Re-derives the owner account from the passkey created during onboarding —
+ * the sign-in / re-auth path, one prompt. The assistant's key comes back only
+ * if the person has turned the assistant on, and then lazily (see
+ * `useAssistant`). Never fails into an unauthenticated state that looks
+ * signed in: the caller only advances on `ok`.
  */
 export async function reauthenticate(): Promise<SignInResult> {
   const deviceProblem = await checkDeviceCanAuthenticate();
@@ -232,14 +268,66 @@ export async function reauthenticate(): Promise<SignInResult> {
       ...(credential ? { credential } : {}),
       webAuthnClient: reactNativeWebAuthnClient,
     });
+    await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
+    const profile = await loadProfile();
+    return {
+      ok: true,
+      account: {
+        owner,
+        session: null,
+        displayName: profile?.fullName ?? '',
+        username: profile?.username ?? '',
+      },
+    };
+  } catch (error) {
+    return failed(error);
+  }
+}
+
+const ASSISTANT_ENABLED_KEY = 'entole.assistant-enabled';
+const ASSISTANT_ADDRESS_KEY = 'entole.assistant-address';
+
+/** Whether the person has approved the assistant. Off until they do. A yes/no
+ * flag only — never a key. */
+export async function isAssistantEnabled(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(ASSISTANT_ENABLED_KEY)) === 'true';
+}
+
+/** The assistant key's *address*, saved when it was approved so that creating
+ * an allowance needs no passkey prompt. Not a secret and never shown. */
+export async function loadAssistantAddress(): Promise<`0x${string}` | null> {
+  const stored = await SecureStore.getItemAsync(ASSISTANT_ADDRESS_KEY);
+  return stored ? (stored as `0x${string}`) : null;
+}
+
+export async function markAssistantEnabled(address: string): Promise<void> {
+  await SecureStore.setItemAsync(ASSISTANT_ADDRESS_KEY, address);
+  await SecureStore.setItemAsync(ASSISTANT_ENABLED_KEY, 'true');
+}
+
+export async function clearAssistant(): Promise<void> {
+  await Promise.all([
+    SecureStore.deleteItemAsync(ASSISTANT_ENABLED_KEY),
+    SecureStore.deleteItemAsync(ASSISTANT_ADDRESS_KEY),
+  ]);
+}
+
+/**
+ * Derives the assistant's key from the same passkey with its own PRF salt —
+ * a second passkey prompt. This is the ONLY place that ceremony runs: at
+ * approval time, and later when the assistant first needs to act after a
+ * restart. Sign-in never calls it.
+ */
+export async function deriveAssistantAccount(
+  owner: EntoleKeyAccount,
+): Promise<{ ok: true; session: EntoleKeyAccount } | { ok: false; reason: string }> {
+  try {
     const session = await deriveSessionAccount({
       rpId: RP_ID,
       credential: owner.credential,
       webAuthnClient: reactNativeWebAuthnClient,
     });
-    await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
-    const displayName = await loadDisplayName();
-    return { ok: true, account: { owner, session, displayName } };
+    return { ok: true, session };
   } catch (error) {
     return failed(error);
   }
@@ -267,6 +355,10 @@ export async function forgetEverything(): Promise<void> {
     SecureStore.deleteItemAsync(CREDENTIAL_KEY),
     SecureStore.deleteItemAsync(ONBOARDED_KEY),
     SecureStore.deleteItemAsync(DISPLAY_NAME_KEY),
+    SecureStore.deleteItemAsync(PROFILE_KEY),
+    SecureStore.deleteItemAsync(PAUSE_INTRO_KEY),
+    SecureStore.deleteItemAsync(ASSISTANT_ENABLED_KEY),
+    SecureStore.deleteItemAsync(ASSISTANT_ADDRESS_KEY),
   ]);
 }
 

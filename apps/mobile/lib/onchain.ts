@@ -1,11 +1,12 @@
 import Constants from 'expo-constants';
 import { useMemo } from 'react';
-import { createPublicClient, createWalletClient, http, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type Chain, type WalletClient } from 'viem';
 
 import { resolveContactId, resolveRecipient } from '@entole/core/address-book';
 import { DEMO_RATE } from '@entole/core/fx';
 import { demoGateway, type PaymentsGateway } from '@entole/core/gateway';
 import { createOnChainGateway } from '@entole/core/onchain-gateway';
+import type { EntoleKeyAccount } from '@entole/core/passkey';
 
 import type { SignedInAccount } from './account';
 
@@ -79,26 +80,53 @@ const pendingGateway: PaymentsGateway = {
  * that actually moves money — always goes through the live contract/token
  * below, never through `demoGateway`.
  */
-export function useOnChainGateway(account: SignedInAccount | null): PaymentsGateway {
+/** What the gateway needs to know about the assistant. Kept to plain values and
+ * one stable function so enabling it (or lazily loading its key) rebuilds the
+ * gateway at most once, never on every key change. */
+export type AssistantForGateway = {
+  enabled: boolean;
+  address: Address | null;
+  ensureKey: () => Promise<EntoleKeyAccount>;
+};
+
+export function useOnChainGateway(
+  account: SignedInAccount | null,
+  assistant: AssistantForGateway,
+): PaymentsGateway {
+  const owner = account?.owner ?? null;
+  const { enabled, address, ensureKey } = assistant;
+
   return useMemo(() => {
-    if (!account) return pendingGateway;
+    if (!owner) return pendingGateway;
 
     const publicClient = createPublicClient({ chain: monadTestnet, transport: http(RPC_URL) });
     const ownerWalletClient = createWalletClient({
-      account: account.owner.viemAccount,
+      account: owner.viemAccount,
       chain: monadTestnet,
       transport: http(RPC_URL),
     });
-    const delegateWalletClient = createWalletClient({
-      account: account.session.viemAccount,
-      chain: monadTestnet,
-      transport: http(RPC_URL),
-    });
+
+    // The assistant's key is only fetched when something assistant-shaped
+    // (creating an allowance's delegate, running an allowance-gated payment)
+    // actually needs it; everything else signs with the owner key alone.
+    const delegate: { key?: EntoleKeyAccount; client?: WalletClient } = {};
+    const getDelegateWalletClient = async (): Promise<WalletClient> => {
+      const key = await ensureKey();
+      if (!delegate.client || delegate.key !== key) {
+        delegate.key = key;
+        delegate.client = createWalletClient({
+          account: key.viemAccount,
+          chain: monadTestnet,
+          transport: http(RPC_URL),
+        });
+      }
+      return delegate.client;
+    };
 
     return createOnChainGateway({
       publicClient,
       ownerWalletClient,
-      delegateWalletClient,
+      ...(enabled && address ? { delegateAddress: address, getDelegateWalletClient } : {}),
       policyAddress: CONTRACT_ADDRESS,
       tokenAddress: TOKEN_ADDRESS,
       ...(GROWTH_VAULT_ADDRESS ? { growthVaultAddress: GROWTH_VAULT_ADDRESS } : {}),
@@ -108,5 +136,5 @@ export function useOnChainGateway(account: SignedInAccount | null): PaymentsGate
       loadOffChainSnapshot: demoGateway.loadSnapshot,
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId } : {}),
     });
-  }, [account]);
+  }, [owner, enabled, address, ensureKey]);
 }

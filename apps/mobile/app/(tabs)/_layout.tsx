@@ -1,28 +1,17 @@
 import { createMaterialTopTabNavigator } from 'expo-router/js-top-tabs';
 import { useRouter, withLayoutContext } from 'expo-router';
-import { Briefcase, House, SendHorizontal, Sprout, User, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { nativeShadowStyle } from '@entole/tokens';
-
-import { TabBarIcon } from '@/components/ui/TabBarIcon';
+import { FloatingTabBar, TAB_BAR_HEIGHT, TAB_BAR_LIFT } from '@/components/ui/FloatingTabBar';
 import { useAccount } from '@/lib/account';
 import { lockScreen } from '@/lib/lock-state';
 import { sessionIsFresh } from '@/lib/session';
 import { useThemeColors } from '@/lib/theme';
 
-/** Panel radius, matching `packages/tokens`' `panel` token — screenOptions
- * takes a plain style object, not a className, so the value is repeated
- * here the same way Sheet.tsx repeats `sheet`'s radius. */
-const PANEL_RADIUS = 24;
-
-function tabIcon(icon: LucideIcon, label: string) {
-  function RenderTabIcon({ focused }: { focused: boolean }) {
-    return <TabBarIcon icon={icon} label={label} focused={focused} />;
-  }
-  return RenderTabIcon;
+function renderTabBar(props: React.ComponentProps<typeof FloatingTabBar>) {
+  return <FloatingTabBar {...props} />;
 }
 
 const TopTabs = createMaterialTopTabNavigator().Navigator;
@@ -71,50 +60,26 @@ export default function TabsLayout() {
   return (
     <MaterialTopTabs
       tabBarPosition="bottom"
+      tabBar={renderTabBar}
       screenOptions={{
-        tabBarShowLabel: false,
-        tabBarShowIcon: true,
-        tabBarIndicatorStyle: { height: 0 },
-        tabBarGap: 2,
-        tabBarStyle: {
-          position: 'absolute',
-          left: 16,
-          right: 16,
-          bottom: insets.bottom + 12,
-          height: 64,
-          borderRadius: PANEL_RADIUS,
-          backgroundColor: themeColors.card,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-evenly',
-          paddingHorizontal: 6,
-          ...nativeShadowStyle.floating,
-        },
-        tabBarItemStyle: {
-          height: 52,
-          width: 'auto',
-          justifyContent: 'center',
-        },
-        tabBarContentContainerStyle: {
-          flex: 1,
-          justifyContent: 'space-evenly',
-        },
+        // Mount a tab when it is first opened, not all five at launch. A theme
+        // change re-renders every mounted screen, and in a dev build five full
+        // screens took several seconds to re-render.
+        lazy: true,
+        // The navigator paints every scene with the *navigation theme's*
+        // background (a fixed light colour we never theme), which showed as a
+        // light rectangle behind the floating bar and stayed light in dark mode.
         sceneStyle: {
-          paddingBottom: 64 + insets.bottom + 12,
+          backgroundColor: themeColors.paper,
+          paddingBottom: TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_LIFT + 8,
         },
       }}
     >
-      <MaterialTopTabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon(House, 'Home') }} />
-      <MaterialTopTabs.Screen
-        name="transfer"
-        options={{ title: 'Pay', tabBarIcon: tabIcon(SendHorizontal, 'Pay') }}
-      />
-      <MaterialTopTabs.Screen
-        name="business"
-        options={{ title: 'Business', tabBarIcon: tabIcon(Briefcase, 'Business') }}
-      />
-      <MaterialTopTabs.Screen name="grow" options={{ title: 'Grow', tabBarIcon: tabIcon(Sprout, 'Grow') }} />
-      <MaterialTopTabs.Screen name="me" options={{ title: 'Me', tabBarIcon: tabIcon(User, 'Me') }} />
+      <MaterialTopTabs.Screen name="index" options={{ title: 'Home' }} />
+      <MaterialTopTabs.Screen name="transfer" options={{ title: 'Pay' }} />
+      <MaterialTopTabs.Screen name="business" options={{ title: 'Business' }} />
+      <MaterialTopTabs.Screen name="grow" options={{ title: 'Grow' }} />
+      <MaterialTopTabs.Screen name="me" options={{ title: 'Me' }} />
     </MaterialTopTabs>
   );
 }

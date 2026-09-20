@@ -7,8 +7,11 @@
  * these two blocks are the light/dark palettes as CSS custom properties
  * (space-separated RGB triplets, matching apps/web/app/globals.css exactly).
  * Regenerate by hand if design-tokens.js changes; there's no build step
- * wiring these together yet. NativeWind resolves `.dark` the same way
- * Tailwind's `darkMode: 'class'` does on web — see apps/mobile/lib/theme.tsx.
+ * wiring these together yet. On native the dark block MUST be `.dark:root`:
+ * NativeWind only treats `:root` and `.dark:root` as variable blocks, and a bare
+ * `.dark` compiles to an ordinary class nobody applies. The running app also
+ * sets these same variables from a root `vars()` wrapper — see
+ * apps/mobile/lib/theme.tsx.
  */
 :root {
   --color-ink: 18 16 14;
@@ -41,7 +44,7 @@
   --color-avatar-deep-3: 199 195 184;
 }
 
-.dark {
+.dark:root {
   --color-ink: 243 239 231;
   --color-slate: 183 174 158;
   --color-mist: 124 116 102;

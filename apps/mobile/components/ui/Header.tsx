@@ -4,13 +4,15 @@ import { Pressable, View } from 'react-native';
 
 import { useThemeColors } from '@/lib/theme';
 
-import { BrandMark } from './BrandMark';
 import { PauseButton } from './PauseButton';
+import { ProfileChip } from './ProfileChip';
 import { Text } from './Text';
 
 type Props = {
   title?: string;
-  /** `back` on pushed screens, `close` on anything presented as a sheet. */
+  /** `back` on pushed screens, `close` on anything presented as a sheet.
+   * `brand` is the signed-in person's profile chip, not the logo — the logo
+   * only appears before sign-in. */
   leading?: 'back' | 'close' | 'brand' | 'none';
   /** Replaces the pause control. Left undefined, every header carries it —
    * that default is what makes "pause is reachable from every screen
@@ -29,8 +31,8 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
 
   return (
     <View className="flex-none flex-row items-center justify-between px-gutter pb-3.5 pt-2">
-      <View className="flex-1 flex-row items-center gap-3.5">
-        {leading === 'brand' ? <BrandMark /> : null}
+      <View className="min-w-0 flex-1 flex-row items-center gap-3.5">
+        {leading === 'brand' ? <ProfileChip /> : null}
 
         {leading === 'back' || leading === 'close' ? (
           <Pressable
@@ -47,11 +49,15 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
           </Pressable>
         ) : null}
 
-        {title ? <Text className="font-strong text-body-lg text-ink">{title}</Text> : null}
+        {title ? (
+          <Text numberOfLines={1} className="shrink font-strong text-body-lg text-ink">
+            {title}
+          </Text>
+        ) : null}
         {children}
       </View>
 
-      {trailing === undefined ? <PauseButton /> : trailing}
+      <View className="ml-3 flex-none">{trailing === undefined ? <PauseButton /> : trailing}</View>
     </View>
   );
 }

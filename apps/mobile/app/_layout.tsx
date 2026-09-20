@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StoreProvider } from '@entole/core/store';
 
 import { AccountProvider, useAccount } from '@/lib/account';
+import { AssistantProvider, useAssistant } from '@/lib/assistant';
 import { useOnChainGateway } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
 
@@ -26,7 +27,8 @@ void SplashScreen.preventAutoHideAsync();
 
 function OnChainStoreProvider({ children }: { children: React.ReactNode }) {
   const { account } = useAccount();
-  const gateway = useOnChainGateway(account);
+  const assistant = useAssistant();
+  const gateway = useOnChainGateway(account, assistant);
   return <StoreProvider gateway={gateway}>{children}</StoreProvider>;
 }
 
@@ -42,6 +44,7 @@ function ThemedStack() {
       }}
     >
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="assistant" />
       <Stack.Screen name="pause" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen
         name="lock"
@@ -49,6 +52,14 @@ function ThemedStack() {
       />
       <Stack.Screen
         name="assistant-action"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'fade',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      <Stack.Screen
+        name="edit-profile"
         options={{
           presentation: 'transparentModal',
           animation: 'fade',
@@ -90,9 +101,11 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AccountProvider>
-            <OnChainStoreProvider>
-              <ThemedStack />
-            </OnChainStoreProvider>
+            <AssistantProvider>
+              <OnChainStoreProvider>
+                <ThemedStack />
+              </OnChainStoreProvider>
+            </AssistantProvider>
           </AccountProvider>
         </ThemeProvider>
       </SafeAreaProvider>

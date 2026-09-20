@@ -11,18 +11,11 @@ import { Screen } from '@/components/ui/Screen';
 import { RowSkeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
+import { useAssistant } from '@/lib/assistant';
 import { forgetEverything, hasStoredCredential, sessionIsFresh, signOut } from '@/lib/session';
 import { useTheme, type ThemePreference } from '@/lib/theme';
 import { useStore } from '@entole/core/store';
-
-/** First + last initial, uppercased. Falls back to "?" for an empty name. */
-function initialsFor(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  const first = parts[0]!.charAt(0);
-  const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : '';
-  return (first + last).toUpperCase();
-}
+import { useProfile } from '@/lib/profile';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -41,7 +34,9 @@ function ThemePicker() {
             key={option.value}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            onPress={() => setPreference(option.value)}
+            onPress={(event) =>
+              setPreference(option.value, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
+            }
             className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-indigo-wash' : ''}`}
           >
             <Text className={`font-strong text-label-sm ${active ? 'text-ink' : 'text-mist'}`}>
@@ -57,13 +52,14 @@ function ThemePicker() {
 export default function Me() {
   const router = useRouter();
   const store = useStore();
-  const { account, setAccount } = useAccount();
+  const { setAccount } = useAccount();
   const loading = store.status === 'loading';
   const [locking, setLocking] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [credentialKnown, setCredentialKnown] = useState<boolean | null>(null);
   const [sessionFresh, setSessionFresh] = useState<boolean | null>(null);
-  const displayName = account?.displayName.trim() || 'there';
+  const profile = useProfile();
+  const assistant = useAssistant();
 
   useEffect(() => {
     let live = true;
@@ -109,9 +105,32 @@ export default function Me() {
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center py-4">
-          <Avatar initials={initialsFor(displayName)} tone={1} size="hero" />
-          <Text className="mt-3 font-strong text-title text-ink">{displayName}</Text>
-          <Text className="mt-1 font-body text-label-sm text-slate">Lagos, Nigeria</Text>
+          {profile ? (
+            <>
+              {/* TODO(photo): initials until a picture can be chosen — needs a native image picker and a rebuild. */}
+              <Avatar initials={profile.initials} tone={1} size="hero" />
+              <Text numberOfLines={1} className="mt-3 max-w-full font-strong text-title text-ink">
+                {profile.fullName}
+              </Text>
+              {profile.username ? (
+                <Text numberOfLines={1} className="mt-1 font-body text-body-sm text-slate">
+                  @{profile.username}
+                </Text>
+              ) : null}
+              <Text tabular className="mt-0.5 font-body text-label-sm text-mist">
+                {profile.code}
+              </Text>
+            </>
+          ) : (
+            <RowSkeleton />
+          )}
+        </View>
+
+        <View>
+          <SectionHeading title="Profile" />
+          <View className="gap-2">
+            <LinkRow label="Edit profile" onPress={() => router.push('/edit-profile')} />
+          </View>
         </View>
 
         <View>
@@ -125,8 +144,11 @@ export default function Me() {
           ) : (
             <View className="gap-2">
               <DetailRow label="Allowances" value={`${store.allowances.length} active`} tabular={false} />
-              <DetailRow label="Corridor" value="NG ↔ US" tabular={false} />
-              <DetailRow label="Status" value={store.paused ? 'Paused' : 'Active'} tabular={false} />
+              <LinkRow
+                label="Assistant"
+                value={!assistant.enabled ? 'Off' : store.paused ? 'Paused' : 'On'}
+                onPress={() => router.push('/assistant')}
+              />
             </View>
           )}
         </View>

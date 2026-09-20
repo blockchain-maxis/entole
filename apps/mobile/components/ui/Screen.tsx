@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '@/lib/theme';
+import { useResolvedScheme } from '@/lib/theme';
 
 type Props = {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export function Screen({ children, edges, className }: Props) {
   const insets = useSafeAreaInsets();
   const top = edges?.top === false ? 0 : insets.top;
   const bottom = edges?.bottom === false ? 0 : insets.bottom;
-  const { resolved } = useTheme();
+  const resolved = useResolvedScheme();
 
   return (
     <View className="flex-1 bg-paper" style={{ paddingTop: top, paddingBottom: bottom }}>

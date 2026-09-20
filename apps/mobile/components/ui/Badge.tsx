@@ -34,7 +34,7 @@ export function KillSwitchBadge() {
   return (
     <View className="flex-row items-center gap-2 self-start rounded-md bg-halt-wash px-2.5 py-1.5">
       <View className="h-2 w-2 rounded-[2px] bg-halt" />
-      <Text className="font-heavy text-kill uppercase text-halt">Kill switch</Text>
+      <Text className="font-heavy text-kill uppercase text-halt">Assistant</Text>
     </View>
   );
 }

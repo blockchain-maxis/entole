@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from 'react';
 
+import {
+  USERNAME_MAX,
+  normalizeUsername,
+  suggestUsername,
+  validateFullName,
+  validateUsername,
+} from '@entole/core/profile';
+
 import { BottomNav } from '@/components/BottomNav';
 import { BrandGlyph } from '@/components/Header';
 import { useAccount } from '@/lib/account';
@@ -12,7 +20,7 @@ import {
   reauthenticate,
   registerAccount,
   sessionIsFresh,
-  storeDisplayName,
+  storeProfile,
 } from '@/lib/session';
 
 /**
@@ -32,6 +40,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [onboarded, setOnboarded] = useState(false);
   const [step, setStep] = useState<'marketing' | 'name'>('marketing');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameEdited, setUsernameEdited] = useState(false);
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     function check() {
@@ -61,19 +72,34 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const nameError = validateFullName(name);
+  const usernameError = validateUsername(username);
+  const detailsValid = !nameError && !usernameError;
+
+  function onNameChange(next: string) {
+    setName(next);
+    if (!usernameEdited) setUsername(suggestUsername(next));
+  }
+
+  function onUsernameChange(next: string) {
+    setUsernameEdited(true);
+    setUsername(normalizeUsername(next));
+  }
+
   async function onboard() {
-    const trimmed = name.trim();
-    if (!trimmed) return;
+    setTouched(true);
+    if (!detailsValid) return;
+    const profile = { fullName: name.trim(), username };
     setBusy(true);
     setProblem(null);
     const result = await registerAccount('Entole account');
     setBusy(false);
     if (result.ok) {
-      storeDisplayName(trimmed);
+      storeProfile(profile);
       markOnboarded();
       setOnboarded(true);
       setStale(false);
-      setAccount({ ...result.account, displayName: trimmed });
+      setAccount({ ...result.account, displayName: profile.fullName, username: profile.username });
     } else {
       setProblem(result.reason);
     }
@@ -107,23 +133,52 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </>
       ) : showNameStep ? (
         <>
-          <h1 className="mt-6 text-center font-strong text-headline text-ink">
-            What should we call you?
-          </h1>
+          <h1 className="mt-6 text-center font-strong text-headline text-ink">Your details</h1>
           <p className="mt-2 text-center font-body text-body-sm text-slate">
-            This is how Entole greets you — nothing else sees it.
+            Your name is how Entole greets you. Your username is how people find you.
           </p>
+          <label className="mt-6 w-full font-strong text-caption text-slate" htmlFor="full-name">
+            Full name
+          </label>
           <input
+            id="full-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Your name"
+            onChange={(event) => onNameChange(event.target.value)}
+            placeholder="Your full name"
             autoFocus
             autoComplete="name"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void onboard();
-            }}
-            className="mt-6 h-14 w-full rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body-lg text-ink outline-none"
+            className="mt-2 h-14 w-full rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body-lg text-ink outline-none"
           />
+          {touched && nameError ? (
+            <p className="mt-2 w-full font-body text-caption text-slate">{nameError}</p>
+          ) : null}
+          <label className="mt-5 w-full font-strong text-caption text-slate" htmlFor="username">
+            Username
+          </label>
+          <div className="mt-2 flex h-14 w-full items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-indigo">
+            <span className="font-strong text-body-lg text-slate">@</span>
+            <input
+              id="username"
+              value={username}
+              onChange={(event) => onUsernameChange(event.target.value)}
+              placeholder="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={USERNAME_MAX}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void onboard();
+              }}
+              className="ml-1 min-w-0 flex-1 bg-transparent font-strong text-body-lg text-ink outline-none"
+            />
+          </div>
+          {touched && usernameError ? (
+            <p className="mt-2 w-full font-body text-caption text-slate">{usernameError}</p>
+          ) : (
+            <p className="mt-2 w-full font-body text-caption text-slate">
+              Lowercase letters, numbers, dots and underscores.
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -141,7 +196,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
       <button
         type="button"
-        disabled={busy || (showNameStep && !name.trim())}
+        disabled={busy || (showNameStep && !detailsValid)}
         onClick={() => void (onboarded ? signIn() : showNameStep ? onboard() : setStep('name'))}
         className="mt-8 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
       >

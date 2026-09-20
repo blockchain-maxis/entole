@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import { PauseControl } from './PauseControl';
+import { ProfileChip } from './ProfileChip';
 
 /** Monoline rounded arch — safe passage for money, nothing coin- or
  * chain-shaped. Mirrors `apps/mobile/components/ui/BrandMark.tsx`.
@@ -31,26 +32,27 @@ export function BrandGlyph({ size = 22 }: { size?: number }) {
 
 /**
  * The pause control rides in every header, so every page gets one of these.
+ * With no `title` (Home) the leading slot is the signed-in person's profile
+ * chip, not the logo — the logo only appears before sign-in.
  */
 export function Header({ title, back }: { title?: string; back?: string }) {
   return (
     <header className="flex flex-none items-center justify-between px-gutter pb-3.5 pt-4">
-      <div className="flex flex-1 items-center gap-3.5">
+      <div className="flex min-w-0 flex-1 items-center gap-3.5">
         {back ? (
           <Link href={back} aria-label="Go back" className="flex text-slate hover:text-ink">
             <ArrowLeft size={22} strokeWidth={1.5} />
           </Link>
-        ) : (
-          <>
-            <BrandGlyph size={22} />
-            <span className="font-strong text-headline tracking-tight text-ink">entole</span>
-          </>
+        ) : title ? null : (
+          <ProfileChip />
         )}
 
-        {title ? <h1 className="font-strong text-body-lg text-ink">{title}</h1> : null}
+        {title ? <h1 className="truncate font-strong text-body-lg text-ink">{title}</h1> : null}
       </div>
 
-      <PauseControl />
+      <div className="ml-3 flex-none">
+        <PauseControl />
+      </div>
     </header>
   );
 }

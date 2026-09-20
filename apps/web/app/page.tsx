@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
@@ -11,6 +12,8 @@ import { AllowanceCard } from '@/components/AllowanceCard';
 import { Amount } from '@/components/Amount';
 import { ButtonLink } from '@/components/Button';
 import { Header } from '@/components/Header';
+import { useAccount } from '@/lib/account';
+import { PauseIntro } from '@/components/PauseIntro';
 import {
   AllowanceCardSkeleton,
   BalanceSkeleton,
@@ -19,6 +22,11 @@ import {
 
 export default function Home() {
   const store = useStore();
+  const { account } = useAccount();
+  // The device's own clock and the person's own full name. No name yet means the
+  // greeting stands alone — nothing is invented to fill the gap.
+  const fullName = account?.displayName.trim() ?? '';
+  const greeting = fullName ? `${greetingFor()}, ${fullName}` : greetingFor();
   const loading = store.status === 'loading';
 
   return (
@@ -26,6 +34,8 @@ export default function Home() {
       <Header />
 
       <div className="flex-1 px-gutter pb-28">
+        <h1 className="truncate pb-4 pt-2 font-strong text-headline text-ink">{greeting}</h1>
+        <PauseIntro />
         {loading ? (
           <BalanceSkeleton />
         ) : (

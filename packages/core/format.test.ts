@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   arrivalEstimate,
   daysUntil,
+  greetingFor,
   payoutLabel,
   relativeMoment,
   resetLabel,
@@ -68,5 +69,25 @@ describe('durations', () => {
 
   it('keeps an estimate honestly vague', () => {
     expect(arrivalEstimate(20)).toBe('about 20 seconds');
+  });
+});
+
+describe('greetingFor', () => {
+  // The device's local clock decides — `new Date(y, m, d, h)` builds local time.
+  const at = (hour: number) => new Date(2026, 8, 20, hour, 30);
+
+  it('follows the local hour', () => {
+    expect(greetingFor(at(6))).toBe('Good morning');
+    expect(greetingFor(at(11))).toBe('Good morning');
+    expect(greetingFor(at(12))).toBe('Good afternoon');
+    expect(greetingFor(at(16))).toBe('Good afternoon');
+    expect(greetingFor(at(17))).toBe('Good evening');
+    expect(greetingFor(at(23))).toBe('Good evening');
+  });
+
+  it('has no emoji', () => {
+    for (let hour = 0; hour < 24; hour += 1) {
+      expect(greetingFor(at(hour))).toMatch(/^[A-Za-z ]+$/);
+    }
   });
 });

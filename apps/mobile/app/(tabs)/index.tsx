@@ -9,6 +9,7 @@ import { ActivityRow } from '@/components/ui/ActivityRow';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { PauseButton } from '@/components/ui/PauseButton';
+import { PauseIntro } from '@/components/ui/PauseIntro';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import {
@@ -17,33 +18,42 @@ import {
   RowSkeleton,
 } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
+import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 import { useAccount } from '@/lib/account';
+import { useAssistant } from '@/lib/assistant';
 
 export default function Home() {
   const router = useRouter();
   const store = useStore();
   const { account } = useAccount();
-  const firstName = account?.displayName.trim().split(/\s+/)[0] || 'there';
+  const assistant = useAssistant();
+  // The device's own clock and the person's own full name. No name yet means
+  // the greeting stands alone — nothing is invented to fill the gap.
+  const fullName = account?.displayName.trim() ?? '';
+  const greeting = fullName ? `${greetingFor()}, ${fullName}` : greetingFor();
   const loading = store.status === 'loading';
   const announced = useRef(false);
   const { height } = useWindowDimensions();
 
   useEffect(() => {
-    if (loading || !store.proposal || announced.current) return;
+    // The assistant is a setting: nothing is announced until it is turned on.
+    if (loading || !assistant.enabled || !store.proposal || announced.current) return;
     announced.current = true;
     const timer = setTimeout(() => router.push('/assistant-action'), 1200);
     return () => clearTimeout(timer);
-  }, [loading, router, store.proposal]);
+  }, [loading, router, store.proposal, assistant.enabled]);
 
   return (
     <Screen edges={{ bottom: false }}>
       <Header leading="brand" trailing={<PauseButton />} />
       <View className="px-5 pt-2 pb-4">
-        <Text className="font-strong text-headline text-ink">Good morning, {firstName} 👋</Text>
+        <Text numberOfLines={1} className="font-strong text-headline text-ink">
+          {greeting}
+        </Text>
       </View>
 
       <FlashList<Activity>
@@ -54,6 +64,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
+            <PauseIntro />
             {loading ? (
               <View className="px-5"><BalanceSkeleton /></View>
             ) : (

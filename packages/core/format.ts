@@ -79,3 +79,14 @@ export function secondsWords(seconds: number): string {
 export function arrivalEstimate(seconds: number): string {
   return `about ${seconds} seconds`;
 }
+
+/**
+ * "Good morning" / "Good afternoon" / "Good evening", by the *device's* local
+ * hour — the person's own clock, wherever they are.
+ */
+export function greetingFor(now: Date = new Date()): string {
+  const hour = now.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}

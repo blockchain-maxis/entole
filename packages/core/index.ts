@@ -21,6 +21,7 @@ export * from './indexed-activity';
 export * from './money';
 export * from './onchain-gateway';
 export * from './passkey';
+export * from './profile';
 export * from './schemas';
 export * from './settlement-asset';
 export * from './stock-broker';

@@ -5,22 +5,27 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import {
+  USERNAME_MAX,
+  normalizeUsername,
+  validateFullName,
+  validateUsername,
+} from '@entole/core/profile';
 import { useStore } from '@entole/core/store';
 
 import { Avatar } from '@/components/Avatar';
 import { Header } from '@/components/Header';
 import { useAccount } from '@/lib/account';
-import { forgetEverything, hasStoredCredential, sessionIsFresh, signOut } from '@/lib/session';
+import { useAssistant } from '@/lib/assistant';
+import { useProfile } from '@/lib/profile';
+import {
+  forgetEverything,
+  hasStoredCredential,
+  sessionIsFresh,
+  signOut,
+  storeProfile,
+} from '@/lib/session';
 import { useTheme, type ThemePreference } from '@/lib/theme';
-
-/** First + last initial, uppercased. Falls back to "?" for an empty name. */
-function initialsFor(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  const first = parts[0]!.charAt(0);
-  const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : '';
-  return (first + last).toUpperCase();
-}
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -37,7 +42,14 @@ export default function MePage() {
   const [resetting, setResetting] = useState(false);
   const [credentialKnown, setCredentialKnown] = useState<boolean | null>(null);
   const [sessionFresh, setSessionFresh] = useState<boolean | null>(null);
-  const displayName = account?.displayName.trim() || 'there';
+  const profile = useProfile();
+  const assistant = useAssistant();
+  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [touched, setTouched] = useState(false);
+  const nameError = validateFullName(fullName);
+  const usernameError = validateUsername(username);
 
   useEffect(() => {
     function check() {
@@ -46,6 +58,24 @@ export default function MePage() {
     }
     check();
   }, []);
+
+  function startEditing() {
+    setFullName(account?.displayName ?? '');
+    setUsername(account?.username ?? '');
+    setTouched(false);
+    setEditing(true);
+  }
+
+  // Format is checked; uniqueness is not — there is no backend to check it
+  // against yet (see `@entole/core/profile`).
+  function saveProfile() {
+    setTouched(true);
+    if (nameError || usernameError || !account) return;
+    const next = { fullName: fullName.trim(), username };
+    storeProfile(next);
+    setAccount({ ...account, displayName: next.fullName, username: next.username });
+    setEditing(false);
+  }
 
   function lock() {
     setLocking(true);
@@ -73,16 +103,89 @@ export default function MePage() {
 
       <div className="flex-1 px-gutter pb-28">
         <div className="flex flex-col items-center py-4">
-          <Avatar initials={initialsFor(displayName)} tone={1} />
-          <p className="mt-3 font-strong text-title text-ink">{displayName}</p>
-          <p className="mt-1 font-body text-label-sm text-slate">Lagos, Nigeria</p>
+          {profile ? (
+            <>
+              {/* TODO(photo): initials until a picture can be uploaded. */}
+              <Avatar initials={profile.initials} tone={1} />
+              <p className="mt-3 max-w-full truncate font-strong text-title text-ink">{profile.fullName}</p>
+              {profile.username ? (
+                <p className="mt-1 max-w-full truncate font-body text-body-sm text-slate">@{profile.username}</p>
+              ) : null}
+              <p className="tabular mt-0.5 font-body text-label-sm text-mist">{profile.code}</p>
+            </>
+          ) : null}
         </div>
+
+        <SectionLabel>Profile</SectionLabel>
+        {editing ? (
+          <form
+            className="flex flex-col gap-2 rounded-row border border-line bg-card p-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveProfile();
+            }}
+          >
+            <label htmlFor="profile-full-name" className="font-strong text-caption text-slate">
+              Full name
+            </label>
+            <input
+              id="profile-full-name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              autoComplete="name"
+              className="h-12 rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body text-ink outline-none"
+            />
+            {touched && nameError ? <p className="font-body text-caption text-slate">{nameError}</p> : null}
+            <label htmlFor="profile-username" className="mt-2 font-strong text-caption text-slate">
+              Username
+            </label>
+            <div className="flex h-12 items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-indigo">
+              <span className="font-strong text-body text-slate">@</span>
+              <input
+                id="profile-username"
+                value={username}
+                onChange={(event) => setUsername(normalizeUsername(event.target.value))}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                maxLength={USERNAME_MAX}
+                className="ml-1 min-w-0 flex-1 bg-transparent font-strong text-body text-ink outline-none"
+              />
+            </div>
+            {touched && usernameError ? (
+              <p className="font-body text-caption text-slate">{usernameError}</p>
+            ) : null}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-body text-ink transition-colors hover:border-mist"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(nameError || usernameError)}
+                className="flex h-12 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <LinkRow label="Edit profile" onClick={startEditing} />
+          </div>
+        )}
 
         <SectionLabel>Account</SectionLabel>
         <div className="flex flex-col gap-2">
           <Row label="Allowances" value={`${store.allowances.length} active`} />
-          <Row label="Corridor" value="NG ↔ US" />
-          <Row label="Status" value={store.paused ? 'Paused' : 'Active'} />
+          <LinkRow
+            label="Assistant"
+            value={!assistant.enabled ? 'Off' : store.paused ? 'Paused' : 'On'}
+            onClick={() => router.push('/assistant')}
+          />
         </div>
 
         <SectionLabel>Security</SectionLabel>
@@ -109,7 +212,7 @@ export default function MePage() {
                 key={option.value}
                 type="button"
                 aria-pressed={active}
-                onClick={() => setPreference(option.value)}
+                onClick={(event) => setPreference(option.value, { x: event.clientX, y: event.clientY })}
                 className={`flex-1 rounded-chip py-2.5 font-strong text-label-sm transition-colors ${
                   active ? 'bg-indigo-wash text-ink' : 'text-mist hover:text-slate'
                 }`}
@@ -172,10 +275,12 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function LinkRow({
   label,
+  value,
   onClick,
   tone = 'default',
 }: {
   label: string;
+  value?: string;
   onClick: () => void;
   tone?: 'default' | 'danger';
 }) {
@@ -186,7 +291,10 @@ function LinkRow({
       className="flex items-center justify-between rounded-row border border-line bg-card px-4 py-3.5 text-left transition-colors hover:border-mist"
     >
       <span className={`font-body text-body-sm ${tone === 'danger' ? 'text-halt' : 'text-ink'}`}>{label}</span>
-      <ChevronRight size={16} strokeWidth={1.5} className={tone === 'danger' ? 'text-halt' : 'text-mist'} />
+      <span className="flex items-center gap-1.5">
+        {value ? <span className="font-body text-body-sm text-slate">{value}</span> : null}
+        <ChevronRight size={16} strokeWidth={1.5} className={tone === 'danger' ? 'text-halt' : 'text-mist'} />
+      </span>
     </button>
   );
 }

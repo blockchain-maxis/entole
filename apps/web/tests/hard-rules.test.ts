@@ -105,3 +105,41 @@ describe('assistant actions are visually distinct', () => {
     expect(feed).toMatch(/AssistantBadge/);
   });
 });
+
+describe('the assistant is a setting the person turns on, never a default', () => {
+  const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+
+  it('signing in derives only the owner key — the assistant key is derived in one place', () => {
+    const calls = session.match(/deriveSessionAccount\(/g) ?? [];
+    expect(calls).toHaveLength(1);
+    const derive = session.slice(session.indexOf('deriveAssistantAccount('));
+    expect(derive).toMatch(/deriveSessionAccount\(/);
+    expect(session).toMatch(/session: null/);
+  });
+
+  it('starts off, and only the approval screen turns it on', () => {
+    const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
+    expect(provider).toMatch(/useState\(false\)/);
+    const enablers = sourceFiles.filter((file) => /\.enable\(\)/.test(stripComments(read(file))));
+    expect(enablers.map((file) => relative(ROOT, file))).toEqual(['app/assistant/page.tsx']);
+  });
+
+  it('the intro card leads to the approval screen instead of dismissing itself as "Got it"', () => {
+    const intro = stripComments(read(join(ROOT, 'components/PauseIntro.tsx')));
+    expect(intro).toMatch(/Get started/);
+    expect(intro).toMatch(/href="\/assistant"/);
+    expect(intro).not.toMatch(/Got it/);
+  });
+
+  it('the header chip shows Off, and off leads to the approval page rather than a pause', () => {
+    const button = stripComments(read(join(ROOT, 'components/PauseControl.tsx')));
+    expect(button).toMatch(/Assistant · Off/);
+    expect(button).toMatch(/href="\/assistant"/);
+  });
+
+  it('the approval screen shows an action, not a toggle or a permission', () => {
+    const screen = stripComments(read(join(ROOT, 'app/assistant/page.tsx')));
+    expect(screen).not.toMatch(/type="checkbox"|role="switch"/);
+    expect(screen).toMatch(/Turn on the assistant/);
+  });
+});

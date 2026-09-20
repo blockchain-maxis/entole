@@ -174,14 +174,34 @@ export const DEFAULT_CADENCE_SECONDS: Record<Cadence, bigint> = {
   'on-request': (2n ** 255n),
 };
 
+/** Raised by anything that needs the assistant's key when the person hasn't
+ * turned the assistant on. The message is shown as-is, so it is plain copy. */
+export class AssistantNotEnabledError extends Error {
+  constructor() {
+    super('Turn on the assistant first.');
+    this.name = 'AssistantNotEnabledError';
+  }
+}
+
 export type OnChainGatewayConfig = {
   publicClient: PublicClient;
   /** Signs createAllowance / revoke / setPaused — the account the owner's
    * passkey ultimately authorises, directly or via a sponsored relay. */
   ownerWalletClient: WalletClient;
   /** Signs execute() only. Holds no funds; its authority is exactly what
-   * the owner's `createAllowance` call granted it, nothing more. */
-  delegateWalletClient: WalletClient;
+   * the owner's `createAllowance` call granted it, nothing more. Optional:
+   * the assistant is opt-in, so this is absent until the person turns it on
+   * (and, after a restart, until `getDelegateWalletClient` derives it). */
+  delegateWalletClient?: WalletClient;
+  /** The assistant key's address, remembered from when it was approved, so
+   * creating an allowance needs no passkey prompt. Falls back to
+   * `delegateWalletClient`'s own account when that is present. */
+  delegateAddress?: Address;
+  /** Obtains the assistant's signing client on first need — derives the key
+   * (one passkey prompt) and caches it in memory. Only reached when the
+   * assistant is enabled; when it isn't, the app leaves this unset and every
+   * assistant operation throws `AssistantNotEnabledError`. */
+  getDelegateWalletClient?: () => Promise<WalletClient>;
   policyAddress: Address;
   tokenAddress: Address;
   /** `GrowthVault`'s address, once deployed — see contracts/README.md's
@@ -313,8 +333,14 @@ async function loadActivity(
 
 export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGateway {
   const cadenceSeconds = config.cadenceSeconds ?? DEFAULT_CADENCE_SECONDS;
-  const delegateAddress = config.delegateWalletClient.account?.address;
-  if (!delegateAddress) throw new Error('delegateWalletClient must have an account attached');
+  const delegateAddress = config.delegateAddress ?? config.delegateWalletClient?.account?.address;
+
+  /** The assistant's signing client, or a clear refusal when it is not on. */
+  async function delegateClient(): Promise<WalletClient> {
+    if (config.delegateWalletClient) return config.delegateWalletClient;
+    if (config.getDelegateWalletClient) return config.getDelegateWalletClient();
+    throw new AssistantNotEnabledError();
+  }
 
   return {
     async loadSnapshot() {
@@ -369,14 +395,16 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
       const amount = toTokenMinor(input.amountMinor, config);
 
       const sentAt = new Date();
-      const hash = input.allowanceId
-        ? await config.delegateWalletClient.writeContract({
-            chain: config.delegateWalletClient.chain,
-            account: config.delegateWalletClient.account!,
+      const allowanceId = input.allowanceId;
+      const delegate = allowanceId ? await delegateClient() : null;
+      const hash = delegate
+        ? await delegate.writeContract({
+            chain: delegate.chain,
+            account: delegate.account!,
             address: config.policyAddress,
             abi: ENTOLE_POLICY_ABI,
             functionName: 'execute',
-            args: [toChainAllowanceId(input.allowanceId), recipient, amount],
+            args: [toChainAllowanceId(allowanceId!), recipient, amount],
           })
         : await config.ownerWalletClient.writeContract({
             chain: config.ownerWalletClient.chain,
@@ -418,6 +446,7 @@ export function createOnChainGateway(config: OnChainGatewayConfig): PaymentsGate
     },
 
     async saveAllowance(draft: AllowanceDraft): Promise<Allowance> {
+      if (!delegateAddress) throw new AssistantNotEnabledError();
       const appId = draft.id ?? `a-${Date.now()}`;
       const id = toChainAllowanceId(appId);
       const recipient = config.resolveRecipient(draft.recipientId);

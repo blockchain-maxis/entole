@@ -63,6 +63,19 @@ export function themeTokens(scheme: 'light' | 'dark'): PaletteTree {
   return scheme === 'dark' ? dark : light;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { cssVars } = require('./tailwind-preset') as {
+  cssVars: { light: Record<string, string>; dark: Record<string, string> };
+};
+
+/** A scheme's palette as CSS custom properties — `{ '--color-ink': '18 16 14',
+ * ... }`, space-separated RGB triplets. The mobile app applies these on a root
+ * `vars()` wrapper so every `bg-x`/`text-x` class resolves from one place,
+ * instead of relying on a stylesheet block that NativeWind does not apply. */
+export function themeCssVariables(scheme: 'light' | 'dark'): Record<string, string> {
+  return scheme === 'dark' ? cssVars.dark : cssVars.light;
+}
+
 /** Shadow tokens as ready-to-spread React Native style objects, for the
  * rare case (e.g. an `Animated.View`) that can't take a `shadow-*`
  * className. Prefer the Tailwind class first. */
