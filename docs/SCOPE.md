@@ -70,13 +70,35 @@ cut below instead.
   in `docs/ARCHITECTURE.md`; the business layer just gives it a concrete
   use case (release on an invoice-paid webhook).
 
+## In scope — Grow (added 23 September 2026)
+
+Added at the user's direction after the 17 September revision. Grow is money the
+person deliberately moves aside or invests themselves. It is always
+user-initiated: there is no assistant path into it, no delegate, no allowance,
+and no autonomous routing. That is what keeps it inside the no-yield thesis
+rather than breaking it (see the reconciliation in "Cut from the pitch" below).
+
+- **Savings.** Moving your own money between what you can spend and what you have
+  set aside. This is earmarking, the same posture as the tax reserve above. The
+  backing contract, `contracts/src/GrowthVault.sol`, tracks exactly what was
+  deposited minus what was withdrawn and accrues nothing on-chain. Any "what's
+  growing" projection is a display-layer number, never a settled balance.
+- **Stocks.** User-initiated brokerage positions behind a `stocksAvailable`
+  gate, shown as "not available yet" until a broker is configured. These carry
+  market exposure the person chooses, not yield the app invents.
+
+`GrowthVault` is deliberately a separate contract from `EntolePolicy`, which
+never custodies funds. A deposit vault has to hold a balance, so it sits outside
+the enforcing contract's trust boundary rather than compromising it. Only the
+depositor can withdraw their own balance.
+
 ## Cut from the pitch, and why
 
-- **Idle-balance yield / autonomous treasury routing into lending protocols.**
-  Contradicts the no-yield rule below directly, and a real integration is not
-  credible in 26 days that now also need to fund a policy contract from
-  scratch. A faked accrual number reads worse than not claiming it — cut
-  entirely, not mocked, not demoed.
+- **Autonomous idle-balance yield or treasury routing into lending protocols.**
+  Still cut, and distinct from Grow above: Grow is money the person moves
+  themselves, whereas this is the app routing idle funds into yield on its own.
+  A real integration is not credible in the window, and a faked accrual number
+  reads worse than not claiming it. Cut entirely, not mocked, not demoed.
 - **WhatsApp.** Business API approval timelines don't fit the window.
   Telegram tells the same "a message replaces a form" story without the
   approval dependency.
@@ -96,7 +118,8 @@ is still no.
 - KYC beyond what a demo needs
 - Multiple corridors — one is enough to prove the model
 - Card issuing
-- Savings, yield, or interest — see "Cut from the pitch"
+- Autonomous yield or interest the app accrues on its own (user-initiated
+  savings and investing now ship as Grow; see the Grow section above)
 - Push notifications
 - Multi-language
 - Anything requiring App Store review
