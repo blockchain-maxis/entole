@@ -50,17 +50,28 @@ What's real and tested:
 - **A business layer** (seats, invoicing, a tax reserve) riding the same
   allowance primitive — no second trust model. See
   [`docs/SCOPE.md`](docs/SCOPE.md).
-- **A Telegram intake adapter** — real, tested message parsing; the
-  webhook route is explicit about what infrastructure it still needs.
+- **A Telegram intake adapter, wired end to end.** Message parsing was
+  always real and tested; the webhook route now links a chat to an account
+  with a one-time code, parses against that account's own contacts, and
+  writes the proposal to a server-side inbox that runs the same undo window
+  as an in-app assistant action. Unset `TELEGRAM_BOT_TOKEN` still returns
+  501, the honest default. See `apps/web/app/api/telegram/webhook/route.ts`.
+- **Grow (savings and stocks).** Backed by `GrowthVault`, live on Monad
+  testnet at `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd`, 8 passing tests.
+  It holds a real deposit balance and sits outside `EntolePolicy` by design;
+  only the depositor can withdraw, and there is no delegate or allowance path
+  into it. Stocks stay gated until a broker is configured. See
+  [`docs/SECURITY.md`](docs/SECURITY.md).
 - **Passkey accounts (Mera)** — `packages/core/passkey.ts`, wired into the
   phone app's onboarding and sign-in. A WebAuthn PRF ceremony's 32 bytes
   *are* the private key; one passkey derives two ("one passkey, many
   keys"): an owner key and a session/delegate key, the exact split
   `EntolePolicy.createAllowance` needs. See
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)'s "Accounts and auth."
-- 300 tests passing across `packages/core` (71), `apps/mobile` (142),
-  `apps/web` (69) and `contracts` (18, plus one that self-skips honestly —
-  see `contracts/README.md`), via `pnpm test` / `forge test`.
+- 1077 tests passing across `packages/core` (264, plus one skipped),
+  `apps/mobile` (492), `apps/web` (303) and `contracts` (18, plus one that
+  self-skips honestly; see `contracts/README.md`), via `pnpm test` /
+  `forge test`.
 
 What's disclosed as not finished, the same way the NGN off-ramp always was:
 
@@ -69,9 +80,15 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   the actual WebAuthn call needs a real relying-party domain
   (`entole.to/.well-known/…`, not hosted anywhere this environment
   controls) and a real device — see `apps/mobile/README.md`.
-- **Agora, Aurora Intents, Envio, Chainlink CRE, Nansen** — all wrapped
-  behind interfaces (`packages/core/gateway.ts`, `indexer/`), none
-  connected to a live account yet.
+- **Chainlink CRE condition-gated release is wired end to end** against the
+  server store: the callback route re-validates the payload, recomputes the
+  FX condition itself through `releaseConditionalInvoice` (never trusting the
+  caller's verdict), and marks the invoice released on success. What it still
+  needs is a real registered CRE workflow watching an FX feed to POST to it,
+  and a `CHAINLINK_CRE_WEBHOOK_SECRET`; unset, the route returns 501.
+- **Agora, Aurora Intents, Envio, Nansen** — wrapped behind interfaces
+  (`packages/core/gateway.ts`, `indexer/`), none connected to a live account
+  yet.
 
 ## Running it
 
