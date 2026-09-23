@@ -39,3 +39,25 @@ jobs:
       - name: forge build
         working-directory: contracts
         run: forge build --sizes
+
+  indexer:
+    name: envio codegen — the activity indexer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # codegen is local and needs no token; it generates the ORM the handlers
+      # compile against, so a green run proves config, schema and handlers agree.
+      # The native envio binary runs on Linux, which it does not on every dev box.
+      - name: codegen
+        working-directory: indexer
+        run: pnpm codegen
