@@ -108,9 +108,11 @@ than pretended solved:
 
 - **Deployed to Monad testnet**, not mainnet, and not yet audited by anyone
   outside this project. `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` — see
-  `contracts/README.md` for the deployment block and transaction. Testnet
-  status means the state above is demonstrable, not that it has survived
-  adversarial review.
+  `contracts/README.md` for the deployment block and transaction. Its source
+  is verified on Sourcify with an exact bytecode match, so anyone can read the
+  enforcing contract against what is actually deployed (see `contracts/README.md`,
+  "Verification"). Testnet status means the state above is demonstrable, not that
+  it has survived adversarial review.
 - **The P256 passkey-revoke path is proven live**, not just written to spec.
   `forge test` and even a Monad-testnet fork can't exercise it — forking
   mirrors on-chain state, not precompile execution, which runs in

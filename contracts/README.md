@@ -48,9 +48,8 @@ own `createAllowance` call already said it could.
     real AUSD on a fork: `forge test --fork-url monad_testnet --match-contract EntoleRouterFork`.
   - Deployer: `0xc0d9BC33696d2F5676A1AcB1e39d03046405eE80` — a throwaway
     key generated for this deployment only, funded from the public faucet,
-    never used anywhere else. Not verified on Monadscan yet (needs
-    `MONADSCAN_API_KEY`, unset in this environment) — `forge verify-contract`
-    against the address above once one exists.
+    never used anywhere else. Every deployed contract is source-verified on
+    Sourcify; see "Verification" below.
 - `GrowthVault` (backs the app's "Grow" feature) — **live on Monad testnet**
   at `0x49ea1846326b3398783001a26d303f0b82b0d9dc` (deployed 23 September 2026 via
   `script/DeployVault.s.sol`), backed by Agora AUSD (`token()` returns
@@ -66,6 +65,39 @@ own `createAllowance` call already said it could.
   delegate or allowance path into it. Use `script/DeployVault.s.sol` (against
   AUSD), not `script/Deploy.s.sol`, to redeploy the vault without also
   redeploying `EntolePolicy` and orphaning its live provenance.
+
+## Verification
+
+Every deployed contract is source-verified on Sourcify. Sourcify is keyless, so
+this needed no `MONADSCAN_API_KEY`. Each contract returned an exact bytecode
+match against the source in this repo. The verification is publicly
+retrievable from the Sourcify API at
+`https://sourcify.dev/server/v2/contract/10143/<address>` (add `?fields=all` for
+the full source), and any explorer that reads Sourcify (Blockscout-family, and
+Etherscan's Sourcify lookup) resolves the same source.
+
+| Contract | Address | Match |
+|---|---|---|
+| `EntolePolicy` | `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` | exact |
+| `EntoleRouter` | `0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01` | exact |
+| `GrowthVault` (wired) | `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd` | exact |
+| `GrowthVault` (duplicate) | `0x49ea1846326b3398783001a26d303f0b82b0d9dc` | exact |
+| `MockERC20` ("eUSD") | `0xaca20A081Ab69148E291e65dcf4f69Ef9B0674A6` | exact |
+
+Reproduce for any address above, no key required:
+
+```bash
+forge verify-contract 0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7 \
+  src/EntolePolicy.sol:EntolePolicy \
+  --chain-id 10143 \
+  --verifier sourcify \
+  --verifier-url https://sourcify.dev/server \
+  --watch
+```
+
+A `MONADSCAN_API_KEY` still enables the Etherscan-style `--verify` flag during
+`forge script` deploys and the `[etherscan]` config in `foundry.toml`; it is no
+longer required to make the source public.
 
 ## Proving the P256 path
 
