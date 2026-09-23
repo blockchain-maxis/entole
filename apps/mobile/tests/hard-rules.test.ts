@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -25,6 +25,11 @@ const sourceFiles = [...walk(SCREENS), ...walk(COMPONENTS)];
 
 function read(path: string): string {
   return readFileSync(path, 'utf8');
+}
+
+/** Repo-relative path with forward slashes, so comparisons hold on Windows too. */
+function rel(file: string): string {
+  return relative(ROOT, file).split(sep).join('/');
 }
 
 /** Comments are not shipped copy, so they are removed before scanning. */
@@ -98,7 +103,7 @@ describe('the pause control is reachable from every screen header', () => {
   ];
 
   const screens = walk(SCREENS).filter((file) => {
-    const path = relative(ROOT, file);
+    const path = rel(file);
     if (exempt.some((prefix) => path.startsWith(prefix))) return false;
     return read(file).includes("from '@/components/ui/Screen'");
   });
@@ -128,7 +133,7 @@ describe('the pause control is reachable from every screen header', () => {
 
   it('only the pause screen itself opts out of the header pause control', () => {
     const optedOut = screens.filter((file) => /trailing=\{null\}/.test(read(file)));
-    expect(optedOut.map((file) => relative(ROOT, file))).toEqual(['app/pause.tsx']);
+    expect(optedOut.map((file) => rel(file))).toEqual(['app/pause.tsx']);
   });
 });
 
@@ -309,7 +314,7 @@ describe('the assistant is a setting the person turns on, never a default', () =
     const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
     expect(provider).toMatch(/useState\(false\)/);
     const enablers = sourceFiles.filter((file) => /\.enable\(\)/.test(stripComments(read(file))));
-    expect(enablers.map((file) => relative(ROOT, file))).toEqual(['app/assistant.tsx']);
+    expect(enablers.map((file) => rel(file))).toEqual(['app/assistant.tsx']);
   });
 
   it('the intro card leads to the approval screen instead of dismissing itself as "Got it"', () => {
@@ -497,7 +502,7 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     const senders = sourceFiles.filter((file) => /\bstore\.send\(/.test(stripComments(read(file))));
     // The assistant's own payment runs through its undo countdown (`runProposal`) instead.
     // Payroll (added with the Business rebuild) pays a whole team from one confirmation, one person at a time.
-    expect(senders.map((file) => relative(ROOT, file))).toEqual([
+    expect(senders.map((file) => rel(file))).toEqual([
       'app/business/payroll/run.tsx',
       'components/ui/ConfirmSendSheet.tsx',
     ]);
@@ -820,7 +825,7 @@ describe('Me is ordered Profile, Account, Preferences, Security, Support, Legal'
 
 describe('the Business tab is plain jobs, not seats and templates', () => {
   const business = stripComments(read(join(ROOT, 'app/(tabs)/business.tsx')));
-  const businessScreens = walk(join(SCREENS, 'business')).map((file) => relative(ROOT, file));
+  const businessScreens = walk(join(SCREENS, 'business')).map((file) => rel(file));
 
   it('order supplies, the supplier form and seats are gone, and nothing points at them', () => {
     for (const gone of ['order-supplies', 'pay-supplier', 'new-seat']) {

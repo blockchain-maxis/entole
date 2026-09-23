@@ -38,8 +38,9 @@ product: where it touches a screen, the screen says so plainly.
 - **Records live on the device.** Beneficiaries, allowances and the send ledger
   are per-device. A backend (or the Envio indexer for history) is the upgrade
   path; `RecordStore` in core is the seam.
-- **Savings ("Grow") has no yield source.** `GrowthVault` is written and tested
-  but not deployed, and accrual is display-only. The screens show no projected
+- **Savings ("Grow") has no yield source.** `GrowthVault` is deployed and
+  tested (live on Monad testnet, `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd`,
+  8 passing), but accrual is display-only. The screens show no projected
   earnings until a real source exists.
 - **Stocks** stay gated behind broker credentials that must live on a server.
 

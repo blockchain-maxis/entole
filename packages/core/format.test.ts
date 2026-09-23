@@ -11,53 +11,58 @@ import {
   settledAt,
 } from './format';
 
-// Fixtures are quoted in West Africa Time, and the test script pins TZ to match.
-const NOW = new Date('2026-09-02T10:00:00.000+01:00');
+// Inputs are built from local-time components so the wall-clock reading is the
+// same in any timezone. The assertions then hold on a UTC CI runner and on a
+// UTC+1 laptop without pinning a zone.
+const iso = (y: number, month: number, day: number, hour = 0, minute = 0, second = 0) =>
+  new Date(y, month, day, hour, minute, second).toISOString();
+
+const NOW = new Date(2026, 8, 2, 10, 0);
 
 describe('relativeMoment', () => {
   it('names today by the time', () => {
-    expect(relativeMoment('2026-09-02T09:04:00.000+01:00', NOW)).toBe('Today · 9:04 AM');
+    expect(relativeMoment(iso(2026, 8, 2, 9, 4), NOW)).toBe('Today · 9:04 AM');
   });
 
   it('names yesterday', () => {
-    expect(relativeMoment('2026-09-01T18:20:00.000+01:00', NOW)).toBe('Yesterday');
+    expect(relativeMoment(iso(2026, 8, 1, 18, 20), NOW)).toBe('Yesterday');
   });
 
   it('names the weekday inside the last week', () => {
-    expect(relativeMoment('2026-08-31T16:12:00.000+01:00', NOW)).toBe('Mon 4:12 PM');
-    expect(relativeMoment('2026-08-30T11:30:00.000+01:00', NOW)).toBe('Sun 11:30 AM');
+    expect(relativeMoment(iso(2026, 7, 31, 16, 12), NOW)).toBe('Mon 4:12 PM');
+    expect(relativeMoment(iso(2026, 7, 30, 11, 30), NOW)).toBe('Sun 11:30 AM');
   });
 
   it('falls back to a date beyond a week', () => {
-    expect(relativeMoment('2026-08-01T09:02:00.000+01:00', NOW)).toBe('1 Aug · 9:02 AM');
+    expect(relativeMoment(iso(2026, 7, 1, 9, 2), NOW)).toBe('1 Aug · 9:02 AM');
   });
 });
 
 describe('settledAt', () => {
   it('timestamps a receipt to the second', () => {
-    expect(settledAt('2026-09-02T09:41:07.000+01:00')).toBe('Settled 2 Sept 2026 at 9:41:07 AM');
+    expect(settledAt(iso(2026, 8, 2, 9, 41, 7))).toBe('Settled 2 Sept 2026 at 9:41:07 AM');
   });
 });
 
 describe('resetLabel', () => {
   it('reads as a date, not a duration', () => {
-    expect(resetLabel('2026-10-01T00:00:00.000+01:00')).toBe('Resets 1 Oct');
+    expect(resetLabel(iso(2026, 9, 1))).toBe('Resets 1 Oct');
   });
 });
 
 describe('payoutLabel', () => {
   it('reads as a date, not a duration', () => {
-    expect(payoutLabel('2026-10-01T00:00:00.000+01:00')).toBe('Payout 1 Oct');
+    expect(payoutLabel(iso(2026, 9, 1))).toBe('Payout 1 Oct');
   });
 });
 
 describe('daysUntil', () => {
   it('counts whole days ahead', () => {
-    expect(daysUntil('2026-09-05T10:00:00.000+01:00', NOW)).toBe(3);
+    expect(daysUntil(iso(2026, 8, 5, 10, 0), NOW)).toBe(3);
   });
 
   it('never goes negative for a past date', () => {
-    expect(daysUntil('2026-08-01T10:00:00.000+01:00', NOW)).toBe(0);
+    expect(daysUntil(iso(2026, 7, 1, 10, 0), NOW)).toBe(0);
   });
 });
 

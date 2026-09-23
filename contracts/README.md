@@ -51,15 +51,21 @@ own `createAllowance` call already said it could.
     never used anywhere else. Not verified on Monadscan yet (needs
     `MONADSCAN_API_KEY`, unset in this environment) — `forge verify-contract`
     against the address above once one exists.
-- `GrowthVault` (backs the app's "Grow" feature) — **written and tested
-  locally, not yet deployed**. 8/8 passing, `forge test`. Deliberately a
-  separate contract from `EntolePolicy`, which never custodies funds by
-  design — a deposit vault has to hold a balance, so it sits outside that
-  contract's trust boundary rather than compromising it. `script/Deploy.s.sol`
-  now deploys it alongside `MockERC20` on chain `10143`; run the same
-  deploy command below to pick it up on the next (re)deploy, and update
-  `apps/mobile/app.json`'s `extra.entole` block and `apps/web/.env` with the
-  address it logs.
+- `GrowthVault` (backs the app's "Grow" feature) — **live on Monad testnet**
+  at `0x49ea1846326b3398783001a26d303f0b82b0d9dc` (deployed 23 September 2026 via
+  `script/DeployVault.s.sol`), backed by Agora AUSD (`token()` returns
+  `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`, confirmed on-chain). 8/8 passing,
+  `forge test`. An earlier identical vault at
+  `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd` is the one both apps are wired to
+  (`apps/mobile/app.json` `extra.entole.growthVaultAddress` and `apps/web/.env`
+  `NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS`); the 23 September deploy above is a
+  redundant duplicate and can be ignored. Deliberately a separate contract from
+  `EntolePolicy`, which never custodies funds by design: a deposit vault has to
+  hold a balance, so it sits outside that contract's trust boundary rather than
+  compromising it. Only the depositor can withdraw their own balance; there is no
+  delegate or allowance path into it. Use `script/DeployVault.s.sol` (against
+  AUSD), not `script/Deploy.s.sol`, to redeploy the vault without also
+  redeploying `EntolePolicy` and orphaning its live provenance.
 
 ## Proving the P256 path
 

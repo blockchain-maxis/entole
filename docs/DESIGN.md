@@ -103,6 +103,13 @@ run). Same rule as any other unexported screen — they follow the patterns
 below rather than introducing new ones. Seats were removed from the UI: a team
 member is a plain person you pay, with an optional regular amount.
 
+The Grow layer added 23 September 2026 (`docs/SCOPE.md`) has no exports either:
+`app/(tabs)/grow`, `app/grow/savings`, `app/grow/stocks` and
+`app/grow/stock/[symbol]` on the phone, with the matching `grow/*` routes on
+web. Savings reuses the custom keypad and the review-sheet pattern; the meter
+motif and the "not available yet" empty state follow the patterns below. Same
+rule as any other unexported screen.
+
 ## Test conditions
 
 Build and test on a mid-range Android on a throttled connection. Not an iPhone on

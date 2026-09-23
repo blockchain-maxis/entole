@@ -1,22 +1,23 @@
-import { creReleaseRequestSchema, evaluateReleaseCondition } from '@entole/core/chainlink-cre';
+import { creReleaseRequestSchema } from '@entole/core/chainlink-cre';
+import { releaseConditionalInvoice } from '@entole/core/gateway';
 import { NextResponse } from 'next/server';
+
+import { getServerStore } from '@/lib/server/store';
 
 /**
  * The callback target for a real Chainlink CRE workflow watching the FX
  * condition on a `'pending-release'` invoice — see
  * `packages/core/chainlink-cre.ts`'s header for the full design.
  *
- * What this route cannot do yet, honestly, same gap as
- * `apps/web/app/api/telegram/webhook/route.ts`: this demo's store is
- * client-side React state with no server-side persistence, so there is no
- * specific user's live invoice list to reach into and update from here. This
- * route proves the validate-and-evaluate half end to end — it re-checks the
- * condition itself rather than trusting the caller's claim — but the actual
- * release still has to happen from the signed-in user's own app via
- * `useStore().requestConditionalRelease`, exactly as the in-app "Check
- * condition" button already does today. Wiring a persisted backend so this
- * route can call that on someone's behalf is a deploy-config and
- * persistence change, not a rewrite of the condition logic itself.
+ * Both halves now run. The route still re-checks the condition itself rather
+ * than trusting the caller's claim — that check is in
+ * `releaseConditionalInvoice`, shared with `demoGateway` so the webhook and the
+ * in-app "Check condition" button apply one identical rule. When the condition
+ * holds, it looks the invoice up in `lib/server/store.ts` and applies the same
+ * released-invoice-plus-tax-reserve transition the gateway performs, then
+ * persists it. The store is convenience, not authority: releasing an invoice
+ * marks a record paid, it does not itself move money the allowance did not
+ * already permit.
  */
 export async function POST(request: Request) {
   const secret = process.env.CHAINLINK_CRE_WEBHOOK_SECRET;
@@ -32,10 +33,25 @@ export async function POST(request: Request) {
   }
 
   const payload = creReleaseRequestSchema.parse(await request.json());
-  const conditionMet = evaluateReleaseCondition(
-    { type: 'fx-rate-at-or-below', maxKoboPerDollar: payload.maxKoboPerDollar },
-    { koboPerDollar: payload.observedKoboPerDollar, quotedAt: new Date().toISOString() },
-  );
+  const store = getServerStore();
 
-  return NextResponse.json({ ok: true, invoiceId: payload.invoiceId, conditionMet });
+  const found = await store.findPendingReleaseInvoice(payload.invoiceId);
+  if (!found) {
+    return NextResponse.json(
+      { ok: false, reason: 'No pending-release invoice with that id.' },
+      { status: 404 },
+    );
+  }
+
+  const released = releaseConditionalInvoice(found.invoice, {
+    koboPerDollar: payload.observedKoboPerDollar,
+    quotedAt: new Date().toISOString(),
+  });
+  if (!released) {
+    return NextResponse.json({ ok: true, invoiceId: payload.invoiceId, conditionMet: false });
+  }
+
+  await store.replaceInvoice(found.accountId, released.invoice);
+  return NextResponse.json({ ok: true, invoiceId: payload.invoiceId, conditionMet: true });
 }
+

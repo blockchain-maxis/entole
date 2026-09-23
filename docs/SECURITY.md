@@ -82,6 +82,25 @@ tries to break it and fails to.
   no "ask the backend if this is okay" — every check in `execute()` is pure
   arithmetic and storage reads against state the owner themselves wrote.
 
+## Grow, and why it sits outside this contract
+
+Grow (savings and, once a broker is configured, stocks) is backed by a
+separate contract, `GrowthVault` (`contracts/src/GrowthVault.sol`, 8 passing
+tests, live on Monad testnet at
+`0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd`). Unlike `EntolePolicy`, a
+deposit vault has to hold a balance, so it does custody funds. That is
+exactly why it is a different contract rather than a feature bolted onto the
+policy: the "never custodies funds" guarantee above stays literally true of
+`EntolePolicy`, and the vault's custody risk is isolated to the vault.
+
+The vault has no assistant path. Only the depositor can withdraw their own
+balance; there is no delegate, no allowance, and no caveat grant that reaches
+it. An allowance can never move money into or out of Grow, and a compromised
+assistant or backend cannot touch a Grow balance at all, because nothing in
+the allowance model points at the vault. Accrual in the UI is display-only
+until a real yield source exists, and the screens say so rather than showing
+a projected return.
+
 ## The parts of the trust story that are not finished
 
 Said plainly, the same way the NGN off-ramp is disclosed as mocked rather
