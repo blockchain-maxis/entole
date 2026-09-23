@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -126,7 +126,9 @@ describe('the assistant is a setting the person turns on, never a default', () =
     const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
     expect(provider).toMatch(/useState\(false\)/);
     const enablers = sourceFiles.filter((file) => /\.enable\(\)/.test(stripComments(read(file))));
-    expect(enablers.map((file) => relative(ROOT, file))).toEqual(['app/assistant/page.tsx']);
+    expect(enablers.map((file) => relative(ROOT, file).split(sep).join('/'))).toEqual([
+      'app/assistant/page.tsx',
+    ]);
   });
 
   it('the intro card leads to the approval screen instead of dismissing itself as "Got it"', () => {
