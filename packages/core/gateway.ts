@@ -196,6 +196,26 @@ function settleInvoiceRecord(
   };
 }
 
+/**
+ * The conditional-release transition, shared between `demoGateway` and the
+ * Chainlink CRE webhook route (`apps/web/app/api/chainlink-cre/release`) so
+ * both apply exactly one rule. It re-checks the condition against the observed
+ * rate itself; a caller's claim that the condition is met is never trusted.
+ * Returns the released invoice with its tax reserve, or `null` when the
+ * condition is not yet met.
+ */
+export function releaseConditionalInvoice(
+  invoice: Invoice,
+  observedRate: Rate,
+  taxFraction = 0.2,
+): { invoice: Invoice; taxReserve: TaxReserve } | null {
+  if (!invoice.releaseCondition) {
+    throw new Error(`Invoice ${invoice.id} has no release condition to evaluate`);
+  }
+  if (!evaluateReleaseCondition(invoice.releaseCondition, observedRate)) return null;
+  return settleInvoiceRecord(invoice, observedRate.koboPerDollar, taxFraction);
+}
+
 /** Test-only catalogue for `demoGateway` — never reachable from a shipped
  * app, which builds its gateway from a real broker or shows "not available". */
 const DEMO_STOCKS = [
@@ -327,11 +347,7 @@ export const demoGateway: PaymentsGateway = {
     const snapshot = snapshotSchema.parse(SNAPSHOT);
     const invoice = snapshot.invoices.find((entry) => entry.id === invoiceId);
     if (!invoice) throw new Error(`No invoice ${invoiceId}`);
-    if (!invoice.releaseCondition) {
-      throw new Error(`Invoice ${invoiceId} has no release condition to evaluate`);
-    }
-    if (!evaluateReleaseCondition(invoice.releaseCondition, observedRate)) return null;
-    return settleInvoiceRecord(invoice, observedRate.koboPerDollar, 0.2);
+    return releaseConditionalInvoice(invoice, observedRate);
   },
 
   async createProcurementRequest(draft) {

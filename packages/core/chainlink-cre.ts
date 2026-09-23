@@ -31,15 +31,13 @@ import type { ReleaseCondition } from './schemas';
  * https://cre.chain.link, not something this environment can create): (1)
  * registering a real workflow that watches an FX feed and POSTs to
  * `apps/web/app/api/chainlink-cre/release/route.ts` once the condition
- * looks true from its side, and (2) that route currently can only
- * re-validate the payload and report the result — it cannot yet mutate a
- * specific user's live invoice, because this demo's store is client-side
- * React state with no server-side persistence (the exact same gap
- * `apps/web/app/api/telegram/webhook/route.ts`'s header already discloses
- * for the Telegram intake). Until a real backend exists, the genuinely
- * live release path is the in-app "Check condition" action, which calls
- * `requestConditionalRelease` directly from a signed-in user's own store —
- * that one is real today, no account needed.
+ * looks true from its side, and (2) pointing that workflow at a deployed
+ * instance of this app. The route itself now completes the release: it
+ * re-validates the payload, recomputes the condition through
+ * `releaseConditionalInvoice`, and on success looks the invoice up in the
+ * server store and marks it released. The in-app "Check condition" action
+ * remains real today too, calling `requestConditionalRelease` directly from a
+ * signed-in user's own store; both paths run the same gate below.
  */
 
 /** The payload a real CRE workflow's callback would POST once it believes
