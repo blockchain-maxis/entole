@@ -1,7 +1,12 @@
+import type { Address } from 'viem';
+
 import { entryFromMinor, EMPTY_ENTRY, type AmountEntry } from '@entole/core/amount-entry';
+import type { Backend } from '@entole/core/backend';
+import { parseCheckout } from '@entole/core/checkout-link';
 import { kobo } from '@entole/core/money';
 import { oneOffId } from '@entole/core/one-off';
-import { parseCheckout } from '@entole/core/checkout-link';
+import { encodePaymentCode } from '@entole/core/payment-code';
+import { parsePhoneLink } from '@entole/core/phone-link';
 
 /**
  * How typed, pasted and scanned text becomes a send. One door: a checkout
@@ -31,11 +36,19 @@ export function cleanNote(value: unknown): string | undefined {
  * not carry a valid code. A link's amount only pre-fills when it is in naira —
  * an amount in another currency is not guessed at. `note` from the caller wins
  * over a note inside the link.
+ *
+ * `resolveContactId` checks the code's address against saved beneficiaries
+ * first, so paying someone already saved shows their real name instead of
+ * "Payment code · …" — the one-off id is only a fallback for a stranger.
  */
-export function sendParamsFor(text: string, note?: string): SendParams | null {
+export function sendParamsFor(
+  text: string,
+  note?: string,
+  resolveContactId?: (address: Address) => string | undefined,
+): SendParams | null {
   const parsed = parseCheckout(text);
   if (!parsed) return null;
-  const contactId = oneOffId(parsed.code);
+  const contactId = resolveContactId?.(parsed.address) ?? oneOffId(parsed.code);
   if (!contactId) return null;
 
   const chosenNote = cleanNote(note) ?? cleanNote(parsed.note);
@@ -46,6 +59,39 @@ export function sendParamsFor(text: string, note?: string): SendParams | null {
       : {}),
     ...(chosenNote ? { note: chosenNote } : {}),
   };
+}
+
+/**
+ * `sendParamsFor`, extended with the one thing it can't do on its own: a
+ * phone-number payment link (`/ng/8012345678`) only resolves through a
+ * network call, since the number itself carries no address — unlike a
+ * payment code, which decodes locally. Tries the fast, offline path first;
+ * only reaches for the network if `text` looks like a phone link at all.
+ *
+ * `'unclaimed'` distinguishes "that's not a link this app understands" from
+ * "that's a real-looking phone link, but no one has claimed it" — worth
+ * telling apart in the UI.
+ */
+export async function resolveSendTarget(
+  text: string,
+  note: string | undefined,
+  backend: Pick<Backend, 'source' | 'directory'>,
+): Promise<SendParams | null | 'unclaimed'> {
+  const direct = sendParamsFor(text, note, backend.source.resolveContactId);
+  if (direct) return direct;
+
+  const phone = parsePhoneLink(text);
+  if (!phone) return null;
+
+  const identity = await backend.directory.resolveByPhone(phone).catch(() => null);
+  if (!identity) return 'unclaimed';
+
+  const code = encodePaymentCode(identity.address as Address);
+  const contactId = backend.source.resolveContactId(identity.address as Address) ?? oneOffId(code);
+  if (!contactId) return null;
+
+  const chosenNote = cleanNote(note);
+  return { contactId, ...(chosenNote ? { note: chosenNote } : {}) };
 }
 
 /** Starting keypad entry for an `amount` route param; empty when it is missing or does not fit. */

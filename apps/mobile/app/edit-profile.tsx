@@ -2,7 +2,15 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, TextInput, View } from 'react-native';
 
-import { USERNAME_MAX, normalizeUsername, validateFullName, validateUsername } from '@entole/core/profile';
+import { useBackend } from '@entole/core/backend';
+import { DirectoryError } from '@entole/core/directory';
+import {
+  USERNAME_MAX,
+  initialsFor,
+  normalizeUsername,
+  validateFullName,
+  validateUsername,
+} from '@entole/core/profile';
 import { token } from '@entole/tokens';
 
 import { Button } from '@/components/ui/Button';
@@ -10,15 +18,24 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { storeProfile } from '@/lib/session';
+import { useToast } from '@/lib/toast';
 
 /**
  * Change the name and username shown across the app. A bottom sheet, primary
  * action underneath. Format is checked here; uniqueness is not — there is no
  * backend to check it against yet (see `@entole/core/profile`).
+ *
+ * The name also re-publishes to the identity directory if this account has
+ * ever claimed one (a phone link, or being resolved as a stranger's code) —
+ * otherwise a name change here would only be visible on this device, not to
+ * anyone the new name is supposed to reach. Omitting `phone` from this call
+ * is deliberate: the server keeps whatever phone link is already on file.
  */
 export default function EditProfile() {
   const router = useRouter();
   const { account, setAccount } = useAccount();
+  const backend = useBackend();
+  const { show } = useToast();
   const [fullName, setFullName] = useState(account?.displayName ?? '');
   const [username, setUsername] = useState(account?.username ?? '');
   const [touched, setTouched] = useState(false);
@@ -38,6 +55,21 @@ export default function EditProfile() {
       const profile = { fullName: fullName.trim(), username };
       await storeProfile(profile);
       setAccount({ ...account, displayName: profile.fullName, username: profile.username });
+      // The name change above already succeeded on this device; the
+      // directory publish is what other people see when they resolve this
+      // account, so a failure here is surfaced after closing, not blocking.
+      backend.directory
+        .claim({
+          address: account.owner.address,
+          name: profile.fullName,
+          initials: initialsFor(profile.fullName),
+          tone: 1,
+        })
+        .catch((error: unknown) => {
+          show(
+            error instanceof DirectoryError ? error.message : "Saved here, but couldn't update what others see.",
+          );
+        });
       close();
     } finally {
       setSaving(false);

@@ -43,6 +43,16 @@ describe('sending to whatever a person pasted or scanned', () => {
     expect(sendParamsFor(link ?? '', 'Supplier payment')?.note).toBe('Supplier payment');
     expect(sendParamsFor(link ?? '')?.note).toBe('From the link');
   });
+
+  it('uses the saved beneficiary for that address instead of a one-off id', () => {
+    const saved = sendParamsFor(CODE, undefined, () => 'beneficiary-1');
+    expect(saved?.contactId).toBe('beneficiary-1');
+  });
+
+  it('falls back to the one-off id when the address is not saved', () => {
+    const unsaved = sendParamsFor(CODE, undefined, () => undefined);
+    expect(unsaved?.contactId).toBe(`code:${CODE}`);
+  });
 });
 
 describe('a note from a route param', () => {

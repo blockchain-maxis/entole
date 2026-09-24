@@ -191,6 +191,9 @@ importers:
       '@entole/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@upstash/redis':
+        specifier: ^1.39.0
+        version: 1.39.0
       lucide-react:
         specifier: ^1.47.0
         version: 1.47.0(react@19.2.3)
@@ -2912,6 +2915,9 @@ packages:
     resolution: {integrity: sha512-nAB74NfSNKknqQ1RrYj6uz8FcXEomu/MATJZxh/x+BArzN2U3JbOYC0APYzUIGhVY3m5hRxA8VPNdPBoG8txlA==}
     cpu: [x64]
     os: [win32]
+
+  '@upstash/redis@1.39.0':
+    resolution: {integrity: sha512-VwkpYTdxSfjSulQS5h16NHtg/1UEheBfvez2AeGKinAujOoGXhXCcohQRzsQ/d2g/XzbjzTVGhG8Ds8uOI0Mxg==}
 
   '@urql/core@4.0.11':
     resolution: {integrity: sha512-FFdY97vF5xnUrElcGw9erOLvtu+KGMLfwrLNDfv4IPgdp2IBsiGe+Kb7Aypfd3kH//BETewVSLm3+y2sSzjX6A==}
@@ -7821,6 +7827,9 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
+  uncrypto@0.1.3:
+    resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
+
   undeclared-identifiers@1.1.3:
     resolution: {integrity: sha512-pJOW4nxjlmfwKApE4zvxLScM/njmwj/DiUBv7EabwE4O8kRUy+HIwxQtZLBPll/jx1LJyBcqNfB3/cpv9EZwOw==}
     hasBin: true
@@ -11164,7 +11173,9 @@ snapshots:
       metro-runtime: 0.84.6
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 
@@ -11623,6 +11634,10 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
+
+  '@upstash/redis@1.39.0':
+    dependencies:
+      uncrypto: 0.1.3
 
   '@urql/core@4.0.11(graphql@16.8.1)':
     dependencies:
@@ -13386,7 +13401,7 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@6.0.3))(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7))
     transitivePeerDependencies:
       - supports-color
 
@@ -13401,10 +13416,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7)):
+  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@6.0.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
+      '@typescript-eslint/parser': 8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@6.0.3)
       eslint: 9.39.5(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 4.4.5(eslint-plugin-import@2.32.0)(eslint@9.39.5(jiti@1.21.7))
@@ -13450,7 +13466,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@6.0.3))(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -13461,7 +13477,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.5(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7))
+      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@6.0.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.5(jiti@1.21.7))
       hasown: 2.0.4
       is-core-module: 2.16.2
       is-glob: 4.0.3
@@ -13472,6 +13488,8 @@ snapshots:
       semver: 6.3.1
       string.prototype.trimend: 1.0.10
       tsconfig-paths: 3.15.0
+    optionalDependencies:
+      '@typescript-eslint/parser': 8.69.0(eslint@9.39.5(jiti@1.21.7))(typescript@6.0.3)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
@@ -17493,6 +17511,8 @@ snapshots:
       has-bigints: 1.1.0
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
+
+  uncrypto@0.1.3: {}
 
   undeclared-identifiers@1.1.3:
     dependencies:

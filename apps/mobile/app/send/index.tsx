@@ -1,11 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { useBackend } from '@entole/core/backend';
 import { countryName } from '@entole/core/countries';
 import { entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
+import { isOneOffId, oneOffAddress, oneOffCode } from '@entole/core/one-off';
+import type { Contact } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
 import { Amount } from '@/components/ui/Amount';
@@ -33,13 +36,59 @@ import { checkSendAmount } from '@/lib/send';
 export default function Send() {
   const router = useRouter();
   const store = useStore();
+  const backend = useBackend();
   const params = useLocalSearchParams<{ contactId?: string; amount?: string; note?: string }>();
 
   const [entry, setEntry] = useState<AmountEntry>(() => entryFromParam(params.amount));
   const [reviewing, setReviewing] = useState(false);
 
   const loading = store.status === 'loading';
-  const contact = params.contactId ? store.contact(params.contactId) : undefined;
+  const rawContact = params.contactId ? store.contact(params.contactId) : undefined;
+  // A code saved as a beneficiary *while already on this screen* (via the
+  // "Save" link below) should show that name right away — not just next time
+  // the same code is pasted or scanned.
+  const savedContactId =
+    rawContact && isOneOffId(rawContact.id)
+      ? (() => {
+          const address = oneOffAddress(rawContact.id);
+          return address ? backend.source.resolveContactId(address) : undefined;
+        })()
+      : undefined;
+
+  // No saved beneficiary for this address: check the opt-in directory before
+  // falling back to the anonymous "Payment code" label. Async, so it lands a
+  // moment after the anonymous state first renders — never blocks the screen.
+  // Keyed by the id it resolved for, so a stale result from a previous
+  // recipient is never shown for this one — reset happens by comparison at
+  // render time, not by an imperative clear inside the effect.
+  const [resolved, setResolved] = useState<{ id: string; contact: Contact } | null>(null);
+  const rawContactId = rawContact?.id;
+  useEffect(() => {
+    // Keyed by the id string, not `rawContact` itself: `store.contact()`
+    // builds a fresh object for a one-off id on every call, so depending on
+    // the object would re-fire this network lookup on nearly every render
+    // (every keystroke on the keypad) instead of once per recipient.
+    if (!rawContactId || savedContactId || !isOneOffId(rawContactId) || resolved?.id === rawContactId) return;
+    const address = oneOffAddress(rawContactId);
+    if (!address) return;
+    let live = true;
+    backend.directory
+      .resolveByAddress(address)
+      .then((identity) => {
+        if (!live || !identity) return;
+        setResolved({
+          id: rawContactId,
+          contact: { id: rawContactId, name: identity.name, initials: identity.initials, tone: identity.tone },
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [rawContactId, savedContactId, resolved, backend]);
+  const directoryContact = resolved && resolved.id === rawContactId ? resolved.contact : null;
+
+  const contact = (savedContactId ? store.contact(savedContactId) : undefined) ?? directoryContact ?? rawContact;
   const amount = useMemo(() => entryToMinor(entry), [entry]);
   const firstName = contact?.name.split(' ')[0] ?? 'They';
   const where = countryName(contact?.place);
@@ -76,6 +125,24 @@ export default function Send() {
                 >
                   <Text className="font-strong text-label-sm text-indigo">Change</Text>
                 </Pressable>
+                {isOneOffId(contact.id) ? (
+                  <>
+                    <Text className="font-body text-label-sm text-mist">·</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Save this payment code as a beneficiary"
+                      hitSlop={10}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/beneficiaries/new',
+                          params: { code: oneOffCode(contact.id) ?? '', next: 'send' },
+                        })
+                      }
+                    >
+                      <Text className="font-strong text-label-sm text-indigo">Save</Text>
+                    </Pressable>
+                  </>
+                ) : null}
               </View>
             </>
           ) : (

@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { countryName } from '@entole/core/countries';
 import type { SendQuote } from '@entole/core/gateway';
@@ -10,6 +11,7 @@ import type { Contact } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
 import { plainMessage, rateLine } from '@/lib/send';
+import { useToast } from '@/lib/toast';
 
 import { Avatar } from './Avatar';
 import { Button } from './Button';
@@ -58,7 +60,9 @@ export function ConfirmSendSheet({
 }) {
   const router = useRouter();
   const store = useStore();
+  const { show } = useToast();
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { quoteSend } = store;
 
   const [quote, setQuote] = useState<Quote>({ state: 'loading' });
@@ -66,6 +70,20 @@ export function ConfirmSendSheet({
   const [noteOpen, setNoteOpen] = useState(Boolean(defaultNote));
   const [sending, setSending] = useState(false);
   const [settled, setSettled] = useState(false);
+  // A sane default for the very first frame, before `onLayout` reports the
+  // button row's real height.
+  const [footerHeight, setFooterHeight] = useState(56);
+
+  // A number the scrollable area can trust regardless of whether ancestor
+  // `flexShrink` is honoured through the sheet's animated + absolutely
+  // positioned tree — it wasn't, on Android, which left the button below the
+  // screen. `footerHeight` is measured, not guessed, so the reserved space
+  // matches whatever the button row actually renders at.
+  const chromeAboveScroll = 22 + 28; // the card's own top padding + the grabber row
+  const scrollMaxHeight = Math.max(
+    120,
+    height - insets.top - insets.bottom - chromeAboveScroll - footerHeight - 32 /* card's bottom padding + footer's own top margin */,
+  );
   const [problem, setProblem] = useState<string | null>(null);
   const requestId = useRef(0);
 
@@ -123,6 +141,7 @@ export function ConfirmSendSheet({
       // Settled for real. The sheet stays locked until the receipt replaces it.
       setSettled(true);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      show(`Sent to ${contact.name}`);
       router.replace({ pathname: '/send/receipt', params: { receiptId: receipt.id } });
     } catch (error) {
       setSending(false);
@@ -139,7 +158,7 @@ export function ConfirmSendSheet({
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            style={{ flexShrink: 1, maxHeight: height * 0.7 }}
+            style={{ flexShrink: 1, maxHeight: scrollMaxHeight }}
           >
             <Text className="font-strong text-title text-ink">Review payment</Text>
 
@@ -241,7 +260,10 @@ export function ConfirmSendSheet({
             ) : null}
           </ScrollView>
 
-          <View className="mt-5 flex-row">
+          <View
+            className="mt-5 flex-row"
+            onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+          >
             {quote.state === 'failed' ? (
               <Button label="Try again" onPress={retry} />
             ) : (

@@ -236,9 +236,7 @@ export default function Home() {
             <ActivityRow
               entry={item}
               contact={store.contact(item.contactId)}
-              onPress={
-                item.allowanceId ? () => router.push({ pathname: '/rules/[id]', params: { id: item.allowanceId! } }) : undefined
-              }
+              onPress={() => router.push({ pathname: '/activity/[id]', params: { id: item.id } })}
             />
           </View>
         )}

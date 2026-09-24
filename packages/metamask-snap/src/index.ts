@@ -128,11 +128,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           ]),
         },
       });
-      if (!confirmed) return { ok: false, reason: 'declined' };
+      if (!confirmed) return { ok: false, reason: 'declined', hash: null };
 
       const data = encodeCreateAllowance(req);
       const hash = await sendToPolicy(data);
-      return { ok: true, hash };
+      return { ok: true, hash, reason: null };
     }
 
     case 'entole_redeemAllowance': {
@@ -150,11 +150,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           content: panel([heading(redeemDialogTitle()), text(redeemDialogBody({ amount: amountLabel }))]),
         },
       });
-      if (!confirmed) return { ok: false, reason: 'declined' };
+      if (!confirmed) return { ok: false, reason: 'declined', hash: null };
 
       const data = encodeExecute(allowanceId, recipient, BigInt(amount));
       const hash = await sendToPolicy(data);
-      return { ok: true, hash };
+      return { ok: true, hash, reason: null };
     }
 
     case 'entole_revokeAllowance': {
@@ -167,11 +167,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           content: panel([heading(revokeDialogTitle()), text(revokeDialogBody())]),
         },
       });
-      if (!confirmed) return { ok: false, reason: 'declined' };
+      if (!confirmed) return { ok: false, reason: 'declined', hash: null };
 
       const data = encodeRevoke(allowanceId);
       const hash = await sendToPolicy(data);
-      return { ok: true, hash };
+      return { ok: true, hash, reason: null };
     }
 
     default:

@@ -1,7 +1,8 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   FadeIn,
+  LinearTransition,
   SlideInDown,
   runOnJS,
   useAnimatedStyle,
@@ -35,6 +36,13 @@ type Props = {
  */
 export function Sheet({ children, onDismiss, locked = false, topInset, className, handleOnly = false }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  // A hard ceiling, not just `flexShrink`: content taller than the screen has
+  // been seen rendering past the bottom edge instead of shrinking to fit, on
+  // Android, inside this animated + absolutely-positioned tree. Without this,
+  // whatever doesn't fit — on a long sheet, that's the primary button — is
+  // simply invisible below the display instead of scrollable.
+  const maxSheetHeight = windowHeight - insets.top - 32;
   // Drag only. The entrance is a layout animation, so nothing here is driven
   // from an effect.
   const drag = useSharedValue(0);
@@ -72,15 +80,18 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
       <DragZone enabled={!handleOnly} gesture={pan}>
         <Animated.View
           className={className}
-          entering={SlideInDown.springify().damping(SHEET_SPRING.damping).stiffness(
-            SHEET_SPRING.stiffness,
-          )}
+          // Plain timing, no spring: a spring here was overshooting past its
+          // resting position on open, which read as the sheet bouncing.
+          entering={SlideInDown.duration(220)}
+          layout={LinearTransition.duration(180)}
           style={[sheetStyle]}
         >
           <View
             className="bg-card shadow-raised"
             style={{
               flexShrink: 1,
+              maxHeight: maxSheetHeight,
+              overflow: 'hidden',
               borderTopLeftRadius: 26,
               borderTopRightRadius: 26,
               paddingHorizontal: 22,

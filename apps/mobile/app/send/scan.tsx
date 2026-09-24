@@ -4,6 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Component, useRef, useState, type ReactNode } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
+import { useBackend } from '@entole/core/backend';
+
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { ActionBar, Screen } from '@/components/ui/Screen';
@@ -45,6 +47,7 @@ class CameraBoundary extends Component<{ fallback: ReactNode; children: ReactNod
 /** Reads the clipboard and, if it holds a code or link, goes on to the amount. */
 function usePasteToSend(note: string | undefined) {
   const router = useRouter();
+  const backend = useBackend();
   const [problem, setProblem] = useState<string | null>(null);
 
   async function paste() {
@@ -54,7 +57,7 @@ function usePasteToSend(note: string | undefined) {
       setProblem(NOTHING_TO_PASTE);
       return;
     }
-    const target = sendParamsFor(clip, note);
+    const target = sendParamsFor(clip, note, backend.source.resolveContactId);
     if (!target) {
       setProblem(NOT_A_CODE);
       return;
@@ -94,6 +97,7 @@ function Unavailable({ note }: { note: string | undefined }) {
 
 function Scanner({ camera, note }: { camera: CameraModule; note: string | undefined }) {
   const router = useRouter();
+  const backend = useBackend();
   const { CameraView, useCameraPermissions } = camera;
   const [permission, requestPermission] = useCameraPermissions();
   const { paste, problem: pasteProblem } = usePasteToSend(note);
@@ -104,7 +108,7 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
     // The camera reports the same code many times a second; act on the first.
     if (locked.current) return;
     locked.current = true;
-    const target = sendParamsFor(data, note);
+    const target = sendParamsFor(data, note, backend.source.resolveContactId);
     if (!target) {
       setProblem(NOT_A_CODE);
       return;

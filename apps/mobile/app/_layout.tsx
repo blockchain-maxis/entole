@@ -19,6 +19,8 @@ import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
 import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
+import { ToastProvider } from '@/lib/toast';
+import { ToastHost } from '@/components/ui/Toast';
 
 import '../global.css';
 import '@/lib/interop';
@@ -41,49 +43,52 @@ function ThemedStack() {
   const themeColors = useThemeColors();
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: themeColors.paper },
-        animation: 'slide_from_right',
-      }}
-    >
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="assistant" />
-      <Stack.Screen name="pause" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-      <Stack.Screen
-        name="lock"
-        options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
-      />
-      <Stack.Screen
-        name="assistant-action"
-        options={{
-          presentation: 'transparentModal',
-          animation: 'fade',
-          contentStyle: { backgroundColor: 'transparent' },
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: themeColors.paper },
+          animation: 'slide_from_right',
         }}
-      />
-      <Stack.Screen
-        name="edit-profile"
-        options={{
-          presentation: 'transparentModal',
-          animation: 'fade',
-          contentStyle: { backgroundColor: 'transparent' },
-        }}
-      />
-      <Stack.Screen
-        name="rules/[id]"
-        options={{
-          presentation: 'transparentModal',
-          animation: 'fade',
-          contentStyle: { backgroundColor: 'transparent' },
-        }}
-      />
-      <Stack.Screen
-        name="send/receipt"
-        options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
-      />
-    </Stack>
+      >
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="assistant" />
+        <Stack.Screen name="pause" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen
+          name="lock"
+          options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="assistant-action"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="edit-profile"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="rules/[id]"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="send/receipt"
+          options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
+        />
+      </Stack>
+      <ToastHost />
+    </>
   );
 }
 
@@ -105,13 +110,15 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AccountProvider>
-            <AssistantProvider>
-              <OnChainStoreProvider>
-                <ThemedStack />
-              </OnChainStoreProvider>
-            </AssistantProvider>
-          </AccountProvider>
+          <ToastProvider>
+            <AccountProvider>
+              <AssistantProvider>
+                <OnChainStoreProvider>
+                  <ThemedStack />
+                </OnChainStoreProvider>
+              </AssistantProvider>
+            </AccountProvider>
+          </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

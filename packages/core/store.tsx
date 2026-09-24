@@ -174,9 +174,14 @@ export function StoreProvider({
           ),
         };
       });
+      // The subtraction above is a same-tick estimate so the screen never sits
+      // on stale pre-send numbers; this replaces it with the real read as soon
+      // as it lands, so a fee or balance edge case never leaves the estimate
+      // wrong until the next manual pull-to-refresh.
+      void refresh().catch(() => undefined);
       return settledReceipt;
     },
-    [gateway],
+    [gateway, refresh],
   );
 
   const saveAllowance = useCallback(

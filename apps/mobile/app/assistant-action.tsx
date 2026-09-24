@@ -14,6 +14,7 @@ import { resetLabel, secondsWords } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars, formatNaira, kobo, remaining } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
+import { useToast } from '@/lib/toast';
 
 /**
  * Delegation with an undo window, never a confirmation dialog. Confirming every
@@ -26,6 +27,7 @@ import { useStore } from '@entole/core/store';
 export default function AssistantAction() {
   const router = useRouter();
   const store = useStore();
+  const { show } = useToast();
   const proposal = store.proposal;
   const [sending, setSending] = useState(false);
   const [stopped, setStopped] = useState(false);
@@ -55,6 +57,7 @@ export default function AssistantAction() {
     try {
       const receipt = await store.runProposal();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      show(`Entole sent ${contact?.name ?? 'a payment'}`, 'assistant');
       router.replace({ pathname: '/send/receipt', params: { receiptId: receipt.id } });
     } catch {
       setSending(false);

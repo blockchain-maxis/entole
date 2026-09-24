@@ -1,17 +1,20 @@
 import { createContext, useContext } from 'react';
 
 import type { AccountSource } from './account-snapshot';
+import type { DirectoryClient } from './directory';
 import type { RelayClient } from './relay-client';
 
 /**
  * The parts of the account's backend that screens use directly, next to the
  * store: the person's own beneficiaries, the sponsor server (adding test money),
- * and the code others use to pay them. The payments gateway stays behind the
- * store; this is everything that isn't a payment.
+ * the opt-in identity directory, and the code others use to pay them. The
+ * payments gateway stays behind the store; this is everything that isn't a
+ * payment.
  */
 export type Backend = {
   source: AccountSource;
   relay: RelayClient;
+  directory: DirectoryClient;
   /** `PAY-XXXX-…` — how this account is named to others. Null until signed in. */
   paymentCode: string | null;
 };
@@ -36,6 +39,11 @@ export const pendingBackend: Backend = {
     removeBeneficiary: notSignedIn,
   },
   relay: { submitPayment: notSignedIn, requestGas: notSignedIn, requestFunds: notSignedIn },
+  directory: {
+    resolveByAddress: async () => null,
+    resolveByPhone: async () => null,
+    claim: notSignedIn,
+  },
 };
 
 const BackendContext = createContext<Backend | null>(null);

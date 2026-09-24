@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { createPublicClient, createWalletClient, http, type Address, type Chain, type WalletClient } from 'viem';
 
 import { createAccountSource } from '@entole/core/account-snapshot';
+import { createDirectoryClient } from '@entole/core/directory';
 import { createRateProvider } from '@entole/core/fx';
 import { pendingBackend, type Backend } from '@entole/core/backend';
 import type { PaymentsGateway } from '@entole/core/gateway';
@@ -159,7 +160,16 @@ export function useOnChainBackend(
       loadOffChainSnapshot: source.loadSnapshot,
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
     });
-    const backend: Backend = { source, relay, paymentCode: encodePaymentCode(owner.viemAccount.address) };
+    const directory = createDirectoryClient({
+      baseUrl: API_BASE,
+      sign: (message) => owner.viemAccount.signMessage({ message }),
+    });
+    const backend: Backend = {
+      source,
+      relay,
+      directory,
+      paymentCode: encodePaymentCode(owner.viemAccount.address),
+    };
     return { gateway, backend };
   }, [owner, enabled, address, ensureKey]);
 }

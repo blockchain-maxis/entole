@@ -4,9 +4,11 @@ import { ScanLine } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 
+import { useBackend } from '@entole/core/backend';
 import { parseCheckout } from '@entole/core/checkout-link';
 import { countryName } from '@entole/core/countries';
 import { formatNaira, kobo } from '@entole/core/money';
+import { parsePhoneLink } from '@entole/core/phone-link';
 import { useStore } from '@entole/core/store';
 
 import { Button } from '@/components/ui/Button';
@@ -15,10 +17,11 @@ import { Header } from '@/components/ui/Header';
 import { ContactRow, SectionHeading } from '@/components/ui/Rows';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { cleanNote, sendParamsFor } from '@/lib/recipient';
+import { cleanNote, resolveSendTarget, sendParamsFor } from '@/lib/recipient';
 import { useThemeColors } from '@/lib/theme';
 
 const BAD_CODE = "That code doesn't look right — check it and try again.";
+const NUMBER_NOT_LINKED = "That number isn't linked to an Entole account yet.";
 /** A payment code is PAY plus 36 characters. Past that many, a code that still
  * does not read is wrong, and there is no point waiting for the field to blur. */
 const COMPLETE_CODE_LENGTH = 39;
@@ -35,6 +38,7 @@ const COMPLETE_CODE_LENGTH = 39;
 export default function PickRecipient() {
   const router = useRouter();
   const store = useStore();
+  const backend = useBackend();
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ note?: string }>();
   const note = cleanNote(params.note);
@@ -42,12 +46,19 @@ export default function PickRecipient() {
   const [text, setText] = useState('');
   const [touched, setTouched] = useState(false);
   const [pasteNote, setPasteNote] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [resolveProblem, setResolveProblem] = useState<string | null>(null);
 
   const parsed = useMemo(() => parseCheckout(text), [text]);
-  const target = useMemo(() => sendParamsFor(text, note), [text, note]);
+  const phone = useMemo(() => (parsed ? null : parsePhoneLink(text)), [text, parsed]);
+  const target = useMemo(
+    () => sendParamsFor(text, note, backend.source.resolveContactId),
+    [text, note, backend],
+  );
   const typed = text.trim().length > 0;
   const looksComplete = text.replace(/[^0-9a-z]/gi, '').length >= COMPLETE_CODE_LENGTH;
-  const error = typed && !parsed && (touched || looksComplete) ? BAD_CODE : null;
+  const error =
+    typed && !parsed && !phone && (touched || looksComplete) ? (resolveProblem ?? BAD_CODE) : resolveProblem;
 
   const asked =
     parsed?.amountMinor !== undefined && parsed.currency === 'NGN'
@@ -57,10 +68,13 @@ export default function PickRecipient() {
     ? asked
       ? `That checks out. It asks for ${asked}.`
       : 'That checks out.'
-    : 'Paste a link or type a code. Dashes and capitals do not matter.';
+    : phone
+      ? "Looks like a number's payment link — Continue checks if it's linked."
+      : 'Paste a link, their number, or type a code. Dashes and capitals do not matter.';
 
   async function paste() {
     setPasteNote(null);
+    setResolveProblem(null);
     const clip = (await Clipboard.getStringAsync()).trim();
     if (!clip) {
       setPasteNote('There is nothing to paste. Copy their code or link first.');
@@ -68,6 +82,21 @@ export default function PickRecipient() {
     }
     setText(clip);
     setTouched(true);
+  }
+
+  async function continueToSend() {
+    if (target) {
+      router.replace({ pathname: '/send', params: target });
+      return;
+    }
+    if (!phone || resolving) return;
+    setResolving(true);
+    setResolveProblem(null);
+    const result = await resolveSendTarget(text, note, backend);
+    setResolving(false);
+    if (result === 'unclaimed') return setResolveProblem(NUMBER_NOT_LINKED);
+    if (!result) return setResolveProblem(BAD_CODE);
+    router.replace({ pathname: '/send', params: result });
   }
 
   const saved = store.status === 'ready' ? store.contacts : [];
@@ -83,16 +112,17 @@ export default function PickRecipient() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 }}
         >
           <Text className="font-body text-body-sm text-slate">
-            Enter their code, paste the link they shared, or scan their QR code.
+            Enter their code or number, paste the link they shared, or scan their QR code.
           </Text>
 
           <View className="mt-5">
             <Field
-              label="Their code or link"
+              label="Their code, number or link"
               value={text}
               onChangeText={(next) => {
                 setText(next.replace(/\s*\n\s*/g, ''));
                 setPasteNote(null);
+                setResolveProblem(null);
               }}
               onBlur={() => setTouched(true)}
               placeholder="PAY-XXXX-XXXX-XXXX"
@@ -155,11 +185,10 @@ export default function PickRecipient() {
 
         <ActionBar>
           <Button
-            label="Continue"
-            disabled={!target}
-            onPress={() => {
-              if (target) router.replace({ pathname: '/send', params: target });
-            }}
+            label={resolving ? 'Checking…' : 'Continue'}
+            busy={resolving}
+            disabled={(!target && !phone) || resolving}
+            onPress={() => void continueToSend()}
           />
         </ActionBar>
       </KeyboardAvoidingView>
