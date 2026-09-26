@@ -186,6 +186,7 @@ export default function MePage() {
             value={!assistant.enabled ? 'Off' : store.paused ? 'Paused' : 'On'}
             onClick={() => router.push('/assistant')}
           />
+          <LinkRow label="Connections" onClick={() => router.push('/connections')} />
         </div>
 
         <SectionLabel>Security</SectionLabel>

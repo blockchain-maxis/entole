@@ -159,6 +159,7 @@ export function useOnChainBackend(
       source,
       relay,
       directory,
+      inbox,
       paymentCode: encodePaymentCode(owner.viemAccount.address),
     };
     return { gateway, backend };

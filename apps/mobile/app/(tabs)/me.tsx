@@ -154,6 +154,7 @@ export default function Me() {
                 value={String(store.contacts.length)}
                 onPress={() => router.push('/beneficiaries')}
               />
+              <LinkRow label="Connections" onPress={() => router.push('/connections')} />
             </View>
           )}
         </View>
