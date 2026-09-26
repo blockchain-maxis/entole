@@ -48,7 +48,7 @@ export function sendParamsFor(
 ): SendParams | null {
   const parsed = parseCheckout(text);
   if (!parsed) return null;
-  const contactId = resolveContactId?.(parsed.address) ?? oneOffId(parsed.code);
+  const contactId = resolveContactId?.(parsed.address) ?? oneOffId(parsed.code, parsed.payee);
   if (!contactId) return null;
 
   const chosenNote = cleanNote(note) ?? cleanNote(parsed.note);

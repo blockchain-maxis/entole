@@ -25,6 +25,7 @@ import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
+import { useLiveRefresh } from '@/lib/reload';
 
 export default function Home() {
   const router = useRouter();
@@ -42,6 +43,9 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const { refresh } = store;
+
+  // A payment someone sends you shows up on its own while this screen is open.
+  useLiveRefresh();
 
   // A re-read keeps what is on screen while it loads; a read that fails simply
   // leaves the last real numbers where they are.

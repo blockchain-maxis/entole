@@ -10,6 +10,8 @@ import { RowSkeleton } from '@/components/ui/Skeleton';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
+import { useLiveRefresh } from '@/lib/reload';
+
 /**
  * The full feed.
  *
@@ -20,6 +22,9 @@ export default function AllActivity() {
   const router = useRouter();
   const store = useStore();
   const loading = store.status === 'loading';
+
+  // Keep the feed current on its own while it is open.
+  useLiveRefresh();
 
   return (
     <Screen>

@@ -39,6 +39,30 @@ describe('one-off recipient', () => {
     expect(JSON.stringify(contact)).not.toMatch(/0x/i);
   });
 
+  it('carries a link-supplied payee name and shows it', () => {
+    const id = oneOffId(code, 'Ada Lovelace')!;
+    expect(isOneOffId(id)).toBe(true);
+    // The name rides alongside the code but never changes where money lands.
+    expect(oneOffAddress(id)).toBe(ADDRESS);
+    expect(oneOffCode(id)).toBe(code);
+    const contact = oneOffContact(id)!;
+    expect(contact.name).toBe('Ada Lovelace');
+    expect(contact.initials).toBe('AL');
+    expect(JSON.stringify(contact)).not.toMatch(/0x/i);
+  });
+
+  it('safely carries a name with separators or spaces', () => {
+    const id = oneOffId(code, '  Corner Shop #2  ')!;
+    expect(oneOffAddress(id)).toBe(ADDRESS);
+    expect(oneOffContact(id)!.name).toBe('Corner Shop #2');
+  });
+
+  it('falls back to the code tail when no name is given', () => {
+    const id = oneOffId(code, '   ')!;
+    expect(id).toBe(`code:${code}`);
+    expect(oneOffContact(id)!.name).toMatch(/^Payment code · /);
+  });
+
   it('is payable through the account source without being saved', async () => {
     const source = createAccountSource({
       records: createRecords(memory(), '0xc0d9BC33696d2F5676A1AcB1e39d03046405eE80'),

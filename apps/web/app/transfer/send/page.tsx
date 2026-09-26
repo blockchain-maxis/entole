@@ -37,10 +37,11 @@ type Recipient = { id: string; name: string; caption?: string; initials: string;
 function recipientFor(contact: Contact | undefined, link: Checkout | null): Recipient | null {
   if (!contact) return null;
   const linkName = link?.payee;
+  const named = Boolean(linkName && linkName !== contact.name);
   return {
     id: contact.id,
     name: linkName ?? contact.name,
-    ...(linkName ? { caption: contact.name } : contact.place ? { caption: contact.place } : {}),
+    ...(named ? { caption: contact.name } : contact.place ? { caption: contact.place } : {}),
     initials: linkName ? initialsFor(linkName) : contact.initials,
     tone: contact.tone,
   };
@@ -55,7 +56,7 @@ function noteFor(link: Checkout | null): string | undefined {
 /** What a link or code names, read once — `null` if it isn't one. */
 function readRecipient(text: string): { checkout: Checkout; id: string } | null {
   const checkout = text.trim() ? parseCheckout(text) : null;
-  const id = checkout ? oneOffId(checkout.code) : null;
+  const id = checkout ? oneOffId(checkout.code, checkout.payee) : null;
   return checkout && id ? { checkout, id } : null;
 }
 
