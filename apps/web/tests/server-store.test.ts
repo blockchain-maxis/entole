@@ -16,20 +16,16 @@ import { createRedisStore, type RedisLike } from '@/lib/server/store';
 function fakeRedis(): RedisLike {
   const map = new Map<string, unknown>();
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get: (async (k: string) => (map.has(k) ? map.get(k) : null)) as RedisLike['get'],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     set: (async (k: string, v: unknown) => {
       map.set(k, v);
       return 'OK';
     }) as unknown as RedisLike['set'],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     del: (async (...keys: string[]) => {
       let n = 0;
       for (const k of keys) if (map.delete(k)) n += 1;
       return n;
     }) as unknown as RedisLike['del'],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getdel: (async (k: string) => {
       const v = map.has(k) ? map.get(k) : null;
       map.delete(k);
