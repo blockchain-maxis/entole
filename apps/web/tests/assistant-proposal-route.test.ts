@@ -38,7 +38,7 @@ function req(body: unknown) {
   });
 }
 
-async function signed(action: 'read' | 'clear' | 'link', extra: Record<string, unknown> = {}, signer = OWNER) {
+async function signed(action: 'read' | 'clear' | 'link' | 'sync', extra: Record<string, unknown> = {}, signer = OWNER) {
   const timestampSeconds = Math.floor(Date.now() / 1000);
   const message = buildInboxMessage({ account: OWNER.address, action, timestampSeconds });
   const signature = await signer.signMessage({ message });
@@ -82,6 +82,22 @@ describe('POST /api/assistant/proposal', () => {
 
     // The code now redeems to this account.
     expect(await getServerStore().linkChat('ABC123', 555)).toBe(ACCOUNT);
+  });
+
+  it('syncs the account contacts and assistant allowance for the bot to match against', async () => {
+    const contacts = [{ id: 'c-mom', name: 'Mom', initials: 'MO', tone: 1 as const }];
+    const response = await POST(req(await signed('sync', { contacts, allowanceId: 'allow-1' })));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+
+    const store = getServerStore();
+    expect(await store.contactsFor(ACCOUNT)).toEqual(contacts);
+    expect(await store.assistantAllowanceFor(ACCOUNT)).toBe('allow-1');
+  });
+
+  it('answers 400 for a sync action missing its payload', async () => {
+    const response = await POST(req(await signed('sync', { allowanceId: 'allow-1' })));
+    expect(response.status).toBe(400);
   });
 
   it('rejects a signature from a different key', async () => {

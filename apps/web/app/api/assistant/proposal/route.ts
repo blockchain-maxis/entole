@@ -2,6 +2,7 @@ import { getAddress, isAddress, verifyMessage, type Address } from 'viem';
 import { z } from 'zod';
 
 import { buildInboxMessage, INBOX_MAX_AGE_SECONDS } from '@entole/core/assistant-inbox';
+import { contactSchema } from '@entole/core/schemas';
 
 import { json, preflight, readJson } from '@/lib/server/http';
 import { rateLimit } from '@/lib/server/sponsor';
@@ -22,6 +23,8 @@ import { getServerStore } from '@/lib/server/store';
  *   read   returns the pending proposal (or null)
  *   clear  drops it, once the app has run or cancelled it
  *   link   registers a one-time code the user sends the bot as `/link CODE`
+ *   sync   pushes the account's contacts and active assistant allowance, so a
+ *          linked chat matches real people and charges a real allowance
  */
 export const runtime = 'nodejs';
 
@@ -34,7 +37,7 @@ const address = z
 
 const requestSchema = z.object({
   account: address,
-  action: z.enum(['read', 'clear', 'link']),
+  action: z.enum(['read', 'clear', 'link', 'sync']),
   timestampSeconds: z.number().int().positive(),
   signature: z
     .string()
@@ -42,6 +45,10 @@ const requestSchema = z.object({
     .transform((value) => value as `0x${string}`),
   /** Only for `link`: the one-time code the user will send the bot. */
   code: z.string().trim().min(4).max(64).optional(),
+  /** Only for `sync`: the account's own contacts, matched against a message. */
+  contacts: z.array(contactSchema).optional(),
+  /** Only for `sync`: the active assistant allowance a proposal is charged to. */
+  allowanceId: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -54,9 +61,10 @@ export async function POST(request: Request) {
 
   const parsed = requestSchema.safeParse(await readJson(request));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
-  const { account, action, timestampSeconds, signature, code } = parsed.data;
+  const { account, action, timestampSeconds, signature, code, contacts, allowanceId } = parsed.data;
 
   if (action === 'link' && !code) return json({ error: 'bad_request' }, 400);
+  if (action === 'sync' && (!contacts || !allowanceId)) return json({ error: 'bad_request' }, 400);
 
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestampSeconds) > INBOX_MAX_AGE_SECONDS) return json({ error: 'stale' }, 422);
@@ -75,6 +83,12 @@ export async function POST(request: Request) {
 
   if (action === 'link') {
     await store.createLinkCode(accountId, code!);
+    return json({ ok: true });
+  }
+
+  if (action === 'sync') {
+    await store.setContacts(accountId, contacts!);
+    await store.setAssistantAllowance(accountId, allowanceId!);
     return json({ ok: true });
   }
 

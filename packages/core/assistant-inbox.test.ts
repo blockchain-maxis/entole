@@ -103,4 +103,15 @@ describe('createAssistantInboxClient', () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ error: 'bad_request' }, false));
     await expect(client(fetchImpl as unknown as typeof fetch).registerLinkCode('ABC123')).resolves.toBe(false);
   });
+
+  it('syncs contacts and the assistant allowance', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ ok: true }));
+    const contacts = [{ id: 'c-mom', name: 'Mom', initials: 'MO', tone: 1 as const }];
+    await expect(client(fetchImpl as unknown as typeof fetch).sync(contacts, 'allow-1')).resolves.toBe(true);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.action).toBe('sync');
+    expect(body.contacts).toEqual(contacts);
+    expect(body.allowanceId).toBe('allow-1');
+  });
 });

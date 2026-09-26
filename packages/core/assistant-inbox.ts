@@ -1,7 +1,7 @@
 import type { Address } from 'viem';
 import { z } from 'zod';
 
-import { proposalSchema, type Proposal } from './schemas';
+import { proposalSchema, type Contact, type Proposal } from './schemas';
 
 /**
  * The assistant's proposal inbox client — the server side lives in
@@ -28,7 +28,7 @@ import { proposalSchema, type Proposal } from './schemas';
  */
 export function buildInboxMessage(input: {
   account: Address;
-  action: 'read' | 'clear' | 'link';
+  action: 'read' | 'clear' | 'link' | 'sync';
   timestampSeconds: number;
 }): string {
   return [
@@ -54,7 +54,7 @@ export function createAssistantInboxClient(options: {
   const fetchImpl = options.fetch ?? fetch;
   const base = options.baseUrl.replace(/\/$/, '');
 
-  async function call(action: 'read' | 'clear' | 'link', extra?: Record<string, unknown>): Promise<unknown | null> {
+  async function call(action: 'read' | 'clear' | 'link' | 'sync', extra?: Record<string, unknown>): Promise<unknown | null> {
     const timestampSeconds = Math.floor(Date.now() / 1000);
     const message = buildInboxMessage({ account: options.account, action, timestampSeconds });
     let signature: `0x${string}`;
@@ -99,6 +99,19 @@ export function createAssistantInboxClient(options: {
      * tying that chat to this account. Resolves `true` when the server accepted it. */
     async registerLinkCode(code: string): Promise<boolean> {
       const json = await call('link', { code });
+      const parsed = z.object({ ok: z.boolean() }).safeParse(json);
+      return parsed.success ? parsed.data.ok : false;
+    },
+    /** Pushes the account's own contacts and its active assistant allowance to
+     * the store, so a linked Telegram chat matches a message against real people
+     * and charges a real allowance rather than reading an empty book. The
+     * payload rides outside the signature the same way `link`'s code does: the
+     * store is convenience, not authority, and a synced contact only ever names
+     * a recipient the person still sees and confirms in the undo window before
+     * the contract runs the allowance-gated call. Best-effort; resolves `true`
+     * when the server accepted it. */
+    async sync(contacts: Contact[], allowanceId: string): Promise<boolean> {
+      const json = await call('sync', { contacts, allowanceId });
       const parsed = z.object({ ok: z.boolean() }).safeParse(json);
       return parsed.success ? parsed.data.ok : false;
     },
