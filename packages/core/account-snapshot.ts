@@ -3,7 +3,7 @@ import { getAddress, type Address } from 'viem';
 import type { Rate } from './fx';
 import { oneOffAddress } from './one-off';
 import { beneficiaryAddress, toContact, type Beneficiary, type Records, type Staff } from './records';
-import { snapshotSchema, type Snapshot } from './schemas';
+import { snapshotSchema, type Proposal, type Snapshot } from './schemas';
 
 /**
  * What the app knows about the person's account *off* the chain: who they pay,
@@ -14,8 +14,19 @@ import { snapshotSchema, type Snapshot } from './schemas';
  *
  * Also owns the private lookup from a beneficiary to where their money lands,
  * so an address never travels alongside the `Contact` a screen renders.
+ *
+ * `readProposal` is the seam the assistant's server inbox plugs into: a
+ * proposal parsed elsewhere (the Telegram intake route) is read here so it
+ * rides into the same snapshot the app already renders and runs the existing
+ * undo window. Unset — or a read that fails — leaves `proposal` null, which is
+ * exactly a device with no assistant inbox configured. A server that is down
+ * must never take the rest of the snapshot down with it.
  */
-export function createAccountSource(options: { records: Records; getRate: () => Promise<Rate> }) {
+export function createAccountSource(options: {
+  records: Records;
+  getRate: () => Promise<Rate>;
+  readProposal?: () => Promise<Proposal | null>;
+}) {
   let addresses = new Map<string, Address>();
   let ids = new Map<string, string>();
 
@@ -24,14 +35,24 @@ export function createAccountSource(options: { records: Records; getRate: () => 
     ids = new Map(beneficiaries.map((b) => [beneficiaryAddress(b).toLowerCase(), b.id]));
   }
 
+  async function readProposal(): Promise<Proposal | null> {
+    if (!options.readProposal) return null;
+    try {
+      return await options.readProposal();
+    } catch {
+      return null;
+    }
+  }
+
   return {
     async loadSnapshot(): Promise<Snapshot> {
-      const [rate, beneficiaries, allowances, activity, invoices] = await Promise.all([
+      const [rate, beneficiaries, allowances, activity, invoices, proposal] = await Promise.all([
         options.getRate(),
         options.records.beneficiaries.list(),
         options.records.allowances.list(),
         options.records.activity.list(),
         options.records.invoices.list(),
+        readProposal(),
       ]);
       index(beneficiaries);
 
@@ -48,7 +69,7 @@ export function createAccountSource(options: { records: Records; getRate: () => 
         growPosition: null,
         stockPositions: [],
         request: null,
-        proposal: null,
+        proposal,
       });
     },
 

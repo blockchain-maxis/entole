@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { createPublicClient, createWalletClient, http, type Address, type Chain, type WalletClient } from 'viem';
 
 import { createAccountSource } from '@entole/core/account-snapshot';
+import { createAssistantInboxClient } from '@entole/core/assistant-inbox';
 import { createDirectoryClient } from '@entole/core/directory';
 import { createRateProvider } from '@entole/core/fx';
 import { pendingBackend, type Backend } from '@entole/core/backend';
@@ -103,7 +104,15 @@ export function useOnChainBackend(
     if (!owner) return { gateway: pendingGateway, backend: pendingBackend };
 
     const records = createRecords(deviceRecordStore, owner.viemAccount.address);
-    const source = createAccountSource({ records, getRate });
+    // The assistant's proposal inbox, keyed by the owner address and read with
+    // a signature proving control of it. Same origin: the route lives in this
+    // Next app. An unconfigured or down server reads as an empty inbox.
+    const inbox = createAssistantInboxClient({
+      baseUrl: '',
+      account: owner.viemAccount.address,
+      sign: (message) => owner.viemAccount.signMessage({ message }),
+    });
+    const source = createAccountSource({ records, getRate, readProposal: () => inbox.read() });
     const publicClient = createPublicClient({ chain: monadTestnet, transport: http(RPC_URL) });
     const ownerWalletClient = createWalletClient({
       account: owner.viemAccount,
@@ -139,6 +148,7 @@ export function useOnChainBackend(
       ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
       resolveRecipient: source.resolveRecipient,
       loadOffChainSnapshot: source.loadSnapshot,
+      clearProposal: () => inbox.clear(),
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
     });
     const directory = createDirectoryClient({

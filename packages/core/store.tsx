@@ -341,9 +341,12 @@ export function StoreProvider({
       note: proposal.note,
       allowanceId: proposal.allowanceId,
     });
+    // The proposal is consumed: drop the server inbox copy through the same
+    // clear path a cancel uses, so it does not re-surface on the next refresh.
+    await gateway.cancelProposal(proposal.id);
     setProposal(null);
     return settledReceipt;
-  }, [proposal, send]);
+  }, [gateway, proposal, send]);
 
   const value = useMemo<Store>(() => {
     const contacts = snapshot?.contacts ?? [];

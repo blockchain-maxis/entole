@@ -337,6 +337,11 @@ export type OnChainGatewayConfig = {
    * carries an address, never the contact id a screen renders. Required
    * whenever `indexerUrl` is set. */
   resolveContactId?: (address: Address) => string | undefined;
+  /** Drops the account's pending assistant proposal from its server inbox
+   * once it has been run or cancelled, so the next snapshot read does not
+   * surface it again. Unset when no inbox is configured — cancelling is then
+   * the pure app-side action it has always been. */
+  clearProposal?: () => Promise<void>;
   cadenceSeconds?: Record<Cadence, bigint>;
 };
 
@@ -878,7 +883,11 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       // Nothing on-chain to undo: the undo window is exactly the promise
       // that `execute` is never called until it expires. Cancelling is a
       // pure app/backend-side action — see docs/PRODUCT.md's "undo window,
-      // never a confirmation dialog."
+      // never a confirmation dialog." When an inbox is configured, this also
+      // drops the server copy so a cancelled (or already-run) proposal does
+      // not re-surface on the next snapshot read. Best-effort: a failed clear
+      // must never turn cancelling into an error.
+      await config.clearProposal?.().catch(() => undefined);
     },
 
     // Seats and spending power are out of the product's UI; these two stay on

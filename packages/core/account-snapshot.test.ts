@@ -75,6 +75,36 @@ describe('account source', () => {
     });
     await expect(s.loadSnapshot()).rejects.toThrow('no rate');
   });
+
+  it('carries a proposal from the assistant inbox into the snapshot', async () => {
+    const proposal = {
+      id: 'tg-1',
+      allowanceId: 'a-1',
+      contactId: 'b-mom',
+      amountMinor: 500_000,
+      note: 'rent',
+      undoSeconds: 10,
+    };
+    const s = createAccountSource({
+      records: createRecords(memory(), OWNER),
+      getRate: async () => rate,
+      readProposal: async () => proposal,
+    });
+    expect((await s.loadSnapshot()).proposal).toEqual(proposal);
+  });
+
+  it('leaves the proposal null when the inbox read fails, rather than failing the load', async () => {
+    const s = createAccountSource({
+      records: createRecords(memory(), OWNER),
+      getRate: async () => rate,
+      readProposal: async () => {
+        throw new Error('inbox unreachable');
+      },
+    });
+    const snapshot = await s.loadSnapshot();
+    expect(snapshot.proposal).toBeNull();
+    expect(snapshot.account.koboPerDollar).toBe(153_000);
+  });
 });
 
 describe('account source: business records', () => {

@@ -1,3 +1,5 @@
+import { Redis } from '@upstash/redis';
+
 import type { Contact, Invoice, Proposal } from '@entole/core/schemas';
 
 /**
@@ -20,9 +22,10 @@ import type { Contact, Invoice, Proposal } from '@entole/core/schemas';
  *
  * The default adapter is in-memory: correct for a single-process dev server
  * and for tests, and honest about its limits (it does not survive a restart or
- * span serverless instances). A durable adapter plugs in behind an env var at
- * `getServerStore()` once the deploy target's KV is chosen; the interface does
- * not change when it does.
+ * span serverless instances). The durable adapter is Upstash Redis, chosen
+ * behind the same env vars `directory.ts` already reads; `getServerStore()`
+ * picks it when they are set and the in-memory adapter otherwise. The interface
+ * is identical either way.
  */
 export interface ServerStore {
   /** Register a one-time linking code the user generated in-app. */
@@ -62,7 +65,7 @@ export interface ServerStore {
   replaceInvoice(accountId: string, invoice: Invoice): Promise<void>;
 }
 
-function createInMemoryStore(): ServerStore {
+export function createInMemoryStore(): ServerStore {
   const linkCodes = new Map<string, string>(); // code -> accountId
   const chats = new Map<number, string>(); // chatId -> accountId
   const contacts = new Map<string, Contact[]>(); // accountId -> contacts
@@ -128,12 +131,99 @@ function createInMemoryStore(): ServerStore {
   };
 }
 
+/**
+ * A thin slice of the Upstash Redis client — just the calls the durable adapter
+ * makes. Narrowing it here lets a test drive `createRedisStore` with a fake and
+ * keeps the adapter honest about what it touches.
+ */
+export type RedisLike = Pick<Redis, 'get' | 'set' | 'del' | 'getdel'>;
+
+const key = {
+  linkCode: (code: string) => `store:linkcode:${code}`,
+  chat: (chatId: number) => `store:chat:${chatId}`,
+  contacts: (accountId: string) => `store:contacts:${accountId}`,
+  allowance: (accountId: string) => `store:allowance:${accountId}`,
+  proposal: (accountId: string) => `store:proposal:${accountId}`,
+  invoice: (accountId: string, invoiceId: string) => `store:invoice:${accountId}:${invoiceId}`,
+  /** invoiceId -> accountId, so the CRE webhook finds an invoice by id alone
+   * without scanning every account's keyspace. */
+  invoiceLoc: (invoiceId: string) => `store:invoiceloc:${invoiceId}`,
+};
+
+/**
+ * The durable adapter. Same interface, same posture: convenience, not
+ * authority. Keys are namespaced under `store:` so they never collide with the
+ * directory's own keyspace in a shared Redis. It survives restarts and spans
+ * serverless instances, which the in-memory adapter cannot.
+ */
+export function createRedisStore(redis: RedisLike): ServerStore {
+  return {
+    async createLinkCode(accountId, code) {
+      await redis.set(key.linkCode(code), accountId);
+    },
+    async linkChat(code, chatId) {
+      // One-time: read and delete in a single hop so a code cannot be redeemed twice.
+      const accountId = await redis.getdel<string>(key.linkCode(code));
+      if (!accountId) return null;
+      await redis.set(key.chat(chatId), accountId);
+      return accountId;
+    },
+    async accountForChat(chatId) {
+      return (await redis.get<string>(key.chat(chatId))) ?? null;
+    },
+
+    async contactsFor(accountId) {
+      return (await redis.get<Contact[]>(key.contacts(accountId))) ?? [];
+    },
+    async setContacts(accountId, contacts) {
+      await redis.set(key.contacts(accountId), contacts);
+    },
+
+    async assistantAllowanceFor(accountId) {
+      return (await redis.get<string>(key.allowance(accountId))) ?? null;
+    },
+    async setAssistantAllowance(accountId, allowanceId) {
+      await redis.set(key.allowance(accountId), allowanceId);
+    },
+
+    async putProposal(accountId, proposal) {
+      await redis.set(key.proposal(accountId), proposal);
+    },
+    async getProposal(accountId) {
+      return (await redis.get<Proposal>(key.proposal(accountId))) ?? null;
+    },
+    async clearProposal(accountId) {
+      await redis.del(key.proposal(accountId));
+    },
+
+    async putInvoice(accountId, invoice) {
+      await redis.set(key.invoice(accountId, invoice.id), invoice);
+      await redis.set(key.invoiceLoc(invoice.id), accountId);
+    },
+    async findPendingReleaseInvoice(invoiceId) {
+      const accountId = await redis.get<string>(key.invoiceLoc(invoiceId));
+      if (!accountId) return null;
+      const invoice = await redis.get<Invoice>(key.invoice(accountId, invoiceId));
+      if (invoice && invoice.status === 'pending-release') return { accountId, invoice };
+      return null;
+    },
+    async replaceInvoice(accountId, invoice) {
+      await redis.set(key.invoice(accountId, invoice.id), invoice);
+    },
+  };
+}
+
 let store: ServerStore | null = null;
 
-/** The process-wide server store. In-memory today; the seam a durable adapter
- * plugs into once a deploy target's KV is chosen. */
+/** The process-wide server store. Durable when `UPSTASH_REDIS_REST_URL` and
+ * `UPSTASH_REDIS_REST_TOKEN` are set (read at call time, so a build with no
+ * Redis provisioned still boots — the same lazy rule as `directory.ts`);
+ * otherwise in-memory, correct for dev and tests. */
 export function getServerStore(): ServerStore {
-  if (!store) store = createInMemoryStore();
+  if (store) return store;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  store = url && token ? createRedisStore(new Redis({ url, token })) : createInMemoryStore();
   return store;
 }
 
