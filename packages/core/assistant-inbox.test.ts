@@ -2,7 +2,7 @@ import type { Address } from 'viem';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAssistantInboxClient } from './assistant-inbox';
-import type { Proposal } from './schemas';
+import type { Invoice, Proposal } from './schemas';
 
 /**
  * The inbox client on its own, with a stand-in fetch and a stand-in signer.
@@ -113,5 +113,24 @@ describe('createAssistantInboxClient', () => {
     expect(body.action).toBe('sync');
     expect(body.contacts).toEqual(contacts);
     expect(body.allowanceId).toBe('allow-1');
+  });
+
+  it('mirrors a held invoice for the release route', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ ok: true }));
+    const invoice: Invoice = {
+      id: 'inv-1',
+      clientName: 'Acme Ltd',
+      amountMinor: 1_000_000,
+      note: 'Consulting',
+      dueAt: '2026-10-01T00:00:00.000+01:00',
+      status: 'pending-release',
+      link: 'entole.to/inv-1',
+      releaseCondition: { type: 'fx-rate-at-or-below', maxKoboPerDollar: 160_000 },
+    };
+    await expect(client(fetchImpl as unknown as typeof fetch).syncInvoice(invoice)).resolves.toBe(true);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.action).toBe('invoice');
+    expect(body.invoice).toEqual(invoice);
   });
 });

@@ -54,6 +54,7 @@ export const pendingBackend: Backend = {
     clear: async () => undefined,
     registerLinkCode: async () => false,
     sync: async () => false,
+    syncInvoice: async () => false,
   },
 };
 

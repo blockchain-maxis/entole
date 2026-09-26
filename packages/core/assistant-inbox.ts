@@ -1,7 +1,7 @@
 import type { Address } from 'viem';
 import { z } from 'zod';
 
-import { proposalSchema, type Contact, type Proposal } from './schemas';
+import { proposalSchema, type Contact, type Invoice, type Proposal } from './schemas';
 
 /**
  * The assistant's proposal inbox client — the server side lives in
@@ -28,7 +28,7 @@ import { proposalSchema, type Contact, type Proposal } from './schemas';
  */
 export function buildInboxMessage(input: {
   account: Address;
-  action: 'read' | 'clear' | 'link' | 'sync';
+  action: 'read' | 'clear' | 'link' | 'sync' | 'invoice';
   timestampSeconds: number;
 }): string {
   return [
@@ -54,7 +54,10 @@ export function createAssistantInboxClient(options: {
   const fetchImpl = options.fetch ?? fetch;
   const base = options.baseUrl.replace(/\/$/, '');
 
-  async function call(action: 'read' | 'clear' | 'link' | 'sync', extra?: Record<string, unknown>): Promise<unknown | null> {
+  async function call(
+    action: 'read' | 'clear' | 'link' | 'sync' | 'invoice',
+    extra?: Record<string, unknown>,
+  ): Promise<unknown | null> {
     const timestampSeconds = Math.floor(Date.now() / 1000);
     const message = buildInboxMessage({ account: options.account, action, timestampSeconds });
     let signature: `0x${string}`;
@@ -112,6 +115,16 @@ export function createAssistantInboxClient(options: {
      * when the server accepted it. */
     async sync(contacts: Contact[], allowanceId: string): Promise<boolean> {
       const json = await call('sync', { contacts, allowanceId });
+      const parsed = z.object({ ok: z.boolean() }).safeParse(json);
+      return parsed.success ? parsed.data.ok : false;
+    },
+    /** Mirrors a `'pending-release'` invoice to the store so the Chainlink CRE
+     * release route can find it by id and release it when its own stored FX
+     * condition holds. Convenience, not authority: the stored record only marks
+     * an invoice paid, it moves no money the account did not already receive.
+     * Best-effort; resolves `true` when the server accepted it. */
+    async syncInvoice(invoice: Invoice): Promise<boolean> {
+      const json = await call('invoice', { invoice });
       const parsed = z.object({ ok: z.boolean() }).safeParse(json);
       return parsed.success ? parsed.data.ok : false;
     },

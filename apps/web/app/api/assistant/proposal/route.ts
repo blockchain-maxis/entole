@@ -2,7 +2,7 @@ import { getAddress, isAddress, verifyMessage, type Address } from 'viem';
 import { z } from 'zod';
 
 import { buildInboxMessage, INBOX_MAX_AGE_SECONDS } from '@entole/core/assistant-inbox';
-import { contactSchema } from '@entole/core/schemas';
+import { contactSchema, invoiceSchema } from '@entole/core/schemas';
 
 import { json, preflight, readJson } from '@/lib/server/http';
 import { rateLimit } from '@/lib/server/sponsor';
@@ -25,6 +25,8 @@ import { getServerStore } from '@/lib/server/store';
  *   link   registers a one-time code the user sends the bot as `/link CODE`
  *   sync   pushes the account's contacts and active assistant allowance, so a
  *          linked chat matches real people and charges a real allowance
+ *   invoice mirrors a pending-release invoice, so the Chainlink CRE route can
+ *          find it by id and release it when its stored FX condition holds
  */
 export const runtime = 'nodejs';
 
@@ -37,7 +39,7 @@ const address = z
 
 const requestSchema = z.object({
   account: address,
-  action: z.enum(['read', 'clear', 'link', 'sync']),
+  action: z.enum(['read', 'clear', 'link', 'sync', 'invoice']),
   timestampSeconds: z.number().int().positive(),
   signature: z
     .string()
@@ -49,6 +51,8 @@ const requestSchema = z.object({
   contacts: z.array(contactSchema).optional(),
   /** Only for `sync`: the active assistant allowance a proposal is charged to. */
   allowanceId: z.string().min(1).optional(),
+  /** Only for `invoice`: the pending-release invoice the CRE route releases. */
+  invoice: invoiceSchema.optional(),
 });
 
 export async function POST(request: Request) {
@@ -61,10 +65,14 @@ export async function POST(request: Request) {
 
   const parsed = requestSchema.safeParse(await readJson(request));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
-  const { account, action, timestampSeconds, signature, code, contacts, allowanceId } = parsed.data;
+  const { account, action, timestampSeconds, signature, code, contacts, allowanceId, invoice } =
+    parsed.data;
 
   if (action === 'link' && !code) return json({ error: 'bad_request' }, 400);
   if (action === 'sync' && (!contacts || !allowanceId)) return json({ error: 'bad_request' }, 400);
+  if (action === 'invoice' && (!invoice || invoice.status !== 'pending-release')) {
+    return json({ error: 'bad_request' }, 400);
+  }
 
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestampSeconds) > INBOX_MAX_AGE_SECONDS) return json({ error: 'stale' }, 422);
@@ -89,6 +97,11 @@ export async function POST(request: Request) {
   if (action === 'sync') {
     await store.setContacts(accountId, contacts!);
     await store.setAssistantAllowance(accountId, allowanceId!);
+    return json({ ok: true });
+  }
+
+  if (action === 'invoice') {
+    await store.putInvoice(accountId, invoice!);
     return json({ ok: true });
   }
 

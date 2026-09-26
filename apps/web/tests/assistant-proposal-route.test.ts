@@ -1,4 +1,4 @@
-import type { Proposal } from '@entole/core/schemas';
+import type { Invoice, Proposal } from '@entole/core/schemas';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -29,6 +29,17 @@ const PROPOSAL: Proposal = {
   undoSeconds: 10,
 };
 
+const HELD_INVOICE: Invoice = {
+  id: 'inv-1',
+  clientName: 'Acme Ltd',
+  amountMinor: 1_000_000,
+  note: 'Consulting',
+  dueAt: '2026-10-01T00:00:00.000+01:00',
+  status: 'pending-release',
+  link: 'entole.to/inv-1',
+  releaseCondition: { type: 'fx-rate-at-or-below', maxKoboPerDollar: 160_000 },
+};
+
 let ipCounter = 0;
 function req(body: unknown) {
   return new Request('http://localhost/api/assistant/proposal', {
@@ -38,7 +49,11 @@ function req(body: unknown) {
   });
 }
 
-async function signed(action: 'read' | 'clear' | 'link' | 'sync', extra: Record<string, unknown> = {}, signer = OWNER) {
+async function signed(
+  action: 'read' | 'clear' | 'link' | 'sync' | 'invoice',
+  extra: Record<string, unknown> = {},
+  signer = OWNER,
+) {
   const timestampSeconds = Math.floor(Date.now() / 1000);
   const message = buildInboxMessage({ account: OWNER.address, action, timestampSeconds });
   const signature = await signer.signMessage({ message });
@@ -97,6 +112,26 @@ describe('POST /api/assistant/proposal', () => {
 
   it('answers 400 for a sync action missing its payload', async () => {
     const response = await POST(req(await signed('sync', { allowanceId: 'allow-1' })));
+    expect(response.status).toBe(400);
+  });
+
+  it('mirrors a pending-release invoice for the CRE route to find and release', async () => {
+    const response = await POST(req(await signed('invoice', { invoice: HELD_INVOICE })));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+
+    const found = await getServerStore().findPendingReleaseInvoice('inv-1');
+    expect(found).toEqual({ accountId: ACCOUNT, invoice: HELD_INVOICE });
+  });
+
+  it('answers 400 for an invoice action whose invoice is not pending-release', async () => {
+    const sent = { ...HELD_INVOICE, status: 'sent' as const, releaseCondition: undefined };
+    const response = await POST(req(await signed('invoice', { invoice: sent })));
+    expect(response.status).toBe(400);
+  });
+
+  it('answers 400 for an invoice action with no invoice', async () => {
+    const response = await POST(req(await signed('invoice')));
     expect(response.status).toBe(400);
   });
 
