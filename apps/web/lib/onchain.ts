@@ -17,7 +17,7 @@ import type { SignedInAccount } from './account';
 import { deviceRecordStore } from './records-store';
 
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS ??
-  '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7') as Address;
+  '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e') as Address;
 const TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS ??
   '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC') as Address;
 /** Left unset until `GrowthVault` is deployed — see contracts/README.md's

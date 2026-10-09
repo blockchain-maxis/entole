@@ -16,23 +16,25 @@ Where things go:
   phone reaches it through `extra.entole.apiBase`.
 - **Contracts:** shell environment for `forge` (`DEPLOYER_PRIVATE_KEY`).
 
-## Before anything else: redeploy the policy contract
+## The policy contract
 
-The policy contract gained `executeFor` (the assistant's gasless run) and a
-`createAllowance` hardening, so it has to be redeployed once. Its tests pass
-(`cd contracts && forge test`), but nothing on-chain has changed until you do:
+`EntolePolicy` with `executeFor` (the assistant's gasless run) and the
+`createAllowance` hardening is deployed on Monad testnet at
+`0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` (9 Oct 2026, block 69645503), and both
+apps and the indexer config point at it. Allowances made on the earlier
+deployment do not exist on this one.
+
+If the contract source changes again, redeploy it the same way:
 
 ```bash
 cd contracts
 export DEPLOYER_PRIVATE_KEY=...        # funded on Monad testnet
-forge script script/DeployPolicy.s.sol --rpc-url monad_testnet \
-  --private-key $DEPLOYER_PRIVATE_KEY --broadcast
+forge script script/DeployPolicy.s.sol --rpc-url monad_testnet --broadcast
 ```
 
 Then set the printed address in `NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS`
 (`apps/web/.env`) and `extra.entole.contractAddress` (`apps/mobile/app.json`),
-and the address and block in `indexer/config.yaml`. Allowances made on the old
-contract are gone from the new one; create them again.
+and the address and block in `indexer/config.yaml`.
 
 ## Server (web)
 
@@ -42,7 +44,7 @@ contract are gone from the new one; create them again.
 | `SPONSOR_PRIVATE_KEY` | Relayed sends, assistant runs (`/api/relay/execute`), gas top-ups (`/api/gas`) | A funded key (0.02+ MON). Check: send money in the app; it settles with no fee balance. |
 | `RELAY_MAX_AMOUNT` | Optional ceiling on a relayed payment | Minor units (6 decimals). |
 | `NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS`, `_ROUTER_ADDRESS`, `_TOKEN_ADDRESS`, `_GROWTH_VAULT_ADDRESS` | Everything on-chain | Public. |
-| `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RP_ID` | Network and passkey domain | Public. |
+| `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RP_ID` | Network and passkey domain | Public. `NEXT_PUBLIC_RP_ID` is set in the tracked `apps/web/.env` to the host the app is served from; it must match the phone's `EXPO_PUBLIC_RP_ID`, or the same person gets two different accounts. |
 | `NEXT_PUBLIC_INDEXER_URL` | Activity history from Envio | Empty keeps activity on the device. |
 | `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE` | Fiat on-ramp on checkout pages | Placeholders `{address}` `{amount}` `{currency}` `{reference}`. https only. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | Telegram intake | Both required or the webhook answers 501. Register with `pnpm --filter @entole/web telegram:webhook https://<domain>`. Check: in the app go to Me, Connections, get a code, send `/link CODE` to the bot; it replies "Linked." |
@@ -68,7 +70,7 @@ fork test needs `--fork-url monad_testnet`.
 
 ## A test pass, in order
 
-1. Redeploy the policy, set the addresses, `pnpm typecheck && pnpm lint && pnpm test`.
+1. `pnpm typecheck && pnpm lint && pnpm test`.
 2. Set `SPONSOR_PRIVATE_KEY` and `UPSTASH_*`. Sign in on a phone, add test money,
    send to a contact (one signature, no fee balance needed).
 3. Turn the assistant on, create an allowance (an approval and an allowance, two

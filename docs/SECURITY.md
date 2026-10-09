@@ -152,7 +152,7 @@ Said plainly, the same way the NGN off-ramp is disclosed as mocked rather
 than pretended solved:
 
 - **Deployed to Monad testnet**, not mainnet, and not yet audited by anyone
-  outside this project. `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` — see
+  outside this project. `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` — see
   `contracts/README.md` for the deployment block and transaction. Its source
   is verified on Sourcify with an exact bytecode match, so anyone can read the
   enforcing contract against what is actually deployed (see `contracts/README.md`,
