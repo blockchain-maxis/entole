@@ -26,6 +26,9 @@ const TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS ??
 const ROUTER_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_ROUTER_ADDRESS
   ? (process.env.NEXT_PUBLIC_ENTOLE_ROUTER_ADDRESS as Address)
   : undefined;
+const BILLS_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS
+  ? (process.env.NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS as Address)
+  : undefined;
 const GROWTH_VAULT_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS
   ? (process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS as Address)
   : undefined;
@@ -69,6 +72,8 @@ const pendingGateway: PaymentsGateway = {
   settleInvoice: () => Promise.reject(new Error('Not signed in yet')),
   requestConditionalRelease: () => Promise.reject(new Error('Not signed in yet')),
   createProcurementRequest: () => Promise.reject(new Error('Not signed in yet')),
+  validateBill: () => Promise.reject(new Error('Not signed in yet')),
+  payBill: () => Promise.reject(new Error('Not signed in yet')),
   depositGrow: () => Promise.reject(new Error('Not signed in yet')),
   withdrawGrow: () => Promise.reject(new Error('Not signed in yet')),
   stocksAvailable: false,
@@ -144,11 +149,17 @@ export function useOnChainBackend(
       tokenDecimals: TOKEN_DECIMALS,
       getRate,
       ...(ROUTER_ADDRESS ? { routerAddress: ROUTER_ADDRESS, relay } : {}),
+      ...(BILLS_ADDRESS ? { billsRecipient: BILLS_ADDRESS } : {}),
       records,
       ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
       resolveRecipient: source.resolveRecipient,
       loadOffChainSnapshot: source.loadSnapshot,
       clearProposal: () => inbox.clear(),
+      onAllowanceChanged: async (allowanceId) => {
+        if (!allowanceId) return;
+        const { contacts } = await source.loadSnapshot();
+        await inbox.sync(contacts, allowanceId);
+      },
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
     });
     const directory = createDirectoryClient({

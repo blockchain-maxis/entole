@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 
 import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
@@ -12,7 +14,9 @@ import { AllowanceCard } from '@/components/AllowanceCard';
 import { Amount } from '@/components/Amount';
 import { ButtonLink } from '@/components/Button';
 import { Header } from '@/components/Header';
+import { AssistantBadge } from '@/components/Badge';
 import { useAccount } from '@/lib/account';
+import { useAssistant } from '@/lib/assistant';
 import { PauseIntro } from '@/components/PauseIntro';
 import {
   AllowanceCardSkeleton,
@@ -29,6 +33,18 @@ export default function Home() {
   const greeting = fullName ? `${greetingFor()}, ${fullName}` : greetingFor();
   const loading = store.status === 'loading';
 
+  // The assistant is a setting: nothing is announced until it is turned on.
+  const router = useRouter();
+  const assistant = useAssistant();
+  const announced = useRef(false);
+  const waiting = !loading && assistant.enabled && Boolean(store.proposal);
+  useEffect(() => {
+    if (!waiting || announced.current) return;
+    announced.current = true;
+    const timer = setTimeout(() => router.push('/assistant/action'), 1200);
+    return () => clearTimeout(timer);
+  }, [waiting, router]);
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
       <Header />
@@ -36,6 +52,15 @@ export default function Home() {
       <div className="flex-1 px-gutter pb-28">
         <h1 className="truncate pb-4 pt-2 font-strong text-headline text-ink">{greeting}</h1>
         <PauseIntro />
+        {waiting ? (
+          <Link
+            href="/assistant/action"
+            className="mb-4 flex items-center gap-3 rounded-control bg-indigo-wash px-4 py-3.5"
+          >
+            <AssistantBadge />
+            <span className="flex-1 font-strong text-label text-ink">A payment is waiting. You can stop it.</span>
+          </Link>
+        ) : null}
         {loading ? (
           <BalanceSkeleton />
         ) : (
