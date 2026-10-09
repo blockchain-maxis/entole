@@ -4,24 +4,34 @@ import { z } from 'zod';
  * "Pay a Bill" — electricity, airtime/data, cable TV, internet. Confirmed
  * real (via developer.flutterwave.com/docs/bill-payment, not guessed):
  * Flutterwave's Bills API has a category-listing endpoint, a validate-
- * customer endpoint (customer identifier + `item_code` in, billed customer's
+ * customer endpoint (`customer_id` + `item_code` in, the billed customer's
  * `name` back so a screen can show "you're about to pay for Chidi Okafor's
  * meter" before money moves), and a create-payment endpoint (`country`,
- * `customer_id`, `amount`, optional `reference` in; `tx_ref`/`reference`/
- * `code` back). **Unconfirmed**: the exact base URL version segment and the
- * auth header's precise casing — Flutterwave's convention elsewhere in
- * their API is `Authorization: Bearer FLWSECK_...`, assumed here but not
- * re-confirmed against this specific endpoint's page. Same disclosure this
- * codebase already uses for `aurora-intents.ts`: the documented product
- * shape is real, the field-for-field contract should be re-verified against
- * a live account before this is relied on in production.
+ * `customer_id`, `amount`, optional `reference` in). Responses come in
+ * Flutterwave's `{ status, message, data }` envelope, and `amount` is in
+ * naira (major units), not kobo: this module converts at the boundary so the
+ * rest of the codebase keeps integer minor units.
+ *
+ * **Unconfirmed against a live account**: the two endpoint paths and the auth
+ * header casing (`Authorization: Bearer FLWSECK_...`, Flutterwave's usual
+ * form). They are constants (`BILL_VALIDATE_PATH`, `BILL_PAY_PATH`) and
+ * overridable from config, and every response is Zod-validated, so a mismatch
+ * fails loudly instead of paying the wrong thing. The `apiKey` is a real
+ * secret: this module is called only from `apps/web/app/api/bills/*`, never
+ * from a client.
  */
+
+export const BILL_DEFAULT_API_BASE = 'https://api.flutterwave.com/v3';
+export const BILL_VALIDATE_PATH = '/bill-items/validate';
+export const BILL_PAY_PATH = '/bills';
 
 export type BillCategory = 'electricity' | 'airtime-data' | 'cable-tv' | 'internet';
 
 export type BillPaymentConfig = {
   apiKey: string;
   apiBase?: string;
+  validatePath?: string;
+  payPath?: string;
 };
 
 export type ValidateCustomerRequest = {
@@ -37,13 +47,21 @@ export type ValidateCustomerRequest = {
   itemCode: string;
 };
 
-const validateCustomerResponseSchema = z.object({
-  responseCode: z.string(),
-  responseMessage: z.string(),
-  customerName: z.string().min(1),
+/** Flutterwave's envelope around a validate answer. */
+const validateEnvelopeSchema = z.object({
+  status: z.string(),
+  data: z.object({
+    response_code: z.string(),
+    response_message: z.string(),
+    name: z.string().min(1),
+  }),
 });
 
-export type ValidateCustomerResponse = z.infer<typeof validateCustomerResponseSchema>;
+export type ValidateCustomerResponse = {
+  responseCode: string;
+  responseMessage: string;
+  customerName: string;
+};
 
 export type PayBillRequest = {
   category: BillCategory;
@@ -56,13 +74,23 @@ export type PayBillRequest = {
   reference: string;
 };
 
-const payBillResponseSchema = z.object({
-  reference: z.string().min(1),
-  billerReference: z.string().min(1),
-  status: z.enum(['successful', 'pending', 'failed']),
+/** Flutterwave's envelope around a payment answer. */
+const payEnvelopeSchema = z.object({
+  status: z.string(),
+  data: z
+    .object({
+      reference: z.string().optional(),
+      tx_ref: z.string().optional(),
+      code: z.string().optional(),
+    })
+    .optional(),
 });
 
-export type PayBillResponse = z.infer<typeof payBillResponseSchema>;
+export type PayBillResponse = {
+  reference: string;
+  billerReference: string;
+  status: 'successful' | 'pending' | 'failed';
+};
 
 function requireBillPaymentConfig(config: BillPaymentConfig | undefined): BillPaymentConfig {
   if (!config?.apiKey) {
@@ -84,36 +112,48 @@ export async function validateCustomer(
   config?: BillPaymentConfig,
 ): Promise<ValidateCustomerResponse> {
   const resolved = requireBillPaymentConfig(config);
-  const base = resolved.apiBase ?? 'https://api.flutterwave.com/v3';
+  const base = resolved.apiBase ?? BILL_DEFAULT_API_BASE;
 
-  const response = await fetch(`${base}/bill-items/${request.itemCode}/validate`, {
+  const response = await fetch(`${base}${resolved.validatePath ?? BILL_VALIDATE_PATH}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${resolved.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: request.itemCode, customer: request.customerIdentifier }),
+    body: JSON.stringify({ item_code: request.itemCode, customer_id: request.customerIdentifier }),
   });
   if (!response.ok) throw new Error(`Bill validation failed: ${response.status}`);
   const body: unknown = await response.json();
-  return validateCustomerResponseSchema.parse(body);
+  const { data } = validateEnvelopeSchema.parse(body);
+  return { responseCode: data.response_code, responseMessage: data.response_message, customerName: data.name };
 }
 
 /** Settles a validated bill. Resolves only once the aggregator confirms —
  * same "no interim optimistic entry" rule `gateway.ts#submitPayment` keeps. */
 export async function payBill(request: PayBillRequest, config?: BillPaymentConfig): Promise<PayBillResponse> {
   const resolved = requireBillPaymentConfig(config);
-  const base = resolved.apiBase ?? 'https://api.flutterwave.com/v3';
+  const base = resolved.apiBase ?? BILL_DEFAULT_API_BASE;
 
-  const response = await fetch(`${base}/bills`, {
+  if (!Number.isInteger(request.amountMinor) || request.amountMinor <= 0) {
+    throw new Error('A bill amount must be a positive whole number of kobo.');
+  }
+
+  const response = await fetch(`${base}${resolved.payPath ?? BILL_PAY_PATH}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${resolved.apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       country: 'NG',
       customer_id: request.customerIdentifier,
-      amount: request.amountMinor,
+      // Flutterwave takes naira, this codebase holds kobo: converted only here.
+      amount: request.amountMinor / 100,
       reference: request.reference,
-      type: request.category,
     }),
   });
   if (!response.ok) throw new Error(`Bill payment failed: ${response.status}`);
   const body: unknown = await response.json();
-  return payBillResponseSchema.parse(body);
+  const envelope = payEnvelopeSchema.parse(body);
+
+  const reference = envelope.data?.reference ?? envelope.data?.tx_ref ?? request.reference;
+  return {
+    reference,
+    billerReference: envelope.data?.code ?? envelope.data?.tx_ref ?? reference,
+    status: envelope.status === 'success' ? 'successful' : envelope.status === 'pending' ? 'pending' : 'failed',
+  };
 }

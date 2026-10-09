@@ -20,6 +20,21 @@ export type RelayPayment = {
   s: Hex;
 };
 
+export type RelayExecute = {
+  id: Hex;
+  recipient: Address;
+  amount: bigint;
+  deadline: bigint;
+  signature: Hex;
+};
+
+export type RelayBill = {
+  category: 'electricity' | 'airtime-data' | 'cable-tv' | 'internet';
+  customerIdentifier: string;
+  /** What the bill costs, in kobo. */
+  amountMinor: number;
+};
+
 const MESSAGES: Record<string, string> = {
   not_configured: "This isn't available yet.",
   bad_request: 'Something was wrong with that request. Try again.',
@@ -30,6 +45,11 @@ const MESSAGES: Record<string, string> = {
   insufficient_funds: "You don't have enough for this payment and its fee.",
   invalid_signature: "We couldn't confirm that it was you. Try again.",
   rejected: "That didn't go through. Try again.",
+  amount_mismatch: "That amount doesn't match the bill. Try again.",
+  rate_unavailable: "We can't price that right now. Try again shortly.",
+  bill_failed: "The bill wasn't paid. Your payment will be returned.",
+  invalid_customer: "We couldn't find that account. Check the number and try again.",
+  over_limit: "That's outside what the assistant can spend right now.",
   sponsor_low: 'Payments are paused for a moment. Try again shortly.',
   rate_limited: 'Too many tries. Wait a moment and try again.',
   cooldown: 'Adding money is busy right now. Try again in a minute.',
@@ -47,6 +67,12 @@ export class RelayError extends Error {
 
 const hashSchema = z.object({ hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) });
 const errorSchema = z.object({ error: z.string() });
+const billCustomerSchema = z.object({ customerName: z.string().min(1) });
+const billPaidSchema = z.object({
+  status: z.enum(['successful', 'pending']),
+  reference: z.string().min(1),
+  hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+});
 const gasSchema = z.object({ funded: z.boolean(), hash: z.string().optional() });
 const fundedSchema = hashSchema.extend({ amountMinor: z.string().regex(/^\d+$/).optional() });
 
@@ -101,6 +127,51 @@ export function createRelayClient(options: { baseUrl: string; fetch?: typeof fet
         hashSchema,
       );
       return hash as Hex;
+    },
+    /** Submits a run the assistant's key signed; resolves with the hash. */
+    async submitExecute(run: RelayExecute): Promise<Hex> {
+      const { hash } = await post(
+        '/api/relay/execute',
+        {
+          id: run.id,
+          recipient: run.recipient,
+          amount: run.amount.toString(),
+          deadline: run.deadline.toString(),
+          signature: run.signature,
+        },
+        hashSchema,
+      );
+      return hash as Hex;
+    },
+    /** Whose account a bill number belongs to, checked before any money moves. */
+    async validateBill(bill: Pick<RelayBill, 'category' | 'customerIdentifier'>): Promise<{ customerName: string }> {
+      return post('/api/bills/validate', bill, billCustomerSchema);
+    },
+    /** Submits a signed payment to the bills account and has the server pay the
+     * biller once it has settled. Resolves only after the biller says so. */
+    async submitBill(
+      payment: RelayPayment,
+      bill: RelayBill,
+    ): Promise<{ status: 'successful' | 'pending'; reference: string; hash: Hex }> {
+      const paid = await post(
+        '/api/bills/pay',
+        {
+          payment: {
+            from: payment.from,
+            recipient: payment.recipient,
+            amount: payment.amount.toString(),
+            validAfter: payment.validAfter.toString(),
+            validBefore: payment.validBefore.toString(),
+            salt: payment.salt,
+            v: payment.v,
+            r: payment.r,
+            s: payment.s,
+          },
+          bill,
+        },
+        billPaidSchema,
+      );
+      return { status: paid.status, reference: paid.reference, hash: paid.hash as Hex };
     },
     /** Asks the server to cover the account's own network fees. Resolves once
      * the request is accepted; `funded: true` means nothing was needed. */

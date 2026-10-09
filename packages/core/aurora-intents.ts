@@ -24,9 +24,17 @@ import { z } from 'zod';
  * downstream needs to change, same one-file-swap promise as `gateway.ts`.
  */
 
+/** The two things in this file that are best-effort until checked against a
+ * live key. Both are overridable from the environment (`AURORA_INTENTS_API_BASE`,
+ * `AURORA_INTENTS_DEPOSIT_PATH`, read by `apps/web/app/api/aurora/deposit`), so a
+ * mismatch is fixed in config, not code. */
+export const AURORA_DEFAULT_API_BASE = 'https://api.intents.aurora.dev/v1';
+export const AURORA_DEFAULT_DEPOSIT_PATH = '/deposits';
+
 export type AuroraIntentsConfig = {
   apiKey: string;
   apiBase?: string;
+  depositPath?: string;
 };
 
 export type DepositAddressRequest = {
@@ -69,9 +77,10 @@ export async function requestDepositAddress(
   config?: AuroraIntentsConfig,
 ): Promise<DepositAddressResponse> {
   const resolved = requireAuroraConfig(config);
-  const base = resolved.apiBase ?? 'https://api.intents.aurora.dev/v1';
+  const base = resolved.apiBase ?? AURORA_DEFAULT_API_BASE;
+  const path = resolved.depositPath ?? AURORA_DEFAULT_DEPOSIT_PATH;
 
-  const response = await fetch(`${base}/deposits`, {
+  const response = await fetch(`${base}${path}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${resolved.apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

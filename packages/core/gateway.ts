@@ -1,3 +1,4 @@
+import type { BillCategory } from './bill-payment';
 import { evaluateReleaseCondition } from './chainlink-cre';
 import { SNAPSHOT } from './fixtures';
 import type { Rate } from './fx';
@@ -79,6 +80,14 @@ export interface PaymentsGateway {
   depositGrow(amountMinor: number): Promise<GrowPosition>;
   withdrawGrow(amountMinor: number): Promise<GrowPosition>;
 
+  /** "Pay a bill" — whose account the number belongs to, asked before any
+   * money moves. Throws when bill payment is not set up. */
+  validateBill(input: Pick<BillInput, 'category' | 'customerIdentifier'>): Promise<{ customerName: string }>;
+  /** Pays a bill from the person's balance: one signed payment, then the biller
+   * is paid. Resolves only once both have happened, same promise
+   * `submitPayment` makes. */
+  payBill(input: BillInput): Promise<BillReceipt>;
+
   /** "Stocks" — the Grow hub's second product. `stocksAvailable` is false
    * until a broker is configured (see `packages/core/stock-broker.ts`); the
    * UI reads it to show the "not available yet" state up front instead of
@@ -91,6 +100,20 @@ export interface PaymentsGateway {
   buyStock(symbol: string, quantityScaled: number): Promise<StockPosition[]>;
   sellStock(symbol: string, quantityScaled: number): Promise<StockPosition[]>;
 }
+
+export type BillInput = {
+  category: BillCategory;
+  /** Meter, phone or decoder number: a biller-side reference, never an address. */
+  customerIdentifier: string;
+  /** What the bill costs, in kobo. */
+  amountMinor: number;
+};
+
+export type BillReceipt = {
+  reference: string;
+  /** `pending` means the biller has it and has not confirmed yet. */
+  status: 'successful' | 'pending';
+};
 
 /** The real cost of a send, in the account's own currency. */
 export type SendQuote = {
@@ -360,6 +383,14 @@ export const demoGateway: PaymentsGateway = {
       status: 'requested',
       requestedAt: new Date().toISOString(),
     });
+  },
+
+  async validateBill() {
+    throw new Error("Paying bills isn't available here yet.");
+  },
+
+  async payBill() {
+    throw new Error("Paying bills isn't available here yet.");
   },
 
   async depositGrow(amountMinor) {

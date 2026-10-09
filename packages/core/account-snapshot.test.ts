@@ -45,6 +45,25 @@ describe('account source', () => {
     expect(snapshot.account.koboPerDollar).toBe(153_000);
   });
 
+  it('brings saved seats back on the next load', async () => {
+    const records = createRecords(memory(), OWNER);
+    const seat = {
+      id: 's-1',
+      name: 'Travel and supplies',
+      contactId: 'b-mom',
+      role: 'officer' as const,
+      limitMinor: 5_000_000,
+      spentMinor: 100_000,
+      perRunMinor: 500_000,
+      cadence: 'monthly' as const,
+      resetsAt: '2026-10-30T00:00:00.000Z',
+      paused: false,
+    };
+    await records.seats.upsert(seat);
+    const snapshot = await createAccountSource({ records, getRate: async () => rate }).loadSnapshot();
+    expect(snapshot.seats).toEqual([seat]);
+  });
+
   it('makes a saved beneficiary payable and never puts the address in the snapshot', async () => {
     const s = source();
     await s.saveBeneficiary(mom);

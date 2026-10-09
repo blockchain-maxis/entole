@@ -5,6 +5,8 @@ import { DEMO_RATE, type Rate } from './fx';
 import {
   demoGateway,
   type AllowanceDraft,
+  type BillInput,
+  type BillReceipt,
   type InvoiceDraft,
   type PaymentsGateway,
   type ProcurementRequestDraft,
@@ -74,6 +76,10 @@ type Store = {
   /** Re-checks a `'pending-release'` invoice's condition against `rate`.
    * Resolves `true` if it released, `false` if it's still not met. */
   requestConditionalRelease(invoiceId: string, rate: Rate): Promise<boolean>;
+  validateBill(input: Pick<BillInput, 'category' | 'customerIdentifier'>): Promise<{ customerName: string }>;
+  /** Pays a bill from the balance. Resolves once the biller has it, and the
+   * balance is re-read so it shows what really left. */
+  payBill(input: BillInput): Promise<BillReceipt>;
   depositGrow(amountMinor: number): Promise<void>;
   withdrawGrow(amountMinor: number): Promise<void>;
   searchStocks(query: string): Promise<StockSearchResult[]>;
@@ -298,6 +304,20 @@ export function StoreProvider({
     [gateway],
   );
 
+  const validateBill = useCallback(
+    (input: Pick<BillInput, 'category' | 'customerIdentifier'>) => gateway.validateBill(input),
+    [gateway],
+  );
+
+  const payBill = useCallback(
+    async (input: BillInput) => {
+      const receipt = await gateway.payBill(input);
+      await refresh().catch(() => undefined);
+      return receipt;
+    },
+    [gateway, refresh],
+  );
+
   const depositGrow = useCallback(
     async (amountMinor: number) => {
       const growPosition = await gateway.depositGrow(amountMinor);
@@ -395,6 +415,8 @@ export function StoreProvider({
       settleInvoice,
       createProcurementRequest,
       requestConditionalRelease,
+      validateBill,
+      payBill,
       depositGrow,
       withdrawGrow,
       searchStocks,
@@ -409,6 +431,8 @@ export function StoreProvider({
     createProcurementRequest,
     depositGrow,
     gateway,
+    payBill,
+    validateBill,
     getStockQuote,
     proposal,
     quoteSend,

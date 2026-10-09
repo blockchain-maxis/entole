@@ -46,12 +46,13 @@ export function createAccountSource(options: {
 
   return {
     async loadSnapshot(): Promise<Snapshot> {
-      const [rate, beneficiaries, allowances, activity, invoices, proposal] = await Promise.all([
+      const [rate, beneficiaries, allowances, activity, invoices, seats, proposal] = await Promise.all([
         options.getRate(),
         options.records.beneficiaries.list(),
         options.records.allowances.list(),
         options.records.activity.list(),
         options.records.invoices.list(),
+        options.records.seats.list(),
         readProposal(),
       ]);
       index(beneficiaries);
@@ -62,7 +63,7 @@ export function createAccountSource(options: {
         contacts: beneficiaries.map(toContact),
         allowances,
         activity,
-        seats: [],
+        seats,
         invoices,
         procurementRequests: [],
         taxReserves: [],
