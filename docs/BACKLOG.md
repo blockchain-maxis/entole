@@ -5,9 +5,9 @@ product: where it touches a screen, the screen says so plainly.
 
 ## Deferred by decision
 
-- **Connect social accounts** (Telegram, WhatsApp and similar) from Me →
-  Connections. Wanted, not built. The Telegram intake module exists in core;
-  the settings surface and OAuth do not.
+- **WhatsApp and OAuth-style connections.** Telegram is connected from Me,
+  Connections, with a one-time `/link CODE` (not OAuth). WhatsApp is not built:
+  its business API needs approval that does not fit the window.
 - **Bank cash-out.** Beneficiaries can carry bank details, recorded for later.
   Nothing uses them to move money until an off-ramp partner is integrated
   (Mercuryo is a Metropolis sponsor with an on/off-ramp — untested here).
@@ -21,48 +21,83 @@ product: where it touches a screen, the screen says so plainly.
 
 ## Known gaps in what exists
 
-- **Assistant payments still need a network fee balance.** Ordinary sends are
-  gasless (one signature through `EntoleRouter`). An allowance-gated payment is
-  submitted by the assistant's own key, which holds no MON. Fix: top the
-  assistant key up through `/api/gas` before its first payment, or add a relay
-  path to the policy contract.
-- **Nothing calls `approve` on the settlement token.** `EntolePolicy.execute`
-  draws with `transferFrom`, which needs the owner to have approved the policy.
-  AUSD supports signed approvals; the owner should sign one when creating an
-  allowance and the sponsor submit it.
-- **Rate limiting is per-process memory** on the sponsor routes. Fine for a test
-  network; production needs a shared store (KV) and abuse checks beyond IP.
-- **`/api/gas` sends a small amount of MON to any address that asks**, capped by
-  a per-IP limit and a reserve on the sponsor. Production replaces this with
-  account abstraction / a paymaster.
-- **Records live on the device.** Beneficiaries, allowances and the send ledger
-  are per-device. A backend (or the Envio indexer for history) is the upgrade
-  path; `RecordStore` in core is the seam.
+- **The standing approval is additive and never shrinks.** Creating an
+  allowance has the owner approve `current + (cap x periods)` to the policy,
+  because the policy draws with `transferFrom`. Every allowance shares that one
+  approval, and revoking one does not lower it. The caveats still bound every
+  draw; the leftover is headroom, not authority. A "reset approval" action is
+  the upgrade.
+- **The undo window is not enforced on-chain.** It is a countdown in the app
+  before the assistant's run is submitted. Nothing in the contract delays it.
+- **Records live on the device.** Beneficiaries, allowances, seats, invoices and
+  the send ledger are per-device. A backend (or the Envio indexer for history)
+  is the upgrade path; `RecordStore` in core is the seam. The assistant inbox,
+  directory and Telegram links are server-side (Upstash Redis).
+- **Seats are records, not on-chain grants.** A team member has no account to
+  sign with, so the contract cannot enforce a seat. They persist on the device
+  and show on web only: the phone Business tab dropped seats on purpose (a
+  hard-rules test holds that).
+- **Tax reserve is display only.** `settleInvoice` returns no reserve; nothing
+  creates one in the live app. The invoice CSV export covers the bookkeeping.
+- **Bill payment has no automatic refund.** The person's payment settles before
+  the biller is paid. If the biller then refuses, the route answers
+  `bill_failed`, logs `[bills] paid-not-billed hash=...`, and the payment has to
+  be returned by hand from the bills account.
+- **A chain deposit target cannot be shown.** Aurora's route returns an address
+  on another chain, which the hard rules forbid rendering. `/api/aurora/deposit`
+  returns it as `qrPayload` for a QR or a copy button; no screen uses it yet.
+  Whether a QR-only screen counts as rendering an address is a product call.
 - **Savings ("Grow") has no yield source.** `GrowthVault` is deployed and
-  tested (live on Monad testnet, `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd`,
-  8 passing), but accrual is display-only. The screens show no projected
-  earnings until a real source exists.
+  tested, but accrual is display-only. The screens show no projected earnings
+  until a real source exists.
 - **Stocks** stay gated behind broker credentials that must live on a server.
+- **No iOS passkeys** until an Apple Team ID exists.
+
+### Fixed in this pass
+
+- The assistant now pays through the sponsor: it signs an EIP-712 `Execute`, the
+  sponsor submits `executeFor`, so its key needs no network-fee balance. If the
+  sponsor route is missing it falls back to topping the key up and paying itself.
+- `createAllowance` cannot be hijacked: an id belongs to its first owner, and a
+  replace clears the old recipient list.
+- Rate limiting is shared through Redis when it is configured (and per address
+  on `/api/gas`); the in-memory limiter is only the dev and test fallback.
+- The server store refuses to start in production without Redis, link codes
+  expire after 15 minutes, and the Telegram webhook checks its secret.
+- An on-request allowance no longer overflows when created.
 
 ## Waiting on credentials
 
-- `ENVIO_API_TOKEN` — hosted HyperIndex for activity history.
-- Agora API access key — mint/redeem routes (the settlement token itself is
-  Agora's AUSD and works without it).
-- Aurora Intents, Nansen, Chainlink CRE, and Qwen/Kimi/Hunyuan keys — each is a
-  self-contained bounty integration, gated off until its key exists.
-- Apple Team ID for the iOS `apple-app-site-association` file (Android-only
-  passkeys today).
-- `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE` — the fiat on-ramp partner for checkout
-  links (Mercuryo is a Metropolis sponsor; any provider with a URL-driven
-  widget works). A template with `{address}`, `{amount}`, `{currency}` and
-  `{reference}` placeholders (`apps/web/lib/onramp.ts`). Until it is set, the
-  checkout page shows "Bank and card payments open soon" and nothing else.
+Every key is listed, with where it goes and how to check it, in `docs/ENV.md`.
+Each integration is finished in code and answers 501 (or shows "not available
+yet") until its key exists.
+
+- `UPSTASH_REDIS_REST_URL` / `_TOKEN`: required in production for the store,
+  the directory and the shared rate limiter.
+- `SPONSOR_PRIVATE_KEY`, funded: relayed sends, assistant runs and gas top-ups.
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, then
+  `pnpm --filter @entole/web telegram:webhook https://<domain>`.
+- `ENVIO_API_TOKEN`: hosted HyperIndex for activity history.
+- `AGORA_ACCESS_KEY`, `AURORA_INTENTS_API_KEY`, `NANSEN_API_KEY`,
+  `CHAINLINK_CRE_WEBHOOK_SECRET` (see `docs/CRE.md`), `QWEN_API_KEY`.
+- `BILL_PAYMENT_API_KEY`, `BILL_ITEM_CODES` and `NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS`
+  (the account bills are paid into) for Pay a bill.
+- Apple Team ID for the iOS `apple-app-site-association` file.
+- `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE`: the fiat on-ramp partner for checkout links
+  (`apps/web/lib/onramp.ts`).
+
+Three integrations are best-effort until their first live call, and their
+endpoint paths are environment variables so a mismatch is fixed without code:
+Aurora (`AURORA_INTENTS_API_BASE`, `_DEPOSIT_PATH`), Nansen (`NANSEN_API_BASE`,
+`_NETFLOW_PATH`) and Flutterwave (`BILL_PAYMENT_API_BASE`, `BILL_VALIDATE_PATH`,
+`BILL_PAY_PATH`).
 
 ## Going to mainnet
 
 - Agora AUSD on Monad mainnet: `0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`
   (chain 143, 6 decimals). Redeploy `EntoleRouter` against it and change the
   token and router addresses in config; `EntolePolicy` needs no change.
-- Remove the test faucet routes. Replace `/api/gas` with real sponsorship.
+- Remove the test faucet routes. Replace `/api/gas` with real sponsorship (account abstraction or a paymaster).
 - Fee treasury becomes a dedicated multisig, not the deployer.
+- An independent audit of `EntolePolicy`, `EntoleRouter` and `GrowthVault` before
+  real money. The tests are thorough; they are not an audit.
