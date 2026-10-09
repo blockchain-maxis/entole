@@ -8,6 +8,9 @@ import {
   type Hex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import type { Redis } from '@upstash/redis';
+
+import { getRedis } from './redis';
 
 /**
  * The server-side "sponsor": one funded account that pays the network fee for
@@ -67,6 +70,12 @@ export function getRouterAddress(): Address | null {
   return address && /^0x[0-9a-fA-F]{40}$/.test(address) ? (address as Address) : null;
 }
 
+/** The deployed `EntolePolicy`, or `null` when its address is not configured. */
+export function getPolicyAddress(): Address | null {
+  const address = process.env.NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS?.trim();
+  return address && /^0x[0-9a-fA-F]{40}$/.test(address) ? (address as Address) : null;
+}
+
 /** True when the sponsor's MON balance is too low to send. */
 export async function sponsorIsLow(sponsor: Sponsor): Promise<boolean> {
   const balance = await sponsor.publicClient.getBalance({ address: sponsor.account.address });
@@ -96,22 +105,16 @@ export function clientIp(request: Request): string {
   return forwarded || request.headers.get('x-real-ip')?.trim() || 'unknown';
 }
 
-/**
- * Fixed-window, per-IP limiter held in this process's memory. Best-effort
- * only: on serverless every instance has its own map and cold starts reset
- * it, so this blunts a casual loop, not a determined caller. `bucket` keeps
- * each route's counts apart.
- */
-export function rateLimit(
-  request: Request,
-  bucket: string,
-  limit: number,
-): { ok: true } | { ok: false; retryAfterSeconds: number } {
+export type RateResult = { ok: true } | { ok: false; retryAfterSeconds: number };
+
+/** Fixed window held in this process's memory: the dev and test fallback, and
+ * the safety net if Redis is briefly unreachable. Per-instance, so on
+ * serverless it only blunts a casual loop. */
+function memoryLimit(key: string, limit: number): RateResult {
   const now = Date.now();
   if (windows.size > 5_000) {
-    for (const [key, entry] of windows) if (entry.resetAt <= now) windows.delete(key);
+    for (const [stale, entry] of windows) if (entry.resetAt <= now) windows.delete(stale);
   }
-  const key = `${bucket}:${clientIp(request)}`;
   const entry = windows.get(key);
   if (!entry || entry.resetAt <= now) {
     windows.set(key, { count: 1, resetAt: now + WINDOW_MS });
@@ -121,6 +124,50 @@ export function rateLimit(
     return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)) };
   }
   entry.count += 1;
+  return { ok: true };
+}
+
+/** The slice of Redis the shared limiter touches. */
+export type LimiterRedis = Pick<Redis, 'incr' | 'expire' | 'ttl'>;
+
+/** Fixed window shared across every instance: INCR, and the first hit sets
+ * the window's expiry, so a key can never outlive it. */
+export async function sharedLimit(redis: LimiterRedis, key: string, limit: number): Promise<RateResult> {
+  const windowSeconds = WINDOW_MS / 1000;
+  const count = await redis.incr(`rl:${key}`);
+  if (count === 1) await redis.expire(`rl:${key}`, windowSeconds);
+  if (count <= limit) return { ok: true };
+  const ttl = await redis.ttl(`rl:${key}`);
+  return { ok: false, retryAfterSeconds: ttl > 0 ? ttl : windowSeconds };
+}
+
+/**
+ * Fixed-window limiter, per caller IP and, when `subject` is given, per
+ * subject too (an account address, say), so rotating IPs does not lift a cap
+ * on one account. Shared through Upstash Redis when it is configured, so every
+ * serverless instance counts together; in memory otherwise, and also if Redis
+ * errors, so a Redis blip never takes a route down. `bucket` keeps each
+ * route's counts apart.
+ */
+export async function rateLimit(
+  request: Request,
+  bucket: string,
+  limit: number,
+  subject?: string,
+): Promise<RateResult> {
+  const keys = [`${bucket}:ip:${clientIp(request)}`];
+  if (subject) keys.push(`${bucket}:subject:${subject.toLowerCase()}`);
+
+  const redis = getRedis();
+  for (const key of keys) {
+    let result: RateResult;
+    try {
+      result = redis ? await sharedLimit(redis, key, limit) : memoryLimit(key, limit);
+    } catch {
+      result = memoryLimit(key, limit);
+    }
+    if (!result.ok) return result;
+  }
   return { ok: true };
 }
 

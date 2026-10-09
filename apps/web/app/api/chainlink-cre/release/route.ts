@@ -2,7 +2,8 @@ import { creReleaseRequestSchema } from '@entole/core/chainlink-cre';
 import { releaseConditionalInvoice } from '@entole/core/gateway';
 import { NextResponse } from 'next/server';
 
-import { getServerStore } from '@/lib/server/store';
+import { tryGetServerStore } from '@/lib/server/store';
+import { safeEqual } from '@/lib/server/telegram';
 
 /**
  * The callback target for a real Chainlink CRE workflow watching the FX
@@ -28,12 +29,26 @@ export async function POST(request: Request) {
     );
   }
 
-  if (request.headers.get('x-cre-webhook-secret') !== secret) {
+  if (!safeEqual(request.headers.get('x-cre-webhook-secret') ?? '', secret)) {
     return NextResponse.json({ ok: false, reason: 'Invalid webhook secret.' }, { status: 401 });
   }
 
-  const payload = creReleaseRequestSchema.parse(await request.json());
-  const store = getServerStore();
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ ok: false, reason: 'Body must be JSON.' }, { status: 400 });
+  }
+  const parsed = creReleaseRequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, reason: 'Invalid release request.' }, { status: 400 });
+  }
+  const payload = parsed.data;
+
+  const store = tryGetServerStore();
+  if (!store) {
+    return NextResponse.json({ ok: false, reason: 'The server store is not configured.' }, { status: 501 });
+  }
 
   const found = await store.findPendingReleaseInvoice(payload.invoiceId);
   if (!found) {

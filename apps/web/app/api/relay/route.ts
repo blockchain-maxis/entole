@@ -1,7 +1,5 @@
-import { getAddress, isAddress, parseAbi, type Address, type Hex } from 'viem';
-import { z } from 'zod';
-
 import { json, preflight, readJson } from '@/lib/server/http';
+import { paymentRevertCode, paymentSchema, routerAbi } from '@/lib/server/payment-schema';
 import {
   RELAY_LIMIT_PER_MINUTE,
   getRouterAddress,
@@ -20,58 +18,17 @@ import {
  */
 export const runtime = 'nodejs';
 
-const routerAbi = parseAbi([
-  'function pay(address from, address recipient, uint256 amount, uint256 validAfter, uint256 validBefore, bytes32 salt, uint8 v, bytes32 r, bytes32 s)',
-]);
-
-const UINT256_MAX = 2n ** 256n - 1n;
 /** 1 AUSD, in minor units (6 decimals). */
 const MIN_AMOUNT = 1_000_000n;
 const DEFAULT_MAX_AMOUNT = 10_000_000_000n;
 /** How far ahead a signed authorization may expire. */
 const MAX_WINDOW_SECONDS = 3600n;
 
-const address = z
-  .string()
-  .refine((value) => isAddress(value, { strict: false }))
-  .transform((value): Address => getAddress(value));
-const minorUnits = z
-  .string()
-  .regex(/^\d{1,78}$/)
-  .transform((value) => BigInt(value))
-  .refine((value) => value <= UINT256_MAX);
-const word = z.string().regex(/^0x[0-9a-fA-F]{64}$/).transform((value) => value as Hex);
-
-const bodySchema = z.object({
-  from: address,
-  recipient: address,
-  amount: minorUnits,
-  validAfter: minorUnits,
-  validBefore: minorUnits,
-  salt: word,
-  v: z.union([z.literal(27), z.literal(28)]),
-  r: word,
-  s: word,
-});
+const bodySchema = paymentSchema;
 
 function maxAmount(): bigint {
   const configured = process.env.RELAY_MAX_AMOUNT?.trim();
   return configured && /^\d{1,78}$/.test(configured) ? BigInt(configured) : DEFAULT_MAX_AMOUNT;
-}
-
-/** What went wrong in a revert, by the reason text — never the raw RPC text. */
-function revertCode(error: unknown): string {
-  const text = (
-    error instanceof Error
-      ? ((error as { shortMessage?: string }).shortMessage ?? error.message)
-      : String(error)
-  ).toLowerCase();
-  // 0xe450d38c is ERC20InsufficientBalance, which viem cannot name without the token's ABI.
-  if (text.includes('balance') || text.includes('0xe450d38c')) return 'insufficient_funds';
-  if (text.includes('expired') || text.includes('not yet valid')) return 'expired';
-  if (/\bused\b/.test(text)) return 'already_used';
-  if (text.includes('bad signature') || text.includes('invalid')) return 'invalid_signature';
-  return 'rejected';
 }
 
 export async function POST(request: Request) {
@@ -79,7 +36,7 @@ export async function POST(request: Request) {
   const router = getRouterAddress();
   if (!sponsor || !router) return json({ error: 'not_configured' }, 501);
 
-  const limit = rateLimit(request, 'relay', RELAY_LIMIT_PER_MINUTE);
+  const limit = await rateLimit(request, 'relay', RELAY_LIMIT_PER_MINUTE);
   if (!limit.ok) {
     return json({ error: 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429, {
       'Retry-After': String(limit.retryAfterSeconds),
@@ -108,7 +65,7 @@ export async function POST(request: Request) {
       args: [from, recipient, amount, validAfter, validBefore, salt, v, r, s],
     });
   } catch (error) {
-    return json({ error: revertCode(error) }, 422);
+    return json({ error: paymentRevertCode(error) }, 422);
   }
 
   try {

@@ -1,5 +1,5 @@
 import type { Contact } from '@entole/core/schemas';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST as telegram } from '@/app/api/telegram/webhook/route';
 import { getServerStore, resetServerStore } from '@/lib/server/store';
@@ -14,13 +14,21 @@ import { getServerStore, resetServerStore } from '@/lib/server/store';
 const ACCOUNT = 'acct-1';
 const MOM: Contact = { id: 'c-mom', name: 'Mom', initials: 'MO', tone: 1 };
 
-function post(body: unknown) {
+const SECRET = 'webhook-secret';
+
+function post(body: unknown, secret: string | null = SECRET) {
   return new Request('http://localhost/api/telegram/webhook', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    headers: {
+      'content-type': 'application/json',
+      ...(secret ? { 'x-telegram-bot-api-secret-token': secret } : {}),
+    },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
+
+/** Every reply the route sent to the chat, as plain text. */
+const sent = vi.fn();
 
 function message(text: string, chatId = 555) {
   return { message: { text, chat: { id: chatId } } };
@@ -32,12 +40,24 @@ async function body(response: Response) {
 
 beforeEach(() => {
   resetServerStore();
+  sent.mockReset();
   process.env.TELEGRAM_BOT_TOKEN = 'test-token';
+  process.env.TELEGRAM_WEBHOOK_SECRET = SECRET;
   delete process.env.QWEN_API_KEY;
+  // The route replies through Telegram's API; capture instead of calling it.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: { body?: string }) => {
+      sent(url, JSON.parse(init?.body ?? '{}'));
+      return new Response('{}');
+    }),
+  );
 });
 
 afterEach(() => {
   delete process.env.TELEGRAM_BOT_TOKEN;
+  delete process.env.TELEGRAM_WEBHOOK_SECRET;
+  vi.unstubAllGlobals();
 });
 
 describe('POST /api/telegram/webhook', () => {
@@ -46,6 +66,51 @@ describe('POST /api/telegram/webhook', () => {
     const response = await telegram(post(message('Pay 5000 to Mom')));
     expect(response.status).toBe(501);
     expect((await body(response)).ok).toBe(false);
+  });
+
+  it('answers 501 when no webhook secret is configured', async () => {
+    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    expect((await telegram(post(message('Pay 5000 to Mom')))).status).toBe(501);
+  });
+
+  it('refuses a request that does not carry the secret, and does nothing', async () => {
+    for (const secret of [null, 'wrong-secret']) {
+      const response = await telegram(post(message('/link CODE1'), secret));
+      expect(response.status).toBe(401);
+    }
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it('rejects a body that is not JSON or not an update', async () => {
+    expect((await telegram(post('not json'))).status).toBe(400);
+    expect((await telegram(post({ message: { text: 5 } }))).status).toBe(400);
+  });
+
+  it('replies in the chat, in plain words, for each outcome', async () => {
+    await telegram(post(message('Pay 5000 to Mom')));
+    expect(sent).toHaveBeenLastCalledWith(
+      'https://api.telegram.org/bottest-token/sendMessage',
+      expect.objectContaining({ chat_id: 555, text: expect.stringMatching(/link/i) }),
+    );
+
+    const store = getServerStore();
+    await store.createLinkCode(ACCOUNT, 'CODE1');
+    await telegram(post(message('/link CODE1')));
+    expect(sent).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ text: expect.stringMatching(/^Linked/) }));
+
+    await store.setContacts(ACCOUNT, [MOM]);
+    await store.setAssistantAllowance(ACCOUNT, 'a-1');
+    await telegram(post(message('Pay 5000 to Mom for rent')));
+    expect(sent).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.objectContaining({ text: expect.stringMatching(/10 seconds to stop it/) }),
+    );
+  });
+
+  it('still answers when Telegram itself is down', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
+    const response = await telegram(post(message('Pay 5000 to Mom')));
+    expect(response.status).toBe(200);
   });
 
   it('acknowledges an empty update without touching the store', async () => {

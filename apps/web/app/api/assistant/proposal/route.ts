@@ -6,7 +6,7 @@ import { contactSchema, invoiceSchema } from '@entole/core/schemas';
 
 import { json, preflight, readJson } from '@/lib/server/http';
 import { rateLimit } from '@/lib/server/sponsor';
-import { getServerStore } from '@/lib/server/store';
+import { tryGetServerStore } from '@/lib/server/store';
 
 /**
  * The assistant's proposal inbox — the account side of the Telegram intake
@@ -56,7 +56,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const limit = rateLimit(request, 'assistant-inbox', INBOX_LIMIT_PER_MINUTE);
+  const limit = await rateLimit(request, 'assistant-inbox', INBOX_LIMIT_PER_MINUTE);
   if (!limit.ok) {
     return json({ error: 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429, {
       'Retry-After': String(limit.retryAfterSeconds),
@@ -81,7 +81,8 @@ export async function POST(request: Request) {
   const valid = await verifyMessage({ address: account, message, signature }).catch(() => false);
   if (!valid) return json({ error: 'invalid_signature' }, 401);
 
-  const store = getServerStore();
+  const store = tryGetServerStore();
+  if (!store) return json({ error: 'not_configured' }, 501);
   const accountId = account.toLowerCase();
 
   if (action === 'clear') {
