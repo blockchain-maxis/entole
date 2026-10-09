@@ -24,7 +24,14 @@ own `createAllowance` call already said it could.
 ## Status
 
 - Core caveat logic (caps, allow-list, per-tx max, expiry, revocation,
-  period rollover, pause) — **written, tested, 18/18 passing**, `forge test`.
+  period rollover, pause) — **written, tested, 28 passing** (`forge test`).
+- **Not yet deployed: `executeFor` and the `createAllowance` hardening.** The
+  assistant's gasless run (`executeFor`, a delegate-signed EIP-712 `Execute`
+  submitted by a sponsor) and the id-ownership check (`IdTaken`) are in the
+  source and tested, but the contract below predates them. Redeploy with
+  `script/DeployPolicy.s.sol` (policy only; see `docs/ENV.md`) and update the
+  addresses in config. Until then the app falls back to the assistant paying its
+  own fee.
 - P256 passkey-signed revocation (`revokeWithPasskey`) — **proven live on
   Monad testnet**, 17 Sep 2026, using throwaway verification accounts (not
   the app's auth path, which doesn't exist yet — see "Proving the P256

@@ -48,12 +48,25 @@ contract EntolePolicy {
 
     mapping(bytes32 => Allowance) public allowances;
     mapping(bytes32 => mapping(address => bool)) public recipientAllowed;
+    /// @dev Kept only so a replace by the same owner can clear the old
+    /// allow-list; `recipientAllowed` stays the source of truth for checks.
+    mapping(bytes32 => address[]) private _recipientList;
     /// @notice Pause is per owner and blocks every allowance they hold in one
     /// call — the kill switch reachable from any screen.
     mapping(address => bool) public paused;
     /// @notice The passkey allowed to sign a revocation for an owner,
     /// registered once from the owner's own transaction during onboarding.
     mapping(address => PassKey) public passkeys;
+    /// @notice Per-delegate counter consumed by `executeFor`, so a signed run
+    /// can be submitted exactly once.
+    mapping(address => uint256) public nonces;
+
+    bytes32 public constant EXECUTE_TYPEHASH =
+        keccak256("Execute(bytes32 id,address recipient,uint256 amount,uint256 nonce,uint256 deadline)");
+    bytes32 private constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    /// @dev Upper bound for a canonical (low-s) secp256k1 signature.
+    uint256 private constant HALF_N = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
 
     event AllowanceCreated(bytes32 indexed id, address indexed owner, address indexed delegate);
     event AllowanceRevoked(bytes32 indexed id, address indexed owner);
@@ -72,6 +85,8 @@ contract EntolePolicy {
     error BadSignature();
     error InvalidPeriod();
     error TransferFailed();
+    error IdTaken();
+    error SignatureExpired();
 
     modifier onlyOwner(bytes32 id) {
         if (allowances[id].owner != msg.sender) revert NotOwner();
@@ -109,6 +124,20 @@ contract EntolePolicy {
     ) external {
         if (periodSeconds == 0) revert InvalidPeriod();
 
+        // An id belongs to whoever first creates it. Only that owner may
+        // replace it (editing an allowance reuses its id); nobody else can
+        // pre-claim or overwrite someone's id, and a replace never inherits
+        // the previous allow-list.
+        address existing = allowances[id].owner;
+        if (existing != address(0)) {
+            if (existing != msg.sender) revert IdTaken();
+            address[] storage old = _recipientList[id];
+            for (uint256 i = 0; i < old.length; i++) {
+                recipientAllowed[id][old[i]] = false;
+            }
+            delete _recipientList[id];
+        }
+
         allowances[id] = Allowance({
             owner: msg.sender,
             delegate: delegate,
@@ -124,6 +153,7 @@ contract EntolePolicy {
 
         for (uint256 i = 0; i < recipients.length; i++) {
             recipientAllowed[id][recipients[i]] = true;
+            _recipientList[id].push(recipients[i]);
         }
 
         emit AllowanceCreated(id, msg.sender, delegate);
@@ -171,9 +201,38 @@ contract EntolePolicy {
     /// the instant any caveat is violated — it does not degrade, warn, or
     /// consult anything.
     function execute(bytes32 id, address recipient, uint256 amount) external {
+        _execute(id, msg.sender, recipient, amount);
+    }
+
+    /// @notice Same as `execute`, but the delegate only signs and anyone — in
+    /// practice a fee sponsor — submits. The delegate's EIP-712 signature
+    /// commits to the allowance, recipient, amount, a one-time nonce and a
+    /// deadline, so the submitter can neither redirect nor replay a run. Every
+    /// caveat is still checked against the signer, exactly as in `execute`.
+    function executeFor(bytes32 id, address recipient, uint256 amount, uint256 deadline, bytes calldata signature)
+        external
+    {
+        if (block.timestamp > deadline) revert SignatureExpired();
+
+        address delegate = allowances[id].delegate;
+        bytes32 structHash = keccak256(abi.encode(EXECUTE_TYPEHASH, id, recipient, amount, nonces[delegate], deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash));
+        if (delegate == address(0) || _recover(digest, signature) != delegate) revert BadSignature();
+
+        nonces[delegate]++;
+        _execute(id, delegate, recipient, amount);
+    }
+
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
+        return keccak256(
+            abi.encode(DOMAIN_TYPEHASH, keccak256("EntolePolicy"), keccak256("1"), block.chainid, address(this))
+        );
+    }
+
+    function _execute(bytes32 id, address caller, address recipient, uint256 amount) internal {
         Allowance storage a = allowances[id];
 
-        if (a.delegate != msg.sender) revert NotDelegate();
+        if (a.delegate != caller) revert NotDelegate();
         if (a.revoked) revert AlreadyRevoked();
         if (paused[a.owner]) revert AccountPaused();
         if (block.timestamp > a.expiresAt) revert Expired();
@@ -188,6 +247,17 @@ contract EntolePolicy {
 
         bool ok = IERC20(a.token).transferFrom(a.owner, recipient, amount);
         if (!ok) revert TransferFailed();
+    }
+
+    /// @dev 65-byte r‖s‖v only, low-s only, so one authorisation has exactly
+    /// one valid encoding. Returns address(0) on anything malformed.
+    function _recover(bytes32 digest, bytes calldata sig) internal pure returns (address) {
+        if (sig.length != 65) return address(0);
+        bytes32 r = bytes32(sig[0:32]);
+        bytes32 s = bytes32(sig[32:64]);
+        uint8 v = uint8(sig[64]);
+        if (uint256(s) > HALF_N || (v != 27 && v != 28)) return address(0);
+        return ecrecover(digest, v, r, s);
     }
 
     function _rollPeriod(Allowance storage a) internal {

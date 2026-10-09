@@ -307,4 +307,174 @@ contract EntolePolicyTest is Test {
 
         assertEq(token.balanceOf(delegate), 0, "delegate must never receive the funds it moves");
     }
+
+    // ── createAllowance cannot be hijacked or leave stale recipients ───
+
+    function test_createAllowance_revertsWhenAnotherOwnerClaimsTheId() public {
+        _createDefaultAllowance();
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = stranger;
+        vm.prank(stranger);
+        vm.expectRevert(EntolePolicy.IdTaken.selector);
+        policy.createAllowance(
+            ID, stranger, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+        );
+
+        (address o, address d,,,,,,,,) = policy.allowances(ID);
+        assertEq(o, owner);
+        assertEq(d, delegate);
+    }
+
+    function test_createAllowance_ownerReplaceClearsOldRecipients() public {
+        _createDefaultAllowance();
+        assertTrue(policy.recipientAllowed(ID, recipient));
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = stranger;
+        vm.prank(owner);
+        policy.createAllowance(
+            ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+        );
+
+        assertFalse(policy.recipientAllowed(ID, recipient), "old recipient must not survive a replace");
+        assertTrue(policy.recipientAllowed(ID, stranger));
+    }
+
+    // ── executeFor: gasless, delegate-signed execution ─────────────────
+
+    uint256 delegateKey;
+    address signingDelegate;
+
+    function _createSignedDelegateAllowance() internal {
+        (signingDelegate, delegateKey) = makeAddrAndKey("signingDelegate");
+        address[] memory recipients = new address[](1);
+        recipients[0] = recipient;
+        vm.prank(owner);
+        policy.createAllowance(
+            ID, signingDelegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+        );
+    }
+
+    function _sign(uint256 key, bytes32 id, address to, uint256 amount, uint256 nonce, uint256 deadline)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 structHash = keccak256(abi.encode(policy.EXECUTE_TYPEHASH(), id, to, amount, nonce, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", policy.DOMAIN_SEPARATOR(), structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function test_executeFor_sponsorSubmitsDelegateSignature() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _sign(delegateKey, ID, recipient, 10_000e6, 0, deadline);
+
+        vm.prank(stranger); // the sponsor: holds the gas, not the authority
+        policy.executeFor(ID, recipient, 10_000e6, deadline, sig);
+
+        assertEq(token.balanceOf(recipient), 10_000e6);
+        assertEq(token.balanceOf(owner), 990_000e6);
+        assertEq(token.balanceOf(signingDelegate), 0);
+        assertEq(policy.nonces(signingDelegate), 1);
+    }
+
+    function test_executeFor_revertsOnReplay() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _sign(delegateKey, ID, recipient, 10_000e6, 0, deadline);
+
+        policy.executeFor(ID, recipient, 10_000e6, deadline, sig);
+        vm.expectRevert(EntolePolicy.BadSignature.selector);
+        policy.executeFor(ID, recipient, 10_000e6, deadline, sig);
+    }
+
+    function test_executeFor_revertsAfterDeadline() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _sign(delegateKey, ID, recipient, 10_000e6, 0, deadline);
+
+        vm.warp(deadline + 1);
+        vm.expectRevert(EntolePolicy.SignatureExpired.selector);
+        policy.executeFor(ID, recipient, 10_000e6, deadline, sig);
+    }
+
+    function test_executeFor_revertsWhenSignedByWrongKey() public {
+        _createSignedDelegateAllowance();
+        (, uint256 otherKey) = makeAddrAndKey("other");
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _sign(otherKey, ID, recipient, 10_000e6, 0, deadline);
+
+        vm.expectRevert(EntolePolicy.BadSignature.selector);
+        policy.executeFor(ID, recipient, 10_000e6, deadline, sig);
+    }
+
+    function test_executeFor_sponsorCannotSwapRecipientOrAmount() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _sign(delegateKey, ID, recipient, 10_000e6, 0, deadline);
+
+        vm.expectRevert(EntolePolicy.BadSignature.selector);
+        policy.executeFor(ID, stranger, 10_000e6, deadline, sig);
+        vm.expectRevert(EntolePolicy.BadSignature.selector);
+        policy.executeFor(ID, recipient, 20_000e6, deadline, sig);
+    }
+
+    function test_executeFor_stillEnforcesEveryCaveat() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+
+        // over the per-run max
+        bytes memory big = _sign(delegateKey, ID, recipient, PER_RUN + 1, 0, deadline);
+        vm.expectRevert(EntolePolicy.OverPerRunMax.selector);
+        policy.executeFor(ID, recipient, PER_RUN + 1, deadline, big);
+
+        // paused
+        vm.prank(owner);
+        policy.setPaused(true);
+        bytes memory ok = _sign(delegateKey, ID, recipient, 1_000e6, 0, deadline);
+        vm.expectRevert(EntolePolicy.AccountPaused.selector);
+        policy.executeFor(ID, recipient, 1_000e6, deadline, ok);
+
+        // revoked
+        vm.startPrank(owner);
+        policy.setPaused(false);
+        policy.revoke(ID);
+        vm.stopPrank();
+        vm.expectRevert(EntolePolicy.AlreadyRevoked.selector);
+        policy.executeFor(ID, recipient, 1_000e6, deadline, ok);
+    }
+
+    function test_executeFor_revertsOverPeriodCapAcrossSignedRuns() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+
+        policy.executeFor(ID, recipient, PER_RUN, deadline, _sign(delegateKey, ID, recipient, PER_RUN, 0, deadline));
+        policy.executeFor(ID, recipient, PER_RUN, deadline, _sign(delegateKey, ID, recipient, PER_RUN, 1, deadline));
+        bytes memory third = _sign(delegateKey, ID, recipient, 1, 2, deadline);
+        vm.expectRevert(EntolePolicy.OverPeriodCap.selector);
+        policy.executeFor(ID, recipient, 1, deadline, third);
+    }
+
+    function test_executeFor_revertsOnMalleatedSignature() public {
+        _createSignedDelegateAllowance();
+        uint256 deadline = block.timestamp + 5 minutes;
+        bytes memory sig = _sign(delegateKey, ID, recipient, 10_000e6, 0, deadline);
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(sig, 0x20))
+            s := mload(add(sig, 0x40))
+            v := byte(0, mload(add(sig, 0x60)))
+        }
+        uint256 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        bytes memory flipped = abi.encodePacked(r, bytes32(n - uint256(s)), uint8(v == 27 ? 28 : 27));
+
+        vm.expectRevert(EntolePolicy.BadSignature.selector);
+        policy.executeFor(ID, recipient, 10_000e6, deadline, flipped);
+    }
 }
