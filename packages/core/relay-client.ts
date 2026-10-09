@@ -54,6 +54,8 @@ const MESSAGES: Record<string, string> = {
   rate_limited: 'Too many tries. Wait a moment and try again.',
   cooldown: 'Adding money is busy right now. Try again in a minute.',
   already_funded: 'You already have plenty of test money.',
+  amount_too_small: "That's less than the smallest amount you can add. Try a bit more.",
+  partner_unavailable: "Bank transfer isn't available right now. Try again shortly.",
 };
 
 export class RelayError extends Error {
@@ -75,6 +77,16 @@ const billPaidSchema = z.object({
 });
 const gasSchema = z.object({ funded: z.boolean(), hash: z.string().optional() });
 const fundedSchema = hashSchema.extend({ amountMinor: z.string().regex(/^\d+$/).optional() });
+const bankTransferSchema = z.object({
+  url: z.string().refine((value) => URL.canParse(value) && new URL(value).protocol === 'https:'),
+  payMinor: z.number().int().positive(),
+  arrivesMinor: z.number().int().nonnegative(),
+  feeMinor: z.number().int().nonnegative(),
+});
+
+/** A priced bank transfer: what it costs, about what arrives, and the link to
+ * the payment partner's page. The link is for opening, never for showing. */
+export type BankTransferOffer = z.infer<typeof bankTransferSchema>;
 
 export type RelayClient = ReturnType<typeof createRelayClient>;
 
@@ -183,6 +195,11 @@ export function createRelayClient(options: { baseUrl: string; fetch?: typeof fet
     async requestFunds(address: Address): Promise<{ hash: Hex; amountMinor?: string }> {
       const funded = await post('/api/faucet', { address }, fundedSchema);
       return { hash: funded.hash as Hex, ...(funded.amountMinor ? { amountMinor: funded.amountMinor } : {}) };
+    },
+    /** Prices adding `amountMinor` kobo by bank transfer. Nothing moves: the
+     * person pays on the partner's page, and the balance changes on arrival. */
+    async startBankTransfer(address: Address, amountMinor: number): Promise<BankTransferOffer> {
+      return post('/api/onramp/start', { address, amountMinor }, bankTransferSchema);
     },
   };
 }
