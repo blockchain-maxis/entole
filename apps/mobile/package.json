@@ -10,7 +10,8 @@
     "ios": "expo start --ios",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typegen": "node scripts/typegen.mjs",
+    "typecheck": "node scripts/typegen.mjs && tsc --noEmit",
     "lint": "eslint ."
   },
   "dependencies": {
