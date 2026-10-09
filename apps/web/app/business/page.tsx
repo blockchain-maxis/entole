@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { formatRate } from '@entole/core/fx';
 import { resetLabel } from '@entole/core/format';
+import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
@@ -37,6 +38,17 @@ export default function BusinessPage() {
 
   const spendingSeats = store.seats.filter((seat) => seat.limitMinor > 0);
   const otherSeats = store.seats.filter((seat) => seat.limitMinor === 0);
+
+  /** The invoices as a spreadsheet, with the rate at the day each was paid. */
+  function exportInvoices() {
+    const blob = new Blob([invoicesToCsv(store.invoices, { bom: true })], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = invoiceCsvFilename();
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function checkRelease(invoiceId: string) {
     setCheckingId(invoiceId);
@@ -146,6 +158,15 @@ export default function BusinessPage() {
                 ))
               )}
             </div>
+            {store.invoices.length > 0 ? (
+              <button
+                type="button"
+                onClick={exportInvoices}
+                className="mt-3 flex h-12 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-label text-ink transition-colors hover:border-mist"
+              >
+                Download for your accountant
+              </button>
+            ) : null}
 
             <div className="flex items-baseline justify-between pb-3 pt-[30px]">
               <p className="font-strong text-body-lg text-ink">Seats</p>

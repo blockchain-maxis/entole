@@ -1,8 +1,9 @@
 import { useRouter, type Href } from 'expo-router';
 import { ChevronRight, FileText, Truck, UserPlus, Users, type LucideIcon } from 'lucide-react-native';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, Share, View } from 'react-native';
 
 import { dueDateLabel, INVOICE_STATUS_LABEL, invoiceDisplayStatus } from '@entole/core/invoices';
+import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
 import { formatNaira, kobo } from '@entole/core/money';
 import type { Invoice } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
@@ -199,6 +200,19 @@ export default function Business() {
               />
             ))
           )}
+          {store.invoices.length > 0 ? (
+            <View className="flex-row pt-1">
+              <Button
+                label="Share for your accountant"
+                variant="secondary"
+                width="hug"
+                onPress={() => {
+                  // The sheet offers mail, messages, notes and files; nothing to install.
+                  void Share.share({ title: invoiceCsvFilename(), message: invoicesToCsv(store.invoices) });
+                }}
+              />
+            </View>
+          ) : null}
         </View>
 
         <SectionHeading
