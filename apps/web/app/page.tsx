@@ -77,7 +77,7 @@ export default function Home() {
 
         <div className="mt-5 flex gap-2.5">
           <ButtonLink href="/transfer" label="Send" />
-          <ButtonLink href="/receive" label="Deposit" variant="secondary" />
+          <ButtonLink href="/add-money" label="Add money" variant="secondary" />
           <ButtonLink href="/business" label="Business" variant="secondary" />
         </div>
 
