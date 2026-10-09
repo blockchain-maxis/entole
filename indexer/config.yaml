@@ -11,6 +11,10 @@
 #
 # EntolePolicy deployed 17 Sep 2026 — address and start_block below are
 # real, from contracts/broadcast/Deploy.s.sol/10143/run-latest.json.
+#
+# AFTER REDEPLOYING EntolePolicy (the version with executeFor): put the new
+# address and its deployment block here, then run `pnpm --filter @entole/indexer
+# codegen`. The events are unchanged, so nothing else in this file moves.
 name: entole-indexer
 
 contracts:

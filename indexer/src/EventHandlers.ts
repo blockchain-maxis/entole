@@ -48,3 +48,13 @@ EntolePolicy.Paused.handler(async ({ event, context }) => {
     timestamp: BigInt(event.block.timestamp),
   });
 });
+
+EntolePolicy.PasskeyRegistered.handler(async ({ event, context }) => {
+  context.PasskeyRegistration.set({
+    id: `${event.transaction.hash}-${event.logIndex}`,
+    owner: event.params.owner,
+    x: event.params.x,
+    y: event.params.y,
+    timestamp: BigInt(event.block.timestamp),
+  });
+});
