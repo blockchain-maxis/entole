@@ -9,6 +9,8 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useThemeColors } from '@/lib/theme';
 import { billCategory } from '@entole/core/pay-hub';
+import { useStore } from '@entole/core/store';
+import { plainMessage } from '@/lib/send';
 
 /** Whose bill it is — a meter, a line, a decoder. Not money, so the system keyboard is right here. */
 export default function BillReference() {
@@ -18,6 +20,9 @@ export default function BillReference() {
   const info = billCategory(params.category);
   const [reference, setReference] = useState('');
   const trimmed = reference.trim();
+  const store = useStore();
+  const [checking, setChecking] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
   if (!info) {
     return (
@@ -30,9 +35,22 @@ export default function BillReference() {
     );
   }
 
-  function next() {
-    if (!info || !trimmed) return;
-    router.push({ pathname: '/bill/pay', params: { category: info.id, reference: trimmed } });
+  // The biller says whose account this is before any money moves.
+  async function next() {
+    if (!info || !trimmed || checking) return;
+    setProblem(null);
+    setChecking(true);
+    try {
+      const found = await store.validateBill({ category: info.id, customerIdentifier: trimmed });
+      router.push({
+        pathname: '/bill/pay',
+        params: { category: info.id, reference: trimmed, name: found.customerName },
+      });
+    } catch (error) {
+      setProblem(plainMessage(error, "We couldn't check that account. Try again."));
+    } finally {
+      setChecking(false);
+    }
   }
 
   return (
@@ -55,16 +73,17 @@ export default function BillReference() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
-            onSubmitEditing={next}
+            onSubmitEditing={() => void next()}
             className="font-strong text-body-lg text-ink"
             style={{ padding: 0 }}
           />
         </View>
+        {problem ? <Text className="mt-4 font-body text-label-sm text-halt">{problem}</Text> : null}
       </View>
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">
-          <Button label="Continue" disabled={!trimmed} onPress={next} />
+          <Button label={checking ? 'Checking' : 'Continue'} busy={checking} disabled={!trimmed} onPress={() => void next()} />
         </View>
       </View>
     </Screen>

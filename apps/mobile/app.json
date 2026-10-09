@@ -66,9 +66,7 @@
         "rpcUrl": "https://testnet-rpc.monad.xyz",
         "chainId": 10143,
         "indexerUrl": "",
-        "billPaymentApiBase": "",
-        "billPaymentProxyToken": "",
-        "billItemCodes": {}
+        "billsAddress": ""
       },
       "router": {},
       "eas": {
