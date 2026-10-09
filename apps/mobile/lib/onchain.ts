@@ -9,6 +9,7 @@ import { createRateProvider } from '@entole/core/fx';
 import { pendingBackend, type Backend } from '@entole/core/backend';
 import type { PaymentsGateway } from '@entole/core/gateway';
 import { createOnChainGateway } from '@entole/core/onchain-gateway';
+import { ONRAMP_CHAIN_ID } from '@entole/core/onramp';
 import type { EntoleKeyAccount } from '@entole/core/passkey';
 import { encodePaymentCode } from '@entole/core/payment-code';
 import { createRecords } from '@entole/core/records';
@@ -47,6 +48,9 @@ const BILLS_ADDRESS = extra.billsAddress ? (extra.billsAddress as Address) : und
 const GROWTH_VAULT_ADDRESS = extra.growthVaultAddress ? (extra.growthVaultAddress as Address) : undefined;
 const RPC_URL = extra.rpcUrl ?? 'https://testnet-rpc.monad.xyz';
 const CHAIN_ID = extra.chainId ?? 10143;
+/** On the main network money is real and added by bank transfer; anywhere else
+ * there is only test money, and the screen says so. */
+export const REAL_MONEY = CHAIN_ID === ONRAMP_CHAIN_ID;
 /** Empty until `indexer/` is actually running — see indexer/README.md. */
 const INDEXER_URL = extra.indexerUrl || undefined;
 /** `MockERC20` ("eUSD") decimals — see contracts/README.md. Update when

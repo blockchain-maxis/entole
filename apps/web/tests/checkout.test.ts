@@ -199,10 +199,28 @@ describe('links and copy', () => {
 });
 
 describe('public routes', () => {
-  it('exempts checkout pages and nothing else', () => {
+  it('exempts checkout pages, the page a bank transfer returns to, and nothing else', () => {
     expect(isPublicPath(`/pay/${CODE}`)).toBe(true);
     expect(isPublicPath(`/pay/${CODE}/`)).toBe(true);
-    for (const gated of ['/', '/pay', '/pay/', '/transfer', '/transfer/send', '/receive', '/payroll', '/me', '', null, undefined]) {
+    expect(isPublicPath('/add-money/return')).toBe(true);
+    expect(isPublicPath('/add-money/return/')).toBe(true);
+    for (const gated of [
+      '/',
+      '/pay',
+      '/pay/',
+      '/transfer',
+      '/transfer/send',
+      '/receive',
+      '/payroll',
+      '/me',
+      '/add-money',
+      '/add-money/',
+      '/add-money/return/more',
+      '/add-money/returned',
+      '',
+      null,
+      undefined,
+    ]) {
       expect(isPublicPath(gated)).toBe(false);
     }
   });

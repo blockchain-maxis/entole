@@ -92,10 +92,19 @@ describe('the pause control is reachable from every page header', () => {
   // The public checkout page (`/pay/[code]`) is for people who may not have an
   // account, so it renders `CheckoutHeader`, which draws the same pause control
   // whenever someone is signed in (asserted in "the public checkout page" below).
-  const isCheckout = (file: string) => relative(PAGES, file).startsWith(join('pay', ''));
+  // The page a bank transfer returns to (`/add-money/return`) is public for the
+  // same reason and carries the same header.
+  const PUBLIC_PAGES = [join('pay', ''), join('add-money', 'return', '')];
+  const isCheckout = (file: string) => PUBLIC_PAGES.some((prefix) => relative(PAGES, file).startsWith(prefix));
 
   it.each(pages.filter((file) => !isCheckout(file)))('%s renders the shared header', (file) => {
     expect(read(file)).toMatch(/<Header/);
+  });
+
+  it('the page a bank transfer returns to carries the checkout header, and no account detail', () => {
+    const page = stripComments(read(join(PAGES, 'add-money/return/page.tsx')));
+    expect(page).toMatch(/<CheckoutHeader\s*\/>/);
+    expect(page).not.toMatch(/useStore|useAccount|balance/i);
   });
 
   it('the shared header always carries the control', () => {

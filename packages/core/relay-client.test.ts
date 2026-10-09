@@ -70,6 +70,29 @@ describe('relay client', () => {
     const client = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(200, { hash: HASH, amountMinor: '10000000000' }) });
     expect(await client.requestFunds(payment.from)).toEqual({ hash: HASH, amountMinor: '10000000000' });
   });
+
+  it('prices a bank transfer and hands back the partner link with the cost', async () => {
+    const offer = { url: 'https://partner.test/buy?x=1', payMinor: 2_000_000, arrivesMinor: 1_825_746, feeMinor: 174_254 };
+    const fetchImpl = reply(200, offer);
+    const client = createRelayClient({ baseUrl: 'https://x.test', fetch: fetchImpl });
+    expect(await client.startBankTransfer(payment.from, 2_000_000)).toEqual(offer);
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(url).toBe('https://x.test/api/onramp/start');
+    expect(JSON.parse((init as { body: string }).body)).toEqual({ address: payment.from, amountMinor: 2_000_000 });
+  });
+
+  it('refuses a bank-transfer answer whose link is not https', async () => {
+    const insecure = { url: 'http://partner.test/buy', payMinor: 1, arrivesMinor: 1, feeMinor: 0 };
+    const client = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(200, insecure) });
+    await expect(client.startBankTransfer(payment.from, 100)).rejects.toBeInstanceOf(RelayError);
+  });
+
+  it('says in plain words when an amount is too small or the partner is down', async () => {
+    const small = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(422, { error: 'amount_too_small' }) });
+    await expect(small.startBankTransfer(payment.from, 100)).rejects.toThrow(/smallest amount you can add/);
+    const down = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(502, { error: 'partner_unavailable' }) });
+    await expect(down.startBankTransfer(payment.from, 2_000_000)).rejects.toThrow(/Bank transfer isn't available/);
+  });
 });
 
 describe('ensureGas', () => {

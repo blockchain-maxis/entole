@@ -47,6 +47,24 @@ product: where it touches a screen, the screen says so plainly.
   on another chain, which the hard rules forbid rendering. `/api/aurora/deposit`
   returns it as `qrPayload` for a QR or a copy button; no screen uses it yet.
   Whether a QR-only screen counts as rendering an address is a product call.
+- **Adding real money is built but not proven with real money.** Naira goes in
+  by bank transfer through Onramp.money, which pays out USDC to a holding
+  address; Relay converts that into the account's own money
+  (`packages/core/onramp.ts`). Both partners' prices were checked live on 9
+  October 2026. No naira payment has gone all the way through, and neither
+  partner reaches the test network, so it only runs on the main network.
+  - The partner's page is theirs: it names the asset it sells and asks for a
+    phone number and ID the first time. Our own screens show none of that. A
+    screen of our own with only bank details needs our own Onramp.money app id.
+  - Whether their public app id accepts the holding address we pass in is
+    untested. If it does not, the person would have to paste it, which we will
+    not ask of them.
+  - The estimate uses the partner's public price and a 0.25% platform fee that
+    is their usual figure, not a quoted one. It is set to come in slightly low.
+  - A conversion that fails is returned to `ONRAMP_REFUND_ADDRESS` and has to be
+    passed back to the person by hand.
+  - On the phone the partner's page opens in the browser, and afterwards the
+    person switches back to the app themselves.
 - **Savings ("Grow") has no yield source.** `GrowthVault` is deployed and
   tested, but accrual is display-only. The screens show no projected earnings
   until a real source exists.
