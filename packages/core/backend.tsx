@@ -43,7 +43,14 @@ export const pendingBackend: Backend = {
     saveBeneficiary: notSignedIn,
     removeBeneficiary: notSignedIn,
   },
-  relay: { submitPayment: notSignedIn, requestGas: notSignedIn, requestFunds: notSignedIn },
+  relay: {
+    submitPayment: notSignedIn,
+    submitExecute: notSignedIn,
+    validateBill: notSignedIn,
+    submitBill: notSignedIn,
+    requestGas: notSignedIn,
+    requestFunds: notSignedIn,
+  },
   directory: {
     resolveByAddress: async () => null,
     resolveByPhone: async () => null,

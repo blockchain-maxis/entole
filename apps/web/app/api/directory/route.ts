@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!directoryConfigured()) return json({ error: 'not_configured' }, 501);
 
-  const limit = rateLimit(request, 'directory', DIRECTORY_LIMIT_PER_MINUTE);
+  const limit = await rateLimit(request, 'directory', DIRECTORY_LIMIT_PER_MINUTE);
   if (!limit.ok) {
     return json({ error: 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429, {
       'Retry-After': String(limit.retryAfterSeconds),

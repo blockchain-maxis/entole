@@ -1,7 +1,14 @@
 import type { Contact, Invoice, Proposal } from '@entole/core/schemas';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createRedisStore, type RedisLike } from '@/lib/server/store';
+import {
+  LINK_CODE_TTL_SECONDS,
+  createRedisStore,
+  getServerStore,
+  resetServerStore,
+  tryGetServerStore,
+  type RedisLike,
+} from '@/lib/server/store';
 
 /**
  * The durable Upstash-backed adapter, driven by a fake Redis so no network or
@@ -13,12 +20,15 @@ import { createRedisStore, type RedisLike } from '@/lib/server/store';
 /** A minimal in-process stand-in for the Upstash client, covering only the
  * calls the adapter makes. Values are held as-is; the real client round-trips
  * them through JSON, which these plain objects survive unchanged. */
+const sets: { key: string; ex: number | undefined }[] = [];
+
 function fakeRedis(): RedisLike {
   const map = new Map<string, unknown>();
   return {
     get: (async (k: string) => (map.has(k) ? map.get(k) : null)) as RedisLike['get'],
-    set: (async (k: string, v: unknown) => {
+    set: (async (k: string, v: unknown, options?: { ex?: number }) => {
       map.set(k, v);
+      sets.push({ key: k, ex: options?.ex });
       return 'OK';
     }) as unknown as RedisLike['set'],
     del: (async (...keys: string[]) => {
@@ -112,5 +122,38 @@ describe('createRedisStore', () => {
   it('does not find an invoice that was never stored', async () => {
     const store = createRedisStore(fakeRedis());
     expect(await store.findPendingReleaseInvoice('inv-nope')).toBeNull();
+  });
+});
+
+describe('link codes expire', () => {
+  it('writes the code with a time to live so an unused one does not live forever', async () => {
+    sets.length = 0;
+    const store = createRedisStore(fakeRedis());
+    await store.createLinkCode(ACCOUNT, 'CODE1');
+    expect(sets).toEqual([{ key: 'store:linkcode:CODE1', ex: LINK_CODE_TTL_SECONDS }]);
+    expect(LINK_CODE_TTL_SECONDS).toBe(900);
+  });
+});
+
+describe('the process-wide store in production', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetServerStore();
+  });
+
+  it('is unavailable, not silently in-memory, when Redis is not configured', () => {
+    resetServerStore();
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '');
+    expect(tryGetServerStore()).toBeNull();
+    expect(() => getServerStore()).toThrow(/not configured/);
+  });
+
+  it('is available in dev and tests without Redis', () => {
+    resetServerStore();
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '');
+    expect(tryGetServerStore()).not.toBeNull();
   });
 });

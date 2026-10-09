@@ -8,10 +8,12 @@ import {
   allowanceSchema,
   avatarToneSchema,
   invoiceSchema,
+  seatSchema,
   type Activity,
   type Allowance,
   type Contact,
   type Invoice,
+  type Seat,
 } from './schemas';
 
 /**
@@ -164,6 +166,19 @@ export function createRecords(store: RecordStore, owner: Address) {
       async remove(id: string) {
         const current = await readList(chunked, key('allowances'), allowanceSchema);
         await write('allowances', current.filter((item) => item.id !== id));
+      },
+    },
+    seats: {
+      list: () => readList(chunked, key('seats'), seatSchema),
+      async upsert(input: Seat) {
+        const entry = seatSchema.parse(input); // never store what would not read back
+        const current = await readList(chunked, key('seats'), seatSchema);
+        const exists = current.some((item) => item.id === entry.id);
+        await write('seats', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [...current, entry]);
+      },
+      async remove(id: string) {
+        const current = await readList(chunked, key('seats'), seatSchema);
+        await write('seats', current.filter((item) => item.id !== id));
       },
     },
     staff: {

@@ -11,9 +11,10 @@ import { PauseButton } from '@/components/ui/PauseButton';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { UnavailableNote } from '@/components/ui/UnavailableNote';
-import { billsSetup } from '@/lib/bills';
+import { billsAvailable } from '@/lib/bills';
+import { plainMessage } from '@/lib/send';
 import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
-import { payBill, type PayBillResponse } from '@entole/core/bill-payment';
+import type { BillReceipt } from '@entole/core/gateway';
 import { formatNaira, kobo } from '@entole/core/money';
 import { billCategory } from '@entole/core/pay-hub';
 import { useStore } from '@entole/core/store';
@@ -21,47 +22,35 @@ import { useStore } from '@entole/core/store';
 export default function PayBillAmount() {
   const router = useRouter();
   const store = useStore();
-  const params = useLocalSearchParams<{ category?: string; reference?: string }>();
+  const params = useLocalSearchParams<{ category?: string; reference?: string; name?: string }>();
   const info = billCategory(params.category);
-  const setup = billsSetup();
+  const available = billsAvailable();
 
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [paying, setPaying] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<PayBillResponse | null>(null);
+  const [outcome, setOutcome] = useState<BillReceipt | null>(null);
 
   const amount = useMemo(() => entryToMinor(entry), [entry]);
   const enough = amount > 0 && amount <= store.balance;
 
   async function submit() {
-    if (!info || !setup || !enough || paying) return;
-    const itemCode = setup.itemCodes[info.id];
-    if (!itemCode) {
-      setProblem("This biller isn't set up yet.");
-      return;
-    }
+    if (!info || !available || !enough || paying) return;
     setProblem(null);
     setPaying(true);
     try {
-      // Resolves only once the aggregator answers — nothing shows as paid before then.
-      const result = await payBill(
-        {
-          category: info.id,
-          customerIdentifier: params.reference ?? '',
-          itemCode,
-          amountMinor: amount,
-          reference: `bill-${Date.now()}`,
-        },
-        setup.config,
-      );
-      if (result.status === 'failed') {
-        setProblem('That payment did not go through. Nothing left your balance.');
-      } else {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setOutcome(result);
-      }
-    } catch {
-      setProblem('That payment did not go through. Nothing left your balance.');
+      // One payment from your balance, then the biller is paid. This resolves
+      // only once both have happened: nothing shows as paid before then.
+      const result = await store.payBill({
+        category: info.id,
+        customerIdentifier: params.reference ?? '',
+        amountMinor: amount,
+      });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setOutcome(result);
+    } catch (error) {
+      setProblem(plainMessage(error, 'That payment did not go through. Nothing left your balance.'));
+      void store.refresh().catch(() => undefined);
     } finally {
       setPaying(false);
     }
@@ -97,7 +86,7 @@ export default function PayBillAmount() {
       <Header title={info ? info.label : 'Pay a bill'} trailing={<PauseButton />} />
 
       <View className="flex-1 items-center px-gutter-lg pt-3">
-        {setup ? null : (
+        {available ? null : (
           <View className="mb-5 w-full">
             <UnavailableNote
               title="Bill payments aren't available yet"
@@ -106,6 +95,9 @@ export default function PayBillAmount() {
           </View>
         )}
 
+        {params.name ? (
+          <Text className="mb-3 text-center font-strong text-body-sm text-ink">For {params.name}</Text>
+        ) : null}
         <Text className="font-body text-label-sm text-slate">How much?</Text>
         <View className="mt-4">
           <Amount value={amount} size="large" caret />
@@ -126,7 +118,7 @@ export default function PayBillAmount() {
           <Button
             label={paying ? 'Paying' : amount > 0 ? `Pay ${formatNaira(amount)}` : 'Pay'}
             busy={paying}
-            disabled={!setup || !enough}
+            disabled={!available || !enough}
             onPress={() => void submit()}
           />
         </View>

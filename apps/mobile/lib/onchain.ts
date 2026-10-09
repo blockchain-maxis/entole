@@ -21,6 +21,8 @@ type ExtraConfig = {
   contractAddress?: string;
   tokenAddress?: string;
   routerAddress?: string;
+  /** Where bill payments are made to, once bill payment is set up. */
+  billsAddress?: string;
   /** Origin of the sponsor server (`/api/relay`, `/api/faucet`). */
   apiBase?: string;
   growthVaultAddress?: string;
@@ -31,7 +33,7 @@ type ExtraConfig = {
 
 const extra = (Constants.expoConfig?.extra?.entole ?? {}) as ExtraConfig;
 
-const CONTRACT_ADDRESS = (extra.contractAddress ?? '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7') as Address;
+const CONTRACT_ADDRESS = (extra.contractAddress ?? '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e') as Address;
 const TOKEN_ADDRESS = (extra.tokenAddress ?? '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC') as Address;
 /** Left unset (empty string in app.json) until `GrowthVault` is deployed —
  * see contracts/README.md's Status section. `undefined` here is what makes
@@ -41,6 +43,7 @@ const API_BASE = extra.apiBase ?? 'https://entole.vercel.app';
 /** Where a checkout link points: the same origin as the sponsor server, whose
  * `/pay/<code>` page is what opens for a payer who does not have the app. */
 export const CHECKOUT_BASE = API_BASE;
+const BILLS_ADDRESS = extra.billsAddress ? (extra.billsAddress as Address) : undefined;
 const GROWTH_VAULT_ADDRESS = extra.growthVaultAddress ? (extra.growthVaultAddress as Address) : undefined;
 const RPC_URL = extra.rpcUrl ?? 'https://testnet-rpc.monad.xyz';
 const CHAIN_ID = extra.chainId ?? 10143;
@@ -81,6 +84,8 @@ const pendingGateway: PaymentsGateway = {
   settleInvoice: () => Promise.reject(new Error('Not signed in yet')),
   requestConditionalRelease: () => Promise.reject(new Error('Not signed in yet')),
   createProcurementRequest: () => Promise.reject(new Error('Not signed in yet')),
+  validateBill: () => Promise.reject(new Error('Not signed in yet')),
+  payBill: () => Promise.reject(new Error('Not signed in yet')),
   depositGrow: () => Promise.reject(new Error('Not signed in yet')),
   withdrawGrow: () => Promise.reject(new Error('Not signed in yet')),
   stocksAvailable: false,
@@ -164,11 +169,17 @@ export function useOnChainBackend(
       tokenDecimals: TOKEN_DECIMALS,
       getRate,
       ...(ROUTER_ADDRESS ? { routerAddress: ROUTER_ADDRESS, relay } : {}),
+      ...(BILLS_ADDRESS ? { billsRecipient: BILLS_ADDRESS } : {}),
       records,
       ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
       resolveRecipient: source.resolveRecipient,
       loadOffChainSnapshot: source.loadSnapshot,
       clearProposal: () => inbox.clear(),
+      onAllowanceChanged: async (allowanceId) => {
+        if (!allowanceId) return;
+        const { contacts } = await source.loadSnapshot();
+        await inbox.sync(contacts, allowanceId);
+      },
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
     });
     const directory = createDirectoryClient({

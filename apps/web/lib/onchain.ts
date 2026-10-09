@@ -17,7 +17,7 @@ import type { SignedInAccount } from './account';
 import { deviceRecordStore } from './records-store';
 
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS ??
-  '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7') as Address;
+  '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e') as Address;
 const TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS ??
   '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC') as Address;
 /** Left unset until `GrowthVault` is deployed — see contracts/README.md's
@@ -25,6 +25,9 @@ const TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS ??
  * fail loudly instead of pretending to settle. */
 const ROUTER_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_ROUTER_ADDRESS
   ? (process.env.NEXT_PUBLIC_ENTOLE_ROUTER_ADDRESS as Address)
+  : undefined;
+const BILLS_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS
+  ? (process.env.NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS as Address)
   : undefined;
 const GROWTH_VAULT_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS
   ? (process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS as Address)
@@ -69,6 +72,8 @@ const pendingGateway: PaymentsGateway = {
   settleInvoice: () => Promise.reject(new Error('Not signed in yet')),
   requestConditionalRelease: () => Promise.reject(new Error('Not signed in yet')),
   createProcurementRequest: () => Promise.reject(new Error('Not signed in yet')),
+  validateBill: () => Promise.reject(new Error('Not signed in yet')),
+  payBill: () => Promise.reject(new Error('Not signed in yet')),
   depositGrow: () => Promise.reject(new Error('Not signed in yet')),
   withdrawGrow: () => Promise.reject(new Error('Not signed in yet')),
   stocksAvailable: false,
@@ -144,11 +149,17 @@ export function useOnChainBackend(
       tokenDecimals: TOKEN_DECIMALS,
       getRate,
       ...(ROUTER_ADDRESS ? { routerAddress: ROUTER_ADDRESS, relay } : {}),
+      ...(BILLS_ADDRESS ? { billsRecipient: BILLS_ADDRESS } : {}),
       records,
       ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
       resolveRecipient: source.resolveRecipient,
       loadOffChainSnapshot: source.loadSnapshot,
       clearProposal: () => inbox.clear(),
+      onAllowanceChanged: async (allowanceId) => {
+        if (!allowanceId) return;
+        const { contacts } = await source.loadSnapshot();
+        await inbox.sync(contacts, allowanceId);
+      },
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
     });
     const directory = createDirectoryClient({

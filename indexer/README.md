@@ -7,7 +7,7 @@ feed and allowance history instead of the app polling `eth_getLogs` itself.
 ## Status
 
 `EntolePolicy` is deployed to Monad testnet at
-`0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`, block 63375345 — see
+`0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e`, block 69645503 — see
 `contracts/README.md`. `config.yaml` has the real address and start block.
 
 Config, schema and handlers are still written against Envio's documented

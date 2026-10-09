@@ -1,4 +1,6 @@
-import { Redis } from '@upstash/redis';
+import type { Redis } from '@upstash/redis';
+
+import { getRedis, requiresRedis } from './redis';
 
 import type { Contact, Invoice, Proposal } from '@entole/core/schemas';
 
@@ -138,6 +140,9 @@ export function createInMemoryStore(): ServerStore {
  */
 export type RedisLike = Pick<Redis, 'get' | 'set' | 'del' | 'getdel'>;
 
+/** How long a link code can sit unused before it is gone. */
+export const LINK_CODE_TTL_SECONDS = 15 * 60;
+
 const key = {
   linkCode: (code: string) => `store:linkcode:${code}`,
   chat: (chatId: number) => `store:chat:${chatId}`,
@@ -159,7 +164,7 @@ const key = {
 export function createRedisStore(redis: RedisLike): ServerStore {
   return {
     async createLinkCode(accountId, code) {
-      await redis.set(key.linkCode(code), accountId);
+      await redis.set(key.linkCode(code), accountId, { ex: LINK_CODE_TTL_SECONDS });
     },
     async linkChat(code, chatId) {
       // One-time: read and delete in a single hop so a code cannot be redeemed twice.
@@ -217,14 +222,24 @@ let store: ServerStore | null = null;
 
 /** The process-wide server store. Durable when `UPSTASH_REDIS_REST_URL` and
  * `UPSTASH_REDIS_REST_TOKEN` are set (read at call time, so a build with no
- * Redis provisioned still boots — the same lazy rule as `directory.ts`);
- * otherwise in-memory, correct for dev and tests. */
-export function getServerStore(): ServerStore {
+ * Redis provisioned still boots, the same lazy rule as `directory.ts`).
+ * Without them it is in-memory, which is correct for dev and tests but would
+ * silently lose every link, proposal and invoice on a serverless host, so in
+ * production it is `null` instead and the routes answer 501. */
+export function tryGetServerStore(): ServerStore | null {
   if (store) return store;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  store = url && token ? createRedisStore(new Redis({ url, token })) : createInMemoryStore();
+  const redis = getRedis();
+  if (redis) store = createRedisStore(redis);
+  else if (requiresRedis()) return null;
+  else store = createInMemoryStore();
   return store;
+}
+
+/** Same as `tryGetServerStore`, for callers that cannot continue without it. */
+export function getServerStore(): ServerStore {
+  const found = tryGetServerStore();
+  if (!found) throw new Error('The server store is not configured: set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.');
+  return found;
 }
 
 /** Test-only: drop all state, mirroring `resetRateLimits` in `sponsor.ts`. */

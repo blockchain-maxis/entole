@@ -30,7 +30,7 @@ That rule shaped every line of `contracts/src/EntolePolicy.sol`.
 
 ## What the contract actually enforces
 
-Source: `contracts/src/EntolePolicy.sol`. Open, ~230 lines, 18 passing tests
+Source: `contracts/src/EntolePolicy.sol`. Open, ~300 lines, 28 passing tests
 in `contracts/test/EntolePolicy.t.sol` — every caveat below has a test that
 tries to break it and fails to.
 
@@ -82,6 +82,51 @@ tries to break it and fails to.
   no "ask the backend if this is okay" — every check in `execute()` is pure
   arithmetic and storage reads against state the owner themselves wrote.
 
+## Who pays the network fee, and why it changes nothing
+
+The assistant's key holds no funds and, by default, no network-fee balance
+either. It signs an EIP-712 `Execute` (allowance id, recipient, amount, a
+per-delegate nonce, a deadline) and a sponsor submits it with `executeFor`. The
+contract recovers the signer, requires it to be the allowance's delegate, then
+runs the same checks `execute` runs. So the sponsor carries gas, not authority:
+it cannot change the recipient or amount (the signature covers them, and
+`test_executeFor_sponsorCannotSwapRecipientOrAmount` proves a swap reverts),
+cannot replay a run (the nonce, `test_executeFor_revertsOnReplay`), cannot use it
+late (the deadline), and cannot beat a revoke, a pause or a cap
+(`test_executeFor_stillEnforcesEveryCaveat`). Signatures must be low-s, so one
+authorisation has one valid encoding.
+
+An allowance id belongs to whoever first creates it. Only that owner may replace
+it, and a replace clears the old recipient list (`IdTaken`,
+`test_createAllowance_revertsWhenAnotherOwnerClaimsTheId`), so nobody can
+pre-claim a predictable id or inherit a stale allow-list.
+
+## What the app server can and cannot do
+
+The server is convenience, never authority, and it is assumed compromised in the
+threat model above. Concretely:
+
+- **Inbox, Telegram, directory:** hold proposals, contacts and chat links. A
+  proposal is not a payment: it still runs the undo window and the signed,
+  caveat-checked call. The webhook only believes Telegram when it carries the
+  registered `secret_token`, link codes are single-use and expire in 15 minutes,
+  and in production the store refuses to run without Redis rather than quietly
+  losing state.
+- **Sponsor routes:** can pay a fee. They cannot move anyone's money without a
+  signature the person's device or the assistant's allowance-bound key made.
+  Limits are shared across instances through Redis, keyed by caller and, for
+  top-ups, by account.
+- **Pay a bill:** the biller's key never leaves the server. A bill is paid only
+  after the person's own signed payment to the bills account has settled and
+  covers the bill at the live rate (a 99-105% band); the payment's one-time
+  nonce means a replay pays nothing. The residual risk is a biller refusing after
+  the payment settled: it is logged with the payment hash and returned by hand
+  (no automatic refund yet).
+- **Standing approval:** creating an allowance has the owner approve the policy
+  for the allowance's cap across its life, added to whatever is already
+  approved. It is headroom, bounded on every draw by the caveats, and revoking
+  the approval itself (outside this contract) still works.
+
 ## Grow, and why it sits outside this contract
 
 Grow (savings and, once a broker is configured, stocks) is backed by a
@@ -107,7 +152,7 @@ Said plainly, the same way the NGN off-ramp is disclosed as mocked rather
 than pretended solved:
 
 - **Deployed to Monad testnet**, not mainnet, and not yet audited by anyone
-  outside this project. `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` — see
+  outside this project. `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` — see
   `contracts/README.md` for the deployment block and transaction. Its source
   is verified on Sourcify with an exact bytecode match, so anyone can read the
   enforcing contract against what is actually deployed (see `contracts/README.md`,

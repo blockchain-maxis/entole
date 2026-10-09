@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
-import { payBill, type PayBillResponse } from '@entole/core/bill-payment';
+import type { BillReceipt } from '@entole/core/gateway';
 import { formatNaira, kobo } from '@entole/core/money';
 import { BILL_CATEGORIES, type BillCategoryInfo } from '@entole/core/pay-hub';
 import { useStore } from '@entole/core/store';
@@ -13,7 +13,8 @@ import { useStore } from '@entole/core/store';
 import { Amount } from '@/components/Amount';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
-import { BILL_ICONS, billsSetup } from '@/lib/bills';
+import { BILL_ICONS, billsAvailable } from '@/lib/bills';
+import { plainMessage } from '@/lib/send';
 
 type Step = 'category' | 'reference' | 'amount' | 'done';
 
@@ -29,7 +30,7 @@ function UnavailableNote({ body }: { body: string }) {
 export default function PayBillPage() {
   const router = useRouter();
   const store = useStore();
-  const setup = billsSetup();
+  const available = billsAvailable();
 
   const [step, setStep] = useState<Step>('category');
   const [info, setInfo] = useState<BillCategoryInfo | null>(null);
@@ -37,7 +38,9 @@ export default function PayBillPage() {
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [paying, setPaying] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<PayBillResponse | null>(null);
+  const [outcome, setOutcome] = useState<BillReceipt | null>(null);
+  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const trimmed = reference.trim();
   const amount = useMemo(() => entryToMinor(entry), [entry]);
@@ -46,40 +49,45 @@ export default function PayBillPage() {
   function chooseCategory(next: BillCategoryInfo) {
     setInfo(next);
     setReference('');
+    setCustomerName(null);
     setEntry(EMPTY_ENTRY);
     setProblem(null);
     setStep('reference');
   }
 
-  async function submit() {
-    if (!info || !setup || !enough || paying) return;
-    const itemCode = setup.itemCodes[info.id];
-    if (!itemCode) {
-      setProblem("This biller isn't set up yet.");
-      return;
+  // The biller says whose account this is before any money moves.
+  async function check() {
+    if (!info || !trimmed || checking) return;
+    setProblem(null);
+    setChecking(true);
+    try {
+      const found = await store.validateBill({ category: info.id, customerIdentifier: trimmed });
+      setCustomerName(found.customerName);
+      setStep('amount');
+    } catch (error) {
+      setProblem(plainMessage(error, "We couldn't check that account. Try again."));
+    } finally {
+      setChecking(false);
     }
+  }
+
+  async function submit() {
+    if (!info || !available || !enough || paying) return;
     setProblem(null);
     setPaying(true);
     try {
-      // Resolves only once the aggregator answers — nothing shows as paid before then.
-      const result = await payBill(
-        {
-          category: info.id,
-          customerIdentifier: trimmed,
-          itemCode,
-          amountMinor: amount,
-          reference: `bill-${Date.now()}`,
-        },
-        setup.config,
-      );
-      if (result.status === 'failed') {
-        setProblem('That payment did not go through. Nothing left your balance.');
-      } else {
-        setOutcome(result);
-        setStep('done');
-      }
-    } catch {
-      setProblem('That payment did not go through. Nothing left your balance.');
+      // One payment from your balance, then the biller is paid. This resolves
+      // only once both have happened: nothing shows as paid before then.
+      const result = await store.payBill({
+        category: info.id,
+        customerIdentifier: trimmed,
+        amountMinor: amount,
+      });
+      setOutcome(result);
+      setStep('done');
+    } catch (error) {
+      setProblem(plainMessage(error, 'That payment did not go through. Nothing left your balance.'));
+      void store.refresh().catch(() => undefined);
     } finally {
       setPaying(false);
     }
@@ -91,7 +99,7 @@ export default function PayBillPage() {
 
       {step === 'category' ? (
         <div className="flex-1 px-gutter pb-28">
-          {setup ? null : (
+          {available ? null : (
             <div className="mb-5">
               <UnavailableNote body="You can look around. Paying switches on once bill payments are set up." />
             </div>
@@ -136,10 +144,11 @@ export default function PayBillPage() {
             autoFocus
             autoComplete="off"
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && trimmed) setStep('amount');
+              if (event.key === 'Enter' && trimmed) void check();
             }}
             className="mt-7 h-14 w-full rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body-lg text-ink outline-none"
           />
+          {problem ? <p className="mt-4 font-body text-label-sm text-halt">{problem}</p> : null}
           <div className="mt-auto flex gap-2.5 pb-28 pt-6">
             <button
               type="button"
@@ -150,11 +159,11 @@ export default function PayBillPage() {
             </button>
             <button
               type="button"
-              disabled={!trimmed}
-              onClick={() => setStep('amount')}
+              disabled={!trimmed || checking}
+              onClick={() => void check()}
               className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
             >
-              Continue
+              {checking ? 'Checking' : 'Continue'}
             </button>
           </div>
         </div>
@@ -163,11 +172,14 @@ export default function PayBillPage() {
       {step === 'amount' && info ? (
         <div className="flex flex-1 flex-col items-center px-gutter-lg pt-3">
           <div className="flex flex-1 flex-col items-center">
-            {setup ? null : (
+            {available ? null : (
               <div className="mb-5 w-full">
                 <UnavailableNote body="Nothing will be charged. Paying switches on once bill payments are set up." />
               </div>
             )}
+            {customerName ? (
+              <p className="mb-3 text-center font-strong text-body-sm text-ink">For {customerName}</p>
+            ) : null}
             <p className="font-body text-label-sm text-slate">How much?</p>
             <div className="mt-4">
               <Amount value={amount} size="large" />
@@ -192,7 +204,7 @@ export default function PayBillPage() {
               </button>
               <button
                 type="button"
-                disabled={!setup || !enough || paying}
+                disabled={!available || !enough || paying}
                 onClick={() => void submit()}
                 className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
               >

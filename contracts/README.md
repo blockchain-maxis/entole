@@ -24,14 +24,24 @@ own `createAllowance` call already said it could.
 ## Status
 
 - Core caveat logic (caps, allow-list, per-tx max, expiry, revocation,
-  period rollover, pause) — **written, tested, 18/18 passing**, `forge test`.
+  period rollover, pause) — **written, tested, 28 passing** (`forge test`).
+- `executeFor` and the `createAllowance` hardening — **deployed 9 Oct 2026**.
+  The assistant's gasless run (`executeFor`, a delegate-signed EIP-712 `Execute`
+  submitted by a sponsor) and the id-ownership check (`IdTaken`) are live in the
+  deployment below, made with `script/DeployPolicy.s.sol` (policy only; see
+  `docs/ENV.md`).
 - P256 passkey-signed revocation (`revokeWithPasskey`) — **proven live on
   Monad testnet**, 17 Sep 2026, using throwaway verification accounts (not
   the app's auth path, which doesn't exist yet — see "Proving the P256
-  path" below for the exact transaction).
-- Deployment — **live on Monad testnet**, 17 Sep 2026:
-  - `EntolePolicy`: `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`, block
-    63375345, [tx `0x577bdb…f37c6`](https://testnet.monadscan.com/tx/0x577bdb77dcfb669b9b6614b38c1775a29770cace44db5c6238cd04aacacf37c6)
+  path" below for the exact transaction). That proof ran against the first
+  deployment; it has not been repeated on the 9 Oct one.
+- Deployment — **live on Monad testnet**:
+  - `EntolePolicy`: `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e`, block
+    69645503, 9 Oct 2026, [tx `0x112439…2436b`](https://testnet.monadscan.com/tx/0x112439b431a232d439a5694c9a3c272e960776e43672103cc884377797e2436b).
+    This is the one both apps are wired to.
+  - `EntolePolicy`, first deployment (superseded): `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`, block
+    63375345, 17 Sep 2026, [tx `0x577bdb…f37c6`](https://testnet.monadscan.com/tx/0x577bdb77dcfb669b9b6614b38c1775a29770cace44db5c6238cd04aacacf37c6).
+    It predates `executeFor`. Allowances made on it do not exist on the new one.
   - `MockERC20` ("eUSD"): `0xaca20A081Ab69148E291e65dcf4f69Ef9B0674A6`,
     10,000,000 minted to the deployer. **Superseded:** the app now settles in
     Agora AUSD on Monad testnet, `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`
@@ -78,7 +88,8 @@ Etherscan's Sourcify lookup) resolves the same source.
 
 | Contract | Address | Match |
 |---|---|---|
-| `EntolePolicy` | `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` | exact |
+| `EntolePolicy` | `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` | exact |
+| `EntolePolicy` (superseded) | `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` | exact |
 | `EntoleRouter` | `0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01` | exact |
 | `GrowthVault` (wired) | `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd` | exact |
 | `GrowthVault` (duplicate) | `0x49ea1846326b3398783001a26d303f0b82b0d9dc` | exact |
@@ -87,13 +98,20 @@ Etherscan's Sourcify lookup) resolves the same source.
 Reproduce for any address above, no key required:
 
 ```bash
-forge verify-contract 0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7 \
+forge verify-contract 0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e \
   src/EntolePolicy.sol:EntolePolicy \
   --chain-id 10143 \
   --verifier sourcify \
   --verifier-url https://sourcify.dev/server \
   --watch
 ```
+
+On 9 Oct 2026 that command failed here (`environment variable
+MONADSCAN_API_KEY not found`, from the `[etherscan]` block in `foundry.toml`),
+so the new `EntolePolicy` was submitted through Sourcify's own API instead
+(`POST /server/v2/verify/10143/<address>` with the standard JSON input from
+`forge verify-contract --show-standard-json-input`). The result is the same
+exact match.
 
 A `MONADSCAN_API_KEY` still enables the Etherscan-style `--verify` flag during
 `forge script` deploys and the `[etherscan]` config in `foundry.toml`; it is no
@@ -111,7 +129,8 @@ in `test/EntolePolicy.t.sol` both probe this at runtime and skip themselves
 cleanly rather than faking a pass — they will report `[SKIP]` in this
 repo, in CI, and on any fork, permanently, and that is expected and correct.
 
-**Proven instead with a real transaction**, 17 Sep 2026, using throwaway
+**Proven instead with a real transaction**, 17 Sep 2026, against the first
+deployment (`0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`), using throwaway
 verification accounts (not the app's own auth path, which isn't built yet —
 see docs/SECURITY.md):
 
@@ -182,7 +201,7 @@ doc edit.
 ## Testing
 
 ```bash
-forge test                                                    # 18 pass, 1 self-skip, always
+forge test                                                    # 54 pass, 2 self-skip, always
 FOUNDRY_PROFILE=ffi forge test --match-test P256               # same skip, with FFI wired for when a real deploy exists
 forge coverage
 ```

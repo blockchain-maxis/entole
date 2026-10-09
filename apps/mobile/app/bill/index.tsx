@@ -8,14 +8,14 @@ import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { UnavailableNote } from '@/components/ui/UnavailableNote';
-import { BILL_ICONS, billsSetup } from '@/lib/bills';
+import { BILL_ICONS, billsAvailable } from '@/lib/bills';
 import { useThemeColors } from '@/lib/theme';
 import { BILL_CATEGORIES } from '@entole/core/pay-hub';
 
 export default function PayBill() {
   const router = useRouter();
   const colors = useThemeColors();
-  const available = billsSetup() !== null;
+  const available = billsAvailable();
 
   return (
     <Screen>

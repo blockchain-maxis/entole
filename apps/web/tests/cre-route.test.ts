@@ -61,6 +61,16 @@ describe('POST /api/chainlink-cre/release', () => {
     expect((await release(post(payload(), null))).status).toBe(401);
   });
 
+  it('answers 400, not a crash, for a body that is not a valid release request', async () => {
+    const notJson = new Request('http://localhost/api/chainlink-cre/release', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-cre-webhook-secret': SECRET },
+      body: 'nope',
+    });
+    expect((await release(notJson)).status).toBe(400);
+    expect((await release(post({ invoiceId: 'inv-1' }))).status).toBe(400);
+  });
+
   it('answers 404 when no pending-release invoice has that id', async () => {
     const response = await release(post(payload()));
     expect(response.status).toBe(404);

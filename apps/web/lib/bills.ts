@@ -1,30 +1,15 @@
 import { Smartphone, Tv, Wifi, Zap, type LucideIcon } from 'lucide-react';
 
-import type { BillCategory, BillPaymentConfig } from '@entole/core/bill-payment';
+import type { BillCategory } from '@entole/core/bill-payment';
 
-export type BillsSetup = {
-  config: BillPaymentConfig;
-  itemCodes: Partial<Record<BillCategory, string>>;
-};
-
-function parseItemCodes(raw: string | undefined): Partial<Record<BillCategory, string>> {
-  try {
-    const parsed: unknown = JSON.parse(raw || '{}');
-    return parsed && typeof parsed === 'object' ? (parsed as Partial<Record<BillCategory, string>>) : {};
-  } catch {
-    return {};
-  }
-}
-
-/** A proxy-scoped token, never the aggregator's own secret — a browser bundle can't hold that. */
-export function billsSetup(): BillsSetup | null {
-  const token = process.env.NEXT_PUBLIC_BILL_PAYMENT_PROXY_TOKEN;
-  if (!token) return null;
-  const apiBase = process.env.NEXT_PUBLIC_BILL_PAYMENT_API_BASE;
-  return {
-    config: { apiKey: token, ...(apiBase ? { apiBase } : {}) },
-    itemCodes: parseItemCodes(process.env.NEXT_PUBLIC_BILL_ITEM_CODES),
-  };
+/**
+ * Bill payment is on when the account bills are paid into is configured. The
+ * biller's own secret lives only on the server (`apps/web/app/api/bills/*`);
+ * nothing here, and nothing in a browser bundle, can pay a bill without a
+ * payment signed by the person.
+ */
+export function billsAvailable(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS);
 }
 
 export const BILL_ICONS: Record<BillCategory, LucideIcon> = {

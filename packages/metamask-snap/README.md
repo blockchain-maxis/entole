@@ -28,7 +28,7 @@ isn't using Entole's own passkey flow (`packages/core/passkey.ts`).
 - `src/index.ts` — `onRpcRequest` handler exposing three methods:
   `entole_grantAllowance`, `entole_redeemAllowance`, `entole_revokeAllowance`.
   Each shows a `snap_dialog` confirmation, then sends a real transaction to
-  `EntolePolicy` (`0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`, Monad testnet
+  `EntolePolicy` (`0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e`, Monad testnet
   `10143`) via the connected account's own `eth_sendTransaction` — a real
   settlement, not a simulation.
 

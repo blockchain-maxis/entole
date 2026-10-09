@@ -33,3 +33,13 @@ type PauseChange @entity {
   paused: Boolean!
   timestamp: BigInt!
 }
+
+# The passkey an owner registered for revocation. One row per registration; a
+# later registration by the same owner is a new row, newest wins.
+type PasskeyRegistration @entity {
+  id: ID! # `${txHash}-${logIndex}`
+  owner: String!
+  x: BigInt!
+  y: BigInt!
+  timestamp: BigInt!
+}

@@ -40,9 +40,10 @@ docs/            Product, design, architecture, scope, security.
 What's real and tested:
 
 - **The policy contract, deployed to Monad testnet.**
-  `contracts/src/EntolePolicy.sol`, 18 passing tests, live at
-  `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`. Caps, allow-list,
-  per-transaction maximum, expiry, revocation (owner-signed or
+  `contracts/src/EntolePolicy.sol`, 28 passing tests, live at
+  `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` (redeployed 9 October 2026
+  with `executeFor`, so the assistant's runs need no fee balance). Caps,
+  allow-list, per-transaction maximum, expiry, revocation (owner-signed or
   passkey-signed), pause. See [`docs/SECURITY.md`](docs/SECURITY.md).
 - **The consumer core**, phone and web: onboarding, send, receive by link,
   allowances (sentence-builder, meter, revoke), the assistant undo-window
@@ -68,9 +69,9 @@ What's real and tested:
   keys"): an owner key and a session/delegate key, the exact split
   `EntolePolicy.createAllowance` needs. See
   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)'s "Accounts and auth."
-- 1077 tests passing across `packages/core` (264, plus one skipped),
-  `apps/mobile` (492), `apps/web` (303) and `contracts` (18, plus one that
-  self-skips honestly; see `contracts/README.md`), via `pnpm test` /
+- 1307 tests passing across `packages/core` (320, plus one skipped),
+  `apps/mobile` (505), `apps/web` (428) and `contracts` (54, plus two that
+  self-skip honestly; see `contracts/README.md`), via `pnpm test` /
   `forge test`.
 
 What's disclosed as not finished, the same way the NGN off-ramp always was:
@@ -101,6 +102,23 @@ pnpm typecheck
 ```
 
 Contract tests: `cd contracts && forge test`.
+
+## How this was built
+
+**AI coding tools.** Claude Code (Anthropic) was used throughout this
+project to write, test and review code and documentation.
+
+**Pre-existing work.** The only components that predate this project are the
+third-party open-source packages it depends on, listed in each
+`package.json` and in `contracts/lib` — chiefly Expo and React Native,
+Next.js, NativeWind and Tailwind, viem, Zod, Mera (`@category-labs/mera`),
+`react-native-passkey`, Envio HyperIndex and Foundry's `forge-std`. Everything
+else in this repository was written for the hackathon; the first commit is
+dated 14 September 2026.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
 
 ## Bounty claims
 
