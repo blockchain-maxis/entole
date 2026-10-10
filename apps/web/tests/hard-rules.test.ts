@@ -306,3 +306,33 @@ describe('sending pays a code or link, and never asks for an address', () => {
     expect(copy).toEqual([]);
   });
 });
+
+describe('Grow shows only what is real', () => {
+  // The same rule the phone app holds. Savings earn only where they are really
+  // held somewhere that pays, so a rate or earnings may be shown only when read
+  // from the position through `savingsEarning`, which answers nothing unless
+  // the rate is real. Never a payout date, never a figure written into a page.
+  const growFiles = ['grow/page.tsx', 'grow/savings/page.tsx'].map((path) => join(PAGES, path));
+
+  it.each(growFiles)('%s never shows a payout date, and reads earnings only through savingsEarning', (file) => {
+    const source = stripComments(read(file));
+    expect(source).not.toMatch(/nextPayoutAt|payoutLabel|daysUntil/);
+    expect(source).not.toMatch(/accruedMinor|ratePerYearBps/);
+    expect(source).toMatch(/savingsEarning\(/);
+  });
+
+  it.each(growFiles)('%s writes no rate or percentage into the page itself, and promises no growth', (file) => {
+    const copy = userFacingCopy(read(file)).join('\n');
+    expect(copy).not.toMatch(/\b(yield|apy|apr|p\.a\.|annual|rate of return|returns on|guaranteed)\b/i);
+    expect(copy).not.toMatch(/\d+(\.\d+)?\s*%/);
+    expect(copy).not.toMatch(/watch it grow|What(&apos;|')s growing|Grow more money/i);
+  });
+
+  it.each(growFiles)('%s says plainly when savings earn nothing', (file) => {
+    expect(read(file)).toMatch(/It doesn(&apos;|')t earn interest yet/);
+  });
+
+  it('the permanently-full meter is gone from savings', () => {
+    for (const file of growFiles) expect(read(file)).not.toMatch(/<Meter|fraction=\{1\}/);
+  });
+});

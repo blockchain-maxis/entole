@@ -4,6 +4,7 @@ import { ChevronRight, Sprout, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 import { formatNaira, kobo } from '@entole/core/money';
+import { savingsEarning } from '@entole/core/savings';
 import { useStore } from '@entole/core/store';
 
 import { Header } from '@/components/Header';
@@ -11,13 +12,16 @@ import { BalanceSkeleton } from '@/components/Skeleton';
 
 /**
  * The Grow hub — two products, each a card into its own flow. Savings is the
- * owner's own balance growing; Stocks is buying and selling shares. Mirrors
+ * owner's own money set aside, earning only where it is really held somewhere
+ * that pays; Stocks is buying and selling shares. Mirrors
  * `apps/mobile/app/(tabs)/grow.tsx`.
  */
 export default function GrowHubPage() {
   const store = useStore();
   const loading = store.status === 'loading';
   const savings = store.growPosition;
+  // Only ever a rate read from where the money is held. Null means it earns nothing.
+  const earning = savingsEarning(savings);
   const holdingsValue = store.stockPositions.reduce((sum, p) => sum + p.currentValueMinor, 0);
 
   return (
@@ -39,9 +43,11 @@ export default function GrowHubPage() {
               </div>
               <p className="tabular mt-4 font-heavy text-amount text-ink">{formatNaira(kobo(savings.balanceMinor))}</p>
               <p className="mt-1 font-body text-label-sm text-slate">
-                {savings.accruedMinor > 0
-                  ? `+ ${formatNaira(kobo(savings.accruedMinor))} earned so far`
-                  : 'Put money aside and watch it grow.'}
+                {!earning
+                  ? "Money set aside, separate from what you spend. It doesn't earn interest yet."
+                  : earning.earnedMinor > 0
+                    ? `+ ${formatNaira(kobo(earning.earnedMinor))} earned so far`
+                    : `Earning about ${earning.rate} a year.`}
               </p>
             </Link>
 

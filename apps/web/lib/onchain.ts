@@ -33,6 +33,15 @@ const BILLS_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS
 const GROWTH_VAULT_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS
   ? (process.env.NEXT_PUBLIC_ENTOLE_GROWTH_VAULT_ADDRESS as Address)
   : undefined;
+/** A vault that pays, where savings are held instead of the plain one: Aave's
+ * wrapped AUSD deposit on the main network. Unset, savings earn nothing and
+ * the screens say so. The rate provider is Aave's data provider. */
+const SAVINGS_VAULT_ADDRESS = process.env.NEXT_PUBLIC_ENTOLE_SAVINGS_VAULT_ADDRESS
+  ? (process.env.NEXT_PUBLIC_ENTOLE_SAVINGS_VAULT_ADDRESS as Address)
+  : undefined;
+const SAVINGS_RATE_PROVIDER = process.env.NEXT_PUBLIC_ENTOLE_SAVINGS_RATE_PROVIDER
+  ? (process.env.NEXT_PUBLIC_ENTOLE_SAVINGS_RATE_PROVIDER as Address)
+  : undefined;
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://testnet-rpc.monad.xyz';
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ? Number(process.env.NEXT_PUBLIC_CHAIN_ID) : 10143;
 /** Empty until `indexer/` is actually running — see indexer/README.md. */
@@ -154,6 +163,14 @@ export function useOnChainBackend(
       policyAddress: CONTRACT_ADDRESS,
       tokenAddress: TOKEN_ADDRESS,
       ...(GROWTH_VAULT_ADDRESS ? { growthVaultAddress: GROWTH_VAULT_ADDRESS } : {}),
+      ...(SAVINGS_VAULT_ADDRESS
+        ? {
+            savingsVault: {
+              address: SAVINGS_VAULT_ADDRESS,
+              ...(SAVINGS_RATE_PROVIDER ? { rateProvider: SAVINGS_RATE_PROVIDER } : {}),
+            },
+          }
+        : {}),
       tokenDecimals: TOKEN_DECIMALS,
       getRate,
       ...(ROUTER_ADDRESS ? { routerAddress: ROUTER_ADDRESS, relay } : {}),
