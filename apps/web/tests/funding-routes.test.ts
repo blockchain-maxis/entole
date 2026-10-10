@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { POST as auroraDeposit } from '@/app/api/aurora/deposit/route';
 import { POST as agoraMint } from '@/app/api/agora/mint/route';
 import { POST as agoraRedeem } from '@/app/api/agora/redeem/route';
 import { GET as nansen } from '@/app/api/nansen/route';
@@ -37,9 +36,6 @@ beforeEach(() => {
   vi.stubGlobal('fetch', upstream);
   for (const key of [
     'AGORA_ACCESS_KEY',
-    'AURORA_INTENTS_API_KEY',
-    'AURORA_INTENTS_API_BASE',
-    'AURORA_INTENTS_DEPOSIT_PATH',
     'NANSEN_API_KEY',
   ]) {
     delete process.env[key];
@@ -52,7 +48,6 @@ describe('with no key configured', () => {
   it('every route answers 501 and calls nothing', async () => {
     expect((await agoraMint(post({ fromCurrency: 'USD', address: ADDRESS }))).status).toBe(501);
     expect((await agoraRedeem(post({ toCurrency: 'USD', destinationAccountId: 'a' }))).status).toBe(501);
-    expect((await auroraDeposit(post({ sourceChain: 'bitcoin', sourceAsset: 'BTC', address: ADDRESS }))).status).toBe(501);
     expect((await nansen(get())).status).toBe(501);
     expect(upstream).not.toHaveBeenCalled();
   });
@@ -111,36 +106,6 @@ describe('POST /api/agora/redeem', () => {
   it('validates its body', async () => {
     process.env.AGORA_ACCESS_KEY = 'agora-key';
     expect((await agoraRedeem(post({ toCurrency: 'USD', destinationAccountId: '' }))).status).toBe(400);
-  });
-});
-
-describe('POST /api/aurora/deposit', () => {
-  beforeEach(() => {
-    process.env.AURORA_INTENTS_API_KEY = 'aurora-key';
-  });
-
-  it('returns the deposit target as a QR payload, never as an address field', async () => {
-    upstream.mockResolvedValueOnce(
-      reply({ depositAddress: 'bc1qexample', sourceChain: 'bitcoin', sourceAsset: 'BTC' }),
-    );
-    const response = await auroraDeposit(post({ sourceChain: 'bitcoin', sourceAsset: 'BTC', address: ADDRESS }));
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toEqual({ qrPayload: 'bc1qexample', sourceChain: 'bitcoin', sourceAsset: 'BTC' });
-    expect(body).not.toHaveProperty('depositAddress');
-  });
-
-  it('lets the endpoint be corrected from the environment', async () => {
-    process.env.AURORA_INTENTS_API_BASE = 'https://aurora.test/v2';
-    process.env.AURORA_INTENTS_DEPOSIT_PATH = '/intents/deposit';
-    upstream.mockResolvedValueOnce(reply({ depositAddress: 'x', sourceChain: 'bitcoin', sourceAsset: 'BTC' }));
-    await auroraDeposit(post({ sourceChain: 'bitcoin', sourceAsset: 'BTC', address: ADDRESS }));
-    expect(upstream.mock.calls[0]![0]).toBe('https://aurora.test/v2/intents/deposit');
-  });
-
-  it('validates its body and survives an upstream failure', async () => {
-    expect((await auroraDeposit(post({ sourceChain: '', sourceAsset: 'BTC', address: ADDRESS }))).status).toBe(400);
-    upstream.mockResolvedValueOnce(reply({}, 500));
-    expect((await auroraDeposit(post({ sourceChain: 'bitcoin', sourceAsset: 'BTC', address: ADDRESS }))).status).toBe(502);
   });
 });
 

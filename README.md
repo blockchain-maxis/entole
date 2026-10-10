@@ -104,9 +104,13 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   caller's verdict), and marks the invoice released on success. What it still
   needs is a real registered CRE workflow watching an FX feed to POST to it,
   and a `CHAINLINK_CRE_WEBHOOK_SECRET`; unset, the route returns 501.
-- **Agora, Aurora Intents, Envio, Nansen** — wrapped behind interfaces
+- **Agora, Envio, Nansen** — wrapped behind interfaces
   (`packages/core/gateway.ts`, `indexer/`), none connected to a live account
   yet.
+- **Aurora Intents** — money in from USDT on Tron and USDC on Solana. The
+  server side is written against the live service
+  (`packages/core/aurora-intents.ts`, `/api/aurora/deposit`); no screen offers
+  it yet and nothing has been sent through it. Main network only.
 
 ## Running it
 

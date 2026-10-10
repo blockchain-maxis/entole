@@ -70,10 +70,26 @@ product: where it touches a screen, the screen says so plainly.
   the biller is paid. If the biller then refuses, the route answers
   `bill_failed`, logs `[bills] paid-not-billed hash=...`, and the payment has to
   be returned by hand from the bills account.
-- **A chain deposit target cannot be shown.** Aurora's route returns an address
-  on another chain, which the hard rules forbid rendering. `/api/aurora/deposit`
-  returns it as `qrPayload` for a QR or a copy button; no screen uses it yet.
-  Whether a QR-only screen counts as rendering an address is a product call.
+- **Money in from Tron and Solana has a server and no screen.**
+  `/api/aurora/deposit` (Aurora Intents) takes what the person is sending
+  (USDT on Tron or USDC on Solana), how much, and an account of theirs on that
+  network for a deposit that cannot be completed. It answers with a scan-code
+  payload, the least that counts, about what will arrive, and a deadline; a
+  `GET` says how far a deposit has got. Written against the live service's real
+  request and answer on 10 October 2026 (free price checks only).
+  - No screen offers it yet. The return account is an address the person has to
+    give, and the hard rules forbid showing one as text, so how it is entered
+    is a product call still open.
+  - Main network only, with `AURORA_INTENTS_API_KEY`. Aurora has no test
+    network, so nothing has been sent through it.
+  - Aurora delivers USDC, not the account's own money, so it delivers to a
+    holding address that converts on arrival. Two partners in a row: if the
+    conversion cannot be done the USDC lands in the person's own account, where
+    no screen shows it.
+  - On 10 October 2026 Aurora refused Tron deposits under $100 ("temporary swap
+    limits"). The route passes on whatever minimum the service states.
+  - Each deposit is for a stated amount, good for an hour. Money sent after the
+    deadline, or something other than what was picked, may not arrive.
 - **Adding real money is built but not proven with real money.** It only runs
   on the main network; none of the partners reach the test network.
   - **From another app.** The person picks what they are sending (AUSD, USDC or
@@ -153,11 +169,12 @@ yet") until its key exists.
 - `NEXT_PUBLIC_ONRAMP_URL_TEMPLATE`: the fiat on-ramp partner for checkout links
   (`apps/web/lib/onramp.ts`).
 
-Three integrations are best-effort until their first live call, and their
+Two integrations are best-effort until their first live call, and their
 endpoint paths are environment variables so a mismatch is fixed without code:
-Aurora (`AURORA_INTENTS_API_BASE`, `_DEPOSIT_PATH`), Nansen (`NANSEN_API_BASE`,
-`_NETFLOW_PATH`) and Flutterwave (`BILL_PAYMENT_API_BASE`, `BILL_VALIDATE_PATH`,
-`BILL_PAY_PATH`).
+Nansen (`NANSEN_API_BASE`, `_NETFLOW_PATH`) and Flutterwave
+(`BILL_PAYMENT_API_BASE`, `BILL_VALIDATE_PATH`, `BILL_PAY_PATH`). Aurora was a
+third until 10 October 2026; its request and answer are now the ones the live
+service gives (see `packages/core/aurora-intents.ts`).
 
 ## Going to mainnet
 
