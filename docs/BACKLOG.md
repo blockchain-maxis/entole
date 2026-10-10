@@ -66,9 +66,17 @@ product: where it touches a screen, the screen says so plainly.
     passed back by hand.
   - Sending something other than what was picked to a scan code may not arrive.
     The screen says so, but nothing prevents it.
-- **Savings ("Grow") has no yield source.** `GrowthVault` is deployed and
-  tested, but accrual is display-only. The screens show no projected earnings
-  until a real source exists.
+- **Savings earn only on the main network.** There they go straight into
+  Aave's AUSD vault and earn what borrowers pay (about 3.3% a year on 10
+  October 2026; it moves, and tops out near 3.6% in normal conditions). On the
+  test network nothing pays, savings sit in `GrowthVault`, and the screens say
+  they do not earn interest yet.
+  - Proven against the real vault on a copy of mainnet, not with real money.
+  - "Earned so far" needs to know what went in. That is kept on the device, so
+    a new device shows the balance and the rate but no earnings figure.
+  - If nearly all of the vault is lent out, taking savings out is refused until
+    some comes back. The app says so before anything is signed.
+  - The money is in Aave's contracts, not ours. That is the point, and the risk.
 - **Stocks** stay gated behind broker credentials that must live on a server.
 - **No iOS passkeys** until an Apple Team ID exists.
 

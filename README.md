@@ -63,6 +63,14 @@ What's real and tested:
   only the depositor can withdraw, and there is no delegate or allowance path
   into it. Stocks stay gated until a broker is configured. See
   [`docs/SECURITY.md`](docs/SECURITY.md).
+- **Savings that earn, on the main network.** There, savings go straight from
+  the person's account into Aave's AUSD vault and earn what borrowers pay,
+  about 3.3% a year when checked on 10 October 2026. The app shows a rate or
+  earnings only when it has read them from that vault; on the test network
+  nothing pays, and the screen says savings do not earn interest yet. Proven
+  against the real vault on a copy of mainnet
+  (`packages/core/savings.fork.test.ts`, `contracts/test/MainnetFork.t.sol`);
+  not yet used with real money.
 - **Passkey accounts (Mera)** — `packages/core/passkey.ts`, wired into the
   phone app's onboarding and sign-in. A WebAuthn PRF ceremony's 32 bytes
   *are* the private key; one passkey derives two ("one passkey, many

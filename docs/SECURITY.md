@@ -146,6 +146,22 @@ the allowance model points at the vault. Accrual in the UI is display-only
 until a real yield source exists, and the screens say so rather than showing
 a projected return.
 
+### Savings that earn
+
+On the main network savings are not held by `GrowthVault`. They go from the
+person's own account into Aave's AUSD vault (an ERC-4626 wrapper Aave itself
+publishes), and the shares stay in that account. Entole holds nothing and has no
+key to them: putting money in and taking it out are the owner's own
+transactions, the same trust level as a direct send. The assistant has no path
+to them at all, because no allowance names the vault and `EntolePolicy` only
+ever pays the recipients an allowance lists.
+
+What this does change is where the risk sits. Money in savings is lent out, so
+it depends on Aave's contracts and on borrowers repaying, and it can be
+temporarily impossible to withdraw if nearly all of the pool is lent out. The
+app refuses a withdrawal the vault cannot honour before anything is signed, and
+shows a rate or earnings only when they were read from the vault itself.
+
 ## The parts of the trust story that are not finished
 
 Said plainly, the same way the NGN off-ramp is disclosed as mocked rather
