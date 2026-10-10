@@ -7,6 +7,13 @@ import { ONRAMP_CHAIN_ID } from '@entole/core/onramp';
  */
 export const REAL_MONEY = Number(process.env.NEXT_PUBLIC_CHAIN_ID) === ONRAMP_CHAIN_ID;
 
+/**
+ * Whether paying in naira by bank transfer is open. It needs our own id with
+ * the payment partner, so it is off, and the screen says "coming soon", until
+ * this is switched on alongside that id on the server.
+ */
+export const BANK_TRANSFER = process.env.NEXT_PUBLIC_BANK_TRANSFER === 'on';
+
 const BEFORE_KEY = 'entole.add-money.before';
 /** A bank transfer started longer ago than this is not what the page is waiting on. */
 const BEFORE_MAX_AGE_MS = 2 * 60 * 60 * 1000;
