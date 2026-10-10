@@ -31,6 +31,8 @@ type ExtraConfig = {
   rpcUrl?: string;
   chainId?: number;
   indexerUrl?: string;
+  /** Paying in naira by bank transfer. Off until our own partner id exists. */
+  bankTransfer?: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra?.entole ?? {}) as ExtraConfig;
@@ -52,6 +54,8 @@ const CHAIN_ID = extra.chainId ?? 10143;
 /** On the main network money is real and added by bank transfer; anywhere else
  * there is only test money, and the screen says so. */
 export const REAL_MONEY = CHAIN_ID === ONRAMP_CHAIN_ID;
+/** Whether bank transfer in naira is open. Until it is, the screen says "coming soon". */
+export const BANK_TRANSFER = extra.bankTransfer === true;
 /** Empty until `indexer/` is actually running — see indexer/README.md. */
 const INDEXER_URL = extra.indexerUrl || undefined;
 /** `MockERC20` ("eUSD") decimals — see contracts/README.md. Update when

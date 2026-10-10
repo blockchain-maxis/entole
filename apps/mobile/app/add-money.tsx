@@ -8,13 +8,15 @@ import { BankTransferSheet } from '@/components/ui/BankTransferSheet';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { Keypad } from '@/components/ui/Keypad';
+import { CardStep, FromAnotherApp, WaysToAdd, type Loaded } from '@/components/ui/MoneyInWays';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
 import { UnavailableNote } from '@/components/ui/UnavailableNote';
 import { useAccount } from '@/lib/account';
-import { REAL_MONEY } from '@/lib/onchain';
+import { BANK_TRANSFER, REAL_MONEY } from '@/lib/onchain';
 import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import type { DepositSource } from '@entole/core/deposit-sources';
 import { useBackend } from '@entole/core/backend';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars, formatNaira, kobo, subtractMinor } from '@entole/core/money';
@@ -24,9 +26,12 @@ import { useStore } from '@entole/core/store';
 /** How often the balance is re-read while waiting, and for how long. */
 const POLL_EVERY_MS = 1500;
 const POLL_FOR_MS = 20_000;
-/** A bank transfer takes minutes where test money takes seconds. */
-const TRANSFER_POLL_EVERY_MS = 4000;
-const TRANSFER_POLL_FOR_MS = 180_000;
+/** Real money can take minutes to be sent at all, where test money takes seconds. */
+const TRANSFER_POLL_EVERY_MS = 5000;
+const TRANSFER_POLL_FOR_MS = 600_000;
+
+/** How real money comes in. Test money has no choice to make. */
+type Way = 'choose' | 'another-app' | 'card' | 'bank';
 
 type Phase =
   /** Nothing asked yet. */
@@ -49,8 +54,9 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * fresh read of the account says it did, and until then the screen says it is
  * waiting.
  *
- * On the main network the money is real and comes by bank transfer, paid on the
- * payment partner's page. Anywhere else it is test money.
+ * On the main network the money is real. It comes from an app the person
+ * already holds dollars in, by card, or (once our partner id exists) by bank
+ * transfer in naira. Anywhere else it is test money.
  */
 export default function AddMoney() {
   const router = useRouter();
@@ -58,6 +64,10 @@ export default function AddMoney() {
   const { relay } = useBackend();
   const { account } = useAccount();
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  const [way, setWay] = useState<Way>('choose');
+  const [source, setSource] = useState<DepositSource | null>(null);
+  const [code, setCode] = useState<Loaded<string> | null>(null);
+  const [card, setCard] = useState<Loaded<string> | null>(null);
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [reviewing, setReviewing] = useState(false);
   const address = account?.owner.viemAccount.address;
@@ -121,6 +131,47 @@ export default function AddMoney() {
     [relay, address, amount],
   );
 
+  function plain(error: unknown): string {
+    return error instanceof RelayError ? error.message : 'Something went wrong. Try again.';
+  }
+
+  async function pickSource(next: DepositSource) {
+    if (!address) return;
+    setSource(next);
+    setCode({ state: 'loading' });
+    try {
+      const { qrPayload } = await relay.startDeposit(address, next.id);
+      if (!mounted.current) return;
+      setCode({ state: 'ready', value: qrPayload });
+      // From here the balance is all that counts.
+      startBalance.current = store.balance;
+      setPhase({ kind: 'waiting' });
+    } catch (error) {
+      if (mounted.current) setCode({ state: 'failed', message: plain(error) });
+    }
+  }
+
+  async function openCard() {
+    if (!address) return;
+    setWay('card');
+    setCard({ state: 'loading' });
+    try {
+      const { url } = await relay.startCardPayment(address);
+      if (mounted.current) setCard({ state: 'ready', value: url });
+    } catch (error) {
+      if (mounted.current) setCard({ state: 'failed', message: plain(error) });
+    }
+  }
+
+  function backToWays() {
+    setWay('choose');
+    setSource(null);
+    setCode(null);
+    setCard(null);
+    setEntry(EMPTY_ENTRY);
+    setPhase({ kind: 'idle' });
+  }
+
   /** Leaves for the partner's page. From here the balance is all that counts. */
   function continueToPartner(url: string) {
     startBalance.current = store.balance;
@@ -158,22 +209,50 @@ export default function AddMoney() {
       case 'slow':
         return <Button label="Check again" onPress={() => setPhase({ kind: 'waiting' })} />;
       case 'requesting':
-      case 'waiting':
         return <Button label="Adding money…" disabled />;
-      default:
+      case 'waiting':
+        // Real money is waited on with the way back still open; test money is not.
         return REAL_MONEY ? (
-          <Button label="Review" disabled={!ready || !account || amount <= 0} onPress={() => setReviewing(true)} />
+          <Button label="Add another way" variant="secondary" onPress={backToWays} />
         ) : (
-          <Button
-            label="Add test money"
-            disabled={!ready || !account}
-            onPress={() => void addMoney()}
-          />
+          <Button label="Adding money…" disabled />
         );
+      default:
+        if (!REAL_MONEY) {
+          return (
+            <Button
+              label="Add test money"
+              disabled={!ready || !account}
+              onPress={() => void addMoney()}
+            />
+          );
+        }
+        if (way === 'choose') return null;
+        if (way === 'card' && card?.state === 'ready') {
+          return (
+            <>
+              <Button label="Back" variant="secondary" width="hug" onPress={backToWays} />
+              <Button label="Continue" onPress={() => continueToPartner(card.value)} />
+            </>
+          );
+        }
+        if (way === 'bank') {
+          return (
+            <>
+              <Button label="Back" variant="secondary" width="hug" onPress={backToWays} />
+              <Button label="Review" disabled={!ready || !account || amount <= 0} onPress={() => setReviewing(true)} />
+            </>
+          );
+        }
+        return <Button label="Back" variant="secondary" onPress={backToWays} />;
     }
   }
 
-  const entering = REAL_MONEY && (phase.kind === 'idle' || phase.kind === 'failed');
+  const idle = phase.kind === 'idle' || phase.kind === 'failed';
+  const choosing = REAL_MONEY && way === 'choose' && idle;
+  const entering = REAL_MONEY && way === 'bank' && idle;
+  const settled = phase.kind === 'done' || phase.kind === 'slow';
+  const showingCode = way === 'another-app' && code?.state === 'ready';
 
   return (
     <View className="flex-1">
@@ -202,6 +281,22 @@ export default function AddMoney() {
               </>
             )}
           </View>
+
+          {choosing ? (
+            <WaysToAdd
+              disabled={!ready || !account}
+              bankOpen={BANK_TRANSFER}
+              onAnotherApp={() => setWay('another-app')}
+              onCard={() => void openCard()}
+              onBank={() => setWay('bank')}
+            />
+          ) : null}
+
+          {REAL_MONEY && way === 'another-app' && !settled ? (
+            <FromAnotherApp source={source} code={code} onPick={(next) => void pickSource(next)} />
+          ) : null}
+
+          {REAL_MONEY && way === 'card' && idle ? <CardStep card={card} /> : null}
 
           {entering ? (
             <View className="mt-7 items-center">
@@ -234,9 +329,11 @@ export default function AddMoney() {
                 <Text className="mt-1 font-body text-label-sm text-slate">
                   {phase.kind === 'requesting'
                     ? 'Sending your request.'
-                    : REAL_MONEY
-                      ? 'A bank transfer can take a few minutes. Your balance only changes once it has arrived.'
-                      : 'It usually takes a few seconds. Your balance only changes once it has arrived.'}
+                    : showingCode
+                      ? 'This screen updates by itself once you have sent it. Your balance only changes when it has arrived.'
+                      : REAL_MONEY
+                        ? 'It can take a few minutes. Your balance only changes once it has arrived.'
+                        : 'It usually takes a few seconds. Your balance only changes once it has arrived.'}
                 </Text>
                 <Skeleton className="mt-3.5 h-2 w-full rounded-pill" />
               </View>
@@ -255,10 +352,10 @@ export default function AddMoney() {
 
             {phase.kind === 'slow' ? (
               <UnavailableNote
-                title="Still on its way"
+                title={REAL_MONEY ? 'Nothing has arrived yet' : 'Still on its way'}
                 body={
                   REAL_MONEY
-                    ? 'The money hasn’t shown up yet. Bank transfers are sometimes slow. Check again in a few minutes.'
+                    ? 'If you have sent it, it is on its way. Check again in a few minutes. If you haven’t, nothing was taken.'
                     : 'Your request went through, but the money hasn’t shown up yet. Check again in a moment.'
                 }
               />
@@ -292,7 +389,7 @@ export default function AddMoney() {
             <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
           </View>
         ) : null}
-        <ActionBar divided={!entering}>{primary()}</ActionBar>
+        {choosing ? null : <ActionBar divided={!entering}>{primary()}</ActionBar>}
       </Screen>
 
       {reviewing ? (
