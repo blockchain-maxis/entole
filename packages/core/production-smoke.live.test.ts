@@ -110,4 +110,107 @@ describe.skipIf(!API)('live: the deployed server funds and relays for a new acco
         `(fee ₦${(receipt.feeMinor / 100).toFixed(2)}), submit-to-settled ${seconds.toFixed(1)}s from this machine`,
     );
   });
+
+  it('lets the assistant pay inside an allowance and refuses it past the limit', { timeout: 420_000 }, async () => {
+    const owner = privateKeyToAccount(generatePrivateKey());
+    const assistant = privateKeyToAccount(generatePrivateKey());
+    const recipient = privateKeyToAccount(generatePrivateKey()).address;
+    const transport = http(RPC, { timeout: 30_000, retryCount: 4 });
+    const publicClient = createPublicClient({ chain, transport });
+    const relay = createRelayClient({ baseUrl: API! });
+
+    const tokenBalance = (holder: Address) =>
+      publicClient.readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'balanceOf', args: [holder] });
+
+    // Test money for the owner. The shared faucet has a cooldown, so wait it out.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await relay.requestFunds(owner.address);
+        break;
+      } catch (error) {
+        if (attempt >= 12) throw error;
+        await sleep(10_000);
+      }
+    }
+    let funded = 0n;
+    for (let attempt = 0; attempt < 40 && funded === 0n; attempt += 1) {
+      await sleep(1500);
+      funded = await tokenBalance(owner.address).catch(() => 0n);
+    }
+    expect(funded, 'test money never arrived').toBeGreaterThan(0n);
+
+    const records = createRecords(memory(), owner.address);
+    const getRate = createRateProvider();
+    const source = createAccountSource({ records, getRate });
+    await source.saveBeneficiary({
+      id: 'b-smoke',
+      name: 'Smoke Recipient',
+      address: recipient,
+      tone: 1,
+      createdAt: new Date().toISOString(),
+    });
+    const gateway = createOnChainGateway({
+      publicClient,
+      ownerWalletClient: createWalletClient({ account: owner, chain, transport }),
+      delegateWalletClient: createWalletClient({ account: assistant, chain, transport }),
+      policyAddress: POLICY,
+      tokenAddress: TOKEN,
+      routerAddress: ROUTER,
+      tokenDecimals: 6,
+      getRate,
+      records,
+      relay,
+      ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
+      resolveRecipient: source.resolveRecipient,
+      loadOffChainSnapshot: source.loadSnapshot,
+    });
+
+    // The apps always load the account first; that is also what reads the rate.
+    await gateway.loadSnapshot();
+
+    // ₦10,000 a run, ₦20,000 a month: two runs fit, a third does not.
+    const perRunMinor = 1_000_000;
+    const allowance = await gateway.saveAllowance({
+      name: 'Smoke allowance',
+      recipientId: 'b-smoke',
+      perRunMinor,
+      limitMinor: 2 * perRunMinor,
+      cadence: 'monthly',
+    });
+
+    const run = (amountMinor: number) =>
+      gateway.submitPayment({ contactId: 'b-smoke', amountMinor, allowanceId: allowance.id });
+
+    await run(perRunMinor);
+    const afterOne = await tokenBalance(recipient);
+    expect(afterOne, 'the first run paid nothing').toBeGreaterThan(0n);
+
+    // More than one run may carry: refused, and nothing moves.
+    const tooBig = await run(perRunMinor + 100_000).then(
+      () => null,
+      (error: unknown) => (error instanceof Error ? error.message : String(error)),
+    );
+    expect(tooBig, 'a run over the per-run limit went through').not.toBeNull();
+    expect(await tokenBalance(recipient)).toBe(afterOne);
+
+    await run(perRunMinor);
+    const afterTwo = await tokenBalance(recipient);
+    expect(afterTwo).toBeGreaterThan(afterOne);
+
+    // The month is spent: the contract refuses a third.
+    const overLimit = await run(perRunMinor).then(
+      () => null,
+      (error: unknown) => (error instanceof Error ? error.message : String(error)),
+    );
+    expect(overLimit, 'a run past the monthly limit went through').not.toBeNull();
+    expect(await tokenBalance(recipient)).toBe(afterTwo);
+
+    // The assistant's key never held anything to pay a fee with.
+    const assistantFeeBalance = await publicClient.getBalance({ address: assistant.address });
+    console.info(
+      `smoke: allowance ${allowance.id.slice(0, 10)}… two runs settled; over a run: "${tooBig}"; ` +
+        `past the limit: "${overLimit}"; assistant fee balance ${assistantFeeBalance}`,
+    );
+    expect(assistantFeeBalance).toBe(0n);
+  });
 });
