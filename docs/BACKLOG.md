@@ -91,7 +91,16 @@ product: where it touches a screen, the screen says so plainly.
   - If nearly all of the vault is lent out, taking savings out is refused until
     some comes back. The app says so before anything is signed.
   - The money is in Aave's contracts, not ours. That is the point, and the risk.
-- **Stocks** stay gated behind broker credentials that must live on a server.
+- **Stocks can be looked at, not bought.** The list and every figure are live
+  (`/api/stocks`, `packages/core/stock-market.ts`); the Buy button is disabled.
+  - Buying needs the issuer to approve the buyer (identity checks, an allowed
+    account) or a broker's credentials on a server. Neither exists yet.
+  - Prices come from the exchange's own website endpoints. They are free and
+    need no key, and they are not a contracted feed: if they change or refuse
+    our server, the screens say stocks cannot be shown. A paid feed replaces
+    them before buying opens.
+  - The exchange's full table runs a trading day behind its quotes, so each
+    page of the list is refreshed from the quote endpoint before it is sent.
 - **No iOS passkeys** until an Apple Team ID exists.
 
 ### Fixed in this pass

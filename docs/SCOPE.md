@@ -84,7 +84,8 @@ rather than breaking it (see the reconciliation in "Cut from the pitch" below).
   deposited minus what was withdrawn and accrues nothing on-chain. Any "what's
   growing" projection is a display-layer number, never a settled balance.
 - **Stocks.** User-initiated brokerage positions behind a `stocksAvailable`
-  gate, shown as "not available yet" until a broker is configured. These carry
+  gate. Until a broker is configured the stocks can be looked through with
+  live prices and details, and the Buy button cannot be pressed. These carry
   market exposure the person chooses, not yield the app invents.
 
 `GrowthVault` is deliberately a separate contract from `EntolePolicy`, which

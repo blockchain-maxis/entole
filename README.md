@@ -61,8 +61,15 @@ What's real and tested:
   testnet at `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd`, 8 passing tests.
   It holds a real deposit balance and sits outside `EntolePolicy` by design;
   only the depositor can withdraw, and there is no delegate or allowance path
-  into it. Stocks stay gated until a broker is configured. See
-  [`docs/SECURITY.md`](docs/SECURITY.md).
+  into it. See [`docs/SECURITY.md`](docs/SECURITY.md).
+- **Stocks, to look at.** Both apps list the shares that can be held on Monad
+  (the issuer's own catalogue) with the exchange's price, the day's change, a
+  month of closes, volume, company value and the range over a year. All of it
+  is read live through `/api/stocks`; nothing is written into the app, and a
+  source that cannot be reached shows as "can't show stocks right now", never
+  as an older figure. Buying is not open: the Buy button is there and cannot be
+  pressed. The prices come from the exchange's website endpoints, which are not
+  a contracted feed. See `packages/core/stock-market.ts`.
 - **Savings that earn, on the main network.** There, savings go straight from
   the person's account into Aave's AUSD vault and earn what borrowers pay,
   about 3.3% a year when checked on 10 October 2026. The app shows a rate or

@@ -110,6 +110,14 @@ web. Savings reuses the custom keypad and the review-sheet pattern; the meter
 motif and the "not available yet" empty state follow the patterns below. Same
 rule as any other unexported screen.
 
+Stocks, since 10 October 2026, is a list to look through and a page per stock:
+rows in the shape of every other list (mark, name, small line, figure on the
+right), a change in `settled` when up and `halt` when down, one line chart in
+the same two colours, and facts as small cards two to a row. Dollar prices are
+shown as the exchange gives them, with the naira equivalent beside the main
+one. The Buy button sits at the bottom, in `press` with a "Coming soon" chip,
+and cannot be pressed.
+
 ## Test conditions
 
 Build and test on a mid-range Android on a throttled connection. Not an iPhone on
