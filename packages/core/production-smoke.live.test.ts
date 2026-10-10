@@ -32,6 +32,7 @@ const chain: Chain = {
 const POLICY = '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e' as Address;
 const TOKEN = '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC' as Address;
 const ROUTER = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01' as Address;
+const VAULT = '0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd' as Address;
 
 function memory(): RecordStore {
   const map = new Map<string, string>();
@@ -212,5 +213,68 @@ describe.skipIf(!API)('live: the deployed server funds and relays for a new acco
         `past the limit: "${overLimit}"; assistant fee balance ${assistantFeeBalance}`,
     );
     expect(assistantFeeBalance).toBe(0n);
+  });
+
+  it('moves money into savings and back out, and the balance follows', { timeout: 420_000 }, async () => {
+    const owner = privateKeyToAccount(generatePrivateKey());
+    const transport = http(RPC, { timeout: 30_000, retryCount: 4 });
+    const publicClient = createPublicClient({ chain, transport });
+    const relay = createRelayClient({ baseUrl: API! });
+
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await relay.requestFunds(owner.address);
+        break;
+      } catch (error) {
+        if (attempt >= 12) throw error;
+        await sleep(10_000);
+      }
+    }
+    let funded = 0n;
+    for (let attempt = 0; attempt < 40 && funded === 0n; attempt += 1) {
+      await sleep(1500);
+      funded = await publicClient
+        .readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'balanceOf', args: [owner.address] })
+        .catch(() => 0n);
+    }
+    expect(funded, 'test money never arrived').toBeGreaterThan(0n);
+
+    const records = createRecords(memory(), owner.address);
+    const getRate = createRateProvider();
+    const source = createAccountSource({ records, getRate });
+    const gateway = createOnChainGateway({
+      publicClient,
+      ownerWalletClient: createWalletClient({ account: owner, chain, transport }),
+      policyAddress: POLICY,
+      tokenAddress: TOKEN,
+      routerAddress: ROUTER,
+      growthVaultAddress: VAULT,
+      tokenDecimals: 6,
+      getRate,
+      records,
+      relay,
+      ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
+      resolveRecipient: source.resolveRecipient,
+      loadOffChainSnapshot: source.loadSnapshot,
+    });
+
+    const before = await gateway.loadSnapshot();
+    const amountMinor = 5_000_000; // ₦50,000
+
+    const saved = await gateway.depositGrow(amountMinor);
+    const afterDeposit = await gateway.loadSnapshot();
+    expect(saved.balanceMinor).toBeGreaterThan(0);
+    expect(afterDeposit.account.balanceMinor).toBeLessThan(before.account.balanceMinor);
+
+    const withdrawn = await gateway.withdrawGrow(Math.floor(amountMinor / 2));
+    const afterWithdraw = await gateway.loadSnapshot();
+    expect(withdrawn.balanceMinor).toBeLessThan(saved.balanceMinor);
+    expect(afterWithdraw.account.balanceMinor).toBeGreaterThan(afterDeposit.account.balanceMinor);
+
+    console.info(
+      `smoke: savings ₦${(saved.balanceMinor / 100).toFixed(2)} after adding ₦${(amountMinor / 100).toFixed(2)}, ` +
+        `₦${(withdrawn.balanceMinor / 100).toFixed(2)} after taking half out; earned shown ₦${(saved.accruedMinor / 100).toFixed(2)}; ` +
+        `next payout shown ${saved.nextPayoutAt}`,
+    );
   });
 });
