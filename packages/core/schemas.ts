@@ -152,11 +152,19 @@ export const taxReserveSchema = z.object({
  * deposited minus withdrawn.
  */
 export const growPositionSchema = z.object({
+  /** What the savings are worth now. Where they earn, this already includes
+   * what they have earned: it can all be taken out. */
   balanceMinor: nonNegativeMinor,
-  /** Simulated/projected earnings not yet paid out — never treated as
-   * spendable balance, only shown as a projection. */
+  /** How much of `balanceMinor` is earnings, as far as this device knows.
+   * Zero where nothing pays, and zero on a device that did not see the money
+   * go in. Never a projection. */
   accruedMinor: nonNegativeMinor,
+  /** Unused where savings earn continuously; kept for the plain vault. */
   nextPayoutAt: isoDate,
+  /** The yearly rate the savings are earning right now, in hundredths of a
+   * percent. Absent where nothing pays: a plain set-aside balance earns
+   * nothing, and no screen may suggest otherwise. */
+  ratePerYearBps: z.number().int().nonnegative().optional(),
 });
 
 /**

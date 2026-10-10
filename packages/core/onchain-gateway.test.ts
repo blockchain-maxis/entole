@@ -3,7 +3,12 @@ import type { Address, PublicClient, WalletClient } from 'viem';
 
 import { DEMO_RATE } from './fx';
 import { demoGateway } from './gateway';
-import { AssistantNotEnabledError, createOnChainGateway, describeRevert } from './onchain-gateway';
+import {
+  AssistantNotEnabledError,
+  SavingsBusyError,
+  createOnChainGateway,
+  describeRevert,
+} from './onchain-gateway';
 import { createRecords } from './records';
 
 /**
@@ -373,5 +378,118 @@ describe('seats are real records, not the demo', () => {
     await gateway.revokeSeat(seat.id);
     expect(await records.seats.list()).toEqual([]);
     await expect(build().gateway.saveSeat(seatDraft)).rejects.toThrow(/can't be saved on this device/);
+  });
+});
+
+describe('savings in a vault that pays', () => {
+  const VAULT = `0x${'55'.repeat(20)}` as Address;
+  const RATES = `0x${'66'.repeat(20)}` as Address;
+  // At the demo rate, ₦158,000 is exactly $100.
+  const HUNDRED_DOLLARS_KOBO = 15_800_000;
+  const DOLLAR = 1_000_000n;
+
+  function memoryRecords() {
+    const data = new Map<string, string>();
+    return createRecords(
+      {
+        get: async (key) => data.get(key) ?? null,
+        set: async (key, value) => void data.set(key, value),
+        remove: async (key) => void data.delete(key),
+      },
+      ADDRESS,
+    );
+  }
+
+  /** A chain where the vault holds `shares` worth `value`, and `available` can leave. */
+  function buildSavings(state: { shares: bigint; value: bigint; available?: bigint; rate?: bigint | 'fails' }) {
+    const records = memoryRecords();
+    const { gateway, owner, publicClient } = build({
+      records,
+      savingsVault: { address: VAULT, rateProvider: RATES },
+      // No allowances, so reading the account asks the chain only about money.
+      loadOffChainSnapshot: async () => ({ ...(await demoGateway.loadSnapshot()), allowances: [], growPosition: null }),
+    });
+    (publicClient.readContract as ReturnType<typeof vi.fn>).mockImplementation(
+      async (call: { address: Address; functionName: string }) => {
+        if (/paused/i.test(call.functionName)) return false;
+        if (call.address === VAULT && call.functionName === 'balanceOf') return state.shares;
+        if (call.functionName === 'convertToAssets') return state.value;
+        if (call.functionName === 'maxWithdraw') return state.available ?? state.value;
+        if (call.functionName === 'getReserveData') {
+          if (state.rate === 'fails') throw new Error('rate source down');
+          const row = Array<bigint>(12).fill(0n);
+          row[5] = state.rate ?? 33_000_000_000_000_000_000_000_000n; // 3.3% a year
+          return row;
+        }
+        return 0n;
+      },
+    );
+    return { gateway, owner, records, state };
+  }
+
+  it('reads the real value, the rate, and no earnings on a device that never saw money go in', async () => {
+    const { gateway } = buildSavings({ shares: 99n * DOLLAR, value: 100n * DOLLAR });
+    const { growPosition } = await gateway.loadSnapshot();
+    expect(growPosition).toMatchObject({ balanceMinor: HUNDRED_DOLLARS_KOBO, accruedMinor: 0, ratePerYearBps: 330 });
+  });
+
+  it('counts as earnings only what is above what the person put in', async () => {
+    const { gateway, records } = buildSavings({ shares: 99n * DOLLAR, value: 100n * DOLLAR });
+    await records.savings.setPrincipal(98n * DOLLAR);
+    const { growPosition } = await gateway.loadSnapshot();
+    expect(growPosition?.accruedMinor).toBe(316_000); // $2 at ₦1,580
+  });
+
+  it('still shows the balance when the rate cannot be read, and shows no rate', async () => {
+    const { gateway } = buildSavings({ shares: DOLLAR, value: DOLLAR, rate: 'fails' });
+    const { growPosition } = await gateway.loadSnapshot();
+    expect(growPosition?.balanceMinor).toBe(158_000);
+    expect(growPosition?.ratePerYearBps).toBeUndefined();
+  });
+
+  it('puts money in from the person’s own account, to their own name, and remembers how much', async () => {
+    const { gateway, owner, records } = buildSavings({ shares: 0n, value: 0n });
+    await gateway.loadSnapshot();
+    await gateway.depositGrow(HUNDRED_DOLLARS_KOBO);
+
+    const calls = owner.writeContract.mock.calls.map(([call]) => call as { functionName: string; address: Address; args: unknown[] });
+    expect(calls.map((call) => call.functionName)).toEqual(['approve', 'deposit']);
+    expect(calls[0]!.args).toEqual([VAULT, 100n * DOLLAR]);
+    expect(calls[1]).toMatchObject({ address: VAULT, args: [100n * DOLLAR, ADDRESS] });
+    expect(await records.savings.principal()).toBe(100n * DOLLAR);
+  });
+
+  it('takes part out with the vault’s withdraw, leaving the rest its share of what went in', async () => {
+    const { gateway, owner, records } = buildSavings({ shares: 99n * DOLLAR, value: 100n * DOLLAR });
+    await records.savings.setPrincipal(90n * DOLLAR);
+    await gateway.loadSnapshot();
+    await gateway.withdrawGrow(HUNDRED_DOLLARS_KOBO / 4); // $25
+
+    const call = owner.writeContract.mock.calls[0]![0] as { functionName: string; args: unknown[] };
+    expect(call.functionName).toBe('withdraw');
+    expect(call.args).toEqual([25n * DOLLAR, ADDRESS, ADDRESS]);
+    // Three quarters of the money is left, so three quarters of what went in.
+    expect(await records.savings.principal()).toBe((90n * DOLLAR * 75n) / 100n);
+  });
+
+  it('takes everything out by redeeming every share, even when asked for a little too much', async () => {
+    const { gateway, owner, records } = buildSavings({ shares: 99n * DOLLAR, value: 100n * DOLLAR });
+    await records.savings.setPrincipal(90n * DOLLAR);
+    await gateway.loadSnapshot();
+    await gateway.withdrawGrow(HUNDRED_DOLLARS_KOBO + 5_000);
+
+    const call = owner.writeContract.mock.calls[0]![0] as { functionName: string; args: unknown[] };
+    expect(call.functionName).toBe('redeem');
+    expect(call.args).toEqual([99n * DOLLAR, ADDRESS, ADDRESS]);
+    expect(await records.savings.principal()).toBe(0n);
+  });
+
+  it('says so in plain words, before anything is signed, when too much of the vault is lent out', async () => {
+    const { gateway, owner } = buildSavings({ shares: 99n * DOLLAR, value: 100n * DOLLAR, available: 10n * DOLLAR });
+    await gateway.loadSnapshot();
+    const refusal = await gateway.withdrawGrow(HUNDRED_DOLLARS_KOBO / 2).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(SavingsBusyError);
+    expect((refusal as Error).message).toMatch(/can't be taken out of savings right now/);
+    expect(owner.writeContract).not.toHaveBeenCalled();
   });
 });

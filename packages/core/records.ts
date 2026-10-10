@@ -148,6 +148,19 @@ export function createRecords(store: RecordStore, owner: Address) {
   }
 
   return {
+    /** What the person has put into savings and not yet taken out, in the
+     * settlement asset's base units. It is what lets earnings be told apart
+     * from their own money. Kept on the device like everything else here, so
+     * a new device does not know it and shows no earnings figure. */
+    savings: {
+      async principal(): Promise<bigint | null> {
+        const raw = await store.get(key('savings-principal'));
+        return raw && /^\d+$/.test(raw) ? BigInt(raw) : null;
+      },
+      async setPrincipal(units: bigint): Promise<void> {
+        await store.set(key('savings-principal'), (units < 0n ? 0n : units).toString());
+      },
+    },
     activity: {
       list: () => readList(chunked, key('activity'), activitySchema),
       async add(entry: Activity) {

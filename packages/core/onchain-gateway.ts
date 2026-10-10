@@ -313,6 +313,102 @@ export const GROWTH_VAULT_ABI = [
   },
 ] as const;
 
+/**
+ * A vault that pays: the standard ERC-4626 surface. On Monad mainnet this is
+ * Aave's wrapped AUSD deposit, where the money is lent out and the interest
+ * shows up as each share being worth more. The person's own account holds the
+ * shares, so there is no balance of ours in between.
+ */
+export const SAVINGS_VAULT_ABI = [
+  {
+    type: 'function',
+    name: 'deposit',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'assets', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    outputs: [{ name: 'shares', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'withdraw',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'assets', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+      { name: 'owner', type: 'address' },
+    ],
+    outputs: [{ name: 'shares', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'redeem',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'shares', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+      { name: 'owner', type: 'address' },
+    ],
+    outputs: [{ name: 'assets', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'convertToAssets',
+    stateMutability: 'view',
+    inputs: [{ name: 'shares', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'maxWithdraw',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const;
+
+/** Aave's data provider, for the one figure read from it: what depositors are
+ * earning right now (`liquidityRate`, a yearly rate with 27 decimals). */
+export const SAVINGS_RATE_ABI = [
+  {
+    type: 'function',
+    name: 'getReserveData',
+    stateMutability: 'view',
+    inputs: [{ name: 'asset', type: 'address' }],
+    outputs: [
+      { name: 'unbacked', type: 'uint256' },
+      { name: 'accruedToTreasuryScaled', type: 'uint256' },
+      { name: 'totalAToken', type: 'uint256' },
+      { name: 'totalStableDebt', type: 'uint256' },
+      { name: 'totalVariableDebt', type: 'uint256' },
+      { name: 'liquidityRate', type: 'uint256' },
+      { name: 'variableBorrowRate', type: 'uint256' },
+      { name: 'stableBorrowRate', type: 'uint256' },
+      { name: 'averageStableBorrowRate', type: 'uint256' },
+      { name: 'liquidityIndex', type: 'uint256' },
+      { name: 'variableBorrowIndex', type: 'uint256' },
+      { name: 'lastUpdateTimestamp', type: 'uint40' },
+    ],
+  },
+] as const;
+
+/** Raised when savings cannot be taken out because too much of the vault is
+ * lent out at that moment. Plain copy: it is shown as-is. */
+export class SavingsBusyError extends Error {
+  constructor() {
+    super("That much can't be taken out of savings right now. Try a smaller amount, or try again later.");
+    this.name = 'SavingsBusyError';
+  }
+}
+
 /** Deterministic bytes32 the contract uses to key an allowance, derived from
  * the app's own string id so both sides always agree without a lookup. */
 export function toChainAllowanceId(appId: string): Hex {
@@ -367,6 +463,11 @@ export type OnChainGatewayConfig = {
    * Status section. Left undefined until then; `depositGrow`/`withdrawGrow`
    * fail loudly rather than pretend to settle if it's missing. */
   growthVaultAddress?: Address;
+  /** A vault that pays, in place of `growthVaultAddress`: Aave's wrapped AUSD
+   * deposit on mainnet. Savings go into it straight from the person's own
+   * account. `rateProvider` is Aave's data provider, read only for the rate
+   * being earned; without it the balance still grows, and no rate is shown. */
+  savingsVault?: { address: Address; rateProvider?: Address };
   /** Stocks broker credentials (Alpaca — see `stock-broker.ts`). Left
    * undefined, `stocksAvailable` is false and every stocks call throws that
    * module's "not configured" error. These are real secrets: the phone app
@@ -483,6 +584,63 @@ function requireGrowthVaultAddress(config: ResolvedConfig): Address {
     );
   }
   return config.growthVaultAddress;
+}
+
+/** Yearly rates from Aave carry 27 decimals; this is hundredths of a percent. */
+const RAY_PER_BASIS_POINT = 10n ** 23n;
+
+/**
+ * Savings held in a vault that pays, read from the chain: what they are worth
+ * now, how much of that is earnings (as far as this device knows what went
+ * in), and the rate being earned. Nothing here is projected.
+ */
+async function earningSavingsPosition(
+  config: ResolvedConfig,
+  vault: NonNullable<OnChainGatewayConfig['savingsVault']>,
+  owner: Address,
+): Promise<GrowPosition> {
+  const shares = await config.publicClient.readContract({
+    address: vault.address,
+    abi: SAVINGS_VAULT_ABI,
+    functionName: 'balanceOf',
+    args: [owner],
+  });
+  const value =
+    shares === 0n
+      ? 0n
+      : await config.publicClient.readContract({
+          address: vault.address,
+          abi: SAVINGS_VAULT_ABI,
+          functionName: 'convertToAssets',
+          args: [shares],
+        });
+
+  const principal = (await config.records?.savings.principal()) ?? null;
+  const earned = principal !== null && value > principal ? value - principal : 0n;
+
+  // The rate is information beside the balance. If it cannot be read, the
+  // balance is still true, and no rate is shown.
+  let ratePerYearBps: number | undefined;
+  if (vault.rateProvider) {
+    try {
+      const reserve = await config.publicClient.readContract({
+        address: vault.rateProvider,
+        abi: SAVINGS_RATE_ABI,
+        functionName: 'getReserveData',
+        args: [config.tokenAddress],
+      });
+      ratePerYearBps = Number(reserve[5] / RAY_PER_BASIS_POINT);
+    } catch {
+      ratePerYearBps = undefined;
+    }
+  }
+
+  return growPositionSchema.parse({
+    balanceMinor: fromTokenMinor(value, config),
+    accruedMinor: fromTokenMinor(earned, config),
+    nextPayoutAt: new Date().toISOString(),
+    ...(ratePerYearBps !== undefined ? { ratePerYearBps } : {}),
+  });
 }
 
 /** Re-reads the vault after a deposit/withdraw settles. `accruedMinor`/
@@ -747,6 +905,23 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
   const cadenceSeconds = config.cadenceSeconds ?? DEFAULT_CADENCE_SECONDS;
   const delegateAddress = config.delegateAddress ?? config.delegateWalletClient?.account?.address;
 
+  /** What the person's savings in a paying vault are worth right now. */
+  async function earningSavingsValue(vault: Address, saver: Address): Promise<bigint> {
+    const shares = await config.publicClient.readContract({
+      address: vault,
+      abi: SAVINGS_VAULT_ABI,
+      functionName: 'balanceOf',
+      args: [saver],
+    });
+    if (shares === 0n) return 0n;
+    return config.publicClient.readContract({
+      address: vault,
+      abi: SAVINGS_VAULT_ABI,
+      functionName: 'convertToAssets',
+      args: [shares],
+    });
+  }
+
   /** The assistant's signing client, or a clear refusal when it is not on. */
   async function delegateClient(): Promise<WalletClient> {
     if (config.delegateWalletClient) return config.delegateWalletClient;
@@ -791,7 +966,9 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
         }),
       );
 
-      const growPosition = config.growthVaultAddress
+      const growPosition = config.savingsVault
+        ? await earningSavingsPosition(config, config.savingsVault, owner)
+        : config.growthVaultAddress
         ? growPositionSchema.parse({
             accruedMinor: 0,
             nextPayoutAt: new Date().toISOString(),
@@ -1008,6 +1185,50 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     },
 
     async depositGrow(amountMinor: number) {
+      if (config.savingsVault) {
+        const vault = config.savingsVault;
+        const saver = ownerAddress();
+        await refreshRate();
+        const amount = toTokenMinor(amountMinor, config);
+        if (amount <= 0n) throw new Error('Enter an amount to save.');
+        await withGas();
+
+        // What is already there, before this goes in: on a device that never
+        // saw it go in, it all counts as the person's own money from here on.
+        const before = await earningSavingsValue(vault.address, saver);
+        const principal = (await config.records?.savings.principal()) ?? before;
+
+        const approved = await config.publicClient.readContract({
+          address: config.tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'allowance',
+          args: [saver, vault.address],
+        });
+        if (approved < amount) {
+          const approval = await config.ownerWalletClient.writeContract({
+            chain: config.ownerWalletClient.chain,
+            account: config.ownerWalletClient.account!,
+            address: config.tokenAddress,
+            abi: ERC20_ABI,
+            functionName: 'approve',
+            args: [vault.address, amount],
+          });
+          await config.publicClient.waitForTransactionReceipt({ hash: approval });
+        }
+
+        const hash = await config.ownerWalletClient.writeContract({
+          chain: config.ownerWalletClient.chain,
+          account: config.ownerWalletClient.account!,
+          address: vault.address,
+          abi: SAVINGS_VAULT_ABI,
+          functionName: 'deposit',
+          args: [amount, saver],
+        });
+        await config.publicClient.waitForTransactionReceipt({ hash });
+        await config.records?.savings.setPrincipal(principal + amount);
+        return earningSavingsPosition(config, vault, saver);
+      }
+
       const vaultAddress = requireGrowthVaultAddress(config);
       await refreshRate();
       const amount = toTokenMinor(amountMinor, config);
@@ -1048,6 +1269,65 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     },
 
     async withdrawGrow(amountMinor: number) {
+      if (config.savingsVault) {
+        const vault = config.savingsVault;
+        const saver = ownerAddress();
+        await refreshRate();
+        const amount = toTokenMinor(amountMinor, config);
+        if (amount <= 0n) throw new Error('Enter an amount to take out.');
+
+        const shares = await config.publicClient.readContract({
+          address: vault.address,
+          abi: SAVINGS_VAULT_ABI,
+          functionName: 'balanceOf',
+          args: [saver],
+        });
+        const value = await earningSavingsValue(vault.address, saver);
+        // Naira in, dollars out: asking for "all of it" can land a hair over
+        // what is there. That means all of it.
+        const everything = amount >= value;
+        const taking = everything ? value : amount;
+
+        // If too much of the vault is lent out, say so before anything is signed.
+        const available = await config.publicClient.readContract({
+          address: vault.address,
+          abi: SAVINGS_VAULT_ABI,
+          functionName: 'maxWithdraw',
+          args: [saver],
+        });
+        if (taking > available) throw new SavingsBusyError();
+
+        await withGas();
+        const hash = everything
+          ? await config.ownerWalletClient.writeContract({
+              chain: config.ownerWalletClient.chain,
+              account: config.ownerWalletClient.account!,
+              address: vault.address,
+              abi: SAVINGS_VAULT_ABI,
+              functionName: 'redeem',
+              args: [shares, saver, saver],
+            })
+          : await config.ownerWalletClient.writeContract({
+              chain: config.ownerWalletClient.chain,
+              account: config.ownerWalletClient.account!,
+              address: vault.address,
+              abi: SAVINGS_VAULT_ABI,
+              functionName: 'withdraw',
+              args: [amount, saver, saver],
+            });
+        await config.publicClient.waitForTransactionReceipt({ hash });
+
+        // Taking part out takes the same part of what went in, so what is
+        // left keeps its share of the earnings.
+        const principal = (await config.records?.savings.principal()) ?? null;
+        if (principal !== null) {
+          await config.records?.savings.setPrincipal(
+            everything || value === 0n ? 0n : (principal * (value - taking)) / value,
+          );
+        }
+        return earningSavingsPosition(config, vault, saver);
+      }
+
       const vaultAddress = requireGrowthVaultAddress(config);
       const amount = toTokenMinor(amountMinor, config);
       await withGas();
