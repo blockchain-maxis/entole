@@ -47,24 +47,25 @@ product: where it touches a screen, the screen says so plainly.
   on another chain, which the hard rules forbid rendering. `/api/aurora/deposit`
   returns it as `qrPayload` for a QR or a copy button; no screen uses it yet.
   Whether a QR-only screen counts as rendering an address is a product call.
-- **Adding real money is built but not proven with real money.** Naira goes in
-  by bank transfer through Onramp.money, which pays out USDC to a holding
-  address; Relay converts that into the account's own money
-  (`packages/core/onramp.ts`). Both partners' prices were checked live on 9
-  October 2026. No naira payment has gone all the way through, and neither
-  partner reaches the test network, so it only runs on the main network.
-  - The partner's page is theirs: it names the asset it sells and asks for a
-    phone number and ID the first time. Our own screens show none of that. A
-    screen of our own with only bank details needs our own Onramp.money app id.
-  - Whether their public app id accepts the holding address we pass in is
-    untested. If it does not, the person would have to paste it, which we will
-    not ask of them.
-  - The estimate uses the partner's public price and a 0.25% platform fee that
-    is their usual figure, not a quoted one. It is set to come in slightly low.
-  - A conversion that fails is returned to `ONRAMP_REFUND_ADDRESS` and has to be
-    passed back to the person by hand.
-  - On the phone the partner's page opens in the browser, and afterwards the
-    person switches back to the app themselves.
+- **Adding real money is built but not proven with real money.** It only runs
+  on the main network; none of the partners reach the test network.
+  - **From another app.** The person picks what they are sending (AUSD, USDC or
+    MON on Monad; USDC on Base, Arbitrum or Ethereum) and gets a scan code.
+    Relay converts what arrives into the account's own money, and returns it to
+    the sender if it cannot. Every route was priced live on 10 October 2026; no
+    real transfer has been sent through. USDT on Tron, the commonest way people
+    here hold dollars, is not offered yet: it needs a Tron account of ours for
+    refunds. Solana needs a Relay key.
+  - **Card.** Opens Relay's card page with the account set. $20 minimum. Its
+    own confirmation step shows the account as an address; that page is theirs.
+  - **Bank transfer in naira** is "coming soon". Onramp.money's public app id
+    ignores the address passed in and asks the person to type one (seen in a
+    browser, 10 October 2026), so it needs our own app id, which means their
+    business check. The code is finished and priced live (`packages/core/onramp.ts`).
+    A failed conversion there returns to `ONRAMP_REFUND_ADDRESS` and has to be
+    passed back by hand.
+  - Sending something other than what was picked to a scan code may not arrive.
+    The screen says so, but nothing prevents it.
 - **Savings ("Grow") has no yield source.** `GrowthVault` is deployed and
   tested, but accrual is display-only. The screens show no projected earnings
   until a real source exists.

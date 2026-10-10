@@ -79,7 +79,9 @@ loses the track. They bind both apps: each carries its own
 them.
 
 **Never render a blockchain address anywhere in the UI.** People, contacts,
-names and photos only.
+names and photos only. One exception, decided 10 October 2026: Add money may
+draw one as a scan code with a copy button, for sending money in from another
+app. No character of it is ever shown as text.
 
 **Never use the words** wallet, crypto, blockchain, chain, gas, token, on-chain,
 signature, or transaction hash **in user-facing copy.** Internal identifiers may
