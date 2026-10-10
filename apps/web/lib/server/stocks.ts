@@ -1,4 +1,7 @@
+import { unstable_cache } from 'next/cache';
+
 import {
+  StockMarketUnavailableError,
   fetchExchangeTable,
   fetchIssuedShares,
   fetchStockDetail,
@@ -37,12 +40,43 @@ let listInFlight: Promise<Loaded> | null = null;
 const details = new Map<string, { at: number; detail: StockDetail }>();
 const prices = new Map<string, { at: number; latest: Pick<StockListItem, 'priceCents' | 'changeBps' | 'volume'> }>();
 
-async function refreshList(): Promise<Loaded> {
+type Read = { at: number; items: StockListItem[]; shares: IssuedShare[] };
+
+/** Both sources, read now. Throws when either cannot be reached. */
+async function readSources(): Promise<Read> {
   const [shares, table] = await Promise.all([fetchIssuedShares(), fetchExchangeTable()]);
+  const items = joinStockList(shares, table);
+  const listed = new Set(items.map((item) => item.symbol));
+  return { at: Date.now(), items, shares: shares.filter((share) => listed.has(share.symbol)) };
+}
+
+/**
+ * The same read, kept where every server instance can reach it. Reading both
+ * sources in full takes several seconds; without this, each server that has
+ * just started makes its first visitor wait for all of it. Prices do not go
+ * stale here: a page's prices are asked for again before it is sent.
+ *
+ * (`unstable_cache` is how this Next version keeps a value across instances
+ * without moving the whole app to Cache Components.)
+ */
+const readShared = unstable_cache(readSources, ['stocks-list'], { revalidate: LIST_FRESH_MS / 1000 });
+
+async function refreshList(): Promise<Loaded> {
+  let read: Read;
+  try {
+    read = await readShared();
+    // A kept answer is handed back while it is refreshed. If refreshing keeps
+    // failing it must not stand for ever: past the limit, ask the sources.
+    if (Date.now() - read.at >= LIST_STALE_LIMIT_MS) read = await readSources();
+  } catch (error) {
+    if (error instanceof StockMarketUnavailableError) throw error;
+    // Nowhere shared to keep it (outside a deployed server): read directly.
+    read = await readSources();
+  }
   const loaded: Loaded = {
-    at: Date.now(),
-    items: joinStockList(shares, table),
-    shares: new Map(shares.map((share) => [share.symbol, share])),
+    at: read.at,
+    items: read.items,
+    shares: new Map(read.shares.map((share) => [share.symbol, share])),
   };
   list = loaded;
   return loaded;
