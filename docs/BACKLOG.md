@@ -101,6 +101,10 @@ product: where it touches a screen, the screen says so plainly.
     them before buying opens.
   - The exchange's full table runs a trading day behind its quotes, so each
     page of the list is refreshed from the quote endpoint before it is sent.
+  - Shares named after a coin are not listed (decided 10 October 2026), and a
+    company's own description is dropped when it talks about coins. The rule
+    reads names and descriptions, so companies whose business is coins under an
+    ordinary name are still listed, without the description.
 - **No iOS passkeys** until an Apple Team ID exists.
 
 ### Fixed in this pass

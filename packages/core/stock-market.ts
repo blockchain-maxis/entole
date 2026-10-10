@@ -17,6 +17,9 @@ import { z } from 'zod';
  * without anyone choosing them. If a source cannot be reached, the answer is
  * that it cannot be reached: there is no fallback list and no stored price.
  *
+ * One thing is taken away and nothing is added: a share named after a coin is
+ * left off (see `speaksOfCoins`).
+ *
  * Nothing here can buy anything. Buying needs the issuer's approval and is
  * not open (see docs/BACKLOG.md).
  *
@@ -31,6 +34,19 @@ export const EXCHANGE_API_BASE = 'https://api.nasdaq.com/api';
 
 /** The network a share has to exist on for an Entole account to hold it. */
 const HOME_NETWORK = /^monad$/i;
+
+/**
+ * Words that name a coin or the world around one. Entole is money as people
+ * already know it, so a share named after a coin is not listed, and what a
+ * company says about itself is left out when it speaks of them.
+ */
+const COIN_TALK =
+  /\b(bitcoins?|btc|ether|ethereum|solana|xrp|crypto\w*|blockchains?|defi|web3|\w+coins?|digital assets?|token\w*)\b/i;
+
+/** True for "2x Bitcoin ETF". False for "Coeur Mining Inc." and "Block Inc.". */
+export function speaksOfCoins(text: string): boolean {
+  return COIN_TALK.test(text);
+}
 
 export class StockMarketUnavailableError extends Error {
   constructor(what: 'list' | 'prices' | 'stock') {
@@ -373,14 +389,15 @@ export async function refreshStockPrices(
 
 /**
  * The list people browse: every share the issuer has on Monad that the
- * exchange can price. Companies first, largest first by the exchange's own
- * figure for what each is worth; then funds by name.
+ * exchange can price, less any named after a coin. Companies first, largest
+ * first by the exchange's own figure for what each is worth; then funds by
+ * name.
  */
 export function joinStockList(shares: IssuedShare[], table: Map<string, Priced>): StockListItem[] {
   const items: StockListItem[] = [];
   for (const share of shares) {
     const priced = table.get(share.symbol);
-    if (!priced) continue;
+    if (!priced || speaksOfCoins(priced.name)) continue;
     items.push({ ...priced, ...(share.logo ? { logo: share.logo } : {}) });
   }
   return items.sort((a, b) => {
@@ -435,7 +452,8 @@ function isoDay(usDate: string): string | undefined {
 /**
  * Everything shown about one share. The price and the day's change must be
  * there or the whole thing is refused; the rest is each included only if the
- * exchange gave it, and a screen shows only what is included.
+ * exchange gave it, and a screen shows only what is included. What a company
+ * says about itself is left out when it speaks of coins.
  */
 export async function fetchStockDetail(
   item: StockListItem,
@@ -501,7 +519,7 @@ export async function fetchStockDetail(
     ...(averageVolume ? { averageVolume } : {}),
     ...(yearLowCents && yearHighCents && yearLowCents <= yearHighCents ? { yearLowCents, yearHighCents } : {}),
     ...(dividendYieldBps ? { dividendYieldBps } : {}),
-    ...(typeof about === 'string' && about.trim().length > 20 ? { about: about.trim() } : {}),
+    ...(typeof about === 'string' && about.trim().length > 20 && !speaksOfCoins(about) ? { about: about.trim() } : {}),
     history: closes,
     marketOpen: share.marketOpen,
     ...(share.marketChangesAt ? { marketChangesAt: share.marketChangesAt } : {}),

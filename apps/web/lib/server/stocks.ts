@@ -58,8 +58,11 @@ async function readSources(): Promise<Read> {
  *
  * (`unstable_cache` is how this Next version keeps a value across instances
  * without moving the whole app to Cache Components.)
+ *
+ * The number in the name goes up whenever what may be on the list changes, so
+ * a list kept by older code is never handed out by newer code.
  */
-const readShared = unstable_cache(readSources, ['stocks-list'], { revalidate: LIST_FRESH_MS / 1000 });
+const readShared = unstable_cache(readSources, ['stocks-list-2'], { revalidate: LIST_FRESH_MS / 1000 });
 
 async function refreshList(): Promise<Loaded> {
   let read: Read;

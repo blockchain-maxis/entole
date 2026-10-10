@@ -26,7 +26,7 @@ const asset = (underlying: string) => ({
   trading: { openNow: false, nextChangeAt: '2026-10-12T00:00:00.000Z' },
   deployments: [{ network: 'Monad' }],
 });
-const ISSUER = { nodes: [asset('NVDA'), asset('AAPL'), asset('SPY'), asset('UNPRICED')], page: { hasNextPage: false } };
+const ISSUER = { nodes: [asset('NVDA'), asset('AAPL'), asset('SPY'), asset('BITX'), asset('UNPRICED')], page: { hasNextPage: false } };
 const COMPANIES = {
   data: {
     rows: [
@@ -35,7 +35,16 @@ const COMPANIES = {
     ],
   },
 };
-const FUNDS = { data: { data: { rows: [{ symbol: 'SPY', companyName: 'S&P 500 Fund', lastSalePrice: '$778.57', percentageChange: '-0.42%' }] } } };
+const FUNDS = {
+  data: {
+    data: {
+      rows: [
+        { symbol: 'SPY', companyName: 'S&P 500 Fund', lastSalePrice: '$778.57', percentageChange: '-0.42%' },
+        { symbol: 'BITX', companyName: '2x Bitcoin ETF', lastSalePrice: '$18.88', percentageChange: '1.18%' },
+      ],
+    },
+  },
+};
 const INFO = { data: { exchange: 'NASDAQ-GS', primaryData: { lastSalePrice: '$229.28', percentageChange: '-0.52%', lastTradeTimestamp: 'Oct 8, 2026', volume: '84,647,475' } } };
 
 /** The exchange's quote for a few stocks at once: a session newer than its table. */
@@ -101,6 +110,14 @@ describe('GET /api/stocks', () => {
     expect(second.items.map((item) => item.symbol)).toEqual(['AAPL', 'SPY']);
   });
 
+  it('has nothing named after a coin, listed or searched for', async () => {
+    const all = (await (await stockList(get('/api/stocks'))).json()) as { items: { symbol: string }[]; total: number };
+    expect(all.items.map((item) => item.symbol)).not.toContain('BITX');
+    const funds = (await (await stockList(get('/api/stocks?kind=fund'))).json()) as { items: { symbol: string }[] };
+    expect(funds.items.map((item) => item.symbol)).toEqual(['SPY']);
+    expect(await (await stockList(get('/api/stocks?q=bitcoin'))).json()).toMatchObject({ items: [], total: 0 });
+  });
+
   it('rejects a kind or an offset that makes no sense', async () => {
     expect((await stockList(get('/api/stocks?kind=coin'))).status).toBe(400);
     expect((await stockList(get('/api/stocks?offset=-1'))).status).toBe(400);
@@ -149,6 +166,7 @@ describe('GET /api/stocks/[symbol]', () => {
   it('is 404 for anything not on the list, and 400 for something that is not a symbol', async () => {
     expect((await detail('MSFT')).status).toBe(404);
     expect((await detail('UNPRICED')).status).toBe(404);
+    expect((await detail('BITX')).status).toBe(404);
     expect((await detail('../etc')).status).toBe(400);
   });
 

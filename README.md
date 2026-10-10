@@ -67,9 +67,11 @@ What's real and tested:
   month of closes, volume, company value and the range over a year. All of it
   is read live through `/api/stocks`; nothing is written into the app, and a
   source that cannot be reached shows as "can't show stocks right now", never
-  as an older figure. Buying is not open: the Buy button is there and cannot be
-  pressed. The prices come from the exchange's website endpoints, which are not
-  a contracted feed. See `packages/core/stock-market.ts`.
+  as an older figure. Shares named after a coin are left off the list, and a
+  company's description is left out when it talks about them. Buying is not
+  open: the Buy button is there and cannot be pressed. The prices come from the
+  exchange's website endpoints, which are not a contracted feed. See
+  `packages/core/stock-market.ts`.
 - **Savings that earn, on the main network.** There, savings go straight from
   the person's account into Aave's AUSD vault and earn what borrowers pay,
   about 3.3% a year when checked on 10 October 2026. The app shows a rate or

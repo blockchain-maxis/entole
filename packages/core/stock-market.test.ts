@@ -16,6 +16,7 @@ import {
   parseCount,
   plainCompanyName,
   refreshStockPrices,
+  speaksOfCoins,
   type StockListItem,
 } from './stock-market';
 
@@ -221,6 +222,55 @@ describe('the list people browse', () => {
     expect(pageStockList(items, { offset: 1, limit: 2 })).toMatchObject({ total: 4 });
     expect(pageStockList(items, { offset: 1, limit: 2 }).items.map((item) => item.symbol)).toEqual(['AAPL', 'TSLA']);
   });
+
+  it('leaves off a share named after a coin, company or fund, and keeps the rest', async () => {
+    const companies = [
+      ...COMPANIES.data.rows,
+      { symbol: 'DFDV', name: 'DeFi Development Corp. Common Stock', lastsale: '$4.51', pctchange: '-1.53%', volume: '1459615', marketCap: '149403218.00', sector: 'Finance' },
+      { symbol: 'COIN', name: 'Coinbase Global Inc. Class A Common Stock', lastsale: '$179.39', pctchange: '4.3%', volume: '12352288', marketCap: '45379950756.00', sector: 'Finance' },
+    ];
+    const funds = [...FUNDS.data.data.rows, { symbol: 'BITX', companyName: '2x Bitcoin ETF', lastSalePrice: '$18.88', percentageChange: '1.18%' }];
+    const fetchImpl = vi.fn(async (url: string | URL | Request) =>
+      reply(String(url).includes('/screener/etf') ? { data: { data: { rows: funds } } } : { data: { rows: companies } }),
+    );
+    const issued = ['NVDA', 'SPY', 'DFDV', 'COIN', 'BITX'].map((symbol) => ({ symbol, issuerName: `${symbol} xStock`, marketOpen: false }));
+    const items = joinStockList(issued, await fetchExchangeTable(fetchImpl as unknown as typeof fetch));
+    expect(items.map((item) => item.symbol)).toEqual(['NVDA', 'COIN', 'SPY']);
+  });
+});
+
+describe('speaksOfCoins', () => {
+  it('knows a coin by its name, and the words around one', () => {
+    for (const text of [
+      '2x Bitcoin ETF',
+      'DeFi Development Corp.',
+      'Ethereum Trust ETF',
+      'XRP Fund',
+      'A Dogecoin Trust',
+      'Crypto Industry Innovators ETF',
+      'the largest holder of bitcoins, with digital assets in custody',
+      'issuer of a regulated stablecoin on public blockchains',
+      'tokenized funds',
+    ]) {
+      expect(speaksOfCoins(text), text).toBe(true);
+    }
+  });
+
+  it('does not mistake an ordinary name for one', () => {
+    for (const text of [
+      'Coinbase Global Inc.',
+      'Block Inc.',
+      'Coeur Mining Inc.',
+      'Global X Copper Miners ETF',
+      'National Fuel Gas Company',
+      'Aether Industries',
+      'Lincoln Electric Holdings',
+      'Solventum Corporation',
+      'a global supply chain for digital payments',
+    ]) {
+      expect(speaksOfCoins(text), text).toBe(false);
+    }
+  });
 });
 
 describe('refreshStockPrices', () => {
@@ -352,6 +402,14 @@ describe('fetchStockDetail', () => {
     expect(detail.about).toBeUndefined();
     expect(detail.yearLowCents).toBeUndefined();
     expect(detail.asOf).toBe('Oct 8, 2026');
+  });
+
+  it('leaves out what the company says about itself when it speaks of coins, and keeps the figures', async () => {
+    const profile = { data: { CompanyDescription: { value: 'The world’s first and largest Bitcoin Treasury Company, with software on the side.' } } };
+    const detail = await fetchStockDetail(item, market, { fetch: exchange({ profile }) as unknown as typeof fetch });
+    expect(detail.about).toBeUndefined();
+    expect(detail.priceCents).toBe(22_928);
+    expect(detail.yearHighCents).toBe(24_337);
   });
 
   it('refuses outright without a real price', async () => {
