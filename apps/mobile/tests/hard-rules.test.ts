@@ -686,11 +686,13 @@ describe('Grow shows only what is real', () => {
     expect(hub.slice(hub.indexOf('>Earn<'))).not.toMatch(/<Button/);
   });
 
-  it('stocks are gated with the honest sentence until a broker is connected', () => {
-    for (const source of [hub, stocks, trade]) {
-      expect(source).toMatch(/Buying stocks opens when our brokerage partner is connected/);
-      expect(source).toMatch(/stocksAvailable/);
-    }
+  it('until a broker is connected, stocks can be looked at and not bought', () => {
+    for (const source of [hub, stocks, trade]) expect(source).toMatch(/stocksAvailable/);
+    expect(hub).toMatch(/Buying opens soon/);
+    expect(hub).toMatch(/router\.push\('\/grow\/stocks'\)/);
+    expect(stocks).toMatch(/Buying opens soon/);
+    expect(stocks).toMatch(/<StockCatalogue/);
+    expect(trade).toMatch(/if \(!stocksAvailable\) \{[\s\S]*?<StockPreview symbol=\{symbol\} \/>/);
   });
 
   it('stocks show skeletons while loading and surface the error message inline', () => {
@@ -698,6 +700,63 @@ describe('Grow shows only what is real', () => {
     expect(stocks).toMatch(/plainMessage\(error/);
     expect(trade).toMatch(/<Skeleton/);
     expect(trade).toMatch(/plainMessage\(error/);
+  });
+});
+
+describe('stocks are shown only as the market has them', () => {
+  // Decided 10 October 2026: until buying is open, Stocks is a place to look.
+  // Every name, price and figure is read live from the server, which reads the
+  // issuer and the exchange. Nothing is written into the app, and nothing on
+  // these screens can buy.
+  const files = [
+    'components/ui/StockCatalogue.tsx',
+    'components/ui/StockPreview.tsx',
+    'components/ui/StockLogo.tsx',
+    'lib/stocks.ts',
+  ];
+  const sources = files.map((path) => [path, stripComments(read(join(ROOT, path)))] as const);
+  const catalogue = stripComments(read(join(ROOT, 'components/ui/StockCatalogue.tsx')));
+  const preview = stripComments(read(join(ROOT, 'components/ui/StockPreview.tsx')));
+  const client = stripComments(read(join(ROOT, 'lib/stocks.ts')));
+
+  it.each(sources)('%s carries no ticker, price, percentage or address of its own', (_path, source) => {
+    expect(source).not.toMatch(/\b(AAPL|TSLA|NVDA|MSFT|GOOGL?|AMZN|META|NFLX|SPY|QQQ)\b/);
+    expect(source).not.toMatch(/0x[0-9a-fA-F]{4,}|\baddress\b/);
+    const copy = userFacingCopy(source).join('\n');
+    expect(copy).not.toMatch(/\d+(\.\d+)?\s*%/);
+    expect(copy).not.toMatch(/[$₦]\s?\d/);
+  });
+
+  it('the list and each stock are read through the one live client', () => {
+    expect(client).toMatch(/createStockMarketClient\(\{ baseUrl: API_BASE \}\)/);
+    expect(catalogue).toMatch(/useStockBrowse\(stockMarket,/);
+    expect(preview).toMatch(/useStockDetail\(stockMarket,/);
+  });
+
+  it('a figure the market did not give is left out, not filled in', () => {
+    expect(preview).toMatch(/if \(detail\.volume !== undefined\)/);
+    expect(preview).toMatch(/if \(detail\.marketCap\)/);
+    expect(preview).toMatch(/\{month \? \(/);
+    expect(preview).toMatch(/\{detail\.about \? \(/);
+    expect(preview).toMatch(/store\.status === 'ready' \?/);
+  });
+
+  it('buying is shown and cannot be pressed, and nothing here moves money', () => {
+    expect(preview).toMatch(/accessibilityState=\{\{ disabled: true \}\}/);
+    expect(preview).toMatch(/>Coming soon</);
+    expect(preview).toMatch(/Nothing here can move your money yet/);
+    for (const [, source] of sources) {
+      expect(source).not.toMatch(/buyStock|sellStock|submitPayment|depositGrow|withdrawGrow/);
+    }
+  });
+
+  it('loading is a skeleton, and a failed read says so and offers another try', () => {
+    for (const source of [catalogue, preview]) {
+      expect(source).toMatch(/Skeleton/);
+      expect(source).not.toMatch(/ActivityIndicator/);
+      expect(source).toMatch(/Nothing has changed/);
+      expect(source).toMatch(/label="Try again"/);
+    }
   });
 });
 

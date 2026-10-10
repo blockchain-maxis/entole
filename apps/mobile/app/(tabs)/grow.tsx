@@ -29,8 +29,9 @@ const HOLDINGS_SHOWN = 3;
  * - Savings is real: money set aside in the person's own account, read back
  *   from where it is held. It does not earn interest, and nothing here says
  *   it does — there is no accrued figure, no payout date and no rate.
- * - Stocks opens only when a brokerage partner is connected. Until then it
- *   says so and shows nothing that could pass for a price or a holding.
+ * - Stocks can be bought only when a brokerage partner is connected. Until
+ *   then the card leads to a list to look through, with live prices, and
+ *   shows nothing that could pass for a holding.
  * - Earn says plainly that interest is planned for later. It is not a button.
  */
 export default function Grow() {
@@ -206,8 +207,11 @@ export default function Grow() {
               <View className="rounded-row border border-line bg-card p-4">
                 <Text className="font-heavy text-body-sm text-ink">Stocks</Text>
                 <Text className="mt-2 font-body text-label-sm text-slate">
-                  Buying stocks opens when our brokerage partner is connected.
+                  See the companies and funds you will be able to buy, with live prices. Buying opens soon.
                 </Text>
+                <View className="mt-4 flex-row">
+                  <Button label="Look at stocks" variant="secondary" onPress={() => router.push('/grow/stocks')} />
+                </View>
               </View>
             )}
 

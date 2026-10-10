@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
@@ -8,6 +8,7 @@ import { Keypad } from '@/components/ui/Keypad';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { StockPreview } from '@/components/ui/StockPreview';
 import { Text } from '@/components/ui/Text';
 import { plainMessage } from '@/lib/send';
 import { EMPTY_ENTRY, entryDisplay, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
@@ -19,11 +20,12 @@ import { formatShares, stockQuantityForAmount, stockValueForQuantity } from '@en
 type Side = 'buy' | 'sell';
 
 /**
- * Buy or sell one stock. The price is always the broker's live quote — if it
- * cannot be fetched, the screen says so and offers no way to trade; there is
- * no placeholder price. Amounts are entered in naira on the custom keypad and
- * converted to shares at that quote (rounded down, so never more than you
- * entered).
+ * One stock. Until a brokerage partner is connected it can be looked at and
+ * not bought (`StockPreview`). With one, this is where it is bought or sold:
+ * the price is always the broker's live quote, and if it cannot be fetched the
+ * screen says so and offers no way to trade; there is no placeholder price.
+ * Amounts are entered in naira on the custom keypad and converted to shares at
+ * that quote (rounded down, so never more than you entered).
  */
 export default function StockTrade() {
   const router = useRouter();
@@ -94,19 +96,27 @@ export default function StockTrade() {
     }
   }
 
+  // No broker connected: the stock can be looked at, not bought.
+  if (!stocksAvailable) {
+    return (
+      <Screen edges={{ bottom: false }}>
+        <Header title={symbol} trailing={<PauseButton />} />
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <StockPreview symbol={symbol} />
+        </ScrollView>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <Header title={holding?.companyName ?? symbol} trailing={<PauseButton />} />
 
       <View className="flex-1 px-gutter pt-1">
-        {!stocksAvailable ? (
-          <View className="rounded-row border border-line bg-card p-4">
-            <Text className="font-heavy text-body-sm text-ink">Stocks</Text>
-            <Text className="mt-2 font-body text-label-sm text-slate">
-              Buying stocks opens when our brokerage partner is connected.
-            </Text>
-          </View>
-        ) : quoteProblem ? (
+        {quoteProblem ? (
           <View className="rounded-row border border-line bg-card p-4">
             <Text className="font-heavy text-body-sm text-ink">No price available right now</Text>
             <Text className="mt-2 font-body text-label-sm text-slate">{quoteProblem}</Text>

@@ -13,14 +13,16 @@ import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import { RowSkeleton } from '@/components/ui/Skeleton';
+import { StockCatalogue } from '@/components/ui/StockCatalogue';
 import { Text } from '@/components/ui/Text';
 import { plainMessage } from '@/lib/send';
 import { useThemeColors } from '@/lib/theme';
 
 /**
- * Stocks — holdings, and a search into the buy flow. Until a brokerage partner
- * is connected the whole screen is one honest note: no prices, no holdings,
- * nothing that could be mistaken for the real thing.
+ * Stocks. Until a brokerage partner is connected this is a place to look:
+ * every stock that will be buyable, with its live price (`StockCatalogue`),
+ * and no holdings and no way to buy. With one it is holdings and a search
+ * into the buy flow.
  */
 export default function Stocks() {
   const router = useRouter();
@@ -59,15 +61,14 @@ export default function Stocks() {
         keyboardShouldPersistTaps="handled"
       >
         {!store.stocksAvailable ? (
-          <View className="rounded-row border border-line bg-card p-4">
-            <Text className="font-heavy text-body-sm text-ink">Stocks</Text>
-            <Text className="mt-2 font-body text-label-sm text-slate">
-              Buying stocks opens when our brokerage partner is connected.
+          <>
+            <Text className="px-1 pb-4 font-body text-body-sm text-slate">
+              Look through the companies and funds you will be able to own a piece of. Buying opens soon.
             </Text>
-            <Text className="mt-2 font-body text-label-sm text-slate">
-              Nothing here can move your money until then.
-            </Text>
-          </View>
+            <StockCatalogue
+              onOpen={(symbol) => router.push({ pathname: '/grow/stock/[symbol]', params: { symbol } })}
+            />
+          </>
         ) : failed ? (
           <LoadFailed
             title="We can't load your holdings"
