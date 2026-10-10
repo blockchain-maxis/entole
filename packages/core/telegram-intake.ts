@@ -31,7 +31,12 @@ const AMOUNT = /(?:₦|ngn)?\s*([\d,]+(?:\.\d{1,2})?)/i;
 const TO_CLAUSE = /\bto\s+([a-z][a-z\s]*?)(?=\s+\b(?:for|note:)\b|$)/i;
 const NOTE_CLAUSE = /\b(?:for|note:)\s+(.+)$/i;
 
-export function parseTelegramMessage(text: string, contacts: Contact[]): ParsedIntent {
+export function parseTelegramMessage(
+  text: string,
+  contacts: Contact[],
+  /** Used when the message gives no reason of its own. */
+  defaultNote = 'Sent from Telegram',
+): ParsedIntent {
   const trimmed = text.trim();
   if (!PAY_VERB.test(trimmed)) {
     return { ok: false, reason: 'Start with "pay" or "send" — e.g. "Pay 5000 to Mom for rent".' };
@@ -53,7 +58,7 @@ export function parseTelegramMessage(text: string, contacts: Contact[]): ParsedI
   if (!contact) return { ok: false, reason: `No contact matches "${toMatch[1].trim()}".` };
 
   const noteMatch = trimmed.match(NOTE_CLAUSE);
-  const note = noteMatch?.[1]?.trim() || 'Sent from Telegram';
+  const note = noteMatch?.[1]?.trim() || defaultNote;
 
   return { ok: true, contactId: contact.id, amountMinor, note };
 }

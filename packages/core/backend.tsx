@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
 import type { AccountSource } from './account-snapshot';
+import { emptyProposalSlot, type ProposalSlot } from './assistant-ask';
 import type { AssistantInboxClient } from './assistant-inbox';
 import type { DirectoryClient } from './directory';
 import type { RelayClient } from './relay-client';
@@ -20,6 +21,9 @@ export type Backend = {
    * proposal lands, and where a chat is linked and the account's contacts are
    * synced from. Convenience, not authority: see `assistant-inbox.ts`. */
   inbox: AssistantInboxClient;
+  /** Where a payment asked for in the app waits out its undo window. Put one
+   * here, re-read the account, and it is the store's `proposal`. */
+  proposals: ProposalSlot;
   /** `PAY-XXXX-…` — how this account is named to others. Null until signed in. */
   paymentCode: string | null;
 };
@@ -29,6 +33,7 @@ const notSignedIn = () => Promise.reject(new Error('Not signed in yet'));
 /** What screens see before an account exists: every action refuses, nothing is invented. */
 export const pendingBackend: Backend = {
   paymentCode: null,
+  proposals: emptyProposalSlot,
   source: {
     loadSnapshot: notSignedIn,
     resolveRecipient: () => {
