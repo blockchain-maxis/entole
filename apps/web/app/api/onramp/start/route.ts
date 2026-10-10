@@ -1,5 +1,5 @@
 import { RateUnavailableError, createRateProvider } from '@entole/core/fx';
-import { ONRAMP_CHAIN_ID, OnrampError, startBankTransfer } from '@entole/core/onramp';
+import { ONRAMP_CHAIN_ID, ONRAMP_MONEY_PUBLIC_APP_ID, OnrampError, startBankTransfer } from '@entole/core/onramp';
 import { getAddress, isAddress, type Address } from 'viem';
 import { z } from 'zod';
 
@@ -15,9 +15,11 @@ import { rateLimit } from '@/lib/server/sponsor';
  * own money (see `packages/core/onramp.ts`). That address is inside `url` and
  * nowhere else in the answer: no screen has anything to print.
  *
- * Off (501) unless the app runs on the main network and `ONRAMP_REFUND_ADDRESS`
- * is set. Neither partner reaches the test network, so there this route stays
- * off and the app offers test money instead.
+ * Off (501) unless the app runs on the main network and both
+ * `ONRAMP_REFUND_ADDRESS` and our own `ONRAMP_MONEY_APP_ID` are set. The
+ * partner's public app id will not do: seen in a browser on 10 October 2026,
+ * its page ignores the address passed in and asks the person to type one,
+ * which is exactly what this flow exists to avoid.
  */
 export const runtime = 'nodejs';
 
@@ -38,7 +40,7 @@ const bodySchema = z.object({
 /** One rate cache for the route, the same feed the apps price a balance with. */
 const getRate = createRateProvider();
 
-type Config = { settlementToken: Address; refundTo: Address; appId?: string; apiKey?: string };
+type Config = { settlementToken: Address; refundTo: Address; appId: string; apiKey?: string };
 
 /** Read per call, so nothing is captured at build time. */
 function readConfig(): Config | null {
@@ -47,11 +49,12 @@ function readConfig(): Config | null {
   const settlementToken = address.safeParse(process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS?.trim());
   if (!refundTo.success || !settlementToken.success) return null;
   const appId = process.env.ONRAMP_MONEY_APP_ID?.trim();
+  if (!appId || appId === ONRAMP_MONEY_PUBLIC_APP_ID) return null;
   const apiKey = process.env.RELAY_API_KEY?.trim();
   return {
     settlementToken: settlementToken.data,
     refundTo: refundTo.data,
-    ...(appId ? { appId } : {}),
+    appId,
     ...(apiKey ? { apiKey } : {}),
   };
 }
