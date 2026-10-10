@@ -582,9 +582,12 @@ describe('sending works without a saved beneficiary', () => {
 });
 
 describe('Grow shows only what is real', () => {
-  // Savings is money held 1:1 in the person's account and it pays no interest,
-  // so nothing in Grow may show earnings, a payout date, a rate of return, a
-  // ticker or a holding that did not come from the store.
+  // Savings earn only where they are really held somewhere that pays (decided
+  // 10 October 2026: on the main network that is a lending market). So Grow may
+  // show a rate and earnings, but only ones read from the position through
+  // `savingsEarning`, which answers nothing unless the rate is real. It may
+  // never show a payout date, a figure written into the screen, a ticker or a
+  // holding that did not come from the store.
   const growFiles = [
     'app/(tabs)/grow.tsx',
     'app/grow/savings.tsx',
@@ -602,14 +605,24 @@ describe('Grow shows only what is real', () => {
   const stocks = stripComments(read(join(ROOT, 'app/grow/stocks.tsx')));
   const trade = stripComments(read(join(ROOT, 'app/grow/stock/[symbol].tsx')));
 
-  it.each(growSource)('%s never reads accrued earnings or a payout date', (_path, source) => {
-    expect(source).not.toMatch(/accruedMinor|nextPayoutAt|payoutLabel|daysUntil|earned so far/);
+  it.each(growSource)('%s never shows a payout date, and reads earnings only through savingsEarning', (_path, source) => {
+    expect(source).not.toMatch(/nextPayoutAt|payoutLabel|daysUntil/);
+    // The raw fields are not read here: only the helper that refuses without a real rate.
+    expect(source).not.toMatch(/accruedMinor|ratePerYearBps/);
+    if (/earned so far|a year/.test(source)) expect(source).toMatch(/savingsEarning\(/);
   });
 
-  it.each(growSource)('%s shows no yield, rate of return or percentage earned', (_path, source) => {
+  it.each(growSource)('%s writes no rate or percentage into the screen itself', (_path, source) => {
     const copy = userFacingCopy(source).join('\n');
-    expect(copy).not.toMatch(/\b(yield|apy|apr|p\.a\.|per year|a year|annual|rate of return|returns on)\b/i);
-    expect(copy).not.toMatch(/\d\s*%\s*(interest|yield|return|apy|apr)/i);
+    expect(copy).not.toMatch(/\b(yield|apy|apr|p\.a\.|annual|rate of return|returns on|guaranteed)\b/i);
+    expect(copy).not.toMatch(/\d+(\.\d+)?\s*%/);
+  });
+
+  it('a rate or earnings line only appears beside the plain "earns nothing yet" line it replaces', () => {
+    for (const source of [hub, sheet]) {
+      expect(source).toMatch(/earning \? \(/);
+      expect(source).toMatch(/It doesn&apos;t earn interest yet/);
+    }
   });
 
   it.each(growSource)('%s carries no demo ticker, price or holding', (_path, source) => {

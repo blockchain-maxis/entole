@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 
 import { toDollars } from '@entole/core/fx';
 import { formatDollars, formatNaira, kobo } from '@entole/core/money';
+import { savingsEarning } from '@entole/core/savings';
 import { useStore } from '@entole/core/store';
 
 import { Amount } from '@/components/ui/Amount';
@@ -43,6 +44,8 @@ export default function Grow() {
   const savings = store.growPosition;
   const spendable = store.balance;
   const saved = savings?.balanceMinor ?? 0;
+  // Only ever a rate read from where the money is held. Null means it earns nothing.
+  const earning = savingsEarning(savings);
   const share = savedShare(spendable, saved);
   const holdings = store.stockPositions;
   const holdingsValue = holdings.reduce((sum, position) => sum + position.currentValueMinor, 0);
@@ -101,9 +104,23 @@ export default function Grow() {
                 <Text tabular className="mt-2 font-body text-body-sm text-slate">
                   ≈ {formatDollars(toDollars(kobo(saved), store.rate))}
                 </Text>
-                <Text className="mt-3 font-body text-label-sm text-slate">
-                  Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
-                </Text>
+                {earning ? (
+                  <View className="mt-3">
+                    {earning.earnedMinor > 0 ? (
+                      <Text tabular className="font-body text-body-sm text-settled">
+                        + {formatNaira(kobo(earning.earnedMinor))} earned so far
+                      </Text>
+                    ) : null}
+                    <Text className="mt-1 font-strong text-body-sm text-ink">Earning about {earning.rate} a year</Text>
+                    <Text className="mt-1 font-body text-label-sm text-slate">
+                      The rate moves from day to day. To earn it, your savings are lent out through a lending market.
+                    </Text>
+                  </View>
+                ) : (
+                  <Text className="mt-3 font-body text-label-sm text-slate">
+                    Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
+                  </Text>
+                )}
                 <View className="mt-5 flex-row gap-3">
                   <Button
                     label="Add to savings"

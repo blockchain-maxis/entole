@@ -28,6 +28,10 @@ type ExtraConfig = {
   /** Origin of the sponsor server (`/api/relay`, `/api/faucet`). */
   apiBase?: string;
   growthVaultAddress?: string;
+  /** A vault that pays, where savings are held instead of the plain one, and
+   * where its rate is read from. Unset, savings earn nothing. */
+  savingsVaultAddress?: string;
+  savingsRateProvider?: string;
   rpcUrl?: string;
   chainId?: number;
   indexerUrl?: string;
@@ -49,6 +53,8 @@ const API_BASE = extra.apiBase ?? 'https://entole.vercel.app';
 export const CHECKOUT_BASE = API_BASE;
 const BILLS_ADDRESS = extra.billsAddress ? (extra.billsAddress as Address) : undefined;
 const GROWTH_VAULT_ADDRESS = extra.growthVaultAddress ? (extra.growthVaultAddress as Address) : undefined;
+const SAVINGS_VAULT_ADDRESS = extra.savingsVaultAddress ? (extra.savingsVaultAddress as Address) : undefined;
+const SAVINGS_RATE_PROVIDER = extra.savingsRateProvider ? (extra.savingsRateProvider as Address) : undefined;
 const RPC_URL = extra.rpcUrl ?? 'https://testnet-rpc.monad.xyz';
 const CHAIN_ID = extra.chainId ?? 10143;
 /** On the main network money is real and added by bank transfer; anywhere else
@@ -182,6 +188,14 @@ export function useOnChainBackend(
       policyAddress: CONTRACT_ADDRESS,
       tokenAddress: TOKEN_ADDRESS,
       ...(GROWTH_VAULT_ADDRESS ? { growthVaultAddress: GROWTH_VAULT_ADDRESS } : {}),
+      ...(SAVINGS_VAULT_ADDRESS
+        ? {
+            savingsVault: {
+              address: SAVINGS_VAULT_ADDRESS,
+              ...(SAVINGS_RATE_PROVIDER ? { rateProvider: SAVINGS_RATE_PROVIDER } : {}),
+            },
+          }
+        : {}),
       tokenDecimals: TOKEN_DECIMALS,
       getRate,
       ...(ROUTER_ADDRESS ? { routerAddress: ROUTER_ADDRESS, relay } : {}),

@@ -4,6 +4,7 @@ import { View } from 'react-native';
 
 import { toDollars } from '@entole/core/fx';
 import { formatDollars, formatNaira, kobo } from '@entole/core/money';
+import { savingsEarning } from '@entole/core/savings';
 import { useStore } from '@entole/core/store';
 
 import { plainMessage } from '@/lib/send';
@@ -57,6 +58,8 @@ export function SavingsSheet({
   const deposit = mode === 'deposit';
   const spendable = store.balance;
   const saved = store.growPosition?.balanceMinor ?? 0;
+  // Only ever a rate read from where the money is held. Null means it earns nothing.
+  const earning = savingsEarning(store.growPosition);
   const check = checkSavingsAmount({ mode, amount: amountMinor, spendable, saved, rate: store.rate });
   const waiting = phase === 'waiting';
 
@@ -139,9 +142,16 @@ export function SavingsSheet({
               />
             </View>
 
-            <Text className="mt-2 font-body text-caption text-slate">
-              Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
-            </Text>
+            {earning ? (
+              <Text className="mt-2 font-body text-caption text-slate">
+                Earning about {earning.rate} a year right now. To earn it, your savings are lent out through a lending
+                market. You can take them out at any time, unless all of it happens to be lent out at that moment.
+              </Text>
+            ) : (
+              <Text className="mt-2 font-body text-caption text-slate">
+                Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
+              </Text>
+            )}
 
             {!check.ok && check.kind !== 'empty' ? (
               <Text className="mt-3 font-body text-label text-caution">{check.reason}</Text>
