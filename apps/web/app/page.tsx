@@ -81,6 +81,13 @@ export default function Home() {
           <ButtonLink href="/business" label="Business" variant="secondary" />
         </div>
 
+        {!loading && assistant.enabled && !waiting ? (
+          <Link href="/assistant" className="mt-4 flex items-center gap-3 rounded-control bg-indigo-wash px-4 py-3.5">
+            <AssistantBadge />
+            <span className="flex-1 font-strong text-label text-ink">Ask the assistant to pay someone</span>
+          </Link>
+        ) : null}
+
         <SectionHeading title="Allowances" action={{ label: 'Manage', href: '/rules/new' }} />
 
         <ul className="flex flex-col gap-2.5">

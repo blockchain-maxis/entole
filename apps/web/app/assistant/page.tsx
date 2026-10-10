@@ -1,10 +1,16 @@
 'use client';
 
 import { Gauge, Hand, ShieldCheck, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+
+import { ASK_UNDO_SECONDS, proposeFromRequest } from '@entole/core/assistant-ask';
+import { useBackend } from '@entole/core/backend';
+import { useStore } from '@entole/core/store';
 
 import { Header } from '@/components/Header';
+import { Skeleton } from '@/components/Skeleton';
 import { useAssistant } from '@/lib/assistant';
 
 const POINTS: { icon: LucideIcon; title: string; body: string }[] = [
@@ -70,6 +76,8 @@ export default function AssistantPage() {
             : 'The assistant can propose and make payments for you, like a bill that comes round every month. It is off until you turn it on here.'}
         </p>
 
+        {assistant.enabled ? <AskAssistant /> : null}
+
         <ul className="mt-7 flex flex-col gap-5">
           {POINTS.map((point) => (
             <li key={point.title} className="flex gap-3.5">
@@ -122,5 +130,94 @@ export default function AssistantPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * Asking the assistant to pay someone. A sentence becomes a proposal, and the
+ * proposal runs the same undo window as any other: this never sends anything
+ * itself. Whether the payment may happen is the allowance's decision, made
+ * when the assistant tries to run it.
+ */
+function AskAssistant() {
+  const router = useRouter();
+  const store = useStore();
+  const { proposals } = useBackend();
+  const [text, setText] = useState('');
+  const [working, setWorking] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  async function ask(event: FormEvent) {
+    event.preventDefault();
+    if (working) return;
+    const result = proposeFromRequest(text, { contacts: store.contacts, allowances: store.allowances });
+    if (!result.ok) {
+      setProblem(result.reason);
+      return;
+    }
+    setProblem(null);
+    setWorking(true);
+    proposals.put(result.proposal);
+    try {
+      // Re-reading the account is what makes it the waiting payment.
+      await store.refresh();
+      router.push('/assistant/action');
+    } catch {
+      proposals.clear();
+      setProblem("We couldn't start that. Nothing was sent. Try again.");
+      setWorking(false);
+    }
+  }
+
+  if (store.status === 'loading') {
+    return <Skeleton className="mt-6 h-[188px] w-full rounded-panel" />;
+  }
+
+  if (store.allowances.length === 0) {
+    return (
+      <section className="mt-6 rounded-panel bg-indigo-wash p-5">
+        <p className="font-strong text-body text-ink">Nothing for it to do yet</p>
+        <p className="mt-1 font-body text-body-sm text-slate">
+          Set an allowance for someone and you can ask the assistant to pay them.
+        </p>
+        <Link href="/rules/new" className="mt-3 inline-block font-strong text-label text-indigo hover:text-indigo-deep">
+          Set up an allowance
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <form onSubmit={(event) => void ask(event)} className="mt-6 rounded-panel bg-indigo-wash p-5">
+      <label htmlFor="ask" className="block font-strong text-body text-ink">
+        Ask it to pay someone
+      </label>
+      <input
+        id="ask"
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+          setProblem(null);
+        }}
+        placeholder="Pay 5000 to Ada for rent"
+        autoComplete="off"
+        autoCapitalize="sentences"
+        enterKeyHint="send"
+        aria-describedby="ask-help"
+        className={`mt-3 h-14 w-full rounded-control border-[1.5px] bg-card px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-indigo ${
+          problem ? 'border-halt' : 'border-line'
+        }`}
+      />
+      <p id="ask-help" role={problem ? 'alert' : undefined} className={`mt-2 font-body text-caption ${problem ? 'text-halt' : 'text-slate'}`}>
+        {problem ?? `Say who and how much. You get ${ASK_UNDO_SECONDS} seconds to stop it before it is sent.`}
+      </p>
+      <button
+        type="submit"
+        disabled={working || text.trim().length === 0}
+        className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+      >
+        {working ? 'Starting' : 'Ask the assistant'}
+      </button>
+    </form>
   );
 }
