@@ -43,7 +43,7 @@ describe('demoGateway.requestConditionalRelease', () => {
     expect(result).not.toBeNull();
     expect(result!.invoice.status).toBe('paid');
     expect(result!.invoice.paidAt).toBeDefined();
-    expect(result!.taxReserve.sourceInvoiceId).toBe(gated.id);
+    expect(result!.taxReserve?.sourceInvoiceId).toBe(gated.id);
   });
 
   it('returns null and leaves the invoice untouched while the condition is unmet', async () => {

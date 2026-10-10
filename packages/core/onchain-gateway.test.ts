@@ -493,3 +493,68 @@ describe('savings in a vault that pays', () => {
     expect(owner.writeContract).not.toHaveBeenCalled();
   });
 });
+
+describe('a held invoice, checked against the business’s own records', () => {
+  function memoryRecords() {
+    const data = new Map<string, string>();
+    return createRecords(
+      {
+        get: async (key) => data.get(key) ?? null,
+        set: async (key, value) => void data.set(key, value),
+        remove: async (key) => void data.delete(key),
+      },
+      ADDRESS,
+    );
+  }
+
+  const held = {
+    clientName: 'Ada Stores',
+    amountMinor: 2_500_000,
+    note: 'Fabric, 40 yards',
+    dueAt: '2026-10-20T00:00:00.000+01:00',
+    link: 'https://entole.vercel.app/pay/PAY-TEST',
+    // Release once a dollar costs ₦1,500 or less.
+    releaseCondition: { type: 'fx-rate-at-or-below', maxKoboPerDollar: 150_000 },
+  } as const;
+  const at = (koboPerDollar: number) => ({ koboPerDollar, quotedAt: '2026-10-10T00:00:00.000Z' });
+
+  it('stays held, and says so with null, while the rate is worse than asked for', async () => {
+    const records = memoryRecords();
+    const { gateway } = build({ records });
+    const invoice = await gateway.createInvoice(held);
+    expect(invoice.status).toBe('pending-release');
+
+    expect(await gateway.requestConditionalRelease(invoice.id, at(158_000))).toBeNull();
+    expect((await records.invoices.list())[0]!.status).toBe('pending-release');
+  });
+
+  it('is released to be paid once the rate is met: not marked paid, and no reserve invented', async () => {
+    const records = memoryRecords();
+    const { gateway, owner } = build({ records });
+    const invoice = await gateway.createInvoice(held);
+
+    const result = await gateway.requestConditionalRelease(invoice.id, at(149_000));
+    expect(result?.invoice.status).toBe('sent');
+    expect(result?.invoice.paidAt).toBeUndefined();
+    expect(result?.taxReserve).toBeNull();
+    expect((await records.invoices.list())[0]!.status).toBe('sent');
+    // Releasing a request moves no money.
+    expect(owner.writeContract).not.toHaveBeenCalled();
+  });
+
+  it('leaves an invoice that was never held exactly as it is', async () => {
+    const records = memoryRecords();
+    const { gateway } = build({ records });
+    const { releaseCondition: _none, ...plain } = held;
+    const invoice = await gateway.createInvoice(plain);
+    const result = await gateway.requestConditionalRelease(invoice.id, at(100_000));
+    expect(result?.invoice).toEqual(invoice);
+  });
+
+  it('refuses an invoice it has no record of, instead of looking in sample data', async () => {
+    const { gateway } = build({ records: memoryRecords() });
+    await expect(gateway.requestConditionalRelease('inv-not-mine', at(100_000))).rejects.toThrow(
+      /couldn't find that invoice/,
+    );
+  });
+});

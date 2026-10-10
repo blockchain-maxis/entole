@@ -296,7 +296,8 @@ export function StoreProvider({
         return {
           ...current,
           invoices: current.invoices.map((entry) => (entry.id === invoiceId ? invoice : entry)),
-          taxReserves: [taxReserve, ...current.taxReserves],
+          // The real gateway keeps no reserve, so there may be none to add.
+          taxReserves: taxReserve ? [taxReserve, ...current.taxReserves] : current.taxReserves,
         };
       });
       return true;

@@ -14,6 +14,7 @@ import {
   type SendInput,
   type SendQuote,
 } from './gateway';
+import { evaluateReleaseCondition } from './chainlink-cre';
 import { fetchIndexedActivity } from './indexed-activity';
 import { nextInvoiceReference } from './invoices';
 import { cents, kobo } from './money';
@@ -1454,7 +1455,19 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     },
 
     // Chainlink-gated release stays gated as it was: it needs the CRE workflow.
-    requestConditionalRelease: demoGateway.requestConditionalRelease,
+    // A held invoice is one of the business's own records. Checking it reads
+    // that record, not sample data, and releasing it only changes what the
+    // record says: from held to waiting to be paid.
+    async requestConditionalRelease(invoiceId: string, observedRate: Rate) {
+      const records = requireRecords(config);
+      const found = (await records.invoices.list()).find((entry) => entry.id === invoiceId);
+      if (!found) throw new Error("We couldn't find that invoice.");
+      if (found.status !== 'pending-release' || !found.releaseCondition) return { invoice: found, taxReserve: null };
+      if (!evaluateReleaseCondition(found.releaseCondition, observedRate)) return null;
+      const invoice = invoiceSchema.parse({ ...found, status: 'sent' });
+      await records.invoices.upsert(invoice);
+      return { invoice, taxReserve: null };
+    },
     // No screen creates a supply request any more; the method is left as it was.
     createProcurementRequest: demoGateway.createProcurementRequest,
   };

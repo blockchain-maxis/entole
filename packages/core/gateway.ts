@@ -59,16 +59,17 @@ export interface PaymentsGateway {
     invoiceId: string,
     taxFraction: number,
   ): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }>;
-  /** The Chainlink CRE bounty's callback target — see
-   * `packages/core/chainlink-cre.ts`. Re-evaluates the invoice's own
-   * `releaseCondition` against `observedRate` itself rather than trusting
-   * the caller; returns `null` (invoice stays `'pending-release'`) when the
-   * condition doesn't hold yet, or the same settlement `settleInvoice`
-   * produces once it does. */
+  /** Checks a held invoice's own `releaseCondition` against `observedRate`,
+   * itself, never trusting the caller's verdict (see
+   * `packages/core/chainlink-cre.ts`). Resolves `null` when the condition is
+   * not met yet and the invoice stays held. Once it is met, the real gateway
+   * releases the invoice to be paid like any other: nothing was ever held but
+   * the request, so releasing it moves no money and makes no reserve. The demo
+   * gateway settles it and splits a reserve, as `settleInvoice` does there. */
   requestConditionalRelease(
     invoiceId: string,
     observedRate: Rate,
-  ): Promise<{ invoice: Invoice; taxReserve: TaxReserve } | null>;
+  ): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null } | null>;
 
   /** "Order Supplies" — a request-drafting record, not a fulfillment
    * integration. See `procurementRequestSchema`'s own doc comment. */
