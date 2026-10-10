@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { createPublicClient, createWalletClient, http, type Address, type Chain, type WalletClient } from 'viem';
 
 import { createAccountSource } from '@entole/core/account-snapshot';
+import { createProposalSlot } from '@entole/core/assistant-ask';
 import { createAssistantInboxClient } from '@entole/core/assistant-inbox';
 import { createDirectoryClient } from '@entole/core/directory';
 import { createRateProvider } from '@entole/core/fx';
@@ -138,7 +139,14 @@ export function useOnChainBackend(
       account: owner.viemAccount.address,
       sign: (message) => owner.viemAccount.signMessage({ message }),
     });
-    const source = createAccountSource({ records, getRate, readProposal: () => inbox.read() });
+    // A payment asked for in the app waits on the device; one that came in
+    // through a linked chat waits in the server inbox. Either is the proposal.
+    const proposals = createProposalSlot();
+    const source = createAccountSource({
+      records,
+      getRate,
+      readProposal: async () => proposals.read() ?? inbox.read(),
+    });
     const publicClient = createPublicClient({ chain: monadTestnet, transport: http(RPC_URL) });
     const ownerWalletClient = createWalletClient({
       account: owner.viemAccount,
@@ -178,7 +186,10 @@ export function useOnChainBackend(
       ensureGas: createEnsureGas({ getBalance: (address) => publicClient.getBalance({ address }), relay }),
       resolveRecipient: source.resolveRecipient,
       loadOffChainSnapshot: source.loadSnapshot,
-      clearProposal: () => inbox.clear(),
+      clearProposal: async () => {
+        proposals.clear();
+        await inbox.clear();
+      },
       onAllowanceChanged: async (allowanceId) => {
         if (!allowanceId) return;
         const { contacts } = await source.loadSnapshot();
@@ -195,6 +206,7 @@ export function useOnChainBackend(
       relay,
       directory,
       inbox,
+      proposals,
       paymentCode: encodePaymentCode(owner.viemAccount.address),
     };
     return { gateway, backend };
