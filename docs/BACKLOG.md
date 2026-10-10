@@ -33,10 +33,24 @@ product: where it touches a screen, the screen says so plainly.
   the send ledger are per-device. A backend (or the Envio indexer for history)
   is the upgrade path; `RecordStore` in core is the seam. The assistant inbox,
   directory and Telegram links are server-side (Upstash Redis).
-- **Seats are records, not on-chain grants.** A team member has no account to
-  sign with, so the contract cannot enforce a seat. They persist on the device
-  and show on web only: the phone Business tab dropped seats on purpose (a
-  hard-rules test holds that).
+- **Seats are not offered.** A team member has no account to sign with, so the
+  contract cannot enforce a seat. The phone Business tab dropped seats on
+  purpose (a hard-rules test holds that), and the web Business page no longer
+  links to them either: it drew a seat with an allowance meter that nothing
+  moved. The `/business/new-seat` page still exists, unlinked.
+- **Supply requests are not offered.** They were kept only until the page
+  reloaded. The web Business page no longer links to them; the
+  `/business/order-supplies` page still exists, unlinked.
+- **A held invoice holds nothing.** "Held" means the business will not treat
+  the request as due until the rate is at or better than the one it set.
+  Checking it reads the business's own record and the live rate, and releasing
+  it changes the record from held to sent; no money moves. Releasing it
+  automatically needs the server store (Upstash) and a registered Chainlink
+  workflow, and neither is set up.
+- **Nothing notices an invoice being paid.** The money arrives in the balance;
+  the business marks the invoice paid by hand. Money coming in is not recorded
+  as activity at all, for invoices or for ordinary receiving, until the indexer
+  runs.
 - **Tax reserve is display only.** `settleInvoice` returns no reserve; nothing
   creates one in the live app. The invoice CSV export covers the bookkeeping.
 - **Bill payment has no automatic refund.** The person's payment settles before
