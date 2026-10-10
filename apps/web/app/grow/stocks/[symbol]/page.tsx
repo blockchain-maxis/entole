@@ -11,8 +11,21 @@ import { formatShares, stockQuantityForAmount, stockValueForQuantity } from '@en
 
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { StockPreview } from '@/components/StockPreview';
 
 type Side = 'buy' | 'sell';
+
+/**
+ * One stock. Until a broker is connected it can be looked at and not bought
+ * (`StockPreview`); with one, it is the buy and sell page below.
+ */
+export default function StockPage() {
+  const store = useStore();
+  const params = useParams<{ symbol: string }>();
+  const symbol = decodeURIComponent(String(params.symbol ?? '')).toUpperCase();
+
+  return store.stocksAvailable ? <StockTradePage /> : <StockPreview symbol={symbol} />;
+}
 
 /**
  * Buy or sell one stock. The price is always the broker's live quote — if it
@@ -21,7 +34,7 @@ type Side = 'buy' | 'sell';
  * converted to shares at that quote (rounded down, so never more than you
  * entered). Mirrors `apps/mobile/app/grow/stock/[symbol].tsx`.
  */
-export default function StockTradePage() {
+function StockTradePage() {
   const router = useRouter();
   const store = useStore();
   const params = useParams<{ symbol: string }>();

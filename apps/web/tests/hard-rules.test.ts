@@ -336,3 +336,64 @@ describe('Grow shows only what is real', () => {
     for (const file of growFiles) expect(read(file)).not.toMatch(/<Meter|fraction=\{1\}/);
   });
 });
+
+describe('stocks are shown only as the market has them', () => {
+  // The same rule the phone app holds. Until buying is open, Stocks is a place
+  // to look: every name, price and figure is read live from this app's own
+  // `/api/stocks` routes, which read the issuer and the exchange. Nothing is
+  // written into a page, and nothing on these pages can buy.
+  const files = [
+    join(COMPONENTS, 'StockCatalogue.tsx'),
+    join(COMPONENTS, 'StockPreview.tsx'),
+    join(COMPONENTS, 'StockLogo.tsx'),
+    join(PAGES, 'grow/stocks/page.tsx'),
+    join(ROOT, 'lib/stocks.ts'),
+  ];
+  const catalogue = stripComments(read(join(COMPONENTS, 'StockCatalogue.tsx')));
+  const preview = stripComments(read(join(COMPONENTS, 'StockPreview.tsx')));
+  const listPage = stripComments(read(join(PAGES, 'grow/stocks/page.tsx')));
+  const stockPage = stripComments(read(join(PAGES, 'grow/stocks/[symbol]/page.tsx')));
+
+  it.each(files)('%s carries no ticker, price, percentage or address of its own', (file) => {
+    const source = stripComments(read(file));
+    expect(source).not.toMatch(/\b(AAPL|TSLA|NVDA|MSFT|GOOGL?|AMZN|META|NFLX|SPY|QQQ)\b/);
+    expect(source).not.toMatch(/0x[0-9a-fA-F]{4,}|\baddress\b/);
+    const copy = userFacingCopy(read(file)).join('\n');
+    expect(copy).not.toMatch(/\d+(\.\d+)?\s*%/);
+    expect(copy).not.toMatch(/[$₦]\s?\d/);
+  });
+
+  it('the list and each stock are read through the one live client', () => {
+    expect(stripComments(read(join(ROOT, 'lib/stocks.ts')))).toMatch(/createStockMarketClient\(\{ baseUrl: '' \}\)/);
+    expect(catalogue).toMatch(/useStockBrowse\(stockMarket,/);
+    expect(preview).toMatch(/useStockDetail\(stockMarket,/);
+    expect(listPage).toMatch(/<StockCatalogue \/>/);
+    expect(stockPage).toMatch(/store\.stocksAvailable \? <StockTradePage \/> : <StockPreview symbol=\{symbol\} \/>/);
+  });
+
+  it('a figure the market did not give is left out, not filled in', () => {
+    expect(preview).toMatch(/if \(detail\.volume !== undefined\)/);
+    expect(preview).toMatch(/if \(detail\.marketCap\)/);
+    expect(preview).toMatch(/\{line && month \? \(/);
+    expect(preview).toMatch(/\{detail\.about \? \(/);
+    expect(preview).toMatch(/store\.status === 'ready' \?/);
+  });
+
+  it('buying is shown and cannot be pressed, and nothing here moves money', () => {
+    expect(preview).toMatch(/<button\s+type="button"\s+disabled\s+aria-disabled/);
+    expect(preview).toMatch(/>Coming soon</);
+    expect(preview).toMatch(/Nothing here can move your money yet/);
+    for (const source of [catalogue, preview]) {
+      expect(source).not.toMatch(/buyStock|sellStock|submitPayment|depositGrow|withdrawGrow/);
+    }
+  });
+
+  it('loading is a skeleton, and a failed read says so and offers another try', () => {
+    for (const source of [catalogue, preview]) {
+      expect(source).toMatch(/Skeleton/);
+      expect(source).not.toMatch(/animate-spin|Spinner/);
+      expect(source).toMatch(/Nothing has changed/);
+      expect(source).toMatch(/Try again/);
+    }
+  });
+});

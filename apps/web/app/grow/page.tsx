@@ -69,7 +69,9 @@ export default function GrowHubPage() {
                   </p>
                 </>
               ) : (
-                <p className="mt-3 font-body text-label-sm text-slate">Not available yet.</p>
+                <p className="mt-3 text-pretty font-body text-label-sm text-slate">
+                  See the companies and funds you will be able to buy, with live prices. Buying opens soon.
+                </p>
               )}
             </Link>
           </div>
