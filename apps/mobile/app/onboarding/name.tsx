@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
@@ -16,7 +16,7 @@ import { StepDots } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
-import { storeProfile } from '@/lib/session';
+import { markOnboarded, storeProfile } from '@/lib/session';
 
 /**
  * The onboarding fields that aren't money — plain text inputs are correct here,
@@ -26,9 +26,14 @@ import { storeProfile } from '@/lib/session';
  *
  * Format is checked here; uniqueness is not — there is no backend to check it
  * against yet (see `@entole/core/profile`).
+ *
+ * Someone who signed in with a passkey from another device lands here too
+ * (`returning`): their account exists, this phone just has no name for them.
+ * They are asked once and go straight in, past the steps a new person takes.
  */
 export default function NameStep() {
   const router = useRouter();
+  const returning = useLocalSearchParams<{ returning?: string }>().returning === '1';
   const { account, setAccount } = useAccount();
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -55,6 +60,11 @@ export default function NameStep() {
     const profile = { fullName: fullName.trim(), username };
     await storeProfile(profile);
     if (account) setAccount({ ...account, displayName: profile.fullName, username: profile.username });
+    if (returning) {
+      await markOnboarded();
+      router.replace('/(tabs)');
+      return;
+    }
     router.push('/onboarding/phone');
   }
 
@@ -69,13 +79,15 @@ export default function NameStep() {
         >
           <Text className="font-body text-title text-slate">←</Text>
         </Pressable>
-        <StepDots total={4} done={2} />
+        {returning ? null : <StepDots total={4} done={2} />}
       </View>
 
       <View className="flex-1 px-7 pt-[34px]">
-        <Text className="font-strong text-title-xl text-ink">Your details</Text>
+        <Text className="font-strong text-title-xl text-ink">{returning ? 'Welcome back' : 'Your details'}</Text>
         <Text className="mt-3 font-body text-body-sm text-slate">
-          Your name is how Entole greets you. Your username is how people find you.
+          {returning
+            ? 'Your account and your money are already here. This phone just does not know your name yet.'
+            : 'Your name is how Entole greets you. Your username is how people find you.'}
         </Text>
 
         <Text className="mt-7 font-strong text-caption text-slate">Full name</Text>

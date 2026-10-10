@@ -12,7 +12,7 @@ import {
 
 import { BottomNav } from '@/components/BottomNav';
 import { BrandGlyph } from '@/components/Header';
-import { useAccount } from '@/lib/account';
+import { useAccount, type SignedInAccount } from '@/lib/account';
 import {
   hasOnboarded,
   hasStoredCredential,
@@ -20,6 +20,7 @@ import {
   reauthenticate,
   registerAccount,
   sessionIsFresh,
+  signInWithExistingPasskey,
   storeProfile,
 } from '@/lib/session';
 
@@ -31,6 +32,10 @@ import {
  * whose session has gone stale sees the same "confirm it's you" prompt
  * `lock.tsx` shows, re-checked on every tab-visibility change the way the
  * phone app re-checks on every `AppState` foreground event.
+ *
+ * A device that has never seen the account can still get into it: "I already
+ * have an account" asks for the passkey the account was made with and makes
+ * nothing new. Without it, every new device made a new, empty account.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { account, setAccount } = useAccount();
@@ -43,6 +48,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [username, setUsername] = useState('');
   const [usernameEdited, setUsernameEdited] = useState(false);
   const [touched, setTouched] = useState(false);
+  // Signed in with a passkey from elsewhere, but this device has no name for
+  // them yet. Held here until they give one; nothing is shown as signed in.
+  const [returning, setReturning] = useState<SignedInAccount | null>(null);
 
   useEffect(() => {
     function check() {
@@ -90,6 +98,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setTouched(true);
     if (!detailsValid) return;
     const profile = { fullName: name.trim(), username };
+    if (returning) {
+      // The account exists already. Only this device's copy of the name is new.
+      storeProfile(profile);
+      markOnboarded();
+      setOnboarded(true);
+      setStale(false);
+      setAccount({ ...returning, displayName: profile.fullName, username: profile.username });
+      setReturning(null);
+      return;
+    }
     setBusy(true);
     setProblem(null);
     const result = await registerAccount('Entole account');
@@ -118,6 +136,26 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function signInFromElsewhere() {
+    setBusy(true);
+    setProblem(null);
+    const result = await signInWithExistingPasskey();
+    setBusy(false);
+    if (!result.ok) {
+      setProblem(result.reason);
+      return;
+    }
+    if (result.account.displayName) {
+      markOnboarded();
+      setOnboarded(true);
+      setStale(false);
+      setAccount(result.account);
+      return;
+    }
+    setReturning(result.account);
+    setStep('name');
+  }
+
   const showNameStep = !onboarded && step === 'name';
 
   return (
@@ -133,9 +171,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </>
       ) : showNameStep ? (
         <>
-          <h1 className="mt-6 text-center font-strong text-headline text-ink">Your details</h1>
+          <h1 className="mt-6 text-center font-strong text-headline text-ink">
+            {returning ? 'Welcome back' : 'Your details'}
+          </h1>
           <p className="mt-2 text-center font-body text-body-sm text-slate">
-            Your name is how Entole greets you. Your username is how people find you.
+            {returning
+              ? 'Your account and your money are already here. This device just does not know your name yet.'
+              : 'Your name is how Entole greets you. Your username is how people find you.'}
           </p>
           <label className="mt-6 w-full font-strong text-caption text-slate" htmlFor="full-name">
             Full name
@@ -204,10 +246,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           ? 'Confirming'
           : onboarded
             ? 'Sign in with passkey'
-            : showNameStep
+            : showNameStep && !returning
               ? 'Continue with passkey'
               : 'Continue'}
       </button>
+
+      {!onboarded && !showNameStep ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void signInFromElsewhere()}
+          className="mt-2 flex h-12 w-full items-center justify-center rounded-control font-strong text-body-sm text-indigo transition-colors hover:bg-press active:translate-y-px disabled:opacity-50"
+        >
+          I already have an account
+        </button>
+      ) : null}
 
       {!onboarded ? (
         <p className="mt-3.5 text-center font-body text-caption text-mist">

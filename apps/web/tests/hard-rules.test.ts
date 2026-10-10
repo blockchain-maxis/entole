@@ -160,6 +160,36 @@ describe('the assistant is a setting the person turns on, never a default', () =
   });
 });
 
+describe('an account made on another device can be signed in to, not only made again', () => {
+  // A new browser used to offer one thing, a new passkey, and so a new and
+  // empty account every time. The passkey that made an account derives it
+  // again on any device that can reach that passkey.
+  const session = read(join(ROOT, 'lib/session.ts'));
+  const signIn = /export async function signInWithExistingPasskey[\s\S]*?\n}\n/.exec(session)?.[0] ?? '';
+  const gate = stripComments(read(join(COMPONENTS, 'AuthGate.tsx')));
+
+  it('the first screen offers it beside starting new', () => {
+    expect(gate).toMatch(/I already have an account/);
+    expect(gate).toMatch(/signInWithExistingPasskey\(\)/);
+  });
+
+  it('signing in names no passkey and makes none', () => {
+    expect(signIn).toMatch(/signInToOwnerAccount\(\{ rpId: RP_ID \}\)/);
+    expect(signIn).not.toMatch(/createOwnerAccount|loadCredential/);
+  });
+
+  it('keeps the passkey it was given, so the next unlock asks for that one', () => {
+    expect(signIn).toMatch(/storeCredential\(owner\.credential\)/);
+  });
+
+  it('asks a returning person their name without making another passkey', () => {
+    const onboard = /async function onboard\(\)[\s\S]*?\n  }\n/.exec(gate)?.[0] ?? '';
+    expect(onboard.indexOf('if (returning)')).toBeGreaterThan(-1);
+    expect(onboard.indexOf('if (returning)')).toBeLessThan(onboard.indexOf('registerAccount('));
+    expect(/if \(returning\) \{[\s\S]*?return;/.exec(onboard)?.[0]).not.toMatch(/registerAccount/);
+  });
+});
+
 describe('the public checkout page', () => {
   const page = read(join(PAGES, 'pay/[code]/page.tsx'));
   const checkoutFiles = [

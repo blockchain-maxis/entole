@@ -284,6 +284,42 @@ export async function reauthenticate(): Promise<SignInResult> {
   }
 }
 
+/** Said when signing in on a new phone finds or confirms nothing. */
+const NO_PASSKEY_CONFIRMED =
+  'No passkey was confirmed. If you made your account on another device, sign this phone in to the same Google or Apple account first, then try again.';
+
+/**
+ * Signs in on a phone that has never seen this account. No passkey is named,
+ * so the phone offers every one it can reach for Entole, including those the
+ * person's Google or Apple account carries over from another device. The one
+ * they pick derives the same account it always has, and nothing new is made.
+ * Its id is kept so the next unlock asks for that one directly.
+ */
+export async function signInWithExistingPasskey(): Promise<SignInResult> {
+  const deviceProblem = await checkDeviceCanAuthenticate();
+  if (deviceProblem) return { ok: false, reason: deviceProblem };
+
+  try {
+    const owner = await signInToOwnerAccount({ rpId: RP_ID, webAuthnClient: reactNativeWebAuthnClient });
+    await storeCredential(owner.credential);
+    await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
+    const profile = await loadProfile();
+    return {
+      ok: true,
+      account: {
+        owner,
+        session: null,
+        displayName: profile?.fullName ?? '',
+        username: profile?.username ?? '',
+      },
+    };
+  } catch (error) {
+    if (isMeraError(error) && error.code === 'PRF_UNAVAILABLE') return failed(error);
+    if (process.env.NODE_ENV !== 'production') console.warn('[passkey]', describeError(error));
+    return { ok: false, reason: NO_PASSKEY_CONFIRMED };
+  }
+}
+
 const ASSISTANT_ENABLED_KEY = 'entole.assistant-enabled';
 const ASSISTANT_ADDRESS_KEY = 'entole.assistant-address';
 

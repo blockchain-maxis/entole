@@ -193,6 +193,36 @@ describe('a phone that is "onboarded" but has no passkey is not stranded on the 
   });
 });
 
+describe('an account made on another device can be signed in to, not only made again', () => {
+  // A new phone used to offer one thing, a new passkey, and so a new and empty
+  // account every time. The passkey that made an account derives it again on
+  // any device that can reach that passkey.
+  const session = read(join(ROOT, 'lib/session.ts'));
+  const signIn = /export async function signInWithExistingPasskey[\s\S]*?\n}\n/.exec(session)?.[0] ?? '';
+  const welcome = read(join(ROOT, 'app/onboarding/index.tsx'));
+
+  it('the welcome screen offers it beside starting new', () => {
+    expect(welcome).toMatch(/label="I already have an account"/);
+    expect(welcome).toMatch(/signInWithExistingPasskey\(\)/);
+    expect(welcome).toMatch(/label="Continue with passkey"/);
+  });
+
+  it('signing in names no passkey and makes none', () => {
+    expect(signIn).toMatch(/signInToOwnerAccount\(\{ rpId: RP_ID, webAuthnClient: reactNativeWebAuthnClient \}\)/);
+    expect(signIn).not.toMatch(/createOwnerAccount|loadCredential/);
+  });
+
+  it('keeps the passkey it was given, so the next unlock asks for that one', () => {
+    expect(signIn).toMatch(/storeCredential\(owner\.credential\)/);
+  });
+
+  it('asks a returning person their name once and lets them straight in', () => {
+    const name = read(join(ROOT, 'app/onboarding/name.tsx'));
+    expect(welcome).toMatch(/params: \{ returning: '1' \}/);
+    expect(name).toMatch(/if \(returning\) \{\s+await markOnboarded\(\);\s+router\.replace\('\/\(tabs\)'\);/);
+  });
+});
+
 describe('dark mode reaches every colour, not only some', () => {
   // NativeWind only treats `:root` and `.dark:root` as variable blocks on
   // native. A bare `.dark { ... }` compiles to an ordinary class nobody applies,

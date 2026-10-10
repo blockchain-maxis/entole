@@ -142,6 +142,34 @@ export async function reauthenticate(): Promise<SignInResult> {
   }
 }
 
+/** Said when signing in on a new device finds or confirms nothing. */
+const NO_PASSKEY_CONFIRMED =
+  'No passkey was confirmed. If you made your account on another device, choose that device when asked, or sign this one in to the same Google or Apple account first.';
+
+/**
+ * Signs in on a device that has never seen this account. No passkey is named,
+ * so the browser offers every one it can reach for this site: saved here,
+ * carried over by the person's Google or Apple account, or held on a phone
+ * nearby. The one they pick derives the same account it always has, and
+ * nothing new is made. Its id is kept so the next unlock asks for that one
+ * directly.
+ */
+export async function signInWithExistingPasskey(): Promise<SignInResult> {
+  try {
+    const owner = await signInToOwnerAccount({ rpId: RP_ID });
+    storeCredential(owner.credential);
+    window.localStorage.setItem(SESSION_KEY, String(Date.now()));
+    const profile = loadProfile();
+    return {
+      ok: true,
+      account: { owner, session: null, displayName: profile?.fullName ?? '', username: profile?.username ?? '' },
+    };
+  } catch (error) {
+    if (isMeraError(error) && error.code === 'PRF_UNAVAILABLE') return { ok: false, reason: reasonFor(error) };
+    return { ok: false, reason: NO_PASSKEY_CONFIRMED };
+  }
+}
+
 const ASSISTANT_ENABLED_KEY = 'entole.assistant-enabled';
 const ASSISTANT_ADDRESS_KEY = 'entole.assistant-address';
 
