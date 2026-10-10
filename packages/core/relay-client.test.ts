@@ -87,6 +87,26 @@ describe('relay client', () => {
     await expect(client.startBankTransfer(payment.from, 100)).rejects.toBeInstanceOf(RelayError);
   });
 
+  it('asks for a scan code for what the person is sending, and for the card page', async () => {
+    const code = `0x${'ab'.repeat(20)}`;
+    const deposit = reply(200, { qrPayload: code });
+    const client = createRelayClient({ baseUrl: 'https://x.test', fetch: deposit });
+    expect(await client.startDeposit(payment.from, 'base-usdc')).toEqual({ qrPayload: code });
+    const [url, init] = (deposit as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(url).toBe('https://x.test/api/onramp/deposit');
+    expect(JSON.parse((init as { body: string }).body)).toEqual({ address: payment.from, source: 'base-usdc' });
+
+    const card = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(200, { url: 'https://partner.test/card?a=1' }) });
+    expect(await card.startCardPayment(payment.from)).toEqual({ url: 'https://partner.test/card?a=1' });
+  });
+
+  it('refuses a scan code that is not plain letters and digits, and a card link that is not https', async () => {
+    const odd = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(200, { qrPayload: 'javascript:alert(1)' }) });
+    await expect(odd.startDeposit(payment.from, 'base-usdc')).rejects.toBeInstanceOf(RelayError);
+    const insecure = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(200, { url: 'http://partner.test/card' }) });
+    await expect(insecure.startCardPayment(payment.from)).rejects.toBeInstanceOf(RelayError);
+  });
+
   it('says in plain words when an amount is too small or the partner is down', async () => {
     const small = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(422, { error: 'amount_too_small' }) });
     await expect(small.startBankTransfer(payment.from, 100)).rejects.toThrow(/smallest amount you can add/);

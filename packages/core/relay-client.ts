@@ -1,6 +1,8 @@
 import type { Address, Hex } from 'viem';
 import { z } from 'zod';
 
+import type { DepositSourceId } from './deposit-sources';
+
 /**
  * The client for Entole's sponsor server (`apps/web/app/api/*`). The server
  * pays the network fee and submits what the person signed; it can't change what
@@ -82,6 +84,11 @@ const bankTransferSchema = z.object({
   payMinor: z.number().int().positive(),
   arrivesMinor: z.number().int().nonnegative(),
   feeMinor: z.number().int().nonnegative(),
+});
+
+const depositCodeSchema = z.object({ qrPayload: z.string().regex(/^[A-Za-z0-9]{26,64}$/) });
+const cardSchema = z.object({
+  url: z.string().refine((value) => URL.canParse(value) && new URL(value).protocol === 'https:'),
 });
 
 /** A priced bank transfer: what it costs, about what arrives, and the link to
@@ -200,6 +207,15 @@ export function createRelayClient(options: { baseUrl: string; fetch?: typeof fet
      * person pays on the partner's page, and the balance changes on arrival. */
     async startBankTransfer(address: Address, amountMinor: number): Promise<BankTransferOffer> {
       return post('/api/onramp/start', { address, amountMinor }, bankTransferSchema);
+    },
+    /** Where to send money from another app so it lands in the account. The
+     * answer is for a scan code or a copy button; never for showing as text. */
+    async startDeposit(address: Address, source: DepositSourceId): Promise<{ qrPayload: string }> {
+      return post('/api/onramp/deposit', { address, source }, depositCodeSchema);
+    },
+    /** The card partner's page, with the account already set. For opening. */
+    async startCardPayment(address: Address): Promise<{ url: string }> {
+      return post('/api/onramp/card', { address }, cardSchema);
     },
   };
 }

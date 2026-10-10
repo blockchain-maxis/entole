@@ -56,6 +56,8 @@ export const pendingBackend: Backend = {
     requestGas: notSignedIn,
     requestFunds: notSignedIn,
     startBankTransfer: notSignedIn,
+    startDeposit: notSignedIn,
+    startCardPayment: notSignedIn,
   },
   directory: {
     resolveByAddress: async () => null,

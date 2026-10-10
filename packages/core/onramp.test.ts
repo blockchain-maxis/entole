@@ -1,10 +1,13 @@
 import type { Address } from 'viem';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DEPOSIT_SOURCES, DEPOSIT_SOURCE_IDS, depositSource, depositSourceLabel } from './deposit-sources';
 import {
   MONAD_USDC,
   OnrampError,
   buildBankTransferUrl,
+  buildCardUrl,
+  requestDepositCode,
   estimatePayoutUnits,
   fetchNairaPurchaseTerms,
   requestConversionAddress,
@@ -251,5 +254,81 @@ describe('startBankTransfer', () => {
     const generous = partners({ conversion: conversionBody({ out: '99000000' }) });
     const offer = await startBankTransfer(input, config(generous as unknown as typeof fetch));
     expect(offer.feeMinor).toBe(0);
+  });
+});
+
+describe('deposit sources', () => {
+  it('names each one the way the other app does, with no repeats', () => {
+    expect(DEPOSIT_SOURCES.map(depositSourceLabel)).toEqual([
+      'AUSD on Monad',
+      'USDC on Monad',
+      'MON on Monad',
+      'USDC on Base',
+      'USDC on Arbitrum',
+      'USDC on Ethereum',
+    ]);
+    expect(new Set(DEPOSIT_SOURCE_IDS).size).toBe(DEPOSIT_SOURCES.length);
+    expect(depositSource('base-usdc')?.place).toBe('Base');
+    expect(depositSource('tron-usdt')).toBeUndefined();
+  });
+});
+
+describe('requestDepositCode', () => {
+  const base = { settlementToken: SETTLEMENT };
+
+  it('sends AUSD already on Monad straight to the account, asking nobody', async () => {
+    const fetchImpl = partners();
+    const result = await requestDepositCode(
+      { recipient: ACCOUNT, source: 'monad-ausd' },
+      { ...base, fetch: fetchImpl as unknown as typeof fetch },
+    );
+    expect(result).toEqual({ code: ACCOUNT });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['monad-usdc', 143, MONAD_USDC, '5000000'],
+    ['monad-mon', 143, '0x0000000000000000000000000000000000000000', '200000000000000000000'],
+    ['base-usdc', 8453, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', '5000000'],
+    ['arbitrum-usdc', 42161, '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', '5000000'],
+    ['ethereum-usdc', 1, '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', '5000000'],
+  ] as const)('%s gets a holding address that pays the account and refunds the sender', async (source, chainId, currency, amount) => {
+    const fetchImpl = partners();
+    const result = await requestDepositCode(
+      { recipient: ACCOUNT, source },
+      { ...base, fetch: fetchImpl as unknown as typeof fetch },
+    );
+    expect(result).toEqual({ code: HOLDING });
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]![1]!.body))).toEqual({
+      user: ACCOUNT,
+      recipient: ACCOUNT,
+      originChainId: chainId,
+      destinationChainId: 143,
+      originCurrency: currency,
+      destinationCurrency: SETTLEMENT,
+      amount,
+      tradeType: 'EXACT_INPUT',
+      useDepositAddress: true,
+      // The zero address is the partner's "back to whoever sent it".
+      refundTo: '0x0000000000000000000000000000000000000000',
+    });
+  });
+
+  it('refuses when the partner would deliver something other than the settlement asset', async () => {
+    const wrong = partners({ conversion: conversionBody({ token: MONAD_USDC }) });
+    await expect(
+      requestDepositCode({ recipient: ACCOUNT, source: 'base-usdc' }, { ...base, fetch: wrong as unknown as typeof fetch }),
+    ).rejects.toMatchObject({ code: 'partner_unavailable' });
+  });
+});
+
+describe('buildCardUrl', () => {
+  it('opens the card page on the settlement asset with the account set', () => {
+    const url = new URL(buildCardUrl({ recipient: ACCOUNT, settlementToken: SETTLEMENT }));
+    expect(url.origin + url.pathname).toBe('https://relay.link/onramp/monad');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      toCurrency: SETTLEMENT.toLowerCase(),
+      toAddress: ACCOUNT,
+    });
   });
 });

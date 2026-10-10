@@ -1,6 +1,8 @@
 import { getAddress, isAddress, type Address } from 'viem';
 import { z } from 'zod';
 
+import type { DepositSourceId } from './deposit-sources';
+
 /**
  * Adding real money: naira in by bank transfer, dollars in the account.
  *
@@ -181,14 +183,25 @@ const conversionResponseSchema = z.object({
   }),
 });
 
+type HoldingAddressRequest = {
+  recipient: Address;
+  originChainId: number;
+  /** The asset being sent in. The zero address is the network's own coin. */
+  originCurrency: Address;
+  amountUnits: bigint;
+  /** Where a conversion that cannot be completed goes back to. */
+  refundTo: Address;
+};
+
 /**
- * Asks Relay for a holding address: USDC sent to it on Monad arrives in
- * `recipient` as the settlement asset. Open-ended, so the amount that actually
- * lands is what gets converted; `amountUnits` only prices the estimate.
+ * Asks Relay for a holding address: what is sent to it on the origin network
+ * arrives in `recipient` on Monad as the settlement asset. Open-ended, so the
+ * amount that actually lands is what gets converted; `amountUnits` only prices
+ * the quote.
  */
-export async function requestConversionAddress(
-  input: { recipient: Address; amountUnits: bigint },
-  config: ConversionConfig,
+async function requestHoldingAddress(
+  input: HoldingAddressRequest,
+  config: Pick<ConversionConfig, 'settlementToken' | 'apiBase' | 'apiKey' | 'fetch'>,
 ): Promise<{ depositAddress: Address; settlementUnits: bigint }> {
   const fetchImpl = config.fetch ?? fetch;
   let body: unknown;
@@ -199,14 +212,14 @@ export async function requestConversionAddress(
       body: JSON.stringify({
         user: input.recipient,
         recipient: input.recipient,
-        originChainId: ONRAMP_CHAIN_ID,
+        originChainId: input.originChainId,
         destinationChainId: ONRAMP_CHAIN_ID,
-        originCurrency: MONAD_USDC,
+        originCurrency: input.originCurrency,
         destinationCurrency: config.settlementToken,
         amount: input.amountUnits.toString(),
         tradeType: 'EXACT_INPUT',
         useDepositAddress: true,
-        refundTo: config.refundTo,
+        refundTo: input.refundTo,
       }),
     });
     if (!response.ok) throw new OnrampError('partner_unavailable');
@@ -224,6 +237,84 @@ export async function requestConversionAddress(
     throw new OnrampError('partner_unavailable');
   }
   return { depositAddress, settlementUnits: BigInt(out.amount) };
+}
+
+/**
+ * The holding address the bank-transfer partner pays out to: USDC sent to it
+ * on Monad arrives in `recipient` as the settlement asset.
+ */
+export async function requestConversionAddress(
+  input: { recipient: Address; amountUnits: bigint },
+  config: ConversionConfig,
+): Promise<{ depositAddress: Address; settlementUnits: bigint }> {
+  return requestHoldingAddress(
+    {
+      recipient: input.recipient,
+      originChainId: ONRAMP_CHAIN_ID,
+      originCurrency: MONAD_USDC,
+      amountUnits: input.amountUnits,
+      refundTo: config.refundTo,
+    },
+    config,
+  );
+}
+
+/** The network's own coin, and Relay's word for "send it back to whoever sent it". */
+const NATIVE: Address = '0x0000000000000000000000000000000000000000';
+
+/**
+ * How each thing a person can send in is reached. Every route here was priced
+ * against Relay's live service on 10 October 2026 with no key. `quoteUnits` is
+ * a nominal amount for the quote only.
+ */
+const DEPOSIT_ROUTES: Record<Exclude<DepositSourceId, 'monad-ausd'>, { chainId: number; currency: Address; quoteUnits: bigint }> = {
+  'monad-usdc': { chainId: ONRAMP_CHAIN_ID, currency: MONAD_USDC, quoteUnits: 5_000_000n },
+  'monad-mon': { chainId: ONRAMP_CHAIN_ID, currency: NATIVE, quoteUnits: 200n * 10n ** 18n },
+  'base-usdc': { chainId: 8453, currency: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', quoteUnits: 5_000_000n },
+  'arbitrum-usdc': { chainId: 42161, currency: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', quoteUnits: 5_000_000n },
+  'ethereum-usdc': { chainId: 1, currency: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', quoteUnits: 5_000_000n },
+};
+
+/**
+ * Where to send money from another app so that it lands in `recipient` as the
+ * settlement asset. The answer is for a scan code or a copy button: it is an
+ * address, so no screen may print it.
+ *
+ * AUSD already on Monad needs no conversion and goes straight to the account.
+ * Everything else goes to a holding address that converts on arrival. If a
+ * conversion cannot be completed the money returns to whoever sent it, so
+ * there is no account of ours in the path.
+ */
+export async function requestDepositCode(
+  input: { recipient: Address; source: DepositSourceId },
+  config: Pick<ConversionConfig, 'settlementToken' | 'apiBase' | 'apiKey' | 'fetch'>,
+): Promise<{ code: Address }> {
+  if (input.source === 'monad-ausd') return { code: getAddress(input.recipient) };
+  const route = DEPOSIT_ROUTES[input.source];
+  const { depositAddress } = await requestHoldingAddress(
+    {
+      recipient: input.recipient,
+      originChainId: route.chainId,
+      originCurrency: route.currency,
+      amountUnits: route.quoteUnits,
+      refundTo: NATIVE,
+    },
+    config,
+  );
+  return { code: depositAddress };
+}
+
+export const RELAY_CARD_PAGE = 'https://relay.link/onramp/monad';
+
+/**
+ * The card partner's page, opened with the account already set. The account
+ * appears here and in that page's own confirmation, nowhere on a screen of ours.
+ */
+export function buildCardUrl(input: { recipient: Address; settlementToken: Address; page?: string }): string {
+  const url = new URL(input.page ?? RELAY_CARD_PAGE);
+  url.searchParams.set('toCurrency', input.settlementToken.toLowerCase());
+  url.searchParams.set('toAddress', getAddress(input.recipient));
+  return url.toString();
 }
 
 /**
