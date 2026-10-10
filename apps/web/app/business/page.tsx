@@ -1,6 +1,6 @@
 'use client';
 
-import { ClipboardList, FileText, Truck, UserPlus, type LucideIcon } from 'lucide-react';
+import { FileText, Truck, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -10,34 +10,30 @@ import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
-import { AllowanceCard } from '@/components/AllowanceCard';
-import { Avatar } from '@/components/Avatar';
 import { Header } from '@/components/Header';
 import { AllowanceCardSkeleton, RowSkeleton } from '@/components/Skeleton';
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', officer: 'Officer', bookkeeper: 'Bookkeeper' };
-
 type Service = { label: string; hint: string; Icon: LucideIcon; href: string };
 
+// Team seats and supply requests are not offered here. A seat was drawn with an
+// allowance meter but nothing enforced it, and a supply request was kept only
+// until the page reloaded. Neither is shown until it is real.
 const SERVICES: Service[] = [
   { label: 'Send invoice', hint: 'Bill a client', Icon: FileText, href: '/business/new-invoice' },
   { label: 'Pay a supplier', hint: 'Send money out', Icon: Truck, href: '/business/pay-supplier' },
-  { label: 'Order supplies', hint: 'Draft a request', Icon: ClipboardList, href: '/business/order-supplies' },
-  { label: 'Add team member', hint: 'Give a seat', Icon: UserPlus, href: '/business/new-seat' },
 ];
 
 /**
- * Services on top, records below. Everything on this page either is an
- * allowance already, or settles into one — mirrors
- * `apps/mobile/app/(tabs)/business.tsx`.
+ * Services on top, invoices below. Only what really happens is on this page:
+ * an invoice is a request with a link, and paying a supplier is an ordinary
+ * payment. Mirrors `apps/mobile/app/(tabs)/business.tsx`.
  */
 export default function BusinessPage() {
   const store = useStore();
   const loading = store.status === 'loading';
   const [checkingId, setCheckingId] = useState<string | null>(null);
-
-  const spendingSeats = store.seats.filter((seat) => seat.limitMinor > 0);
-  const otherSeats = store.seats.filter((seat) => seat.limitMinor === 0);
+  /** What the last check of a held invoice found, said beside that invoice. */
+  const [checked, setChecked] = useState<{ id: string; text: string } | null>(null);
 
   /** The invoices as a spreadsheet, with the rate at the day each was paid. */
   function exportInvoices() {
@@ -52,8 +48,13 @@ export default function BusinessPage() {
 
   async function checkRelease(invoiceId: string) {
     setCheckingId(invoiceId);
+    setChecked(null);
     try {
-      await store.requestConditionalRelease(invoiceId, store.rate);
+      const released = await store.requestConditionalRelease(invoiceId, store.rate);
+      // Released, the invoice reads "sent" and needs no note. Still held, say why.
+      if (!released) setChecked({ id: invoiceId, text: `Not yet. The rate now is ${formatRate(store.rate)}.` });
+    } catch {
+      setChecked({ id: invoiceId, text: "We couldn't check that just now. Nothing changed. Try again." });
     } finally {
       setCheckingId(null);
     }
@@ -145,7 +146,13 @@ export default function BusinessPage() {
                       >
                         {checkingId === invoice.id ? 'Checking' : 'Check condition'}
                       </button>
-                    ) : invoice.status !== 'paid' ? (
+                    ) : null}
+                    {checked?.id === invoice.id && invoice.status === 'pending-release' ? (
+                      <p role="status" className="mt-2 font-body text-caption-sm text-slate">
+                        {checked.text}
+                      </p>
+                    ) : null}
+                    {invoice.status !== 'pending-release' && invoice.status !== 'paid' ? (
                       <button
                         type="button"
                         onClick={() => void store.settleInvoice(invoice.id)}
@@ -168,60 +175,6 @@ export default function BusinessPage() {
               </button>
             ) : null}
 
-            <div className="flex items-baseline justify-between pb-3 pt-[30px]">
-              <p className="font-strong text-body-lg text-ink">Seats</p>
-              <Link href="/business/new-seat" className="font-strong text-label text-indigo hover:underline">
-                Add
-              </Link>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {spendingSeats.map((seat) => (
-                <AllowanceCard key={seat.id} allowance={seat} resetsAt={seat.resetsAt} />
-              ))}
-              {otherSeats.map((seat) => {
-                const contact = store.contact(seat.recipientId);
-                return (
-                  <div
-                    key={seat.id}
-                    className="flex items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3"
-                  >
-                    <Avatar initials={contact?.initials ?? '?'} tone={contact?.tone ?? 1} />
-                    <span className="flex-1 font-strong text-body text-ink">{contact?.name ?? seat.name}</span>
-                    <span className="font-heavy text-caption-sm uppercase text-slate">{ROLE_LABEL[seat.role]}</span>
-                  </div>
-                );
-              })}
-              {store.seats.length === 0 ? (
-                <p className="font-body text-label-sm text-mist">No seats granted yet.</p>
-              ) : null}
-            </div>
-
-            <div className="flex items-baseline justify-between pb-3 pt-[30px]">
-              <p className="font-strong text-body-lg text-ink">Requests</p>
-              <Link href="/business/order-supplies" className="font-strong text-label text-indigo hover:underline">
-                New
-              </Link>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {store.procurementRequests.length === 0 ? (
-                <p className="font-body text-label-sm text-mist">No supply requests yet.</p>
-              ) : (
-                store.procurementRequests.map((request) => (
-                  <div key={request.id} className="rounded-row border border-line bg-card px-4 py-3.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="flex-1 font-strong text-body text-ink">{request.supplierName}</span>
-                      <span className="font-heavy text-caption-sm uppercase text-slate">{request.status}</span>
-                    </div>
-                    <p className="mt-1.5 font-body text-caption-sm text-slate">
-                      {request.items.map((item) => `${item.quantity} × ${item.name}`).join(', ')}
-                    </p>
-                    {request.note ? (
-                      <p className="mt-0.5 font-body text-caption-sm text-slate">{request.note}</p>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </div>
           </>
         )}
       </div>
