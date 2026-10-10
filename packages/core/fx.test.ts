@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createRateProvider,
@@ -87,10 +87,76 @@ describe('live rate', () => {
     await expect(getRate()).rejects.toBeInstanceOf(RateUnavailableError);
   });
 
-  it('throws when there has never been a rate', async () => {
+  it('throws when there has never been a rate, after three tries', async () => {
+    let calls = 0;
+    const waits: number[] = [];
     const dead = (async () => {
+      calls += 1;
       throw new Error('offline');
     }) as unknown as typeof fetch;
-    await expect(createRateProvider({ fetch: dead })()).rejects.toBeInstanceOf(RateUnavailableError);
+    const getRate = createRateProvider({ fetch: dead, sleep: async (ms) => void waits.push(ms) });
+    await expect(getRate()).rejects.toBeInstanceOf(RateUnavailableError);
+    expect(calls).toBe(3);
+    expect(waits).toEqual([400, 1_200]);
+  });
+
+  it('gets through a dropped request on a cold start instead of failing the account load', async () => {
+    let calls = 0;
+    const patchy = (async () => {
+      calls += 1;
+      if (calls < 3) throw new Error('offline');
+      return { ok: true, json: async () => body(1_500) };
+    }) as unknown as typeof fetch;
+    const rate = await createRateProvider({ fetch: patchy, sleep: async () => undefined })();
+    expect(rate.koboPerDollar).toBe(150_000);
+    expect(calls).toBe(3);
+  });
+
+  it('does not keep anyone waiting for retries when there is a recent rate to use', async () => {
+    let clock = 0;
+    let calls = 0;
+    let down = false;
+    const waits: number[] = [];
+    const flaky = (async () => {
+      calls += 1;
+      if (down) throw new Error('offline');
+      return { ok: true, json: async () => body(1_500) };
+    }) as unknown as typeof fetch;
+    const getRate = createRateProvider({ fetch: flaky, now: () => clock, sleep: async (ms) => void waits.push(ms) });
+    const first = await getRate();
+    down = true;
+    clock = 60 * 60 * 1000;
+    expect(await getRate()).toEqual(first);
+    expect(calls).toBe(2);
+    expect(waits).toEqual([]);
+  });
+
+  it('shares one request between callers that arrive together', async () => {
+    let calls = 0;
+    const slow = (async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return { ok: true, json: async () => body(1_500) };
+    }) as unknown as typeof fetch;
+    const getRate = createRateProvider({ fetch: slow });
+    const [a, b, c] = await Promise.all([getRate(), getRate(), getRate()]);
+    expect(calls).toBe(1);
+    expect(a).toEqual(b);
+    expect(b).toEqual(c);
+  });
+
+  it('gives up on a feed that hangs', async () => {
+    const hanging = ((_url: string, init?: { signal?: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      })) as unknown as typeof fetch;
+    vi.useFakeTimers();
+    try {
+      const pending = expect(fetchNairaRate(hanging)).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(8_000);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

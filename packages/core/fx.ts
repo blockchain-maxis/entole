@@ -50,39 +50,72 @@ export class RateUnavailableError extends Error {
   }
 }
 
+/** One try is given this long. A feed that hangs is the same as one that is down. */
+const RATE_TIMEOUT_MS = 8_000;
+
 export async function fetchNairaRate(fetchImpl: typeof fetch = fetch): Promise<Rate> {
-  const response = await fetchImpl(RATES_URL);
-  if (!response.ok) throw new RateUnavailableError();
-  const parsed = ratesResponseSchema.safeParse(await response.json());
-  if (!parsed.success) throw new RateUnavailableError();
-  return {
-    koboPerDollar: Math.round(parsed.data.rates.NGN * 100),
-    quotedAt: new Date(parsed.data.time_last_update_unix * 1000).toISOString(),
-  };
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), RATE_TIMEOUT_MS);
+  try {
+    const response = await fetchImpl(RATES_URL, { signal: abort.signal });
+    if (!response.ok) throw new RateUnavailableError();
+    const parsed = ratesResponseSchema.safeParse(await response.json());
+    if (!parsed.success) throw new RateUnavailableError();
+    return {
+      koboPerDollar: Math.round(parsed.data.rates.NGN * 100),
+      quotedAt: new Date(parsed.data.time_last_update_unix * 1000).toISOString(),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const RATE_FRESH_MS = 10 * 60 * 1000;
 /** A rate older than this is refused outright rather than shown as current. */
 const RATE_STALE_LIMIT_MS = 24 * 60 * 60 * 1000;
+/** Waits between tries when there is no rate to fall back on. */
+const RETRY_AFTER_MS = [400, 1_200];
 
 /**
  * Serves the live rate, cached for ten minutes. If the feed is down it keeps
  * serving the last good rate for up to a day (its own `quotedAt` says how old
  * it is); beyond that it throws `RateUnavailableError` — never a fixture.
+ *
+ * With nothing to fall back on, one dropped request would otherwise fail the
+ * whole account load, and on a patchy connection that is the first thing a
+ * person sees. So a cold start tries three times before giving up. Callers
+ * that arrive together share one request.
  */
-export function createRateProvider(options: { fetch?: typeof fetch; now?: () => number } = {}) {
+export function createRateProvider(
+  options: { fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void> } = {},
+) {
   const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   let cached: { rate: Rate; fetchedAt: number } | null = null;
+  let inFlight: Promise<Rate> | null = null;
 
-  return async function getRate(): Promise<Rate> {
-    if (cached && now() - cached.fetchedAt < RATE_FRESH_MS) return cached.rate;
-    try {
-      const rate = await fetchNairaRate(options.fetch);
-      cached = { rate, fetchedAt: now() };
-      return rate;
-    } catch {
-      if (cached && now() - cached.fetchedAt < RATE_STALE_LIMIT_MS) return cached.rate;
-      throw new RateUnavailableError();
+  async function refresh(): Promise<Rate> {
+    const fallback = cached && now() - cached.fetchedAt < RATE_STALE_LIMIT_MS ? cached.rate : null;
+    // A rate to fall back on means nobody should be kept waiting for retries.
+    const tries = fallback ? 1 : RETRY_AFTER_MS.length + 1;
+    for (let attempt = 0; attempt < tries; attempt += 1) {
+      try {
+        const rate = await fetchNairaRate(options.fetch);
+        cached = { rate, fetchedAt: now() };
+        return rate;
+      } catch {
+        if (attempt < tries - 1) await sleep(RETRY_AFTER_MS[attempt]!);
+      }
     }
+    if (fallback) return fallback;
+    throw new RateUnavailableError();
+  }
+
+  return function getRate(): Promise<Rate> {
+    if (cached && now() - cached.fetchedAt < RATE_FRESH_MS) return Promise.resolve(cached.rate);
+    inFlight ??= refresh().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
   };
 }
