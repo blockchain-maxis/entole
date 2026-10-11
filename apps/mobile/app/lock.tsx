@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
+import { BrandMark } from '@/components/ui/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -72,10 +73,7 @@ export default function Lock() {
   return (
     <Screen>
       <View className="h-16 flex-none flex-row items-center gap-2.5 px-gutter-lg">
-        <View className="h-[34px] w-[34px] items-center justify-center rounded-control bg-ink">
-          <Text className="font-heavy text-body-lg text-paper">E</Text>
-        </View>
-        <Text className="font-display text-subhead text-ink">Entole</Text>
+        <BrandMark />
       </View>
 
       <View className="flex-1 justify-end px-gutter-lg pb-6">

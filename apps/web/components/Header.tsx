@@ -4,28 +4,18 @@ import Link from 'next/link';
 import { PauseControl } from './PauseControl';
 import { ProfileChip } from './ProfileChip';
 
-/** Monoline rounded arch — safe passage for money, nothing coin- or
- * chain-shaped. Mirrors `apps/mobile/components/ui/BrandMark.tsx`.
- * `currentColor` + the `text-ink` className (not a raw token value) is what
- * makes this repaint on theme change without needing a client component or
- * a theme hook — the CSS variable behind `text-ink` is what actually moves. */
+/**
+ * The Entole mark, as it is on the app icon and the browser tab: a blue ring
+ * left open, a dot at its centre and a bar at nine o'clock. Drawn from
+ * `public/icons/icon.svg`, in tokens, so it holds in both themes. It is the
+ * one place blue is not the assistant's: it is the brand's own.
+ */
 export function BrandGlyph({ size = 22 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className="text-ink"
-    >
-      <path
-        d="M6 20V10a6 6 0 0 1 12 0v10"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" aria-hidden>
+      <path d="M50 16 A34 34 0 1 1 16 50" className="stroke-indigo" strokeWidth={9} />
+      <path d="M4 50 H26" className="stroke-ink" strokeWidth={9} />
+      <circle cx="50" cy="50" r="7" className="fill-ink" />
     </svg>
   );
 }

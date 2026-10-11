@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
+import { BrandMark } from '@/components/ui/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -59,10 +60,7 @@ export default function Welcome() {
   return (
     <Screen>
       <View className="h-16 flex-none flex-row items-center gap-2.5 px-gutter-lg">
-        <View className="h-[34px] w-[34px] items-center justify-center rounded-control bg-ink">
-          <Text className="font-heavy text-body-lg text-paper">E</Text>
-        </View>
-        <Text className="font-display text-subhead text-ink">Entole</Text>
+        <BrandMark />
       </View>
 
       <ScrollView

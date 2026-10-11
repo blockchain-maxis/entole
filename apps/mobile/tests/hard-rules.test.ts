@@ -222,6 +222,23 @@ describe('an allowance reads as its sentence, and is not revoked on one tap', ()
   });
 });
 
+describe('the logo is the Entole mark, the same one as the app icon', () => {
+  // The first screens once showed an "E" on a tile, which was never the logo.
+  const mark = read(join(ROOT, 'components/ui/BrandMark.tsx'));
+
+  it('draws the open ring, the bar and the dot', () => {
+    expect(mark).toContain('M50 16 A34 34 0 1 1 16 50');
+    expect(mark).toContain('M4 50 H26');
+    expect(mark).toMatch(/<Circle cx=\{50\} cy=\{50\} r=\{7\}/);
+  });
+
+  it.each(['app/onboarding/index.tsx', 'app/lock.tsx'])('%s shows the mark, not a letter on a tile', (path) => {
+    const screen = stripComments(read(join(ROOT, path)));
+    expect(screen).toMatch(/<BrandMark \/>/);
+    expect(screen).not.toMatch(/>E<\/Text>/);
+  });
+});
+
 describe('the pause warning is for pausing', () => {
   it('resuming does not buzz like stopping everything', () => {
     const pause = stripComments(read(join(ROOT, 'app/pause.tsx')));
@@ -269,6 +286,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/ui/AllowanceCard.tsx',
     'components/ui/AllowanceIntro.tsx',
     'components/ui/Badge.tsx',
+    // The logo: a blue ring, the brand's own and not the assistant's.
+    'components/ui/BrandMark.tsx',
     'components/ui/Countdown.tsx',
     'components/ui/Meter.tsx',
     'components/ui/Toast.tsx',
