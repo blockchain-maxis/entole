@@ -7,6 +7,41 @@ app.
 Built for the Monad Metropolis hackathon, track: Consumer Products &
 Payments. Full product thesis in [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
+## Try it
+
+**[entole.pro](https://entole.pro)**, in a phone browser or on a desktop. On a
+phone it can be added to the home screen and then opens like any other app. It
+runs on Monad's test network with test money; nothing in it is real money.
+
+1. **Make an account.** Type a name, then confirm with your fingerprint, face
+   or screen lock. That is all of it: no email, no password, nothing to write
+   down.
+2. **Add money.** Add money, then "Add test money". It arrives in seconds.
+3. **Pay someone.** Receive gives every account a payment code and a link.
+   Send takes one: paste it, enter an amount, send, and watch it settle. To
+   have someone to pay, make a second account in another browser or on another
+   device. On the receipt, save them under a name.
+4. **Let the assistant pay, inside a limit.** Me, then Assistant, and turn it
+   on. Set an allowance for the person you saved, then ask in a sentence:
+   "Pay 5000 to Ada for rent". You get ten seconds to stop it. Ask for more
+   than the allowance has left and it is refused by the contract, not by the
+   app.
+5. **Stop it.** The Assistant chip at the top of every page pauses it at once.
+
+Accounts have been made and used by hand on an Android phone and in a desktop
+browser. A device whose passkeys cannot do what an account needs is told so,
+and no account is made. Opening an existing account from a second device ("I
+already have an account") is built and not yet tried on real devices.
+
+### Contracts on Monad testnet
+
+| | Address |
+|---|---|
+| `EntolePolicy` (allowances, limits, pause) | `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` |
+| `EntoleRouter` (payments and the fee) | `0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01` |
+| `GrowthVault` (savings on the test network) | `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd` |
+| AUSD, Agora's own test deployment | `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC` |
+
 ## The three moments this is built to show a judge
 
 1. A payment leaves Lagos and settles in under a second.
@@ -48,9 +83,14 @@ What's real and tested:
 - **The consumer core**, phone and web: onboarding, send, receive by link,
   allowances (sentence-builder, meter, revoke), the assistant undo-window
   flow, pause reachable from every header, activity feed.
-- **A business layer** (seats, invoicing, a tax reserve) riding the same
-  allowance primitive — no second trust model. See
-  [`docs/SCOPE.md`](docs/SCOPE.md).
+- **The money is Agora's AUSD, shown in naira.** On the test network the app
+  holds and sends Agora's own test AUSD, and "Add test money" draws it from
+  Agora's faucet. Agora's mint and redeem API (`AGORA_ACCESS_KEY`) is written
+  and not connected.
+- **A business layer** (invoices with a payment link, paying a supplier, a
+  staff list to pay from on the phone) riding the same account. Seats and
+  supply requests were taken off the screens, and the tax reserve only
+  displays; [`docs/BACKLOG.md`](docs/BACKLOG.md) says why.
 - **A Telegram intake adapter, wired end to end.** Message parsing was
   always real and tested; the webhook route now links a chat to an account
   with a one-time code, parses against that account's own contacts, and
@@ -80,33 +120,40 @@ What's real and tested:
   against the real vault on a copy of mainnet
   (`packages/core/savings.fork.test.ts`, `contracts/test/MainnetFork.t.sol`);
   not yet used with real money.
-- **Passkey accounts (Mera)** — `packages/core/passkey.ts`, wired into the
-  phone app's onboarding and sign-in. A WebAuthn PRF ceremony's 32 bytes
+- **Passkey accounts (Mera)** — `packages/core/passkey.ts`, wired into
+  onboarding and sign-in in both apps. A WebAuthn PRF ceremony's 32 bytes
   *are* the private key; one passkey derives two ("one passkey, many
   keys"): an owner key and a session/delegate key, the exact split
-  `EntolePolicy.createAllowance` needs. See
-  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)'s "Accounts and auth."
-- 1307 tests passing across `packages/core` (320, plus one skipped),
-  `apps/mobile` (505), `apps/web` (428) and `contracts` (54, plus two that
+  `EntolePolicy.createAllowance` needs. Nothing about the account is kept on
+  a server, so the passkey alone opens it again, on the same device or
+  another. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)'s "Accounts
+  and auth."
+- 1544 tests passing across `packages/core` (430, plus five skipped),
+  `apps/mobile` (533), `apps/web` (527) and `contracts` (54, plus four that
   self-skip honestly; see `contracts/README.md`), via `pnpm test` /
-  `forge test`.
+  `forge test`. Counted on 11 October 2026.
 
 What's disclosed as not finished, the same way the NGN off-ramp always was:
 
-- **The passkey ceremony itself is unverified on real hardware.** The logic
-  above it is tested against a stub authenticator (6 tests, deterministic);
-  the actual WebAuthn call needs a real relying-party domain
-  (`entole.to/.well-known/…`, not hosted anywhere this environment
-  controls) and a real device — see `apps/mobile/README.md`.
+- **Passkeys are proven by use, not by a test.** The logic above the
+  ceremony is tested against a stub authenticator; the ceremony itself has
+  been done by hand on an Android phone and in a desktop browser. Opening an
+  account from a second device has not been tried on real devices, and the
+  phone app has no iOS passkeys until an Apple Team ID exists. A new device
+  brings the account and its money; saved people, allowances and history
+  stay on the device they were made on.
+- **Everything runs on the test network.** Adding real money, savings that
+  earn and money in from other networks are written for the main network and
+  have not been used with real money.
 - **Chainlink CRE condition-gated release is wired end to end** against the
   server store: the callback route re-validates the payload, recomputes the
   FX condition itself through `releaseConditionalInvoice` (never trusting the
   caller's verdict), and marks the invoice released on success. What it still
   needs is a real registered CRE workflow watching an FX feed to POST to it,
   and a `CHAINLINK_CRE_WEBHOOK_SECRET`; unset, the route returns 501.
-- **Agora, Envio, Nansen** — wrapped behind interfaces
-  (`packages/core/gateway.ts`, `indexer/`), none connected to a live account
-  yet.
+- **Envio and Nansen** — written behind interfaces (`indexer/`,
+  `/api/nansen`), neither connected to a live account yet. Until the indexer
+  runs, money coming in changes the balance and is not listed as activity.
 - **Aurora Intents** — money in from USDT on Tron and USDC on Solana. The
   server side is written against the live service
   (`packages/core/aurora-intents.ts`, `/api/aurora/deposit`); no screen offers

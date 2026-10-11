@@ -42,10 +42,20 @@ product: where it touches a screen, the screen says so plainly.
   - It works only where the passkey can be reached: carried over by the same
     Google or Apple account, or by choosing the other device when the browser
     asks. Not tried on real devices yet.
+  - The account's domain moved from `entole.vercel.app` to `entole.pro` on
+    11 October 2026. A passkey belongs to its domain, so accounts made at the
+    earlier address cannot be opened at this one. They held test money only.
+    The earlier address now sends people on to the new one.
   - Accounts made before this on separate devices are separate accounts and
     stay that way.
   - Every passkey is saved under the same label, "Entole account", so someone
     holding several cannot tell them apart when asked to pick one.
+- **In the browser a person is saved from a receipt, and that is all.** After
+  paying someone by their payment code, the receipt offers to save them under
+  a name (added 11 October 2026); until then the browser could not save anyone,
+  so no allowance could be set there and the assistant had nobody to pay. There
+  is still no page in the browser to rename or remove a saved person, or to add
+  one without paying them first. The phone app has all three.
 - **Seats are not offered.** A team member has no account to sign with, so the
   contract cannot enforce a seat. The phone Business tab dropped seats on
   purpose (a hard-rules test holds that), and the web Business page no longer
