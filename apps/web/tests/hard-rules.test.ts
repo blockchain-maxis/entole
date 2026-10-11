@@ -129,6 +129,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'app/connections/page.tsx',
     'app/page.tsx',
     'components/ActivityRow.tsx',
+    'components/AllowanceCard.tsx',
+    'components/AllowanceIntro.tsx',
     'components/Badge.tsx',
     'components/Countdown.tsx',
   ];
@@ -144,8 +146,9 @@ describe('two inks: black is the person, blue is the assistant', () => {
   it('on the home screen blue is only the two assistant banners', () => {
     const home = stripComments(read(join(PAGES, 'page.tsx')));
     const lines = home.split('\n').filter((line) => /indigo/.test(line));
-    expect(lines).toHaveLength(2);
-    for (const line of lines) expect(line).toMatch(/href="\/assistant(\/action)?"|bg-indigo-wash/);
+    // Each banner's ground, and the arrow inside the second.
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line).toMatch(/rounded-control bg-indigo-wash|<ArrowRight/);
   });
 
   it('a primary button is ink, and stays ink when hovered', () => {
@@ -159,6 +162,41 @@ describe('two inks: black is the person, blue is the assistant', () => {
   it('keyboard focus is always drawn, in ink', () => {
     const stylesheet = read(join(PAGES, 'globals.css'));
     expect(stylesheet).toMatch(/:focus-visible \{\s*outline: 2px solid rgb\(var\(--color-ink\)\);/);
+  });
+});
+
+describe('home is written on paper: one figure, sentences, ruled rows', () => {
+  const home = stripComments(read(join(PAGES, 'page.tsx')));
+
+  it('the balance is the figure, in the display face, with no card around it', () => {
+    expect(home).toMatch(/<Figure value=\{store\.balance\} \/>/);
+    const balance = /aria-label="Your balance"[^>]*>/.exec(home)?.[0] ?? '';
+    expect(balance).not.toMatch(/bg-card|shadow-|border/);
+    expect(stripComments(read(join(COMPONENTS, 'Amount.tsx')))).toMatch(/tabular font-display/);
+  });
+
+  it('offers sending, adding and receiving, in that order', () => {
+    const actions = [...home.matchAll(/<ButtonLink href="([^"]+)" label="([^"]+)"/g)].map((match) => `${match[2]} ${match[1]}`);
+    expect(actions).toEqual(['Send /transfer', 'Add money /add-money', 'Receive /receive']);
+  });
+
+  it('an allowance is a sentence in the assistant\'s blue, with what is left and the meter', () => {
+    const row = stripComments(read(join(COMPONENTS, 'AllowanceCard.tsx')));
+    expect(row).toMatch(/font-display-plain text-prose text-indigo/);
+    expect(row).toMatch(/cadenceWords\(allowance\.cadence\)/);
+    expect(row).toMatch(/formatNaira\(allowance\.remainingMinor\)/);
+    expect(row).toMatch(/<Meter/);
+    expect(row).not.toMatch(/border border-line bg-card/);
+  });
+
+  it('never leaves a heading over nothing', () => {
+    expect(home).toMatch(/store\.allowances\.length === 0 \? \(\s*<AllowanceIntro \/>/);
+    expect(home).toMatch(/store\.activity\.length === 0 \? \(\s*<EmptyState/);
+  });
+
+  it('a list holds items: the allowance row is a link inside its item', () => {
+    expect(stripComments(read(join(COMPONENTS, 'AllowanceCard.tsx')))).toMatch(/<li>\s*<Link href=\{href\}/);
+    expect(home).not.toMatch(/<Link[^>]*>\s*<AllowanceCard/);
   });
 });
 
@@ -197,11 +235,11 @@ describe('the assistant is a setting the person turns on, never a default', () =
     ]);
   });
 
-  it('the intro card leads to the approval screen instead of dismissing itself as "Got it"', () => {
-    const intro = stripComments(read(join(ROOT, 'components/PauseIntro.tsx')));
-    expect(intro).toMatch(/Get started/);
-    expect(intro).toMatch(/href="\/assistant"/);
-    expect(intro).not.toMatch(/Got it/);
+  it('the introduction leads to the approval screen while the assistant is off, and cannot be waved away', () => {
+    const intro = stripComments(read(join(ROOT, 'components/AllowanceIntro.tsx')));
+    expect(intro).toMatch(/Turn on the assistant/);
+    expect(intro).toMatch(/href=\{assistant\.enabled \? '\/rules\/new' : '\/assistant'\}/);
+    expect(intro).not.toMatch(/Got it|Not now|\.enable\(/);
   });
 
   it('the header chip shows Off, and off leads to the approval page rather than a pause', () => {
@@ -300,7 +338,7 @@ describe('no screen leaves a person stuck or misled', () => {
   it('a failed load never shows a balance of nothing', () => {
     const failed = /\) : failed \? \([\s\S]*?\n        \) : \(/.exec(home)?.[0] ?? '';
     expect(failed).toMatch(/We couldn&apos;t load your account/);
-    expect(failed).not.toMatch(/<Amount|store\.balance/);
+    expect(failed).not.toMatch(/<Amount|<Figure|store\.balance/);
   });
 
   it('an allowance still loading is not called gone', () => {

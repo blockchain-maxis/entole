@@ -165,6 +165,35 @@ describe('the allowance builder cannot be left doing nothing', () => {
   });
 });
 
+describe('home is written on paper: one figure, sentences, ruled rows', () => {
+  const home = stripComments(read(join(ROOT, 'app/(tabs)/index.tsx')));
+
+  it('the balance is the figure, in the display face, with no card around it', () => {
+    expect(home).toMatch(/<Figure value=\{store\.balance\} \/>/);
+    expect(home).not.toMatch(/height \* 0\.3|shadow-raised/);
+    expect(stripComments(read(join(COMPONENTS, 'ui/Amount.tsx')))).toMatch(/<Text tabular className=\{`font-display /);
+  });
+
+  it('offers sending, adding and receiving once there is money, and never Business', () => {
+    const row = /<Button label="Send"[\s\S]*?<\/View>/.exec(home)?.[0] ?? '';
+    expect([...row.matchAll(/label="([^"]+)"/g)].map((match) => match[1])).toEqual(['Send', 'Add money', 'Receive']);
+    expect(home).not.toMatch(/label="Business"/);
+  });
+
+  it('an allowance is a sentence in the assistant\'s blue, with what is left and the meter', () => {
+    const row = stripComments(read(join(COMPONENTS, 'ui/AllowanceCard.tsx')));
+    expect(row).toMatch(/font-display-plain text-prose text-indigo/);
+    expect(row).toMatch(/cadenceWords\(allowance\.cadence\)/);
+    expect(row).toMatch(/<Meter/);
+    expect(row).not.toMatch(/border border-line bg-card/);
+  });
+
+  it('rules its own rows: the list has no boxes and no gaps standing in for them', () => {
+    expect(home).not.toMatch(/ItemSeparatorComponent/);
+    expect(home).toMatch(/ruled=\{Boolean\(previous\) && !byAssistant\(item\) && !byAssistant\(previous!\)\}/);
+  });
+});
+
 describe('the pause warning is for pausing', () => {
   it('resuming does not buzz like stopping everything', () => {
     const pause = stripComments(read(join(ROOT, 'app/pause.tsx')));
@@ -202,11 +231,14 @@ describe('two inks: black is the person, blue is the assistant', () => {
   // Blue used to be the button, link, selection and focus colour as well as
   // the assistant's, so it said nothing. It is now only ever the assistant.
   const ASSISTANT_SURFACES = [
+    'app/(tabs)/index.tsx',
     'app/assistant-action.tsx',
     'app/assistant.tsx',
     'app/connections.tsx',
     'app/rules/[id].tsx',
     'components/ui/ActivityRow.tsx',
+    'components/ui/AllowanceCard.tsx',
+    'components/ui/AllowanceIntro.tsx',
     'components/ui/Badge.tsx',
     'components/ui/Countdown.tsx',
     'components/ui/Meter.tsx',
@@ -399,7 +431,7 @@ describe('the header says who you are, not which app this is', () => {
     expect(profileHook).toMatch(/entoleCode\(account\.owner\.address\)/);
   });
 
-  it('greets by the device clock with the full name, and no emoji', () => {
+  it('greets by the device clock, with no emoji and no made-up or shortened name', () => {
     expect(home).toMatch(/greetingFor\(\)/);
     expect(home).not.toMatch(/Good (morning|afternoon|evening)/);
     expect(home).not.toMatch(/\p{Extended_Pictographic}/u);
@@ -430,11 +462,11 @@ describe('the assistant is a setting the person turns on, never a default', () =
     expect(enablers.map((file) => rel(file))).toEqual(['app/assistant.tsx']);
   });
 
-  it('the intro card leads to the approval screen instead of dismissing itself as "Got it"', () => {
-    const intro = stripComments(read(join(ROOT, 'components/ui/PauseIntro.tsx')));
-    expect(intro).toMatch(/Get started/);
+  it('the introduction leads to the approval screen while the assistant is off, and cannot be waved away', () => {
+    const intro = stripComments(read(join(ROOT, 'components/ui/AllowanceIntro.tsx')));
+    expect(intro).toMatch(/label="Turn on the assistant"/);
     expect(intro).toMatch(/router\.push\('\/assistant'\)/);
-    expect(intro).not.toMatch(/Got it/);
+    expect(intro).not.toMatch(/Got it|Not now|\.enable\(/);
   });
 
   it('the header chip shows Off, and off leads to the approval screen rather than a pause', () => {
@@ -494,7 +526,9 @@ describe('Home, Add money and Receive show the account, never a fixture', () => 
   });
 
   it('an empty Allowances section only offers set-up once the assistant is on', () => {
-    expect(home).toMatch(/assistant\.enabled \?[\s\S]*?router\.push\('\/rules\/new'\)[\s\S]*?router\.push\('\/assistant'\)/);
+    expect(home).toMatch(/hasAllowances \? \([\s\S]*?\) : \(\s*<AllowanceIntro \/>/);
+    const intro = stripComments(read(join(COMPONENTS, 'ui/AllowanceIntro.tsx')));
+    expect(intro).toMatch(/assistant\.enabled \?[\s\S]*?router\.push\('\/rules\/new'\)[\s\S]*?router\.push\('\/assistant'\)/);
   });
 
   it('Add money explains it is test money and waits for the real balance to move', () => {

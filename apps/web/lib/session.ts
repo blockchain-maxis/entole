@@ -237,18 +237,6 @@ export function signOut(): void {
  * from scratch, a fresh passkey ceremony, not a quick re-auth. */
 const PAUSE_INTRO_KEY = 'entole.pause-intro-seen';
 
-/** Whether the one-time "what the assistant chip does" card on Home has been
- * dismissed. A yes/no flag only. */
-export function hasSeenPauseIntro(): boolean {
-  if (!storageAvailable()) return true;
-  return window.localStorage.getItem(PAUSE_INTRO_KEY) === 'true';
-}
-
-export function markPauseIntroSeen(): void {
-  if (!storageAvailable()) return;
-  window.localStorage.setItem(PAUSE_INTRO_KEY, 'true');
-}
-
 export function forgetEverything(): void {
   if (!storageAvailable()) return;
   window.localStorage.removeItem(SESSION_KEY);

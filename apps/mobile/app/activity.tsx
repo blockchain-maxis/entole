@@ -2,11 +2,11 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 
-import { ActivityRow } from '@/components/ui/ActivityRow';
+import { ActivityRow, byAssistant } from '@/components/ui/ActivityRow';
 import { Header } from '@/components/ui/Header';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
-import { RowSkeleton } from '@/components/ui/Skeleton';
+import { ActivityRowSkeleton } from '@/components/ui/Skeleton';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
@@ -34,29 +34,32 @@ export default function AllActivity() {
         data={loading ? [] : store.activity}
         keyExtractor={(entry) => entry.id}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View className="h-2" />}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
             <SectionHeading title="Payments" className="pt-2" />
 
             {loading ? (
-              <View className="gap-2">
-                <RowSkeleton />
-                <RowSkeleton />
-                <RowSkeleton />
-                <RowSkeleton />
+              <View>
+                <ActivityRowSkeleton />
+                <ActivityRowSkeleton />
+                <ActivityRowSkeleton />
+                <ActivityRowSkeleton />
               </View>
             ) : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <ActivityRow
-            entry={item}
-            contact={store.contact(item.contactId)}
-            onPress={() => router.push({ pathname: '/activity/[id]', params: { id: item.id } })}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const previous = store.activity[index - 1];
+          return (
+            <ActivityRow
+              entry={item}
+              contact={store.contact(item.contactId)}
+              ruled={Boolean(previous) && !byAssistant(item) && !byAssistant(previous!)}
+              onPress={() => router.push({ pathname: '/activity/[id]', params: { id: item.id } })}
+            />
+          );
+        }}
       />
     </Screen>
   );

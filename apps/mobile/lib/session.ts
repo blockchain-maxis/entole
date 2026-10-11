@@ -70,16 +70,6 @@ export async function loadProfile(): Promise<Profile | null> {
 
 const PAUSE_INTRO_KEY = 'entole.pause-intro-seen';
 
-/** Whether the one-time "what the assistant chip does" card on Home has been
- * dismissed. A yes/no flag only. */
-export async function hasSeenPauseIntro(): Promise<boolean> {
-  return (await SecureStore.getItemAsync(PAUSE_INTRO_KEY)) === 'true';
-}
-
-export async function markPauseIntroSeen(): Promise<void> {
-  await SecureStore.setItemAsync(PAUSE_INTRO_KEY, 'true');
-}
-
 export async function hasOnboarded(): Promise<boolean> {
   return (await SecureStore.getItemAsync(ONBOARDED_KEY)) === 'true';
 }

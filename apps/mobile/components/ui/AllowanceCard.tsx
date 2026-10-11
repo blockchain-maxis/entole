@@ -1,6 +1,6 @@
 import { Pressable, View } from 'react-native';
 
-import type { AllowanceView } from '@entole/core/allowance';
+import { cadenceWords, type AllowanceView } from '@entole/core/allowance';
 import { resetLabel } from '@entole/core/format';
 import { formatNaira } from '@entole/core/money';
 
@@ -8,49 +8,59 @@ import { Meter } from './Meter';
 import { Text } from './Text';
 
 /**
- * An allowance always reads as a balance with something left in it — never as a
- * permission, a scope, a key or a toggle.
+ * An allowance, as the sentence it is: how much, to whom, how often, written
+ * in the assistant's blue. Under it, what is left, as a figure and as the
+ * meter. It always reads as a balance with something left in it, never as a
+ * permission, a scope, a key or a toggle. A row on paper, not a box; `ruled`
+ * draws the hairline above it.
  */
 export function AllowanceCard({
   allowance,
+  recipientName,
   resetsAt,
+  ruled = false,
   onPress,
 }: {
   allowance: AllowanceView;
+  recipientName: string;
   resetsAt: string;
+  ruled?: boolean;
   onPress?: () => void;
 }) {
+  const left = formatNaira(allowance.remainingMinor);
+  const limit = formatNaira(allowance.limitMinor);
+  const sentence = `${formatNaira(allowance.perRunMinor)} to ${recipientName} ${cadenceWords(allowance.cadence)}`;
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${allowance.name}, ${formatNaira(allowance.remainingMinor)} left of ${formatNaira(
-        allowance.limitMinor,
-      )}`}
+      accessibilityLabel={`${sentence}. ${left} left of ${limit}`}
       disabled={!onPress}
       onPress={onPress}
-      className="rounded-row border border-line bg-card px-4 pb-[18px] pt-4 active:border-mist"
+      className={`py-4 active:opacity-70 ${ruled ? 'border-t border-hairline' : ''}`}
     >
-      <View className="flex-row items-start justify-between gap-3">
-        <Text className="flex-1 font-strong text-body text-ink">{allowance.name}</Text>
-        <Text tabular className="pt-0.5 font-strong text-caption-sm text-mist">
+      <Text tabular className="font-display-plain text-prose text-indigo">
+        {sentence}
+      </Text>
+
+      <View className="mt-2 flex-row items-baseline justify-between gap-3">
+        <Text tabular className="font-body text-note text-slate">
+          <Text tabular className="font-strong text-ui text-ink">
+            {left}
+          </Text>{' '}
+          left of {limit}
+        </Text>
+        <Text tabular className="font-body text-note text-slate">
           {allowance.paused ? 'Paused' : resetLabel(resetsAt)}
         </Text>
       </View>
 
-      <View className="mt-3 flex-row items-baseline gap-1.5">
-        <Text tabular className="font-strong text-amount-sm text-ink">
-          {formatNaira(allowance.remainingMinor)}
-        </Text>
-        <Text tabular className="font-body text-label-sm text-slate">
-          left of {formatNaira(allowance.limitMinor)}
-        </Text>
-      </View>
-
-      <View className="mt-3.5">
+      <View className="mt-2.5">
         <Meter
+          size="sm"
           fraction={allowance.remainingFraction}
           tone={allowance.tone}
-          label={`${allowance.name} remaining`}
+          label={`${left} left of the allowance for ${recipientName}`}
         />
       </View>
     </Pressable>

@@ -57,3 +57,38 @@ export function RowSkeleton() {
     </View>
   );
 }
+
+/** The figure a screen is about, before it is known. Never a zero. */
+export function FigureSkeleton() {
+  return (
+    <View className="pt-1.5">
+      <Skeleton className="h-[60px] w-56 rounded-chip" />
+      <Skeleton className="mt-3 h-4 w-40 rounded-md" />
+    </View>
+  );
+}
+
+/** An allowance as it sits on paper: a sentence, what is left, the meter. */
+export function AllowanceRowSkeleton({ ruled = false }: { ruled?: boolean }) {
+  return (
+    <View className={`py-4 ${ruled ? 'border-t border-hairline' : ''}`}>
+      <Skeleton className="h-5 w-56 rounded-md" />
+      <Skeleton className="mt-3 h-4 w-40 rounded-md" />
+      <Skeleton className="mt-3 h-2 w-full rounded-pill" />
+    </View>
+  );
+}
+
+/** A row of the feed on paper, without the box the older rows have. */
+export function ActivityRowSkeleton() {
+  return (
+    <View className="flex-row items-center gap-3 py-3">
+      <Skeleton className="h-[42px] w-[42px] rounded-pill" />
+      <View className="flex-1">
+        <Skeleton className="h-4 w-32 rounded-md" />
+        <Skeleton className="mt-2 h-3 w-24 rounded-md" />
+      </View>
+      <Skeleton className="h-4 w-20 rounded-md" />
+    </View>
+  );
+}

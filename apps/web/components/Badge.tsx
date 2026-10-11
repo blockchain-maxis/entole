@@ -4,8 +4,8 @@
  */
 export function AssistantBadge() {
   return (
-    <span className="rounded-chip bg-indigo px-1.5 py-0.5 font-heavy text-badge uppercase tracking-wide text-paper">
-      Entole
+    <span className="flex-none rounded-pill bg-indigo px-1.5 py-0.5 font-heavy text-micro uppercase text-paper">
+      Assistant
     </span>
   );
 }

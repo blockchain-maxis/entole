@@ -8,20 +8,29 @@ import { Avatar } from './Avatar';
 import { AssistantBadge } from './Badge';
 import { Text } from './Text';
 
+/** Whether the assistant made this payment. A list uses it to decide where a
+ * hairline belongs: never against a tinted row, which is already set apart. */
+export function byAssistant(entry: Activity): boolean {
+  return entry.initiatedBy === 'assistant';
+}
+
 /**
- * One line of the feed. An assistant-initiated payment carries the assistant
- * tint and the badge; your own payments sit on plain card.
+ * One line of the feed, on paper. Your own payments are plain; one the
+ * assistant made carries the assistant's tint and its badge, so the two can
+ * never be mistaken for each other. `ruled` draws the hairline above a row.
  */
 export function ActivityRow({
   entry,
   contact,
+  ruled = false,
   onPress,
 }: {
   entry: Activity;
   contact: Contact | undefined;
+  ruled?: boolean;
   onPress?: () => void;
 }) {
-  const byAssistant = entry.initiatedBy === 'assistant';
+  const assistant = byAssistant(entry);
   const amount = formatDelta(kobo(entry.amountMinor), entry.direction);
   const pending = entry.state === 'pending';
 
@@ -29,32 +38,34 @@ export function ActivityRow({
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityLabel={`${contact?.name ?? 'Payment'}, ${entry.note}, ${amount}${
-        byAssistant ? ', sent by Entole' : ''
+        assistant ? ', sent by the assistant' : ''
       }`}
       disabled={!onPress}
       onPress={onPress}
-      className={`flex-row items-center gap-3 rounded-row px-3.5 py-3 ${
-        byAssistant
-          ? 'border border-indigo-line bg-indigo-wash'
-          : 'border border-transparent active:border-line active:bg-press'
+      className={`flex-row items-center gap-3 py-3 ${
+        assistant
+          ? '-mx-3 rounded-control bg-indigo-wash px-3 active:opacity-80'
+          : `active:bg-press ${ruled ? 'border-t border-hairline' : ''}`
       }`}
     >
       <Avatar initials={contact?.initials ?? '?'} tone={contact?.tone ?? 1} />
 
       <View className="min-w-0 flex-1">
         <View className="flex-row items-center gap-1.5">
-          <Text className="font-strong text-body text-ink">{contact?.name ?? 'Someone'}</Text>
-          {byAssistant ? <AssistantBadge /> : null}
+          <Text numberOfLines={1} className="flex-shrink font-strong text-ui text-ink">
+            {contact?.name ?? 'Someone'}
+          </Text>
+          {assistant ? <AssistantBadge /> : null}
         </View>
-        <Text tabular className="mt-0.5 font-body text-caption text-slate">
+        <Text tabular numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
           {entry.note} · {pending ? 'Sending' : relativeMoment(entry.at)}
         </Text>
       </View>
 
       <Text
         tabular
-        className={`font-strong text-body ${
-          pending ? 'text-mist' : entry.direction === 'in' ? 'text-settled' : 'text-ink'
+        className={`font-strong text-ui ${
+          pending ? 'text-slate' : entry.direction === 'in' ? 'text-settled' : 'text-ink'
         }`}
       >
         {amount}

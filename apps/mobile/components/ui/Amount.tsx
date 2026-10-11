@@ -11,6 +11,33 @@ const SIZES = {
   small: { symbol: 'text-amount-xs', digits: 'text-balance-xs', lift: -6 },
 } as const;
 
+const FIGURE = {
+  full: { symbol: 'text-figure-sm', digits: 'text-figure', lift: -13 },
+  long: { symbol: 'text-heading', digits: 'text-figure-md', lift: -10 },
+  longest: { symbol: 'text-subhead', digits: 'text-figure-sm', lift: -10 },
+} as const;
+
+/**
+ * The one number a screen is about, in the display face: a balance, or what a
+ * receipt is for. It steps down as the figure grows, so nine million naira
+ * fits a phone as surely as nine hundred does. Tabular like every amount.
+ */
+export function Figure({ value }: { value: Naira }) {
+  const digits = formatNairaDigits(value);
+  const fit = digits.length <= 9 ? FIGURE.full : digits.length <= 12 ? FIGURE.long : FIGURE.longest;
+
+  return (
+    <View className="flex-row items-baseline gap-0.5">
+      <Text className={`font-display ${fit.symbol} text-ink`} style={{ transform: [{ translateY: fit.lift }] }}>
+        ₦
+      </Text>
+      <Text tabular className={`font-display ${fit.digits} text-ink`}>
+        {digits}
+      </Text>
+    </View>
+  );
+}
+
 /**
  * A balance. The ₦ is set smaller and raised against the digits, and the digits
  * are tabular so the layout never moves while they change.

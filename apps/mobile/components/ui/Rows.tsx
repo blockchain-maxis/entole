@@ -116,18 +116,29 @@ export function SectionHeading({
   action,
   onActionPress,
   className,
+  display = false,
 }: {
   title: string;
-  action?: string;
+  action?: string | undefined;
   onActionPress?: () => void;
   className?: string;
+  /** The display face, on screens that have moved to the new type. The rest
+   * keep the earlier heading until they move too. */
+  display?: boolean;
 }) {
   return (
-    <View className={`flex-row items-baseline justify-between px-1 pb-3 ${className ?? ''}`}>
-      <Text className="font-heavy text-body-sm text-ink">{title}</Text>
+    <View
+      className={`flex-row items-baseline justify-between pb-3 ${display ? 'gap-4 pt-10' : 'px-1'} ${className ?? ''}`}
+    >
+      <Text
+        accessibilityRole="header"
+        className={display ? 'font-display text-subhead text-ink' : 'font-heavy text-body-sm text-ink'}
+      >
+        {title}
+      </Text>
       {action ? (
         <Pressable accessibilityRole="link" hitSlop={10} onPress={onActionPress}>
-          <Text className="font-strong text-label text-ink underline">{action}</Text>
+          <Text className={`font-strong text-ink underline ${display ? 'text-ui' : 'text-label'}`}>{action}</Text>
         </Pressable>
       ) : null}
     </View>

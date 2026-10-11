@@ -35,3 +35,38 @@ export function RowSkeleton() {
     </div>
   );
 }
+
+/** The figure a screen is about, before it is known. Never a zero. */
+export function FigureSkeleton() {
+  return (
+    <div className="pt-1.5">
+      <Skeleton className="h-[60px] w-56" />
+      <Skeleton className="mt-3 h-4 w-40" />
+    </div>
+  );
+}
+
+/** An allowance as it sits on paper: a sentence, what is left, the meter. */
+export function AllowanceRowSkeleton() {
+  return (
+    <div className="py-4">
+      <Skeleton className="h-5 w-56" />
+      <Skeleton className="mt-3 h-4 w-40" />
+      <Skeleton className="mt-3 h-1.5 w-full" />
+    </div>
+  );
+}
+
+/** A row of the feed on paper, without the box the older rows have. */
+export function ActivityRowSkeleton() {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <Skeleton className="h-10 w-10 flex-none rounded-pill" />
+      <div className="min-w-0 flex-1">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="mt-2 h-3 w-40" />
+      </div>
+      <Skeleton className="h-4 w-16" />
+    </div>
+  );
+}

@@ -1,45 +1,46 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
+import { ArrowRight } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { Amount } from '@/components/ui/Amount';
+import { ActivityRow, byAssistant } from '@/components/ui/ActivityRow';
 import { AllowanceCard } from '@/components/ui/AllowanceCard';
-import { ActivityRow } from '@/components/ui/ActivityRow';
+import { AllowanceIntro } from '@/components/ui/AllowanceIntro';
+import { Figure } from '@/components/ui/Amount';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { PauseButton } from '@/components/ui/PauseButton';
-import { PauseIntro } from '@/components/ui/PauseIntro';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
-import {
-  AllowanceCardSkeleton,
-  BalanceSkeleton,
-  RowSkeleton,
-} from '@/components/ui/Skeleton';
+import { ActivityRowSkeleton, AllowanceRowSkeleton, FigureSkeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
 import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
-import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
 import { useLiveRefresh } from '@/lib/reload';
+import { useThemeColors } from '@/lib/theme';
 
+/**
+ * Home, as a page that has been written on. The balance is the one figure,
+ * set large on the paper with no card around it. Under it, what the assistant
+ * may do for you, each allowance a sentence in the assistant's blue. Then what
+ * has happened, as ruled rows. Everything you do yourself is ink.
+ */
 export default function Home() {
   const router = useRouter();
   const store = useStore();
-  const { account } = useAccount();
   const assistant = useAssistant();
-  // The device's own clock and the person's own full name. No name yet means
-  // the greeting stands alone — nothing is invented to fill the gap.
-  const fullName = account?.displayName.trim() ?? '';
-  const greeting = fullName ? `${greetingFor()}, ${fullName}` : greetingFor();
+  const colors = useThemeColors();
+  // The device's own clock. The name is not repeated here: it is already in
+  // the header, a line above.
+  const greeting = greetingFor();
   const loading = store.status === 'loading';
   const failed = store.status === 'failed';
   const announced = useRef(false);
-  const { height } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const { refresh } = store;
@@ -72,6 +73,8 @@ export default function Home() {
   // A new account: nothing in it and nothing it has ever done.
   const firstRun = !loading && !failed && store.balance === 0 && store.activity.length === 0;
   const hasAllowances = store.allowances.length > 0;
+  const waiting = !loading && assistant.enabled && Boolean(store.proposal);
+  const recent = loading || failed ? [] : store.activity.slice(0, 5);
 
   useEffect(() => {
     // The assistant is a setting: nothing is announced until it is turned on.
@@ -84,32 +87,40 @@ export default function Home() {
   return (
     <Screen edges={{ bottom: false }}>
       <Header leading="brand" trailing={<PauseButton />} />
-      <View className="px-5 pt-2 pb-4">
-        <Text numberOfLines={1} className="font-strong text-headline text-ink">
-          {greeting}
-        </Text>
-      </View>
 
       <FlashList<Activity>
-        data={loading || failed ? [] : store.activity.slice(0, 5)}
+        data={recent}
         refreshing={refreshing}
         onRefresh={() => void pullToRefresh()}
         keyExtractor={(entry) => entry.id}
-        contentContainerStyle={{ paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View className="h-2" />}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            <PauseIntro />
-            {loading ? (
-              <View className="px-5"><BalanceSkeleton /></View>
-            ) : failed ? (
-              <View className="mx-5 mb-5 rounded-panel bg-card p-6 shadow-raised">
-                <Text className="font-strong text-label-sm text-mist">Available balance</Text>
-                <Text className="mt-2.5 font-strong text-title text-ink">
-                  We can’t reach the exchange rate
+            {store.paused ? (
+              // A paused assistant is said first, with the way back beside it.
+              <View className="mb-2 mt-1 flex-row items-center gap-3 rounded-control bg-halt-wash px-4 py-3">
+                <View className="h-2.5 w-2.5 rounded-[2px] bg-halt" />
+                <Text className="flex-1 font-body text-ui text-ink">
+                  The assistant is paused. Your allowances are as you left them.
                 </Text>
-                <Text className="mt-2 font-body text-body-sm text-slate">
+                <Pressable accessibilityRole="link" hitSlop={10} onPress={() => router.push('/pause')}>
+                  <Text className="font-strong text-ui text-ink underline">Resume</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            <Text numberOfLines={1} className="pt-2 font-body text-ui text-slate">
+              {greeting}
+            </Text>
+
+            {loading ? (
+              <FigureSkeleton />
+            ) : failed ? (
+              // No figure at all: a zero here would read as the balance.
+              <View className="pt-2">
+                <Text className="font-display text-subhead text-ink">We can’t reach the exchange rate</Text>
+                <Text className="mt-1.5 font-body text-ui text-slate">
                   Your balance needs today’s rate to show in naira, so it can’t load right now. Check
                   your connection and try again.
                 </Text>
@@ -124,104 +135,88 @@ export default function Home() {
                 </View>
               </View>
             ) : (
-              <View
-                style={{ height: height * 0.3 }}
-                className="mx-5 mb-5 rounded-panel bg-card p-6 justify-center shadow-raised"
-              >
-                <Text className="font-strong text-label-sm text-mist">Available balance</Text>
-                <View className="mt-2.5">
-                  <Amount value={store.balance} />
-                </View>
-                <Text tabular className="mt-3 font-body text-body-sm text-slate">
-                  ≈ {formatDollars(toDollars(store.balance, store.rate))}
+              <View className="pt-1.5">
+                <Figure value={store.balance} />
+                <Text tabular className="mt-2 font-body text-ui text-slate">
+                  Available · about {formatDollars(toDollars(store.balance, store.rate))}
                 </Text>
               </View>
             )}
 
             {firstRun ? (
-              <View className="mx-5 mb-8 rounded-row border border-line bg-card p-4">
-                <Text className="font-strong text-body text-ink">Start with some test money</Text>
-                <Text className="mt-1.5 font-body text-body-sm text-slate">
+              <View className="mt-7">
+                <Text className="font-display text-subhead text-ink">Start with some test money</Text>
+                <Text className="mt-1.5 font-body text-ui text-slate">
                   Add test money to try Entole. Or share your link and have someone pay you.
                 </Text>
-                <View className="mt-4 flex-row gap-3">
-                  <Button label="Add money" variant="raised" onPress={() => router.push('/add-money')} />
+                <View className="mt-4 flex-row gap-2.5">
+                  <Button label="Add money" onPress={() => router.push('/add-money')} />
                   <Button label="Receive" variant="secondary" onPress={() => router.push('/receive')} />
                 </View>
               </View>
             ) : !loading && !failed ? (
-              <View className="flex-row gap-3 px-5 mb-8">
-                <Button label="Send" variant="raised" onPress={() => router.push('/send/pick')} />
+              <View className="mt-7 flex-row gap-2.5">
+                <Button label="Send" onPress={() => router.push('/send/pick')} />
                 <Button label="Add money" variant="secondary" onPress={() => router.push('/add-money')} />
-                <Button label="Business" variant="secondary" onPress={() => router.push('/business')} />
+                <Button label="Receive" variant="secondary" onPress={() => router.push('/receive')} />
               </View>
             ) : null}
 
             {failed ? null : (
               <>
                 <SectionHeading
+                  display
                   title="Allowances"
-                  action={hasAllowances ? 'Manage' : undefined}
-                  className="px-5"
+                  action={!loading && assistant.enabled && hasAllowances ? 'New allowance' : undefined}
                   onActionPress={() => router.push('/rules/new')}
                 />
 
-                <View className="gap-2.5 px-5">
-                  {loading ? (
-                    <>
-                      <AllowanceCardSkeleton />
-                      <AllowanceCardSkeleton />
-                    </>
-                  ) : hasAllowances ? (
-                    store.allowances.map((allowance) => (
-                      <AllowanceCard
-                        key={allowance.id}
-                        allowance={allowance}
-                        resetsAt={allowance.resetsAt}
-                        onPress={() => router.push({ pathname: '/rules/[id]', params: { id: allowance.id } })}
-                      />
-                    ))
-                  ) : (
-                    <View className="rounded-row border border-line bg-card p-4">
-                      <Text className="font-body text-body-sm text-slate">
-                        An allowance is an amount the assistant can spend for you, up to a limit you
-                        choose.
-                      </Text>
-                      {assistant.loading ? null : (
-                        <View className="mt-3.5 flex-row">
-                          {assistant.enabled ? (
-                            <Button
-                              label="Set up an allowance"
-                              variant="secondary"
-                              width="hug"
-                              onPress={() => router.push('/rules/new')}
-                            />
-                          ) : (
-                            <Button
-                              label="Turn on the assistant"
-                              variant="secondary"
-                              width="hug"
-                              onPress={() => router.push('/assistant')}
-                            />
-                          )}
-                        </View>
-                      )}
+                {loading ? (
+                  <View className="border-y border-hairline">
+                    <AllowanceRowSkeleton />
+                    <AllowanceRowSkeleton ruled />
+                  </View>
+                ) : hasAllowances ? (
+                  <>
+                    <View className="border-y border-hairline">
+                      {store.allowances.map((allowance, index) => (
+                        <AllowanceCard
+                          key={allowance.id}
+                          allowance={allowance}
+                          recipientName={store.contact(allowance.recipientId)?.name ?? 'someone'}
+                          resetsAt={allowance.resetsAt}
+                          ruled={index > 0}
+                          onPress={() => router.push({ pathname: '/rules/[id]', params: { id: allowance.id } })}
+                        />
+                      ))}
                     </View>
-                  )}
-                </View>
+                    {assistant.enabled && !waiting ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => router.push('/assistant')}
+                        className="mt-4 flex-row items-center gap-3 rounded-control bg-indigo-wash px-4 py-3.5 active:opacity-80"
+                      >
+                        <Text className="flex-1 font-strong text-ui text-ink">Ask the assistant to pay someone</Text>
+                        <ArrowRight size={18} strokeWidth={1.75} color={colors.indigo.DEFAULT} />
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : (
+                  <AllowanceIntro />
+                )}
 
                 <SectionHeading
-                  title="Recent activity"
-                  action={store.activity.length > 0 ? 'All' : undefined}
-                  className="pt-[30px] px-5"
+                  display
+                  title="Activity"
+                  action={store.activity.length > 5 ? 'All activity' : undefined}
                   onActionPress={() => router.push('/activity')}
                 />
 
                 {loading ? (
-                  <View className="gap-2 px-5">
-                    <RowSkeleton />
-                    <RowSkeleton />
-                    <RowSkeleton />
+                  <View>
+                    <ActivityRowSkeleton />
+                    <ActivityRowSkeleton />
+                    <ActivityRowSkeleton />
                   </View>
                 ) : null}
               </>
@@ -230,20 +225,22 @@ export default function Home() {
         }
         ListFooterComponent={
           !loading && !failed && store.activity.length === 0 ? (
-            <Text className="px-6 font-body text-body-sm text-slate">
-              Payments you send and receive will show up here.
-            </Text>
+            <View className="border-y border-hairline py-5">
+              <Text className="font-body text-ui text-slate">Payments you send and receive will show up here.</Text>
+            </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <View className="px-5">
+        renderItem={({ item, index }) => {
+          const previous = recent[index - 1];
+          return (
             <ActivityRow
               entry={item}
               contact={store.contact(item.contactId)}
+              ruled={Boolean(previous) && !byAssistant(item) && !byAssistant(previous!)}
               onPress={() => router.push({ pathname: '/activity/[id]', params: { id: item.id } })}
             />
-          </View>
-        )}
+          );
+        }}
       />
     </Screen>
   );
