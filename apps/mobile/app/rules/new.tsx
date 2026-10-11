@@ -21,8 +21,12 @@ type Slot = 'amount' | 'recipient' | 'cadence' | 'limit';
 const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
 
 /**
- * A rule is a sentence you fill in, not a form and not a wizard. Whatever you
- * tap opens below; the sentence above always reads back in one breath.
+ * An allowance is a sentence you fill in, not a form and not a wizard. Whatever
+ * you tap opens below; the sentence above always reads back in one breath.
+ *
+ * It is for one saved person. Until the person chooses, it is for the first
+ * one saved; with nobody saved there is nothing to create, and the screen says
+ * how to get there.
  */
 export default function RuleBuilder() {
   const router = useRouter();
@@ -34,10 +38,13 @@ export default function RuleBuilder() {
   const [perRun, setPerRun] = useState<Naira>(existing?.perRunMinor ?? naira(50_000));
   const [limit, setLimit] = useState<Naira>(existing?.limitMinor ?? naira(100_000));
   const [cadence, setCadence] = useState<Cadence>(existing?.cadence ?? 'monthly');
-  const [recipientId, setRecipientId] = useState(existing?.recipientId ?? 'c-mom');
+  const [picked, setPicked] = useState<string | null>(existing?.recipientId ?? null);
   const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
-  const recipient = store.contact(recipientId);
+  const recipientId = picked ?? store.contacts[0]?.id ?? '';
+  const recipient = recipientId ? store.contact(recipientId) : undefined;
+  const nobodySaved = store.status === 'ready' && store.contacts.length === 0 && !recipient;
   const period = cadence === 'weekly' ? 'a week' : 'a month';
 
   const parts: SentencePart[] = [
@@ -60,6 +67,7 @@ export default function RuleBuilder() {
   async function save() {
     if (!recipient || saving) return;
     setSaving(true);
+    setProblem(null);
     try {
       await store.saveAllowance({
         ...(existing ? { id: existing.id } : {}),
@@ -70,6 +78,8 @@ export default function RuleBuilder() {
         cadence,
       });
       router.back();
+    } catch {
+      setProblem("We couldn't save that allowance. Nothing has changed. Try again.");
     } finally {
       setSaving(false);
     }
@@ -77,7 +87,7 @@ export default function RuleBuilder() {
 
   return (
     <Screen>
-      <Header title={existing ? 'Edit rule' : 'New rule'} />
+      <Header title={existing ? 'Edit allowance' : 'New allowance'} />
 
       <View className="flex-1 px-gutter-lg pt-[18px]">
         <Sentence parts={parts} activeId={slot} onPressPill={(next) => setSlot(next as Slot)} />
@@ -89,16 +99,21 @@ export default function RuleBuilder() {
       <View className="flex-none rounded-t-panel border-t border-line bg-card px-gutter pb-3.5 pt-5">
         <SheetGrabber />
 
-        {slot === 'cadence' ? (
+        {nobodySaved ? (
+          <View>
+            <Text className="px-1 font-heavy text-body-sm text-ink">Save someone first</Text>
+            <Text className="mt-2 px-1 font-body text-label text-slate">
+              An allowance is for one person you have saved. Add them as a beneficiary, then come back.
+            </Text>
+          </View>
+        ) : slot === 'cadence' ? (
           <CadencePicker value={cadence} onChange={setCadence} />
         ) : slot === 'recipient' ? (
-          <RecipientPicker
-            contacts={store.contacts}
-            value={recipientId}
-            onChange={setRecipientId}
-          />
+          <RecipientPicker contacts={store.contacts} value={recipientId} onChange={setPicked} />
         ) : (
+          // Keyed by the slot: each amount keeps its own digits.
           <AmountPad
+            key={slot}
             title={slot === 'amount' ? 'How much each time' : `Never more than, ${period}`}
             value={slot === 'amount' ? perRun : limit}
             onChange={slot === 'amount' ? setPerRun : setLimit}
@@ -106,17 +121,23 @@ export default function RuleBuilder() {
         )}
 
         <View className="mt-4 flex-row">
-          <Button
-            label={existing ? 'Save rule' : 'Create rule'}
-            busy={saving}
-            disabled={perRun <= 0 || limit < perRun}
-            onPress={() => void save()}
-          />
+          {nobodySaved ? (
+            <Button label="Add a beneficiary" onPress={() => router.push('/beneficiaries/new')} />
+          ) : (
+            <Button
+              label={existing ? 'Save allowance' : 'Create allowance'}
+              busy={saving}
+              disabled={!recipient || perRun <= 0 || limit < perRun}
+              onPress={() => void save()}
+            />
+          )}
         </View>
 
-        {limit < perRun ? (
+        {problem ? (
+          <Text className="mt-3 text-center font-body text-label-sm text-halt">{problem}</Text>
+        ) : !nobodySaved && limit < perRun ? (
           <Text className="mt-3 text-center font-body text-label-sm text-caution">
-            The cap has to be at least as large as one payment.
+            The limit has to cover at least one payment.
           </Text>
         ) : null}
       </View>

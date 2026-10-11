@@ -137,6 +137,39 @@ describe('the pause control is reachable from every screen header', () => {
   });
 });
 
+describe('the allowance builder cannot be left doing nothing', () => {
+  const builder = stripComments(read(join(ROOT, 'app/rules/new.tsx')));
+
+  it('starts on a person who exists, never on a made-up id', () => {
+    expect(builder).not.toMatch(/'c-mom'|'c-[a-z]+'/);
+    expect(builder).toMatch(/picked \?\? store\.contacts\[0\]\?\.id/);
+  });
+
+  it('cannot be created without a person, and says where to get one', () => {
+    expect(builder).toMatch(/disabled=\{!recipient \|\| perRun <= 0 \|\| limit < perRun\}/);
+    expect(builder).toMatch(/label="Add a beneficiary"/);
+  });
+
+  it('gives each amount its own digits', () => {
+    expect(builder).toMatch(/<AmountPad\s+key=\{slot\}/);
+  });
+
+  it('says so when saving fails', () => {
+    expect(/async function save\(\)[\s\S]*?\n  }\n/.exec(builder)?.[0]).toMatch(/catch \{/);
+  });
+
+  it('the person in the sentence is shown by their initials, not an empty disc', () => {
+    expect(stripComments(read(join(ROOT, 'components/ui/Sentence.tsx')))).toMatch(/\{part\.avatar\.initials\}/);
+  });
+});
+
+describe('the pause warning is for pausing', () => {
+  it('resuming does not buzz like stopping everything', () => {
+    const pause = stripComments(read(join(ROOT, 'app/pause.tsx')));
+    expect(pause).toMatch(/if \(pausing\) void Haptics\.notificationAsync\(Haptics\.NotificationFeedbackType\.Warning\)/);
+  });
+});
+
 describe('money amounts never use the system keyboard', () => {
   const amountScreens = [
     'app/send/index.tsx',

@@ -70,10 +70,12 @@ function Pill({
     >
       {part.avatar ? (
         <View
-          className={`mr-1.5 h-[26px] w-[26px] rounded-pill ${
+          className={`mr-1.5 h-[26px] w-[26px] items-center justify-center rounded-pill ${
             part.avatar.tone === 1 ? 'bg-avatar-1' : part.avatar.tone === 2 ? 'bg-avatar-2' : 'bg-avatar-3'
           }`}
-        />
+        >
+          <Text className="font-strong text-badge text-slate">{part.avatar.initials}</Text>
+        </View>
       ) : null}
       <Text
         tabular={part.tabular}

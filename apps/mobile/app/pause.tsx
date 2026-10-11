@@ -24,8 +24,11 @@ export default function Pause() {
   async function toggle() {
     setWorking(true);
     try {
-      await store.setPaused(!store.paused);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      const pausing = !store.paused;
+      await store.setPaused(pausing);
+      // The warning is for stopping everything. Resuming gets a light touch.
+      if (pausing) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.back();
     } finally {
       setWorking(false);
