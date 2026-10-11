@@ -6,6 +6,18 @@
 
 const plugin = require('tailwindcss/plugin');
 
+const { cssVars } = require('@entole/tokens/tailwind-preset');
+
+/**
+ * The light and dark palettes as CSS variables, written from the tokens
+ * instead of copied into `globals.css` by hand. A colour changed in
+ * `packages/tokens/design-tokens.js` reaches the browser with nothing else to
+ * edit.
+ */
+const themeVariables = plugin(({ addBase }) => {
+  addBase({ ':root': cssVars.light, '.dark': cssVars.dark });
+});
+
 /**
  * One variable font file sits behind all four families here, so naming the
  * family changes nothing on its own: the weight has to be said too. The phone
@@ -37,5 +49,5 @@ module.exports = {
       },
     },
   },
-  plugins: [fontWeights],
+  plugins: [themeVariables, fontWeights],
 };

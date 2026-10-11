@@ -3,6 +3,8 @@ import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { themeCssVariables } from '@entole/tokens';
+
 /**
  * The hard rules in CLAUDE.md are the product thesis, so they are checked here
  * rather than left to review. These are deliberately blunt: a rule that only
@@ -267,6 +269,19 @@ describe('dark mode reaches every colour, not only some', () => {
   it('declares the dark palette on `.dark:root`, never a bare `.dark`', () => {
     expect(css).toMatch(/^\.dark:root \{/m);
     expect(css).not.toMatch(/^\.dark \{/m);
+  });
+
+  // The stylesheet is a fallback the running app overrides, and it is still
+  // written by hand. It has to say what the tokens say.
+  it.each([
+    ['light', /^:root \{([\s\S]*?)^\}/m],
+    ['dark', /^\.dark:root \{([\s\S]*?)^\}/m],
+  ] as const)('the %s block in the stylesheet matches the tokens exactly', (scheme, block) => {
+    const body = block.exec(css)?.[1] ?? '';
+    const written = Object.fromEntries(
+      [...body.matchAll(/(--color-[a-z0-9-]+):\s*([0-9 ]+);/g)].map((match) => [match[1], match[2]!.trim()]),
+    );
+    expect(written).toEqual(themeCssVariables(scheme));
   });
 
   it('drives className and JS-token colours from one applied scheme', () => {
