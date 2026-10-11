@@ -72,7 +72,7 @@ Seven sizes, each with one job:
 | `figure` | 56 / 60 | The one number a screen is about: a balance, a receipt's amount |
 | `heading` | 28 / 34 | What a screen says first |
 | `subhead` | 20 / 26 | A section |
-| `text` | 17 / 25 | Reading text; a row's main line |
+| `prose` | 17 / 25 | Reading text; a row's main line |
 | `ui` | 15 / 21 | Controls, a row's second line |
 | `note` | 13 / 18 | Labels and captions, in `slate` |
 | `micro` | 11 / 14 | Badges only |

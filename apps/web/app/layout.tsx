@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans, Source_Serif_4 } from 'next/font/google';
 
 import { token } from '@entole/tokens';
 
@@ -20,6 +20,18 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'latin-ext'],
   display: 'swap',
   variable: '--font-jakarta',
+});
+
+/**
+ * The display serif: headlines, the figure a screen is about, the allowance
+ * sentence. One variable file, read at the two weights `font-display` and
+ * `font-display-plain` name. The optical-size axis is left out on purpose: the
+ * phone bundles fixed files, and the two should draw the same letters.
+ */
+const sourceSerif = Source_Serif_4({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-display',
 });
 
 export const metadata: Metadata = {
@@ -64,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={jakarta.variable}
+      className={`${jakarta.variable} ${sourceSerif.variable}`}
       style={
         {
           '--font-plain': 'var(--font-jakarta)',

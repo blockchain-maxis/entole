@@ -17,6 +17,7 @@ import { StoreProvider } from '@entole/core/store';
 
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
+import { DISPLAY_FONTS } from '@/lib/fonts';
 import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
 import { ToastProvider } from '@/lib/toast';
@@ -98,6 +99,7 @@ export default function RootLayout() {
     PlusJakartaSans_500Medium,
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
+    ...DISPLAY_FONTS,
   });
 
   useEffect(() => {

@@ -30,6 +30,8 @@ const fontWeights = plugin(({ addUtilities }) => {
     '.font-body': { fontWeight: '500' },
     '.font-strong': { fontWeight: '600' },
     '.font-heavy': { fontWeight: '700' },
+    '.font-display': { fontWeight: '600' },
+    '.font-display-plain': { fontWeight: '400' },
   });
 });
 
@@ -46,6 +48,8 @@ module.exports = {
         body: ['var(--font-body)', 'system-ui', 'sans-serif'],
         strong: ['var(--font-strong)', 'system-ui', 'sans-serif'],
         heavy: ['var(--font-heavy)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        'display-plain': ['var(--font-display)', 'Georgia', 'serif'],
       },
     },
   },

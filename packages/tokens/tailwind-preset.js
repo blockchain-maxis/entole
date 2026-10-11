@@ -97,8 +97,28 @@ extend: {
     body: ['PlusJakartaSans_500Medium'],
     strong: ['PlusJakartaSans_600SemiBold'],
     heavy: ['PlusJakartaSans_700Bold'],
+    // The display serif: headlines, the figure a screen is about, the
+    // allowance sentence. Chosen because its files carry the naira sign and
+    // tabular lining figures.
+    display: ['SourceSerif4_600SemiBold'],
+    'display-plain': ['SourceSerif4_400Regular'],
   },
   fontSize: {
+    // The seven roles of docs/DESIGN.md. Screens move onto these one at a
+    // time; everything below them is the earlier scale and goes when the last
+    // screen has moved. No weight is set here: on the phone a weight comes
+    // from which font file a family names, never from a number.
+    figure: ['56px', { lineHeight: '60px', letterSpacing: '-1.2px' }],
+    // The same role, for a figure too long to fit a phone at full size.
+    'figure-md': ['44px', { lineHeight: '48px', letterSpacing: '-0.9px' }],
+    'figure-sm': ['36px', { lineHeight: '40px', letterSpacing: '-0.6px' }],
+    heading: ['28px', { lineHeight: '34px', letterSpacing: '-0.4px' }],
+    subhead: ['20px', { lineHeight: '26px', letterSpacing: '-0.2px' }],
+    prose: ['17px', { lineHeight: '25px', letterSpacing: '-0.1px' }],
+    ui: ['15px', { lineHeight: '21px', letterSpacing: '-0.1px' }],
+    note: ['13px', { lineHeight: '18px' }],
+    micro: ['11px', { lineHeight: '14px', letterSpacing: '0.5px' }],
+
     // Balances and amounts
     balance: ['54px', { lineHeight: '54px', letterSpacing: '-2.4px' }],
     'balance-md': ['48px', { lineHeight: '48px', letterSpacing: '-2px' }],
