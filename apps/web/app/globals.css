@@ -48,6 +48,13 @@
     animation-fill-mode: forwards;
   }
 
+  /* The mark drawing itself: the ring goes round to the bar, rests against it,
+     then lets go from where it began. See components/LogoLoader.tsx. */
+  .logo-ring {
+    stroke-dasharray: 100;
+    animation: logo-ring 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
   /* The first page: the opening lines settle into place once, on load. */
   .landing-rise {
     animation: landing-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -139,6 +146,19 @@ html.theme-fade *::after {
   }
 }
 
+@keyframes logo-ring {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  55%,
+  70% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
 @keyframes landing-rise {
   from {
     opacity: 0;
@@ -163,7 +183,8 @@ html.theme-fade *::after {
   .sheet-rise,
   .scrim-fade,
   .landing-rise,
-  .landing-reveal {
+  .landing-reveal,
+  .logo-ring {
     animation: none;
   }
 }

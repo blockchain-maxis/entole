@@ -14,6 +14,7 @@ import {
 import { BottomNav } from '@/components/BottomNav';
 import { BrandGlyph } from '@/components/Header';
 import { Landing } from '@/components/Landing';
+import { LogoLoader, PageLoader } from '@/components/LogoLoader';
 import { useAccount, type SignedInAccount } from '@/lib/account';
 import {
   hasOnboarded,
@@ -163,6 +164,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const showNameStep = onboarded === false && step === 'name';
   const firstScreen = onboarded === false && step === 'marketing';
 
+  // Nothing is known about this browser yet: the mark, and nothing else.
+  if (onboarded === null) return <PageLoader />;
+
   // Someone with no account here gets the whole first page, at any width.
   if (firstScreen) {
     return (
@@ -201,9 +205,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {onboarded === null ? (
-        <div className="flex-1" />
-      ) : onboarded ? (
+      {onboarded ? (
         <div className="flex flex-1 flex-col justify-end pb-8">
           <h1 className="text-pretty font-display text-figure-sm text-ink">Confirm it&apos;s you</h1>
           <p className="mt-3 text-pretty font-body text-prose text-slate">
@@ -275,36 +277,39 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      {onboarded === null ? null : (
-        <div className="flex-none safe-bottom">
-          {problem ? (
-            <p role="alert" className="mb-4 text-pretty font-body text-ui text-halt">
-              {problem}
-            </p>
-          ) : null}
+      <div className="flex-none safe-bottom">
+        {problem ? (
+          <p role="alert" className="mb-4 text-pretty font-body text-ui text-halt">
+            {problem}
+          </p>
+        ) : null}
 
-          <button
-            type="button"
-            disabled={busy || (showNameStep && !detailsValid)}
-            onClick={() => void (onboarded ? signIn() : showNameStep ? onboard() : setStep('name'))}
-            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
-          >
-            {busy
-              ? 'Confirming'
-              : onboarded
-                ? 'Sign in with passkey'
-                : showNameStep && !returning
-                  ? 'Continue with passkey'
-                  : 'Continue'}
-          </button>
-
-          {onboarded ? null : (
-            <p className="mt-3.5 text-center font-body text-note text-slate">
-              By continuing you agree to our terms and privacy notice.
-            </p>
+        <button
+          type="button"
+          disabled={busy || (showNameStep && !detailsValid)}
+          onClick={() => void (onboarded ? signIn() : showNameStep ? onboard() : setStep('name'))}
+          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+        >
+          {busy ? (
+            <span className="flex items-center gap-2.5">
+              <LogoLoader size={22} mono label="Confirming" />
+              Confirming
+            </span>
+          ) : onboarded ? (
+            'Sign in with passkey'
+          ) : showNameStep && !returning ? (
+            'Continue with passkey'
+          ) : (
+            'Continue'
           )}
-        </div>
-      )}
+        </button>
+
+        {onboarded ? null : (
+          <p className="mt-3.5 text-center font-body text-note text-slate">
+            By continuing you agree to our terms and privacy notice.
+          </p>
+        )}
+      </div>
     </main>
   );
 }

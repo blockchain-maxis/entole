@@ -21,6 +21,7 @@ import { DISPLAY_FONTS } from '@/lib/fonts';
 import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
 import { ToastProvider } from '@/lib/toast';
+import { Intro } from '@/components/ui/Intro';
 import { ToastHost } from '@/components/ui/Toast';
 
 import '../global.css';
@@ -89,6 +90,7 @@ function ThemedStack() {
         />
       </Stack>
       <ToastHost />
+      <Intro />
     </>
   );
 }

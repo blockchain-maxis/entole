@@ -138,6 +138,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/Header.tsx',
     // The first page shows an allowance, in the assistant's blue.
     'components/Landing.tsx',
+    // The logo again, drawing itself.
+    'components/LogoLoader.tsx',
   ];
 
   it('blue appears only where the assistant has acted or may act', () => {
@@ -247,6 +249,39 @@ describe('the logo is the Entole mark, the same one as the app icon', () => {
   it('is what the first screen and the pay page show', () => {
     expect(read(join(COMPONENTS, 'CheckoutHeader.tsx'))).toMatch(/<BrandGlyph/);
     expect(header).not.toMatch(/a6 6 0 0 1 12 0/);
+  });
+});
+
+describe('the one thing that turns is the Entole mark', () => {
+  const loader = read(join(COMPONENTS, 'LogoLoader.tsx'));
+  const stylesheet = read(join(PAGES, 'globals.css'));
+
+  it('is the logo itself, its ring drawing round to the bar', () => {
+    expect(loader).toContain('M50 16 A34 34 0 1 1 16 50');
+    expect(loader).toContain('M4 50 H26');
+    expect(loader).toMatch(/pathLength=\{100\}/);
+    expect(stylesheet).toMatch(/@keyframes logo-ring/);
+  });
+
+  it('is still for someone who asked for less motion', () => {
+    const reduced = [...stylesheet.matchAll(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/g)].map(
+      (match) => match[0],
+    );
+    expect(reduced.some((block) => /\.logo-ring/.test(block) && /animation: none/.test(block))).toBe(true);
+  });
+
+  it('is said aloud as what it is waiting for, and nothing else in the app spins', () => {
+    expect(loader).toMatch(/role="status" aria-label=\{label\}/);
+    for (const file of sourceFiles) {
+      expect(read(file), relative(ROOT, file)).not.toMatch(/animate-spin/);
+    }
+  });
+
+  it('covers the moment before anything is known, never a list that has a shape', () => {
+    expect(stripComments(read(join(COMPONENTS, 'AuthGate.tsx')))).toMatch(/if \(onboarded === null\) return <PageLoader \/>;/);
+    for (const page of ['page.tsx', 'activity/page.tsx', 'transfer/page.tsx']) {
+      expect(read(join(PAGES, page)), page).not.toMatch(/LogoLoader|PageLoader/);
+    }
   });
 });
 

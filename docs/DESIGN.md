@@ -104,6 +104,11 @@ thing the screen is about. Everything else sits on paper.
 - A press gives way: a small move or scale, and a change of ground.
 - Focus is a visible ring in `ink`, on everything that can take it.
 - Haptics: success on settlement, warning on pausing. Resuming is a light touch.
+- **The mark is the only thing that turns.** Its ring draws round from the top
+  and stops where it meets the bar, rests, lets go and starts again: a limit
+  it cannot pass, in one motion. It is for the app starting (the intro that
+  follows the splash screen), a page that is not known yet, and a button that
+  is busy. It never stands in for content that has a shape.
 - Anything that moves respects a reduced-motion setting.
 
 ## Patterns
@@ -116,7 +121,8 @@ the pause control.
 
 **Custom numeric keypad** for every amount entry.
 
-**Skeletons, not spinners.**
+**Skeletons, not spinners.** A list, a balance, a row: each loads as a skeleton
+in its own shape. The one exception is the Entole mark itself (see Motion).
 
 **People first.** Paying starts from the people already saved; a payment code
 is how someone new gets in. A person is a name and initials that can be read,

@@ -19,6 +19,7 @@ import { useStore } from '@entole/core/store';
 import { Avatar } from '@/components/Avatar';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { PageLoader } from '@/components/LogoLoader';
 import { Sentence, type SentencePart } from '@/components/Sentence';
 import { Skeleton } from '@/components/Skeleton';
 
@@ -264,7 +265,7 @@ function NewRule() {
 
 export default function NewRulePage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoader />}>
       <NewRule />
     </Suspense>
   );

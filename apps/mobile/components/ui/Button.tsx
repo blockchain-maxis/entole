@@ -1,5 +1,8 @@
-import { ActivityIndicator, Pressable, View, type PressableProps } from 'react-native';
+import { Pressable, View, type PressableProps } from 'react-native';
 
+import { useThemeColors } from '@/lib/theme';
+
+import { LogoLoader } from './LogoLoader';
 import { Text } from './Text';
 
 type Variant = 'primary' | 'raised' | 'secondary' | 'destructive' | 'quiet' | 'danger-outline';
@@ -41,6 +44,16 @@ export function Button({
   ...rest
 }: Props) {
   const inactive = disabled === true || busy;
+  const colors = useThemeColors();
+  // The mark, in the colour the label would have been.
+  const markColor = {
+    primary: colors.paper,
+    raised: colors.paper,
+    secondary: colors.ink,
+    destructive: colors.card,
+    quiet: colors.slate,
+    'danger-outline': colors.halt.DEFAULT,
+  }[variant];
 
   return (
     <Pressable
@@ -54,7 +67,7 @@ export function Button({
     >
       {busy ? (
         <View className="h-[21px] justify-center">
-          <ActivityIndicator size="small" />
+          <LogoLoader size={21} color={markColor} label={`${label}, in progress`} />
         </View>
       ) : (
         <Text className={`font-strong text-body ${LABEL[variant]}`}>{label}</Text>

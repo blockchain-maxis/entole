@@ -8,6 +8,7 @@ import { useStore } from '@entole/core/store';
 
 import { plainMessage, rateLine } from '@/lib/send';
 
+import { LogoLoader } from './LogoLoader';
 import { Skeleton } from './Skeleton';
 
 type Quote = { state: 'loading' } | { state: 'failed'; message: string } | { state: 'ready'; quote: SendQuote };
@@ -269,7 +270,18 @@ export function ConfirmSendSheet({
               onClick={() => void confirm()}
               className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
             >
-              {settled ? 'Delivered' : sending ? 'Sending' : problem ? 'Try again' : 'Confirm and send'}
+              {settled ? (
+                'Delivered'
+              ) : sending ? (
+                <span className="flex items-center gap-2.5">
+                  <LogoLoader size={22} mono label="Sending" />
+                  Sending
+                </span>
+              ) : problem ? (
+                'Try again'
+              ) : (
+                'Confirm and send'
+              )}
             </button>
           )}
         </div>

@@ -25,6 +25,7 @@ import { Avatar } from '@/components/Avatar';
 import { ConfirmSendSheet } from '@/components/ConfirmSendSheet';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { PageLoader } from '@/components/LogoLoader';
 import { SaveRecipient } from '@/components/SaveRecipient';
 import { ActivityRowSkeleton, Skeleton } from '@/components/Skeleton';
 import { nairaAmountOf } from '@/lib/checkout';
@@ -492,7 +493,7 @@ function SendFlow() {
 
 export default function SendPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoader />}>
       <SendFlow />
     </Suspense>
   );

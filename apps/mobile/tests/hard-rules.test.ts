@@ -239,6 +239,37 @@ describe('the logo is the Entole mark, the same one as the app icon', () => {
   });
 });
 
+describe('the one thing that turns is the Entole mark', () => {
+  const loader = read(join(ROOT, 'components/ui/LogoLoader.tsx'));
+  const intro = stripComments(read(join(ROOT, 'components/ui/Intro.tsx')));
+
+  it('is the logo itself, its ring drawing round to the bar', () => {
+    expect(loader).toContain('M50 16 A34 34 0 1 1 16 50');
+    expect(loader).toContain('M4 50 H26');
+    expect(loader).toMatch(/strokeDashoffset: RING \* \(1 - progress\.value\)/);
+  });
+
+  it('is still for someone who asked for less motion', () => {
+    expect(loader).toMatch(/useReducedMotion\(\)/);
+    expect(loader).toMatch(/if \(reduce\) \{\s+progress\.value = 1;/);
+  });
+
+  it('no system spinner is left anywhere: a busy button turns the mark', () => {
+    for (const file of sourceFiles) {
+      expect(stripComments(read(file)), rel(file)).not.toMatch(/ActivityIndicator/);
+    }
+    expect(stripComments(read(join(ROOT, 'components/ui/Button.tsx')))).toMatch(/<LogoLoader size=\{21\} color=\{markColor\}/);
+  });
+
+  it('opens the app once per launch, over the app as it loads, and gets out of the way', () => {
+    expect(stripComments(read(join(ROOT, 'app/_layout.tsx')))).toMatch(/<ToastHost \/>\s*<Intro \/>/);
+    expect(intro).toMatch(/<LogoLoader size=\{84\} once/);
+    expect(intro).toMatch(/if \(gone\) return null;/);
+    // It runs on a clock of its own and waits on nothing the app is doing.
+    expect(intro).not.toMatch(/useStore|useAccount|fontsLoaded/);
+  });
+});
+
 describe('the pause warning is for pausing', () => {
   it('resuming does not buzz like stopping everything', () => {
     const pause = stripComments(read(join(ROOT, 'app/pause.tsx')));
@@ -289,6 +320,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     // The logo: a blue ring, the brand's own and not the assistant's.
     'components/ui/BrandMark.tsx',
     'components/ui/Countdown.tsx',
+    // The logo again, drawing itself.
+    'components/ui/LogoLoader.tsx',
     'components/ui/Meter.tsx',
     'components/ui/Toast.tsx',
   ];

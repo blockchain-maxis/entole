@@ -113,4 +113,6 @@ Never as a permission, a scope, a key or a toggle.
 - Renders correctly on a mid-range Android, not just an iOS simulator
 - No hardcoded hex values
 - Naira formatted with ₦, thousands separators, tabular figures
-- Loading states are skeletons, not spinners
+- Loading states are skeletons, not spinners. The one thing that turns is the
+  Entole mark itself (`LogoLoader`): on launch, for a page not yet known, and
+  on a busy button. Decided 11 October 2026; see `docs/DESIGN.md`
