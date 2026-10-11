@@ -132,9 +132,12 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/ActivityRow.tsx',
     'components/AllowanceCard.tsx',
     'components/AllowanceIntro.tsx',
-    'components/AuthGate.tsx',
     'components/Badge.tsx',
     'components/Countdown.tsx',
+    // The logo: a blue ring, the brand's own and not the assistant's.
+    'components/Header.tsx',
+    // The first page shows an allowance, in the assistant's blue.
+    'components/Landing.tsx',
   ];
 
   it('blue appears only where the assistant has acted or may act', () => {
@@ -227,6 +230,59 @@ describe('an allowance is a sentence you fill in, never a form', () => {
   });
 });
 
+describe('the logo is the Entole mark, the same one as the app icon', () => {
+  // An arch was drawn here once, and an "E" on a tile on the phone. Neither was
+  // the logo. The mark is the open blue ring with a dot and a bar, as the icon.
+  const header = read(join(COMPONENTS, 'Header.tsx'));
+  const icon = read(join(ROOT, 'public/icons/icon.svg'));
+
+  it('draws the same three shapes as the icon file', () => {
+    for (const shape of ['M50 16 A34 34 0 1 1 16 50', 'M4 50 H26']) {
+      expect(icon).toContain(shape);
+      expect(header).toContain(shape);
+    }
+    expect(header).toMatch(/<circle cx="50" cy="50" r="7"/);
+  });
+
+  it('is what the first screen and the pay page show', () => {
+    expect(read(join(COMPONENTS, 'CheckoutHeader.tsx'))).toMatch(/<BrandGlyph/);
+    expect(header).not.toMatch(/a6 6 0 0 1 12 0/);
+  });
+});
+
+describe('the first page says what Entole is, shows it, and has one way in', () => {
+  const landing = stripComments(read(join(COMPONENTS, 'Landing.tsx')));
+  const copy = userFacingCopy(read(join(COMPONENTS, 'Landing.tsx'))).join('\n');
+
+  it('has one label for starting and one for coming back', () => {
+    expect(landing.match(/>\s*Get started\s*</g)?.length).toBe(2);
+    expect(landing.match(/I already have an account/g)?.length).toBe(1);
+    expect(copy).not.toMatch(/Sign up|Create account|Log in|Sign in/);
+  });
+
+  it('shows the product with its own parts, and says it is an example', () => {
+    expect(landing).toMatch(/<AllowanceCard/);
+    expect(landing).toMatch(/<ActivityRow/);
+    expect(landing).toMatch(/<Figure/);
+    expect(landing).toMatch(/An example account/);
+    // What is drawn as the product cannot be pressed or read aloud as real.
+    expect(landing).toMatch(/aria-hidden\s+inert/);
+  });
+
+  it('says what does not work yet, in the same breath as what does', () => {
+    expect(copy).toMatch(/What works today/);
+    expect(copy).toMatch(/Not yet/);
+    expect(landing).toMatch(/Everything runs on test money for now/);
+  });
+
+  it('is laid out for a desk as well as a phone, and never names what it is built on', () => {
+    expect(landing).toMatch(/lg:grid-cols-/);
+    expect(landing).not.toMatch(/max-w-\[560px\]/);
+    expect(copy).not.toMatch(/Monad|testnet|mainnet/i);
+    expect(copy).not.toMatch(/[\u2014\u2013]/);
+  });
+});
+
 describe('the undo window drains continuously, against the clock', () => {
   const countdown = stripComments(read(join(COMPONENTS, 'Countdown.tsx')));
 
@@ -291,7 +347,8 @@ describe('an account made on another device can be signed in to, not only made a
   const gate = stripComments(read(join(COMPONENTS, 'AuthGate.tsx')));
 
   it('the first screen offers it beside starting new', () => {
-    expect(gate).toMatch(/I already have an account/);
+    expect(read(join(COMPONENTS, 'Landing.tsx'))).toMatch(/I already have an account/);
+    expect(gate).toMatch(/onSignIn=\{\(\) => void signInFromElsewhere\(\)\}/);
     expect(gate).toMatch(/signInWithExistingPasskey\(\)/);
   });
 

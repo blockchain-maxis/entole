@@ -13,6 +13,7 @@ import {
 
 import { BottomNav } from '@/components/BottomNav';
 import { BrandGlyph } from '@/components/Header';
+import { Landing } from '@/components/Landing';
 import { useAccount, type SignedInAccount } from '@/lib/account';
 import {
   hasOnboarded,
@@ -162,6 +163,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const showNameStep = onboarded === false && step === 'name';
   const firstScreen = onboarded === false && step === 'marketing';
 
+  // Someone with no account here gets the whole first page, at any width.
+  if (firstScreen) {
+    return (
+      <Landing
+        busy={busy}
+        problem={problem}
+        onStart={() => {
+          setProblem(null);
+          setStep('name');
+        }}
+        onSignIn={() => void signInFromElsewhere()}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col px-gutter-lg">
       <header className="flex h-16 flex-none items-center gap-2.5">
@@ -257,26 +273,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             <p className="mt-2 font-body text-note text-slate">Lowercase letters, numbers, dots and underscores.</p>
           )}
         </div>
-      ) : (
-        <div className="flex flex-1 flex-col justify-end pb-8">
-          {/* The product in one glance: an instruction, written once, in the assistant's blue. */}
-          <figure className="mb-10 rounded-card bg-card p-5 shadow-raised">
-            <figcaption className="font-body text-note text-slate">You write it once</figcaption>
-            <p className="mt-2 text-pretty font-display-plain text-subhead text-indigo">
-              Send ₦50,000 to Mum every month, never more than ₦100,000 a month.
-            </p>
-            <p className="mt-3 text-pretty font-body text-ui text-slate">
-              The assistant can pay inside it, and never past it.
-            </p>
-          </figure>
-
-          <h1 className="text-pretty font-display text-figure-sm text-ink">Money that moves like a message</h1>
-          <p className="mt-3 text-pretty font-body text-prose text-slate">
-            Send naira home, share costs with friends, and set limits Entole will keep for you. No password to
-            remember: unlocking your device is the key.
-          </p>
-        </div>
-      )}
+      ) : null}
 
       {onboarded === null ? null : (
         <div className="flex-none safe-bottom">
@@ -300,17 +297,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                   ? 'Continue with passkey'
                   : 'Continue'}
           </button>
-
-          {firstScreen ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void signInFromElsewhere()}
-              className="mt-2 flex h-12 w-full items-center justify-center rounded-control font-strong text-ui text-ink transition-colors hover:bg-press active:translate-y-px disabled:opacity-50"
-            >
-              I already have an account
-            </button>
-          ) : null}
 
           {onboarded ? null : (
             <p className="mt-3.5 text-center font-body text-note text-slate">

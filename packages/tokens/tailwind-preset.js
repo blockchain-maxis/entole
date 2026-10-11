@@ -118,6 +118,8 @@ extend: {
     ui: ['15px', { lineHeight: '21px', letterSpacing: '-0.1px' }],
     note: ['13px', { lineHeight: '18px' }],
     micro: ['11px', { lineHeight: '14px', letterSpacing: '0.5px' }],
+    // The first page's headline on a wide screen, and nowhere else.
+    poster: ['72px', { lineHeight: '76px', letterSpacing: '-1.8px' }],
 
     // Balances and amounts
     balance: ['54px', { lineHeight: '54px', letterSpacing: '-2.4px' }],
