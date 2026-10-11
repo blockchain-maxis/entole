@@ -4,16 +4,25 @@ import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { cadenceWords } from '@entole/core/allowance';
-import { resetLabel } from '@entole/core/format';
-import { formatNaira } from '@entole/core/money';
+import { relativeMoment, resetLabel } from '@entole/core/format';
+import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
+import { Figure } from '@/components/Amount';
+import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
 import { Meter } from '@/components/Meter';
+import { SectionHeading } from '@/components/SectionHeading';
 import { Skeleton } from '@/components/Skeleton';
 
-/** An allowance, read the only way this app ever renders one: a remaining
- * balance, never a permission, a scope or a toggle. */
+const USED_TONE = { settled: 'text-settled', caution: 'text-caution', halt: 'text-halt' } as const;
+
+/**
+ * One allowance, read the only way this app ever renders one: as the sentence
+ * it is, in the assistant's blue, and a balance with something left in it.
+ * Never a permission, a scope or a toggle. Under it, every payment the
+ * assistant has made from it.
+ */
 export default function RuleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -37,6 +46,9 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
       setRevoking(false);
     }
   }
+
+  const payments = allowance ? store.activity.filter((entry) => entry.allowanceId === allowance.id) : [];
+  const period = allowance?.cadence === 'weekly' ? 'a week' : 'a month';
 
   // Still reading the account: an allowance that has not loaded is not one
   // that is gone.
@@ -71,27 +83,61 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
       <Header title="Allowance" back="/" />
 
       <div className="flex-1 px-gutter pb-28">
-        <div className="rounded-panel bg-card p-6 shadow-raised">
-          <p className="font-strong text-label-sm text-mist">{allowance.name}</p>
-          <div className="mt-2.5 flex items-baseline gap-1.5">
-            <span className="tabular font-strong text-amount text-ink">{formatNaira(allowance.remainingMinor)}</span>
-            <span className="tabular font-body text-label-sm text-slate">left of {formatNaira(allowance.limitMinor)}</span>
-          </div>
-          <div className="mt-4">
-            <Meter fraction={allowance.remainingFraction} tone={allowance.tone} label={`${allowance.name} remaining`} />
-          </div>
-        </div>
+        <section className="rounded-card bg-card p-5 shadow-raised">
+          <p className="text-pretty font-display-plain text-subhead text-indigo">
+            Send <span className="tabular">{formatNaira(allowance.perRunMinor)}</span> to {recipient?.name ?? 'them'}{' '}
+            {cadenceWords(allowance.cadence)}, never more than{' '}
+            <span className="tabular">{formatNaira(allowance.limitMinor)}</span> {period}.
+          </p>
 
-        <div className="mt-5 flex flex-col gap-2.5">
-          <Row label="To" value={recipient?.name ?? 'Someone'} />
-          <Row label="Each time" value={formatNaira(allowance.perRunMinor)} />
-          <Row label="How often" value={cadenceWords(allowance.cadence)} />
-          <Row label="Resets" value={allowance.paused ? 'Paused' : resetLabel(allowance.resetsAt)} />
-        </div>
+          <div className="mt-6 flex items-end justify-between gap-3">
+            <div>
+              <Figure value={allowance.remainingMinor} />
+              <p className="mt-1 font-body text-note text-slate">left</p>
+            </div>
+            <p className={`tabular pb-1 font-strong text-note ${USED_TONE[allowance.tone]}`}>
+              {allowance.usedPercent}% used
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <Meter
+              fraction={allowance.remainingFraction}
+              tone={allowance.tone}
+              label={`${formatNaira(allowance.remainingMinor)} left of the allowance`}
+            />
+          </div>
+
+          <div className="mt-3 flex items-baseline justify-between gap-3">
+            <p className="tabular font-body text-note text-slate">{formatNaira(allowance.spentMinor)} spent this period</p>
+            <p className="tabular flex-none font-body text-note text-slate">
+              {allowance.paused ? 'Paused' : resetLabel(allowance.resetsAt)}
+            </p>
+          </div>
+        </section>
+
+        <SectionHeading title="Payments from it" />
+        {payments.length === 0 ? (
+          <EmptyState body="The assistant has not paid anything from this allowance yet." />
+        ) : (
+          <ul className="divide-y divide-hairline border-y border-hairline">
+            {payments.map((entry) => (
+              <li key={entry.id} className="flex items-baseline justify-between gap-3 py-3.5">
+                <div className="min-w-0">
+                  <p className="truncate font-strong text-ui text-ink">{entry.note}</p>
+                  <p className="tabular mt-0.5 font-body text-note text-slate">
+                    {entry.state === 'pending' ? 'Sending' : relativeMoment(entry.at)}
+                  </p>
+                </div>
+                <p className="tabular flex-none font-strong text-ui text-ink">{formatNaira(kobo(entry.amountMinor))}</p>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {asking ? (
           // Asked in place: revoking cannot be taken back, so one tap is not enough.
-          <div className="mt-8 rounded-tile border border-halt bg-halt-wash p-[18px]">
+          <div className="mt-10 rounded-card border border-halt bg-halt-wash p-5">
             <p className="font-strong text-body text-ink">Revoke this allowance?</p>
             <p className="mt-1 text-pretty font-body text-label-sm text-slate">
               The assistant can no longer pay {recipient?.name ?? 'them'} from it. Payments already made stay made.
@@ -127,21 +173,12 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
           <button
             type="button"
             onClick={() => setAsking(true)}
-            className="mt-8 flex h-14 w-full items-center justify-center rounded-control border border-halt bg-halt-wash font-strong text-body-lg text-halt transition-colors hover:bg-halt-tint active:translate-y-px"
+            className="mt-10 flex h-12 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-ui text-halt transition-colors hover:border-halt active:translate-y-px"
           >
             Revoke this allowance
           </button>
         )}
       </div>
     </main>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-row border border-line bg-card px-4 py-3">
-      <span className="font-body text-label-sm text-slate">{label}</span>
-      <span className="font-strong text-label text-ink">{value}</span>
-    </div>
   );
 }

@@ -33,7 +33,7 @@ export function Sentence({
     <View className="flex-row flex-wrap items-center">
       {parts.map((part, index) =>
         part.kind === 'words' ? (
-          <Text key={`w-${index}`} className="font-body text-sentence text-ink">
+          <Text key={`w-${index}`} className="font-display-plain text-sentence text-ink">
             {part.text}
           </Text>
         ) : (
@@ -79,7 +79,7 @@ function Pill({
       ) : null}
       <Text
         tabular={part.tabular}
-        className={`font-strong text-sentence ${active ? 'text-paper' : 'text-ink'}`}
+        className={`font-display text-sentence ${active ? 'text-paper' : 'text-ink'}`}
       >
         {part.text}
       </Text>

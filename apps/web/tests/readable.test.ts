@@ -50,7 +50,7 @@ describe('text in the browser has weight', () => {
 });
 
 describe('a person is never a blank disc', () => {
-  const files = ['components/Avatar.tsx', 'components/ConfirmSendSheet.tsx', 'app/assistant/action/page.tsx'];
+  const files = ['components/Avatar.tsx', 'components/ConfirmSendSheet.tsx'];
 
   it.each(files)('%s writes initials in slate, not in the colour of the page', (file) => {
     const source = readFileSync(join(ROOT, file), 'utf8');

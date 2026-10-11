@@ -21,10 +21,10 @@ describe('the assistant action page', () => {
   });
 
   it('only says it sent after the receipt exists', () => {
-    // `Entole sent` lives only in the panel that is given a settled receipt.
+    // `The assistant sent` lives only in the panel that is given a delivered receipt.
     const sentPanel = page.slice(page.indexOf('function SentPanel'));
-    expect(sentPanel).toMatch(/Entole sent/);
-    expect(page.slice(0, page.indexOf('function SentPanel'))).not.toMatch(/Entole sent/);
+    expect(sentPanel).toMatch(/The assistant sent/);
+    expect(page.slice(0, page.indexOf('function SentPanel'))).not.toMatch(/The assistant sent|>sent</);
     expect(page).toMatch(/receipt \?\s*\(\s*<SentPanel/);
   });
 

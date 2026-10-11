@@ -9,11 +9,12 @@ import { toDollars } from '@entole/core/fx';
 import { formatDollars, formatNaira, kobo, remaining } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
-import { AllowanceCardSkeleton } from '@/components/Skeleton';
+import { Figure } from '@/components/Amount';
 import { AssistantBadge } from '@/components/Badge';
 import { Countdown } from '@/components/Countdown';
 import { Header } from '@/components/Header';
 import { Meter } from '@/components/Meter';
+import { FigureSkeleton, Skeleton } from '@/components/Skeleton';
 import { plainMessage } from '@/lib/send';
 
 /**
@@ -61,24 +62,31 @@ export default function AssistantAction() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
-      <Header title="Entole is sending" back="/" />
+      <Header title="The assistant" back="/" />
 
-      <div className="flex flex-1 flex-col justify-end px-gutter pb-[max(24px,env(safe-area-inset-bottom))]">
+      <div className="flex flex-1 flex-col px-gutter pb-[max(24px,env(safe-area-inset-bottom))] pt-2">
         {store.status === 'loading' ? (
-          <AllowanceCardSkeleton />
+          <div>
+            <Skeleton className="h-5 w-24 rounded-pill" />
+            <FigureSkeleton />
+            <Skeleton className="mt-6 h-[132px] w-full rounded-card" />
+          </div>
         ) : receipt ? (
           <SentPanel receiptId={receipt.id} />
         ) : !proposal ? (
-          <section className="rounded-panel bg-card p-6 shadow-raised">
-            <p className="font-body text-body-sm text-slate">Nothing is waiting to be sent right now.</p>
+          <>
+            <h2 className="font-display text-heading text-ink">Nothing is waiting</h2>
+            <p className="mt-2 text-pretty font-body text-prose text-slate">
+              The assistant has no payment to send right now.
+            </p>
             <button
               type="button"
               onClick={leave}
-              className="mt-5 flex h-14 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist"
+              className="mt-auto flex h-14 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist active:translate-y-px"
             >
               Close
             </button>
-          </section>
+          </>
         ) : (
           <ProposalPanel
             sending={sending}
@@ -93,6 +101,11 @@ export default function AssistantAction() {
   );
 }
 
+/**
+ * The undo window. What the assistant is about to send is the figure; the
+ * allowance it comes from sits under it in the assistant's blue, with what
+ * will be left. The one strong button is yours, in ink: stopping it.
+ */
 function ProposalPanel({
   sending,
   stopped,
@@ -114,41 +127,27 @@ function ProposalPanel({
   const afterRun = allowance ? remaining(allowance.remainingMinor, amount) : kobo(0);
 
   return (
-    <section
-      aria-labelledby="proposal-title"
-      className="rounded-t-sheet bg-card px-gutter-lg pb-6 pt-6 shadow-floating"
-    >
-      <AssistantBadge />
-
-      <div className="mt-4 flex items-center gap-3.5">
-        <span
-          aria-hidden
-          className="flex h-14 w-14 flex-none items-center justify-center rounded-pill bg-avatar-1 font-strong text-body-lg text-slate"
-        >
-          {contact?.initials ?? '?'}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 id="proposal-title" className="truncate font-strong text-headline text-ink">
-            {contact?.name ?? 'Recipient'}
-          </h2>
-          <p className="mt-0.5 truncate font-body text-label-sm text-slate">
-            {proposal.note}
-            {contact?.place ? `, ${contact.place}` : ''}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="tabular font-strong text-title text-ink">{formatNaira(amount)}</p>
-          <p className="tabular mt-0.5 font-body text-caption text-mist">
-            ≈ {formatDollars(toDollars(amount, store.rate))}
-          </p>
-        </div>
+    <section aria-labelledby="proposal-title" className="flex flex-1 flex-col">
+      <div className="flex items-center gap-2">
+        <AssistantBadge />
+        <p className="font-body text-note text-slate">{sending ? 'is sending' : 'is about to send'}</p>
       </div>
 
+      <div className="mt-3">
+        <Figure value={amount} />
+      </div>
+      <h2 id="proposal-title" className="mt-2 text-pretty font-display text-subhead text-ink">
+        to {contact?.name ?? 'someone'}
+      </h2>
+      <p className="tabular mt-1 truncate font-body text-ui text-slate">
+        {proposal.note} · about {formatDollars(toDollars(amount, store.rate))}
+      </p>
+
       {allowance ? (
-        <div className="mt-5 rounded-control bg-indigo-wash px-4 py-4">
+        <div className="mt-6 rounded-card bg-indigo-wash p-5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="flex-1 font-strong text-label text-ink">{allowance.name}</p>
-            <p className="tabular font-strong text-caption text-indigo">
+            <p className="font-body text-note text-slate">From this allowance</p>
+            <p className="tabular flex-none font-strong text-note text-indigo">
               {formatNaira(allowance.remainingMinor)} to {formatNaira(afterRun)} left
             </p>
           </div>
@@ -156,66 +155,77 @@ function ProposalPanel({
             <Meter
               fraction={allowance.remainingFraction}
               tone={allowance.tone}
-              label={`${allowance.name} remaining`}
+              label={`${formatNaira(allowance.remainingMinor)} left of the allowance`}
             />
           </div>
-          <p className="tabular mt-2.5 font-body text-caption text-slate">
+          <p className="tabular mt-2.5 font-body text-note text-slate">
             {resetLabel(allowance.resetsAt)}, within your {formatNaira(allowance.limitMinor)}{' '}
             {allowance.cadence === 'weekly' ? 'weekly' : 'monthly'} limit
           </p>
         </div>
       ) : null}
 
-      <div className="mt-5 flex items-center gap-3.5">
+      <div className="mt-6 flex items-center gap-3.5">
         <Countdown seconds={proposal.undoSeconds} running={!stopped && !sending} onElapsed={onRun} />
-        <p className="flex-1 font-body text-label text-slate">
+        <p className="flex-1 text-pretty font-body text-ui text-slate">
           {sending
-            ? 'Sending. This updates when the payment has settled.'
+            ? 'Sending. This updates when the payment has been delivered.'
             : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
         </p>
       </div>
 
-      {problem ? <p className="mt-4 font-body text-label text-halt">{problem}</p> : null}
+      {problem ? (
+        <p role="alert" className="mt-4 text-pretty font-body text-ui text-halt">
+          {problem}
+        </p>
+      ) : null}
 
-      <button
-        type="button"
-        disabled={sending}
-        onClick={onStop}
-        className="mt-5 flex h-14 w-full items-center justify-center rounded-control border border-halt bg-card font-strong text-body-lg text-halt transition-colors hover:bg-paper disabled:opacity-60"
-      >
-        Cancel this payment
-      </button>
-      <button
-        type="button"
-        disabled={sending}
-        onClick={onRun}
-        className="mt-1 flex h-12 w-full items-center justify-center font-strong text-label-sm text-mist hover:text-slate disabled:opacity-60"
-      >
-        Send it now
-      </button>
+      <div className="mt-auto pt-8">
+        <button
+          type="button"
+          disabled={sending}
+          onClick={onStop}
+          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+        >
+          Cancel this payment
+        </button>
+        <button
+          type="button"
+          disabled={sending}
+          onClick={onRun}
+          className="mt-1 flex h-12 w-full items-center justify-center rounded-control font-strong text-ui text-slate transition-colors hover:bg-press hover:text-ink disabled:opacity-60"
+        >
+          Send it now
+        </button>
+      </div>
     </section>
   );
 }
 
+/** Only ever drawn for a payment that has been delivered. */
 function SentPanel({ receiptId }: { receiptId: string }) {
   const store = useStore();
   const receipt = store.receipt(receiptId)!;
   const contact = store.contact(receipt.contactId);
 
   return (
-    <section className="rounded-t-sheet bg-card px-gutter-lg pb-6 pt-6 shadow-floating">
-      <AssistantBadge />
-      <h2 className="mt-4 font-strong text-headline text-ink">
-        Entole sent {contact?.name ?? 'a payment'}
-      </h2>
-      <dl className="mt-4 border-t border-hairline">
+    <section className="flex flex-1 flex-col">
+      <div className="flex items-center gap-2">
+        <AssistantBadge />
+        <p className="font-body text-note text-slate">sent</p>
+      </div>
+      <div className="mt-3">
+        <Figure value={kobo(receipt.amountMinor)} />
+      </div>
+      <h2 className="mt-2 text-pretty font-display text-subhead text-ink">The assistant sent {contact?.name ?? 'a payment'}</h2>
+      <dl className="mt-5 border-t border-hairline">
         <Line label="Amount sent" value={formatNaira(kobo(receipt.amountMinor))} />
         <Line label="Fee" value={formatNaira(kobo(receipt.feeMinor))} />
         <Line label="Delivered in" value={secondsWords(receipt.deliveredInSeconds)} />
       </dl>
       <Link
         href="/activity"
-        className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
+        className="mt-auto flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
       >
         See activity
       </Link>
@@ -225,9 +235,9 @@ function SentPanel({ receiptId }: { receiptId: string }) {
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-hairline py-2.5">
-      <dt className="font-body text-label text-slate">{label}</dt>
-      <dd className="tabular font-strong text-label text-ink">{value}</dd>
+    <div className="flex items-baseline justify-between border-b border-hairline py-3">
+      <dt className="font-body text-ui text-slate">{label}</dt>
+      <dd className="tabular font-strong text-ui text-ink">{value}</dd>
     </div>
   );
 }

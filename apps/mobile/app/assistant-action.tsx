@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/Avatar';
+import { Figure } from '@/components/ui/Amount';
 import { AssistantTag } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Countdown } from '@/components/ui/Countdown';
@@ -57,7 +57,7 @@ export default function AssistantAction() {
     try {
       const receipt = await store.runProposal();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      show(`Entole sent ${contact?.name ?? 'a payment'}`, 'assistant');
+      show(`The assistant sent ${contact?.name ?? 'a payment'}`, 'assistant');
       router.replace({ pathname: '/send/receipt', params: { receiptId: receipt.id } });
     } catch {
       setSending(false);
@@ -73,33 +73,24 @@ export default function AssistantAction() {
 
   return (
     <Sheet onDismiss={close} locked>
-      <AssistantTag>Entole is sending</AssistantTag>
+      <AssistantTag>{sending ? 'The assistant is sending' : 'The assistant is about to send'}</AssistantTag>
 
-      <View className="mt-[18px] flex-row items-center gap-3.5">
-        <Avatar initials={contact?.initials ?? '?'} tone={contact?.tone ?? 1} size="xl" />
-        <View className="flex-1">
-          <Text className="font-strong text-headline text-ink">{contact?.name ?? 'Recipient'}</Text>
-          <Text className="mt-0.5 font-body text-label-sm text-slate">
-            {proposal.note}
-            {contact?.place ? ` · ${contact.place}` : ''}
-          </Text>
-        </View>
-        <View className="items-end">
-          <Text tabular className="font-strong text-amount text-ink">
-            {formatNaira(amount)}
-          </Text>
-          <Text tabular className="mt-0.5 font-body text-caption-sm text-mist">
-            ≈ {formatDollars(toDollars(amount, store.rate))}
-          </Text>
-        </View>
+      <View className="mt-4">
+        <Figure value={amount} />
       </View>
+      <Text accessibilityRole="header" className="mt-2 font-display text-subhead text-ink">
+        to {contact?.name ?? 'someone'}
+      </Text>
+      <Text tabular numberOfLines={1} className="mt-1 font-body text-ui text-slate">
+        {proposal.note} · about {formatDollars(toDollars(amount, store.rate))}
+      </Text>
 
       {allowance ? (
-        <View className="mt-[18px] rounded-row bg-indigo-wash px-4 py-4">
+        <View className="mt-5 rounded-card bg-indigo-wash p-5">
           <View className="flex-row items-baseline justify-between gap-3">
-            <Text className="flex-1 font-strong text-label text-ink">{allowance.name}</Text>
-            <Text tabular className="font-strong text-caption text-indigo">
-              {formatNaira(allowance.remainingMinor)} → {formatNaira(afterRun)} left
+            <Text className="flex-1 font-body text-note text-slate">From this allowance</Text>
+            <Text tabular className="font-strong text-note text-indigo">
+              {formatNaira(allowance.remainingMinor)} to {formatNaira(afterRun)} left
             </Text>
           </View>
 
@@ -109,12 +100,12 @@ export default function AssistantAction() {
               tone={allowance.tone}
               onTint
               pending
-              label={`${allowance.name} remaining after this payment`}
+              label={`${formatNaira(allowance.remainingMinor)} left of the allowance before this payment`}
             />
           </View>
 
-          <Text tabular className="mt-2.5 font-body text-caption-sm text-slate">
-            {resetLabel(allowance.resetsAt)} · within your {formatNaira(allowance.limitMinor)}{' '}
+          <Text tabular className="mt-2.5 font-body text-note text-slate">
+            {resetLabel(allowance.resetsAt)}, within your {formatNaira(allowance.limitMinor)}{' '}
             {allowance.cadence === 'weekly' ? 'weekly' : 'monthly'} limit
           </Text>
         </View>
@@ -126,29 +117,25 @@ export default function AssistantAction() {
           running={!stopped && !sending}
           onElapsed={() => void run()}
         />
-        <Text className="flex-1 font-body text-label text-slate">
+        <Text className="flex-1 font-body text-ui text-slate">
           {sending
             ? 'Sending now.'
             : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
         </Text>
       </View>
 
-      <View className="mt-[18px] flex-row">
-        <Button
-          label="Cancel this payment"
-          variant="danger-outline"
-          disabled={sending}
-          onPress={() => void stop()}
-        />
+      {/* The one strong button is yours, in ink: stopping it. */}
+      <View className="mt-6 flex-row">
+        <Button label="Cancel this payment" disabled={sending} onPress={() => void stop()} />
       </View>
 
       <Pressable
         accessibilityRole="button"
         disabled={sending}
         onPress={() => void run()}
-        className="items-center py-3.5"
+        className="items-center py-3.5 active:opacity-60"
       >
-        <Text className="font-strong text-label-sm text-mist">Send it now</Text>
+        <Text className="font-strong text-ui text-slate">Send it now</Text>
       </Pressable>
     </Sheet>
   );

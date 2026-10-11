@@ -128,6 +128,7 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'app/assistant/page.tsx',
     'app/connections/page.tsx',
     'app/page.tsx',
+    'app/rules/[id]/page.tsx',
     'components/ActivityRow.tsx',
     'components/AllowanceCard.tsx',
     'components/AllowanceIntro.tsx',
@@ -198,6 +199,31 @@ describe('home is written on paper: one figure, sentences, ruled rows', () => {
   it('a list holds items: the allowance row is a link inside its item', () => {
     expect(stripComments(read(join(COMPONENTS, 'AllowanceCard.tsx')))).toMatch(/<li>\s*<Link href=\{href\}/);
     expect(home).not.toMatch(/<Link[^>]*>\s*<AllowanceCard/);
+  });
+});
+
+describe('an allowance is a sentence you fill in, never a form', () => {
+  const rule = stripComments(read(join(PAGES, 'rules/new/page.tsx')));
+  const sentence = stripComments(read(join(COMPONENTS, 'Sentence.tsx')));
+
+  it('is built from words and four blanks: how much, who, how often, the limit', () => {
+    expect(rule).toMatch(/<Sentence parts=\{parts\}/);
+    expect([...rule.matchAll(/kind: 'blank', id: '(\w+)'/g)].map((match) => match[1])).toEqual([
+      'each',
+      'who',
+      'often',
+      'limit',
+    ]);
+  });
+
+  it('has no form control for choosing: no dropdown, no checkbox', () => {
+    expect(rule).not.toMatch(/<select|type="checkbox"|role="switch"/);
+  });
+
+  it('marks the blank being changed in ink, and one still empty with a dashed edge', () => {
+    expect(sentence).toMatch(/part\.id === activeId\s*\? 'border-ink bg-ink text-paper'/);
+    expect(sentence).toMatch(/border-dashed/);
+    expect(sentence).not.toMatch(/indigo/);
   });
 });
 
@@ -326,8 +352,9 @@ describe('no screen leaves a person stuck or misled', () => {
 
   it('an allowance can be created as soon as it has an amount: the limit starts at one payment', () => {
     expect(rule).toMatch(/limitEntry \? kobo\(entryToMinor\(limitEntry\)\) : each/);
-    // Both amounts are on screen at once, not one behind a link.
-    expect(rule.match(/<AmountChoice/g)?.length).toBe(2);
+    // Both amounts are in the sentence at once, not one behind a link.
+    expect(rule).toMatch(/id: 'each', text: each > 0 \? formatNaira\(each\)/);
+    expect(rule).toMatch(/id: 'limit', text: limit > 0 \? formatNaira\(limit\)/);
   });
 
   it('says why an allowance cannot be created yet, and when saving one fails', () => {

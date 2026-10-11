@@ -91,9 +91,7 @@ export default function RuleBuilder() {
 
       <View className="flex-1 px-gutter-lg pt-[18px]">
         <Sentence parts={parts} activeId={slot} onPressPill={(next) => setSlot(next as Slot)} />
-        <Text className="mt-[26px] font-body text-label text-mist">
-          Tap any highlighted value to change it.
-        </Text>
+        <Text className="mt-[26px] font-body text-note text-slate">Tap any value to change it.</Text>
       </View>
 
       <View className="flex-none rounded-t-panel border-t border-line bg-card px-gutter pb-3.5 pt-5">

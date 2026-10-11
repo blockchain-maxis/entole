@@ -194,6 +194,34 @@ describe('home is written on paper: one figure, sentences, ruled rows', () => {
   });
 });
 
+describe('an allowance reads as its sentence, and is not revoked on one tap', () => {
+  const sheet = stripComments(read(join(ROOT, 'app/rules/[id].tsx')));
+  const action = stripComments(read(join(ROOT, 'app/assistant-action.tsx')));
+
+  it('the sentence is set in the display face, in the builder and on the sheet', () => {
+    expect(stripComments(read(join(ROOT, 'components/ui/Sentence.tsx')))).toMatch(/font-display-plain text-sentence text-ink/);
+    expect(sheet).toMatch(/font-display-plain text-subhead text-indigo/);
+  });
+
+  it('what is left is the figure, with the payments made from it under it', () => {
+    expect(sheet).toMatch(/<Figure value=\{allowance\.remainingMinor\} \/>/);
+    expect(sheet).toMatch(/entry\.allowanceId === allowance\.id/);
+  });
+
+  it('revoking asks first, and says so when it fails', () => {
+    expect(sheet).toMatch(/onPress=\{\(\) => setAsking\(true\)\}/);
+    expect(sheet).toMatch(/Revoke this allowance\?/);
+    expect(/async function revoke\(\)[\s\S]*?\n  }\n/.exec(sheet)?.[0]).toMatch(/catch \{/);
+  });
+
+  it('the undo window names the assistant, and stopping it is the strong button', () => {
+    expect(action).toMatch(/The assistant is about to send/);
+    expect(action).not.toMatch(/Entole (is sending|sent)/);
+    expect(action).toMatch(/<Button label="Cancel this payment" disabled=\{sending\}/);
+    expect(action).toMatch(/<Figure value=\{amount\} \/>/);
+  });
+});
+
 describe('the pause warning is for pausing', () => {
   it('resuming does not buzz like stopping everything', () => {
     const pause = stripComments(read(join(ROOT, 'app/pause.tsx')));
