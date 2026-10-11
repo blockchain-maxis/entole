@@ -47,32 +47,36 @@ Monad's measured cost). This is what makes the model practical here and not
 elsewhere, and `EntolePolicy.revokeWithPasskey` uses it directly — proven
 live on Monad testnet, see `contracts/README.md`.
 
-**Status**: `packages/core/passkey.ts` is written and tested — 6 tests
-against a stub `WebAuthnClient` matching Mera's own documented interface,
-covering account derivation, sign-in determinism, session-key derivation via
-a distinct salt, real viem signature verification, and session termination.
+**Status**: `packages/core/passkey.ts` is written and tested against a stub
+`WebAuthnClient` matching Mera's own documented interface, covering account
+derivation, sign-in determinism, session-key derivation via a distinct salt,
+real viem signature verification, and session termination.
 `apps/mobile/lib/session.ts` wires it to `react-native-passkey` for the
-phone app.
+phone app, and `apps/web/lib/session.ts` to the browser's own WebAuthn.
 
-**Not yet provable, the same honest way the P256 revoke path was before its
-own live proof**: an actual WebAuthn ceremony, on a real device, against
-Monad's actual precompile. Two real gaps remain, not skipped so much as
-genuinely blocked in this environment:
+**What has run on real devices, and what has not.** No automated test can
+perform a passkey ceremony, so this is the project owner's own use of the
+app, not a test result:
 
-- **A real relying-party domain.** `entole.to/.well-known/apple-app-site-association`
-  (iOS) and `entole.to/.well-known/assetlinks.json` (Android) need to be
-  hosted with the real Apple Team ID and Android signing-certificate SHA256
-  fingerprint before a passkey ceremony succeeds on a physical device —
-  `apps/mobile/app.json`'s `ios.associatedDomains` is set, but the files
-  themselves need a domain this environment doesn't control.
-- **A real mid-range Android**, per the original week-one spike this
-  section used to describe. PRF support on native mobile depends on the
-  passkey provider, not just the OS — this claim needs a physical device to
-  confirm, same as it always did.
+- **Accounts have been made and used with real passkeys** on an Android
+  phone (in the phone app and in its browser) and in a desktop browser, in
+  October 2026, while the app was served from `entole.vercel.app`.
+- **The relying-party domain is `entole.pro`** from 11 October 2026. The web
+  app serves `/.well-known/assetlinks.json` from
+  `apps/web/public/.well-known/`, naming `to.entole.app` and the Android
+  build's signing-certificate fingerprint. A passkey belongs to the domain it
+  was made on, so accounts made on the earlier domain cannot be opened from
+  this one.
+- **No iOS passkeys in the phone app.** `apple-app-site-association` still
+  holds a placeholder where an Apple Team ID goes.
+- **Opening an existing account from a second device** is built and has not
+  been tried on real devices. See `docs/BACKLOG.md`.
+- PRF support depends on the passkey provider, not just the operating
+  system. Where it is missing the app says so and makes no account.
 
 **Fallback if PRF is unreliable on the target device: Privy embedded
 wallets.** Not implemented — Mera was built first per direct instruction.
-If the device spike above fails, `packages/core/passkey.ts`'s three
+If a target device turns out not to support it, `packages/core/passkey.ts`'s three
 functions (`createOwnerAccount`, `signInToOwnerAccount`,
 `deriveSessionAccount`) are the seam to replace; everything downstream
 (the viem `LocalAccount`, `createOnChainGateway`) only depends on getting a

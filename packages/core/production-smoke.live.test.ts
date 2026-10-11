@@ -17,7 +17,7 @@ import { createEnsureGas, createRelayClient } from './relay-client';
  * Off by default: it uses the deployment's own sponsor and the shared test
  * faucet, which has a cooldown. Run after a deploy with:
  *
- *   ENTOLE_LIVE_API=https://entole.vercel.app \
+ *   ENTOLE_LIVE_API=https://entole.pro \
  *     pnpm --filter @entole/core exec vitest run production-smoke.live
  */
 const API = process.env.ENTOLE_LIVE_API?.replace(/\/$/, '');

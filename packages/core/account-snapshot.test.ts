@@ -135,7 +135,7 @@ describe('account source: business records', () => {
     note: 'Deliveries',
     dueAt: '2026-10-14T22:59:59.000Z',
     status: 'sent' as const,
-    link: 'https://entole.vercel.app/pay/x?t=invoice',
+    link: 'https://entole.pro/pay/x?t=invoice',
   };
 
   it('loads the invoices the business saved into the snapshot', async () => {

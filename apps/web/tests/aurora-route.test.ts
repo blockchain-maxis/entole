@@ -21,14 +21,14 @@ let ipCounter = 0;
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 function post(body: unknown) {
-  return new Request('https://entole.vercel.app/api/aurora/deposit', {
+  return new Request('https://entole.pro/api/aurora/deposit', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.12.0.${++ipCounter}` },
     body: JSON.stringify(body),
   });
 }
 const status = (depositAddress: string) =>
-  new Request(`https://entole.vercel.app/api/aurora/deposit?depositAddress=${depositAddress}`, {
+  new Request(`https://entole.pro/api/aurora/deposit?depositAddress=${depositAddress}`, {
     headers: { 'x-forwarded-for': `10.13.0.${++ipCounter}` },
   });
 

@@ -18,7 +18,7 @@ const REFUND = '0x3333333333333333333333333333333333333333';
 const SETTLEMENT = '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a';
 let ipCounter = 0;
 
-function post(body: unknown, origin = 'https://entole.vercel.app') {
+function post(body: unknown, origin = 'https://entole.pro') {
   return new Request(`${origin}/api/onramp/start`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.9.0.${++ipCounter}` },
@@ -117,7 +117,7 @@ describe('POST /api/onramp/start', () => {
     expect(link.searchParams.get('walletAddress')).toBe(HOLDING);
     expect(link.searchParams.get('fiatAmount')).toBe('20000');
     expect(link.searchParams.get('appId')).toBe('4242');
-    expect(link.searchParams.get('redirectUrl')).toBe('https://entole.vercel.app/add-money/return');
+    expect(link.searchParams.get('redirectUrl')).toBe('https://entole.pro/add-money/return');
     expect(link.searchParams.get('merchantRecognitionId')).toMatch(/^add-[a-z0-9]+-[a-f0-9]{8}$/);
     // The account's own address is never handed to the partner.
     expect(body.url).not.toContain(ACCOUNT);

@@ -12,19 +12,20 @@ pnpm start        # from the repo root, or `pnpm start` here directly
 
 Passkey account creation and sign-in go through `@entole/core/passkey`
 (Mera) — see `docs/ARCHITECTURE.md`'s "Accounts and auth". Two things have
-to be true on the device before a real passkey ceremony succeeds; neither is
-true yet in this environment:
+to be true on the device before a real passkey ceremony succeeds. Both hold
+for Android today; iOS waits on an Apple Team ID:
 
 1. **A relying-party domain that's actually reachable.**
-   `EXPO_PUBLIC_RP_ID` (default `entole.to`) needs, hosted on that domain:
-   - `https://entole.to/.well-known/apple-app-site-association` — a static
+   `EXPO_PUBLIC_RP_ID` (default `entole.pro`) needs, hosted on that domain
+   (the web app serves both from `apps/web/public/.well-known/`):
+   - `https://entole.pro/.well-known/apple-app-site-association` — a static
      JSON `webcredentials.apps` entry naming the real Apple Team ID and
      `to.entole.app` (see `app.json`'s `ios.associatedDomains`).
-   - `https://entole.to/.well-known/assetlinks.json` — a static JSON entry
+   - `https://entole.pro/.well-known/assetlinks.json` — a static JSON entry
      naming `to.entole.app` and the SHA256 fingerprint of the real Android
      signing certificate.
 
-   For local development against a domain other than `entole.to`, set
+   For local development against a domain other than `entole.pro`, set
    `EXPO_PUBLIC_RP_ID` to that domain instead — but the same two files still
    need to exist there, on real infrastructure. `localhost` does not satisfy
    WebAuthn's relying-party requirements on a native app the way it does in
@@ -36,9 +37,13 @@ true yet in this environment:
    a working platform authenticator for WebAuthn PRF). iOS 18+ / Android 9+
    per `react-native-passkey`'s own requirements.
 
-Until both exist, `registerAccount`/`reauthenticate` in `lib/session.ts`
-will fail with a `MeraError` (`PASSKEY_OPERATION_FAILED` or
+Where either is missing, `registerAccount`/`reauthenticate` in
+`lib/session.ts` fail with a `MeraError` (`PASSKEY_OPERATION_FAILED` or
 `PRF_UNAVAILABLE`) — that's the correct, honest failure mode, not a bug to
 route around. `packages/core/passkey.test.ts` proves the logic above the
 WebAuthn ceremony itself is correct, against a stub authenticator; it can't
-and doesn't claim to prove the ceremony succeeds on real hardware.
+and doesn't claim to prove the ceremony succeeds on real hardware. That part
+has been done by hand on an Android phone; see `docs/ARCHITECTURE.md`.
+
+A passkey belongs to its domain. Changing `EXPO_PUBLIC_RP_ID` means every
+account made under the old value can no longer be opened from the app.

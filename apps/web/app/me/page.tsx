@@ -94,7 +94,7 @@ export default function MePage() {
   }
 
   function contactSupport(subject: string) {
-    window.location.href = `mailto:support@entole.to?subject=${encodeURIComponent(subject)}`;
+    window.location.href = `mailto:support@entole.pro?subject=${encodeURIComponent(subject)}`;
   }
 
   return (

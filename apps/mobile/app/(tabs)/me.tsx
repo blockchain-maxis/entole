@@ -93,7 +93,7 @@ export default function Me() {
   }
 
   function contactSupport(subject: string) {
-    void Linking.openURL(`mailto:support@entole.to?subject=${encodeURIComponent(subject)}`);
+    void Linking.openURL(`mailto:support@entole.pro?subject=${encodeURIComponent(subject)}`);
   }
 
   return (

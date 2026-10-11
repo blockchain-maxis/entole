@@ -159,7 +159,7 @@ describe('staff and invoices', () => {
     note: 'Deliveries',
     dueAt: '2026-10-14T22:59:59.000Z',
     status: 'sent',
-    link: 'https://entole.vercel.app/pay/x',
+    link: 'https://entole.pro/pay/x',
   };
 
   it('start empty for a new account', async () => {

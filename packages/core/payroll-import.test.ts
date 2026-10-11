@@ -126,7 +126,7 @@ describe('payroll from CSV', () => {
   });
 
   it('reads a checkout link in the code column and keeps only the code', () => {
-    const link = buildCheckoutLink('https://entole.vercel.app', { code: ADA, kind: 'pay', amountMinor: 1_00, currency: 'NGN' })!;
+    const link = buildCheckoutLink('https://entole.pro', { code: ADA, kind: 'pay', amountMinor: 1_00, currency: 'NGN' })!;
     const result = parsePayrollCsv(`name,link,amount\nAda,${link},5000`);
     expect(result.rows[0]).toMatchObject({ code: ADA, amountMinor: 500_000 });
     // The amount in the link is the payee's ask, never the payroll's.

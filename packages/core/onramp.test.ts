@@ -182,7 +182,7 @@ describe('buildBankTransferUrl', () => {
     depositAddress: HOLDING,
     payKobo: 2_000_050,
     reference: 'add-1728500000',
-    returnUrl: 'https://entole.vercel.app/add-money/return',
+    returnUrl: 'https://entole.pro/add-money/return',
   };
 
   it('fills in every field so the person lands on the payment step', () => {
@@ -197,7 +197,7 @@ describe('buildBankTransferUrl', () => {
       fiatAmount: '20000',
       paymentMethod: '2',
       merchantRecognitionId: 'add-1728500000',
-      redirectUrl: 'https://entole.vercel.app/add-money/return',
+      redirectUrl: 'https://entole.pro/add-money/return',
     });
   });
 
@@ -206,7 +206,7 @@ describe('buildBankTransferUrl', () => {
   });
 
   it('refuses a return address that is not https', () => {
-    expect(() => buildBankTransferUrl({ ...input, returnUrl: 'http://entole.vercel.app/x' })).toThrow(/https/);
+    expect(() => buildBankTransferUrl({ ...input, returnUrl: 'http://entole.pro/x' })).toThrow(/https/);
   });
 });
 
@@ -216,7 +216,7 @@ describe('startBankTransfer', () => {
     payKobo: 2_000_000,
     koboPerDollar: 133_101,
     reference: 'add-1',
-    returnUrl: 'https://entole.vercel.app/add-money/return',
+    returnUrl: 'https://entole.pro/add-money/return',
   };
 
   it('prices the transfer in the account’s own rate and points the payout at the holding address', async () => {

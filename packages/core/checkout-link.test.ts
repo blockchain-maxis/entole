@@ -5,7 +5,7 @@ import { encodePaymentCode } from './payment-code';
 
 const ADDRESS = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01' as const;
 const CODE = encodePaymentCode(ADDRESS);
-const BASE = 'https://entole.vercel.app';
+const BASE = 'https://entole.pro';
 
 describe('checkout link', () => {
   it('a plain link names the payee and nothing else', () => {

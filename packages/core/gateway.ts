@@ -353,7 +353,7 @@ export const demoGateway: PaymentsGateway = {
       note: draft.note,
       dueAt: draft.dueAt,
       status: draft.releaseCondition ? 'pending-release' : 'sent',
-      link: `entole.to/${id}`,
+      link: `entole.pro/${id}`,
       ...(draft.releaseCondition ? { releaseCondition: draft.releaseCondition } : {}),
     });
   },

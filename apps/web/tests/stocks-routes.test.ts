@@ -14,7 +14,7 @@ import { resetStocks } from '@/lib/server/stocks';
 
 let ipCounter = 0;
 const get = (path: string) =>
-  new Request(`https://entole.vercel.app${path}`, { headers: { 'x-forwarded-for': `10.11.0.${++ipCounter}` } });
+  new Request(`https://entole.pro${path}`, { headers: { 'x-forwarded-for': `10.11.0.${++ipCounter}` } });
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 const asset = (underlying: string) => ({

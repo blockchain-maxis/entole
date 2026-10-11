@@ -22,14 +22,14 @@ import type { SignedInAccount } from './account';
  * story on web; the phone app passes an explicit React Native client only
  * because RN has no `navigator.credentials` of its own.
  *
- * Relying party: needs `entole.to/.well-known/apple-app-site-association`
- * and `entole.to/.well-known/assetlinks.json` actually hosted before a
+ * Relying party: needs `entole.pro/.well-known/apple-app-site-association`
+ * and `entole.pro/.well-known/assetlinks.json` actually hosted before a
  * passkey ceremony will succeed for the installed-PWA case on a real device
  * — see `apps/web/public/.well-known/`. `NEXT_PUBLIC_RP_ID` overrides the
- * default for local/dev testing against a domain that isn't `entole.to`.
+ * default for local/dev testing against a domain that isn't `entole.pro`.
  */
 
-const RP_ID = process.env.NEXT_PUBLIC_RP_ID ?? 'entole.to';
+const RP_ID = process.env.NEXT_PUBLIC_RP_ID ?? 'entole.pro';
 const RP = { id: RP_ID, name: 'Entole' };
 
 const ONBOARDED_KEY = 'entole.onboarded';

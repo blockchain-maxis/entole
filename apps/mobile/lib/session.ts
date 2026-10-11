@@ -23,14 +23,14 @@ import type { SignedInAccount } from './account';
  * next time (`credentialId`, not a secret) and how long the current session
  * has been open.
  *
- * Relying party: needs `entole.to/.well-known/apple-app-site-association`
- * (iOS) and `entole.to/.well-known/assetlinks.json` (Android) actually
+ * Relying party: needs `entole.pro/.well-known/apple-app-site-association`
+ * (iOS) and `entole.pro/.well-known/assetlinks.json` (Android) actually
  * hosted before a passkey ceremony will succeed on a real device — see
  * `apps/mobile/README.md`'s auth section. `EXPO_PUBLIC_RP_ID` overrides the
- * default for local/dev testing against a domain that isn't `entole.to`.
+ * default for local/dev testing against a domain that isn't `entole.pro`.
  */
 
-const RP_ID = process.env.EXPO_PUBLIC_RP_ID ?? 'entole.to';
+const RP_ID = process.env.EXPO_PUBLIC_RP_ID ?? 'entole.pro';
 const RP = { id: RP_ID, name: 'Entole' };
 
 const ONBOARDED_KEY = 'entole.onboarded';
@@ -226,7 +226,7 @@ async function failed(error: unknown): Promise<{ ok: false; reason: string }> {
  * assistant is opt-in, so its key (a second ceremony, a different PRF salt,
  * per `@entole/core/passkey`) is only derived when the person approves it —
  * see `deriveAssistantAccount`. Called once, from onboarding. Runs a real
- * WebAuthn ceremony — on a device without `entole.to`'s associated-domain
+ * WebAuthn ceremony — on a device without `entole.pro`'s associated-domain
  * files reachable, or without the target platform's passkey support, this
  * fails with a `MeraError`, not silently.
  */

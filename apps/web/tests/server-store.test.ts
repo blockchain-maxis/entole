@@ -63,7 +63,7 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
     note: 'Design work',
     dueAt: '2026-10-01T00:00:00.000+01:00',
     status: 'pending-release',
-    link: 'entole.to/inv-1',
+    link: 'entole.pro/inv-1',
     ...overrides,
   };
 }

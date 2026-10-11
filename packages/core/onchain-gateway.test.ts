@@ -129,7 +129,7 @@ describe('invoices are real records, not the demo', () => {
     amountMinor: 5_000_000,
     note: 'September deliveries',
     dueAt: '2026-10-14T22:59:59.000Z',
-    link: 'https://entole.vercel.app/pay/PAY-X?t=invoice',
+    link: 'https://entole.pro/pay/PAY-X?t=invoice',
   };
 
   it('creates an invoice that is still there on the next load, numbered from 1', async () => {
@@ -512,7 +512,7 @@ describe('a held invoice, checked against the business’s own records', () => {
     amountMinor: 2_500_000,
     note: 'Fabric, 40 yards',
     dueAt: '2026-10-20T00:00:00.000+01:00',
-    link: 'https://entole.vercel.app/pay/PAY-TEST',
+    link: 'https://entole.pro/pay/PAY-TEST',
     // Release once a dollar costs ₦1,500 or less.
     releaseCondition: { type: 'fx-rate-at-or-below', maxKoboPerDollar: 150_000 },
   } as const;
