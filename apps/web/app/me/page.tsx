@@ -39,6 +39,7 @@ export default function MePage() {
   const { account, setAccount } = useAccount();
   const { preference, setPreference } = useTheme();
   const [locking, setLocking] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [credentialKnown, setCredentialKnown] = useState<boolean | null>(null);
   const [sessionFresh, setSessionFresh] = useState<boolean | null>(null);
@@ -196,11 +197,35 @@ export default function MePage() {
             value={credentialKnown === null ? 'Checking' : credentialKnown ? 'Registered in this browser' : 'Not registered'}
           />
           <Row label="Session" value={sessionFresh === null ? 'Checking' : sessionFresh ? 'Active' : 'Expired'} />
-          <LinkRow
-            label={resetting ? 'Signing out everywhere' : 'Sign out everywhere'}
-            tone="danger"
-            onClick={signOutEverywhere}
-          />
+          {confirmingReset ? (
+            <div className="rounded-row border border-halt bg-halt-wash px-4 py-3.5">
+              <p className="font-strong text-body-sm text-ink">Sign out and forget this browser?</p>
+              <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+                This browser forgets your name and which passkey to ask for. Your account and your money are not
+                touched. To come back, choose &ldquo;I already have an account&rdquo;.
+              </p>
+              <div className="mt-3 flex gap-2.5">
+                <button
+                  type="button"
+                  disabled={resetting}
+                  onClick={signOutEverywhere}
+                  className="flex h-11 flex-1 items-center justify-center rounded-control bg-halt font-strong text-label text-card transition-colors hover:bg-halt-deep active:translate-y-px disabled:opacity-60"
+                >
+                  {resetting ? 'Signing out' : 'Sign out'}
+                </button>
+                <button
+                  type="button"
+                  disabled={resetting}
+                  onClick={() => setConfirmingReset(false)}
+                  className="flex h-11 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-label text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
+                >
+                  Stay signed in
+                </button>
+              </div>
+            </div>
+          ) : (
+            <LinkRow label="Sign out and forget this browser" tone="danger" onClick={() => setConfirmingReset(true)} />
+          )}
         </div>
 
         <SectionLabel>Preferences</SectionLabel>

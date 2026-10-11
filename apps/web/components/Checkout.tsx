@@ -37,7 +37,7 @@ function CheckoutAmount({ checkout, size }: { checkout: Checkout; size: 'hero' |
 }
 
 function Notice({ children }: { children: React.ReactNode }) {
-  return <p className="mt-8 text-pretty font-body text-caption text-mist">{children}</p>;
+  return <p className="mt-8 text-pretty font-body text-caption text-slate">{children}</p>;
 }
 
 /** What the link's author wrote is theirs, not ours — the page says so. */
@@ -171,47 +171,48 @@ const PRIMARY =
   'flex h-14 w-full items-center justify-center gap-2 rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px';
 const SECONDARY =
   'flex h-14 w-full items-center justify-center gap-2 rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist active:translate-y-px';
+const QUIET =
+  'flex h-12 w-full items-center justify-center rounded-control font-strong text-label text-slate transition-colors hover:bg-press active:translate-y-px';
 
 /**
- * Two honest ways to pay. The bank-or-card path is a real link only when a
- * payment partner is configured (`lib/onramp.ts`); until then it is a disabled
- * button that says so, not a flow that pretends.
+ * How to pay, led by whichever way works for someone who has nothing
+ * installed. With a payment partner configured (`lib/onramp.ts`) that is a
+ * bank or card; without one it is Entole in this browser, which needs no
+ * download. Opening the phone app comes after either: it only works for
+ * someone who already has it. Until a partner exists, bank and card stay on
+ * the page as a button that cannot be pressed and says so, below the ways
+ * that work; it is never a link that pretends.
  */
 export function PaymentOptions({ checkout, onrampUrl }: { checkout: Checkout; onrampUrl: string | null }) {
   const recipientAccount = checkout.payee ? `${checkout.payee}'s Entole account` : 'their Entole account';
 
-  const appButton = (
-    <a href={appLinkFor(checkout)} className={onrampUrl ? SECONDARY : PRIMARY}>
-      Open in the Entole app
-    </a>
-  );
-
   return (
-    <section aria-labelledby="pay-options" className="mt-auto pt-10">
+    <section aria-labelledby="pay-options" className="pt-10">
       <h2 id="pay-options" className="pb-3 font-heavy text-body-sm text-ink">
         How would you like to pay?
       </h2>
 
       <div className="flex flex-col gap-2.5">
         {onrampUrl ? (
-          <>
-            <a href={onrampUrl} rel="noopener noreferrer" className={PRIMARY}>
-              Pay with bank or card
-              <ArrowUpRight size={18} strokeWidth={1.75} aria-hidden />
-            </a>
-            {appButton}
-          </>
-        ) : (
-          <>
-            {appButton}
-            <button
-              type="button"
-              disabled
-              className="flex h-14 w-full cursor-not-allowed items-center justify-center rounded-control bg-press font-strong text-body-lg text-mist"
-            >
-              Bank and card payments open soon
-            </button>
-          </>
+          <a href={onrampUrl} rel="noopener noreferrer" className={PRIMARY}>
+            Pay with bank or card
+            <ArrowUpRight size={18} strokeWidth={1.75} aria-hidden />
+          </a>
+        ) : null}
+        <Link href={browserSendPathFor(checkout)} className={onrampUrl ? SECONDARY : PRIMARY}>
+          Pay with Entole
+        </Link>
+        <a href={appLinkFor(checkout)} className={onrampUrl ? QUIET : SECONDARY}>
+          Open in the Entole app
+        </a>
+        {onrampUrl ? null : (
+          <button
+            type="button"
+            disabled
+            className="flex h-14 w-full cursor-not-allowed items-center justify-center rounded-control bg-press font-strong text-body-lg text-mist"
+          >
+            Bank and card payments open soon
+          </button>
         )}
       </div>
 
@@ -221,17 +222,10 @@ export function PaymentOptions({ checkout, onrampUrl }: { checkout: Checkout; on
         </p>
       ) : (
         <p className="mt-3 text-pretty font-body text-label-sm text-slate">
-          We are setting up bank and card payments for people who do not have the app yet. Until then,
-          paying with Entole is the way to go.
+          Entole opens here in your browser, with nothing to download. If you are new, making an account takes a
+          name and your fingerprint.
         </p>
       )}
-
-      <p className="mt-4 font-body text-label-sm text-slate">
-        On a computer?{' '}
-        <Link href={browserSendPathFor(checkout)} className="font-strong text-indigo hover:text-indigo-deep">
-          Continue in your browser
-        </Link>
-      </p>
 
       <Notice>
         {AUTHORED_BY_SENDER} Payment code ending {codeLabel(checkout)}.

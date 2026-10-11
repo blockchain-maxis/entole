@@ -223,6 +223,62 @@ describe('a person can be saved in the browser, so an allowance can be set there
   });
 });
 
+describe('no screen leaves a person stuck or misled', () => {
+  const rule = stripComments(read(join(PAGES, 'rules/new/page.tsx')));
+  const detail = stripComments(read(join(PAGES, 'rules/[id]/page.tsx')));
+  const home = stripComments(read(join(PAGES, 'page.tsx')));
+
+  it('an allowance can be created as soon as it has an amount: the limit starts at one payment', () => {
+    expect(rule).toMatch(/limitEntry \? kobo\(entryToMinor\(limitEntry\)\) : each/);
+    // Both amounts are on screen at once, not one behind a link.
+    expect(rule.match(/<AmountChoice/g)?.length).toBe(2);
+  });
+
+  it('says why an allowance cannot be created yet, and when saving one fails', () => {
+    expect(rule).toMatch(/Enter how much each payment is\./);
+    expect(rule).toMatch(/The limit has to cover at least one payment\./);
+    expect(/async function save\(\)[\s\S]*?\n  }\n/.exec(rule)?.[0]).toMatch(/catch \{/);
+  });
+
+  it('a failed load never shows a balance of nothing', () => {
+    const failed = /\) : failed \? \([\s\S]*?\n        \) : \(/.exec(home)?.[0] ?? '';
+    expect(failed).toMatch(/We couldn&apos;t load your account/);
+    expect(failed).not.toMatch(/<Amount|store\.balance/);
+  });
+
+  it('an allowance still loading is not called gone', () => {
+    expect(detail).toMatch(/!allowance && store\.status === 'loading'/);
+    expect(detail.indexOf("store.status === 'loading'")).toBeLessThan(detail.indexOf('no longer exists'));
+  });
+
+  it('revoking an allowance, and forgetting this browser, each ask first', () => {
+    expect(detail).toMatch(/onClick=\{\(\) => setAsking\(true\)\}/);
+    expect(detail).toMatch(/Revoke this allowance\?/);
+    const me = stripComments(read(join(PAGES, 'me/page.tsx')));
+    expect(me).toMatch(/onClick=\{\(\) => setConfirmingReset\(true\)\}/);
+    expect(me).not.toMatch(/<LinkRow[^>]*onClick=\{signOutEverywhere\}/);
+  });
+
+  it('the tab bar steps aside where it would cover the only button', () => {
+    const nav = stripComments(read(join(COMPONENTS, 'BottomNav.tsx')));
+    expect(nav).toMatch(/BARE = new Set\(\['\/assistant\/action', '\/offline'\]\)/);
+    expect(nav).toMatch(/if \(BARE\.has\(pathname\)\) return null;/);
+  });
+
+  it('the public pay page leads with a way that works, and what is not open yet comes last', () => {
+    const checkout = stripComments(read(join(COMPONENTS, 'Checkout.tsx')));
+    const options = /export function PaymentOptions[\s\S]*?\n}\n/.exec(checkout)?.[0] ?? '';
+    // With no partner, paying in this browser is the main button.
+    expect(options).toMatch(/href=\{browserSendPathFor\(checkout\)\} className=\{onrampUrl \? SECONDARY : PRIMARY\}/);
+    const browser = options.indexOf('browserSendPathFor(checkout)');
+    const app = options.indexOf('appLinkFor(checkout)');
+    const notYet = options.indexOf('Bank and card payments open soon');
+    expect(browser).toBeGreaterThan(-1);
+    expect(browser).toBeLessThan(app);
+    expect(app).toBeLessThan(notYet);
+  });
+});
+
 describe('the public checkout page', () => {
   const page = read(join(PAGES, 'pay/[code]/page.tsx'));
   const checkoutFiles = [

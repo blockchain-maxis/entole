@@ -10,12 +10,14 @@ import './globals.css';
 import { Providers } from './providers';
 
 /**
- * The phone app loads four Plus Jakarta Sans weights by name. Here the same
- * four are loaded once and exposed as the variables the Tailwind config maps
- * `font-body`, `font-strong` and `font-heavy` onto.
+ * The phone app loads four Plus Jakarta Sans weights by name. Here one
+ * variable file carries all of them, exposed as the variables the Tailwind
+ * config maps `font-body`, `font-strong` and `font-heavy` onto; the weight
+ * each of those means is set in `tailwind.config.js`. `latin-ext` is asked for
+ * because that is where the naira sign is.
  */
 const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
+  subsets: ['latin', 'latin-ext'],
   display: 'swap',
   variable: '--font-jakarta',
 });

@@ -123,7 +123,7 @@ function ProposalPanel({
       <div className="mt-4 flex items-center gap-3.5">
         <span
           aria-hidden
-          className="flex h-14 w-14 flex-none items-center justify-center rounded-pill bg-avatar-1 font-strong text-body-lg text-paper"
+          className="flex h-14 w-14 flex-none items-center justify-center rounded-pill bg-avatar-1 font-strong text-body-lg text-slate"
         >
           {contact?.initials ?? '?'}
         </span>

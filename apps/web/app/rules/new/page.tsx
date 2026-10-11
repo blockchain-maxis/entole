@@ -5,7 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
 import { cadenceWords } from '@entole/core/allowance';
-import { entryToMinor, pressKey, type AmountEntry, EMPTY_ENTRY } from '@entole/core/amount-entry';
+import {
+  EMPTY_ENTRY,
+  entryFromMinor,
+  entryToMinor,
+  pressKey,
+  type AmountEntry,
+} from '@entole/core/amount-entry';
 import { formatNaira, kobo, type Naira } from '@entole/core/money';
 import type { Cadence } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
@@ -16,10 +22,17 @@ import { Skeleton } from '@/components/Skeleton';
 
 const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
 
+type Editing = 'each' | 'limit';
+
 /**
- * A rule, written in plain terms. Simpler than the phone app's tap-to-edit
- * sentence builder, but the same three facts: who, how much, how often —
- * enforced on the contract, never a permission or a toggle.
+ * An allowance, written in plain terms. Simpler than the phone app's
+ * tap-to-edit sentence, but the same facts: who, how often, how much each
+ * time, and the most it may ever come to. The limit is enforced on the
+ * contract, never a permission or a toggle.
+ *
+ * Both amounts are always on screen. The limit starts at one payment and
+ * follows it until the person sets it themselves, so the allowance can be
+ * created as soon as there is an amount, and what would stop it is said.
  *
  * `?for=` names the saved person it starts on, for arriving straight from
  * saving them.
@@ -33,30 +46,54 @@ function NewRule() {
   // loaded when this first renders, and a list of one cannot be re-chosen.
   const [picked, setPicked] = useState<string | null>(null);
   const [cadence, setCadence] = useState<Cadence>('monthly');
-  const [perRunEntry, setPerRunEntry] = useState<AmountEntry>(EMPTY_ENTRY);
-  const [limitEntry, setLimitEntry] = useState<AmountEntry>(EMPTY_ENTRY);
-  const [editingLimit, setEditingLimit] = useState(false);
+  const [eachEntry, setEachEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  // Null until the person sets a limit of their own.
+  const [limitEntry, setLimitEntry] = useState<AmountEntry | null>(null);
+  const [editing, setEditing] = useState<Editing>('each');
   const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
   const presetId = store.contacts.some((contact) => contact.id === preset) ? preset : null;
   const recipientId = picked ?? presetId ?? store.contacts[0]?.id ?? '';
   const recipient = recipientId ? store.contact(recipientId) : undefined;
-  const perRun: Naira = kobo(entryToMinor(perRunEntry));
-  const limit: Naira = kobo(entryToMinor(limitEntry));
-  const ready = Boolean(recipient) && perRun > 0 && limit >= perRun;
+  const each: Naira = kobo(entryToMinor(eachEntry));
+  const limit: Naira = limitEntry ? kobo(entryToMinor(limitEntry)) : each;
+  const period = cadence === 'weekly' ? 'a week' : 'a month';
+
+  const missing = !recipient
+    ? null
+    : each <= 0
+      ? 'Enter how much each payment is.'
+      : limit < each
+        ? 'The limit has to cover at least one payment.'
+        : null;
+  const ready = Boolean(recipient) && each > 0 && limit >= each;
+
+  function press(key: string) {
+    setProblem(null);
+    if (editing === 'each') {
+      setEachEntry((current) => pressKey(current, key));
+      return;
+    }
+    // The first key carries on from the figure already shown.
+    setLimitEntry((current) => pressKey(current ?? entryFromMinor(each), key));
+  }
 
   async function save() {
     if (!recipient || !ready || saving) return;
     setSaving(true);
+    setProblem(null);
     try {
       await store.saveAllowance({
         name: `${cadenceWords(cadence)} to ${recipient.name}`,
         recipientId,
-        perRunMinor: perRun,
+        perRunMinor: each,
         limitMinor: limit,
         cadence,
       });
       router.push('/');
+    } catch {
+      setProblem("We couldn't create that allowance. Nothing has changed. Try again.");
     } finally {
       setSaving(false);
     }
@@ -64,7 +101,7 @@ function NewRule() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
-      <Header title="New rule" />
+      <Header title="New allowance" back="/" />
 
       {store.status === 'ready' && store.contacts.length === 0 ? (
         <div className="flex-1 px-gutter pb-28 pt-2">
@@ -119,9 +156,12 @@ function NewRule() {
               <button
                 key={option}
                 type="button"
+                aria-pressed={option === cadence}
                 onClick={() => setCadence(option)}
-                className={`flex-1 rounded-chip border px-3 py-2.5 font-strong text-label-sm ${
-                  option === cadence ? 'border-indigo bg-indigo-wash text-indigo' : 'border-hairline bg-paper text-slate'
+                className={`flex-1 rounded-chip border px-3 py-2.5 font-strong text-label-sm transition-colors ${
+                  option === cadence
+                    ? 'border-indigo bg-indigo-wash text-indigo'
+                    : 'border-hairline bg-paper text-slate hover:border-mist'
                 }`}
               >
                 {cadenceWords(option)}
@@ -129,48 +169,80 @@ function NewRule() {
             ))}
           </div>
 
-          <div className="mt-6 flex items-baseline justify-between">
-            <p className="font-heavy text-body-sm text-ink">
-              {editingLimit ? 'Never more than, per period' : 'How much each time'}
-            </p>
-            <p className="tabular font-strong text-amount-sm text-ink">
-              {formatNaira(editingLimit ? limit : perRun)}
-            </p>
-          </div>
-          <div className="mt-3">
-            <Keypad
-              onKey={(key) =>
-                editingLimit
-                  ? setLimitEntry((current) => pressKey(current, key))
-                  : setPerRunEntry((current) => pressKey(current, key))
-              }
+          <p className="mt-6 font-heavy text-body-sm text-ink">How much</p>
+          <div className="mt-2.5 flex flex-col gap-2" role="radiogroup" aria-label="Which amount the keypad changes">
+            <AmountChoice
+              label="Each payment"
+              value={each}
+              selected={editing === 'each'}
+              onSelect={() => setEditing('each')}
+            />
+            <AmountChoice
+              label={`Never more than, ${period}`}
+              hint={limitEntry ? undefined : 'Starts at one payment. Choose it to raise it.'}
+              value={limit}
+              selected={editing === 'limit'}
+              onSelect={() => setEditing('limit')}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => setEditingLimit((v) => !v)}
-            className="mt-2 font-strong text-label-sm text-indigo"
-          >
-            {editingLimit ? 'Set the per-payment amount instead' : 'Set the overall cap instead'}
-          </button>
 
-          {limit > 0 && limit < perRun ? (
-            <p className="mt-3 text-center font-body text-label-sm text-caution">
-              The cap has to be at least as large as one payment.
-            </p>
-          ) : null}
+          <div className="mt-3">
+            <Keypad onKey={press} />
+          </div>
+
+          <p
+            role={problem ? 'alert' : undefined}
+            className={`mt-3 min-h-[20px] text-center font-body text-label-sm ${problem ? 'text-halt' : 'text-slate'}`}
+          >
+            {problem ?? missing ?? ''}
+          </p>
 
           <button
             type="button"
             disabled={!ready || saving}
             onClick={() => void save()}
-            className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+            className="mt-2 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
           >
-            {saving ? 'Creating' : 'Create rule'}
+            {saving ? 'Creating' : 'Create allowance'}
           </button>
         </div>
       )}
     </main>
+  );
+}
+
+/** One of the two amounts. The chosen one is the one the keypad changes. */
+function AmountChoice({
+  label,
+  hint,
+  value,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  hint?: string | undefined;
+  value: Naira;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={`flex w-full items-center justify-between gap-3 rounded-control border-[1.5px] bg-card px-4 py-3 text-left transition-colors ${
+        selected ? 'border-ink' : 'border-line hover:border-mist'
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block font-strong text-label text-ink">{label}</span>
+        {hint ? <span className="mt-0.5 block font-body text-caption text-slate">{hint}</span> : null}
+      </span>
+      <span className={`tabular flex-none font-strong text-amount-sm ${selected ? 'text-ink' : 'text-slate'}`}>
+        {formatNaira(value)}
+      </span>
+    </button>
   );
 }
 

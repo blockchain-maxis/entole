@@ -13,6 +13,10 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/me', label: 'Me', icon: User },
 ];
 
+/** Screens that are one decision with its own button at the bottom. The bar
+ * steps aside there; drawn over them it covered that button. */
+const BARE = new Set(['/assistant/action', '/offline']);
+
 /**
  * A floating pill bar, matching mobile's Phase 2 tab-bar spec exactly:
  * card background, panel radius, the floating shadow token, inset from the
@@ -21,6 +25,7 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
  */
 export function BottomNav() {
   const pathname = usePathname();
+  if (BARE.has(pathname)) return null;
 
   return (
     <nav

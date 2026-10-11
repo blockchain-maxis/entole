@@ -4,6 +4,23 @@
  * Expo names, the web loads them through `next/font` behind CSS variables.
  */
 
+const plugin = require('tailwindcss/plugin');
+
+/**
+ * One variable font file sits behind all four families here, so naming the
+ * family changes nothing on its own: the weight has to be said too. The phone
+ * gets the same four weights from four separate files under the same class
+ * names (`packages/tokens/tailwind-preset.js`).
+ */
+const fontWeights = plugin(({ addUtilities }) => {
+  addUtilities({
+    '.font-plain': { fontWeight: '400' },
+    '.font-body': { fontWeight: '500' },
+    '.font-strong': { fontWeight: '600' },
+    '.font-heavy': { fontWeight: '700' },
+  });
+});
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -20,5 +37,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [fontWeights],
 };

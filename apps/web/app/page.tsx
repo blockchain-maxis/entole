@@ -32,6 +32,7 @@ export default function Home() {
   const fullName = account?.displayName.trim() ?? '';
   const greeting = fullName ? `${greetingFor()}, ${fullName}` : greetingFor();
   const loading = store.status === 'loading';
+  const failed = store.status === 'failed';
 
   // The assistant is a setting: nothing is announced until it is turned on.
   const router = useRouter();
@@ -63,6 +64,21 @@ export default function Home() {
         ) : null}
         {loading ? (
           <BalanceSkeleton />
+        ) : failed ? (
+          // No figure at all: a zero here would read as the balance.
+          <section className="rounded-panel bg-card p-6 shadow-raised">
+            <p className="font-strong text-body text-ink">We couldn&apos;t load your account</p>
+            <p className="mt-1.5 text-pretty font-body text-body-sm text-slate">
+              Your money is where you left it. This is only the screen failing to read it.
+            </p>
+            <button
+              type="button"
+              onClick={() => void store.refresh().catch(() => undefined)}
+              className="mt-4 flex h-12 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body text-ink transition-colors hover:border-mist active:translate-y-px"
+            >
+              Try again
+            </button>
+          </section>
         ) : (
           <section className="rounded-panel bg-card p-6 shadow-raised">
             <p className="font-strong text-label-sm text-mist">Available balance</p>
@@ -141,9 +157,9 @@ function SectionHeading({
     <div className="flex items-baseline justify-between pb-3 pt-[30px] first:pt-0">
       <h2 className="font-strong text-body-lg text-ink">{title}</h2>
       {action ? (
-        <a href={action.href} className="font-strong text-label text-indigo hover:underline">
+        <Link href={action.href} className="font-strong text-label text-indigo hover:underline">
           {action.label}
-        </a>
+        </Link>
       ) : null}
     </div>
   );
