@@ -131,6 +131,7 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/ActivityRow.tsx',
     'components/AllowanceCard.tsx',
     'components/AllowanceIntro.tsx',
+    'components/AuthGate.tsx',
     'components/Badge.tsx',
     'components/Countdown.tsx',
   ];
@@ -437,7 +438,7 @@ describe('the public checkout page', () => {
 
   it('shows amounts with the shared naira component, never as float math', () => {
     const checkout = stripComments(read(join(COMPONENTS, 'Checkout.tsx')));
-    expect(checkout).toMatch(/<Amount value=\{kobo\(/);
+    expect(checkout).toMatch(/<Figure value=\{kobo\(/);
     const lib = stripComments(read(join(ROOT, 'lib/checkout.ts')) + read(join(ROOT, 'lib/onramp.ts')));
     expect(lib).not.toMatch(/parseFloat|toFixed|Number\(\w*amount/i);
   });

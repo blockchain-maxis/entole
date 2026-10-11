@@ -71,20 +71,25 @@ export default function Lock() {
 
   return (
     <Screen>
-      <View className="flex-1 items-center justify-center px-gutter-lg">
-        <View className="h-[72px] w-[72px] items-center justify-center rounded-full bg-ink">
-          <Text className="font-heavy text-headline text-paper">E</Text>
+      <View className="h-16 flex-none flex-row items-center gap-2.5 px-gutter-lg">
+        <View className="h-[34px] w-[34px] items-center justify-center rounded-control bg-ink">
+          <Text className="font-heavy text-body-lg text-paper">E</Text>
         </View>
-        <Text className="mt-6 text-center font-strong text-headline text-ink">Confirm it&apos;s you</Text>
-        <Text className="mt-2 text-center font-body text-body-sm text-slate">
+        <Text className="font-display text-subhead text-ink">Entole</Text>
+      </View>
+
+      <View className="flex-1 justify-end px-gutter-lg pb-6">
+        <Text accessibilityRole="header" className="font-display text-figure-sm text-ink">
+          Confirm it&apos;s you
+        </Text>
+        <Text className="mt-3 font-body text-prose text-slate">
           Your session timed out. Nothing here moves until you do.
         </Text>
-        {reason ? (
-          <Text className="mt-4 text-center font-body text-label-sm text-halt">{reason}</Text>
-        ) : null}
-        <View className="mt-8 w-full">
-          <Button label={checking ? 'Checking' : 'Try again'} busy={checking} disabled={checking} onPress={retry} />
-        </View>
+        {reason ? <Text className="mt-4 font-body text-ui text-halt">{reason}</Text> : null}
+      </View>
+
+      <View className="flex-none flex-row px-gutter-lg pb-2.5 pt-3">
+        <Button label={checking ? 'Checking' : 'Try again'} busy={checking} disabled={checking} onPress={retry} />
       </View>
     </Screen>
   );

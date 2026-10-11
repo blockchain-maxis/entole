@@ -18,8 +18,8 @@ export function CheckoutHeader() {
   return (
     <header className="flex flex-none items-center justify-between pb-3.5 pt-4">
       <div className="flex items-center gap-2">
-        <BrandGlyph size={22} />
-        <span className="font-heavy text-body-lg text-ink">Entole</span>
+        <BrandGlyph size={24} />
+        <span className="font-display text-subhead text-ink">Entole</span>
       </div>
       {account ? (
         <div className="ml-3 flex-none">

@@ -1,14 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { markOnboarded, registerAccount, signInWithExistingPasskey } from '@/lib/session';
-
-const PROMISES = ['No password to remember', 'Your phone unlock is the key', 'Ready in half a minute'];
 
 /**
  * Sign-in is a passkey — confirmed with whatever unlocks the phone (face,
@@ -60,31 +58,38 @@ export default function Welcome() {
 
   return (
     <Screen>
-      <View className="flex-1 justify-center px-7">
-        <View className="h-[46px] w-[46px] items-center justify-center rounded-control bg-ink">
-          <Text className="font-heavy text-title text-paper">E</Text>
+      <View className="h-16 flex-none flex-row items-center gap-2.5 px-gutter-lg">
+        <View className="h-[34px] w-[34px] items-center justify-center rounded-control bg-ink">
+          <Text className="font-heavy text-body-lg text-paper">E</Text>
+        </View>
+        <Text className="font-display text-subhead text-ink">Entole</Text>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 24, paddingBottom: 20 }}
+      >
+        {/* The product in one glance: an instruction, written once, in the assistant's blue. */}
+        <View className="mb-8 mt-4 rounded-card bg-card p-5 shadow-raised">
+          <Text className="font-body text-note text-slate">You write it once</Text>
+          <Text className="mt-2 font-display-plain text-subhead text-indigo">
+            Send ₦50,000 to Mum every month, never more than ₦100,000 a month.
+          </Text>
+          <Text className="mt-3 font-body text-ui text-slate">
+            The assistant can pay inside it, and never past it.
+          </Text>
         </View>
 
-        <Text className="mt-7 font-strong text-hero text-ink">Money that moves like a message</Text>
-        <Text className="mt-4 font-body text-body-lg text-slate">
-          Send naira home, share costs with friends, and set limits Entole will keep for you.
+        <Text accessibilityRole="header" className="font-display text-figure-sm text-ink">
+          Money that moves like a message
+        </Text>
+        <Text className="mt-3 font-body text-prose text-slate">
+          Send naira home, share costs with friends, and set limits Entole will keep for you. No password to
+          remember: your phone unlock is the key.
         </Text>
 
-        <View className="mt-[30px] gap-3">
-          {PROMISES.map((promise) => (
-            <View key={promise} className="flex-row items-center gap-3">
-              <View className="h-5 w-5 flex-none items-center justify-center rounded-pill bg-settled-wash">
-                <Text className="font-heavy text-caption-sm text-settled">✓</Text>
-              </View>
-              <Text className="font-body text-label text-slate">{promise}</Text>
-            </View>
-          ))}
-        </View>
-
-        {problem ? (
-          <Text className="mt-6 font-body text-label-sm text-halt">{problem}</Text>
-        ) : null}
-      </View>
+        {problem ? <Text className="mt-5 font-body text-ui text-halt">{problem}</Text> : null}
+      </ScrollView>
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">
@@ -104,7 +109,7 @@ export default function Welcome() {
             onPress={() => void signIn()}
           />
         </View>
-        <Text className="mt-3.5 text-center font-body text-caption text-mist">
+        <Text className="mt-3.5 text-center font-body text-note text-slate">
           By continuing you agree to our terms and privacy notice.
         </Text>
       </View>

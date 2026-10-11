@@ -235,6 +235,7 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'app/assistant-action.tsx',
     'app/assistant.tsx',
     'app/connections.tsx',
+    'app/onboarding/index.tsx',
     'app/rules/[id].tsx',
     'components/ui/ActivityRow.tsx',
     'components/ui/AllowanceCard.tsx',

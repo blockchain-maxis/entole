@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import {
@@ -42,7 +43,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [onboarded, setOnboarded] = useState(false);
+  // Null until this browser's own record has been read. Until then nothing is
+  // said: a returning person used to see the newcomer's screen flash past.
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [step, setStep] = useState<'marketing' | 'name'>('marketing');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -156,30 +159,52 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setStep('name');
   }
 
-  const showNameStep = !onboarded && step === 'name';
+  const showNameStep = onboarded === false && step === 'name';
+  const firstScreen = onboarded === false && step === 'marketing';
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col items-center justify-center px-gutter-lg">
-      <BrandGlyph size={40} />
+    <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col px-gutter-lg">
+      <header className="flex h-16 flex-none items-center gap-2.5">
+        {showNameStep && !returning ? (
+          <button
+            type="button"
+            aria-label="Go back"
+            onClick={() => {
+              setStep('marketing');
+              setProblem(null);
+            }}
+            className="-ml-2 flex h-10 w-10 items-center justify-center rounded-pill text-slate transition-colors hover:bg-press hover:text-ink"
+          >
+            <ArrowLeft size={22} strokeWidth={1.5} />
+          </button>
+        ) : (
+          <>
+            <BrandGlyph size={26} />
+            <span className="font-display text-subhead text-ink">Entole</span>
+          </>
+        )}
+      </header>
 
-      {onboarded ? (
-        <>
-          <h1 className="mt-6 text-center font-strong text-headline text-ink">Confirm it&apos;s you</h1>
-          <p className="mt-2 text-center font-body text-body-sm text-slate">
+      {onboarded === null ? (
+        <div className="flex-1" />
+      ) : onboarded ? (
+        <div className="flex flex-1 flex-col justify-end pb-8">
+          <h1 className="text-pretty font-display text-figure-sm text-ink">Confirm it&apos;s you</h1>
+          <p className="mt-3 text-pretty font-body text-prose text-slate">
             Your session timed out. Nothing here moves until you do.
           </p>
-        </>
+        </div>
       ) : showNameStep ? (
-        <>
-          <h1 className="mt-6 text-center font-strong text-headline text-ink">
+        <div className="flex-1 pt-4">
+          <h1 className="text-pretty font-display text-heading text-ink">
             {returning ? 'Welcome back' : 'Your details'}
           </h1>
-          <p className="mt-2 text-center font-body text-body-sm text-slate">
+          <p className="mt-2 text-pretty font-body text-ui text-slate">
             {returning
               ? 'Your account and your money are already here. This device just does not know your name yet.'
               : 'Your name is how Entole greets you. Your username is how people find you.'}
           </p>
-          <label className="mt-6 w-full font-strong text-caption text-slate" htmlFor="full-name">
+          <label className="mt-7 block font-strong text-note text-slate" htmlFor="full-name">
             Full name
           </label>
           <input
@@ -189,16 +214,25 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             placeholder="Your full name"
             autoFocus
             autoComplete="name"
-            className="mt-2 h-14 w-full rounded-control border-[1.5px] border-ink bg-card px-4 font-strong text-body-lg text-ink outline-none"
+            aria-invalid={touched && nameError ? true : undefined}
+            className={`mt-2 h-14 w-full rounded-control border-[1.5px] bg-card px-4 font-strong text-prose text-ink outline-none placeholder:font-body placeholder:text-mist focus:border-ink ${
+              touched && nameError ? 'border-halt' : 'border-line'
+            }`}
           />
           {touched && nameError ? (
-            <p className="mt-2 w-full font-body text-caption text-slate">{nameError}</p>
+            <p role="alert" className="mt-2 font-body text-note text-halt">
+              {nameError}
+            </p>
           ) : null}
-          <label className="mt-5 w-full font-strong text-caption text-slate" htmlFor="username">
+          <label className="mt-5 block font-strong text-note text-slate" htmlFor="username">
             Username
           </label>
-          <div className="mt-2 flex h-14 w-full items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-ink">
-            <span className="font-strong text-body-lg text-slate">@</span>
+          <div
+            className={`mt-2 flex h-14 w-full items-center rounded-control border-[1.5px] bg-card px-4 focus-within:border-ink ${
+              touched && usernameError ? 'border-halt' : 'border-line'
+            }`}
+          >
+            <span className="font-strong text-prose text-slate">@</span>
             <input
               id="username"
               value={username}
@@ -208,65 +242,83 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               autoCorrect="off"
               spellCheck={false}
               maxLength={USERNAME_MAX}
+              aria-invalid={touched && usernameError ? true : undefined}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') void onboard();
               }}
-              className="ml-1 min-w-0 flex-1 bg-transparent font-strong text-body-lg text-ink outline-none"
+              className="ml-1 min-w-0 flex-1 bg-transparent font-strong text-prose text-ink outline-none placeholder:font-body placeholder:text-mist"
             />
           </div>
           {touched && usernameError ? (
-            <p className="mt-2 w-full font-body text-caption text-slate">{usernameError}</p>
-          ) : (
-            <p className="mt-2 w-full font-body text-caption text-slate">
-              Lowercase letters, numbers, dots and underscores.
+            <p role="alert" className="mt-2 font-body text-note text-halt">
+              {usernameError}
             </p>
+          ) : (
+            <p className="mt-2 font-body text-note text-slate">Lowercase letters, numbers, dots and underscores.</p>
           )}
-        </>
+        </div>
       ) : (
-        <>
-          <h1 className="mt-6 text-center font-strong text-headline text-ink">
-            Money that moves like a message
-          </h1>
-          <p className="mt-2 text-center font-body text-body-sm text-slate">
-            Send naira home, share costs with friends, and set limits Entole will keep for you.
-            No password to remember — unlocking your device is the key.
+        <div className="flex flex-1 flex-col justify-end pb-8">
+          {/* The product in one glance: an instruction, written once, in the assistant's blue. */}
+          <figure className="mb-10 rounded-card bg-card p-5 shadow-raised">
+            <figcaption className="font-body text-note text-slate">You write it once</figcaption>
+            <p className="mt-2 text-pretty font-display-plain text-subhead text-indigo">
+              Send ₦50,000 to Mum every month, never more than ₦100,000 a month.
+            </p>
+            <p className="mt-3 text-pretty font-body text-ui text-slate">
+              The assistant can pay inside it, and never past it.
+            </p>
+          </figure>
+
+          <h1 className="text-pretty font-display text-figure-sm text-ink">Money that moves like a message</h1>
+          <p className="mt-3 text-pretty font-body text-prose text-slate">
+            Send naira home, share costs with friends, and set limits Entole will keep for you. No password to
+            remember: unlocking your device is the key.
           </p>
-        </>
+        </div>
       )}
 
-      {problem ? <p className="mt-4 text-center font-body text-label-sm text-halt">{problem}</p> : null}
+      {onboarded === null ? null : (
+        <div className="flex-none safe-bottom">
+          {problem ? (
+            <p role="alert" className="mb-4 text-pretty font-body text-ui text-halt">
+              {problem}
+            </p>
+          ) : null}
 
-      <button
-        type="button"
-        disabled={busy || (showNameStep && !detailsValid)}
-        onClick={() => void (onboarded ? signIn() : showNameStep ? onboard() : setStep('name'))}
-        className="mt-8 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
-      >
-        {busy
-          ? 'Confirming'
-          : onboarded
-            ? 'Sign in with passkey'
-            : showNameStep && !returning
-              ? 'Continue with passkey'
-              : 'Continue'}
-      </button>
+          <button
+            type="button"
+            disabled={busy || (showNameStep && !detailsValid)}
+            onClick={() => void (onboarded ? signIn() : showNameStep ? onboard() : setStep('name'))}
+            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+          >
+            {busy
+              ? 'Confirming'
+              : onboarded
+                ? 'Sign in with passkey'
+                : showNameStep && !returning
+                  ? 'Continue with passkey'
+                  : 'Continue'}
+          </button>
 
-      {!onboarded && !showNameStep ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void signInFromElsewhere()}
-          className="mt-2 flex h-12 w-full items-center justify-center rounded-control font-strong text-body-sm text-ink transition-colors hover:bg-press active:translate-y-px disabled:opacity-50"
-        >
-          I already have an account
-        </button>
-      ) : null}
+          {firstScreen ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void signInFromElsewhere()}
+              className="mt-2 flex h-12 w-full items-center justify-center rounded-control font-strong text-ui text-ink transition-colors hover:bg-press active:translate-y-px disabled:opacity-50"
+            >
+              I already have an account
+            </button>
+          ) : null}
 
-      {!onboarded ? (
-        <p className="mt-3.5 text-center font-body text-caption text-mist">
-          By continuing you agree to our terms and privacy notice.
-        </p>
-      ) : null}
+          {onboarded ? null : (
+            <p className="mt-3.5 text-center font-body text-note text-slate">
+              By continuing you agree to our terms and privacy notice.
+            </p>
+          )}
+        </div>
+      )}
     </main>
   );
 }
