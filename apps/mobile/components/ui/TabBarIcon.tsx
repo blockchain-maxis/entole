@@ -20,9 +20,8 @@ export const TAB_PILL_RADIUS = 28;
  * ~2.7:1 and read as missing. Layout is plain style values (no className) so
  * nothing about the bar depends on the stylesheet compiling.
  *
- * An assistant-initiated nav state, if one is ever needed, reuses this
- * mechanic with the assistant tint in place of indigo — never the same fill as
- * a user-initiated active tab.
+ * The active tab sits on a neutral ground in ink: choosing a tab is something
+ * the person does, and blue is kept for what the assistant does.
  */
 export function TabBarIcon({
   icon: Icon,
@@ -43,7 +42,7 @@ export function TabBarIcon({
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: TAB_PILL_RADIUS,
-        backgroundColor: focused ? colors.indigo.wash : 'transparent',
+        backgroundColor: focused ? colors.press : 'transparent',
       }}
     >
       <Icon size={22} color={tint} strokeWidth={focused ? 2.1 : 1.7} />

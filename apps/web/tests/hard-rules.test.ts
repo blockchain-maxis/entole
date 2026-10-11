@@ -120,6 +120,63 @@ describe('assistant actions are visually distinct', () => {
   });
 });
 
+describe('two inks: black is the person, blue is the assistant', () => {
+  // Blue used to be the link, selection, focus and button-hover colour as well
+  // as the assistant's, so it said nothing. It is now only ever the assistant.
+  const ASSISTANT_SURFACES = [
+    'app/assistant/action/page.tsx',
+    'app/assistant/page.tsx',
+    'app/connections/page.tsx',
+    'app/page.tsx',
+    'components/ActivityRow.tsx',
+    'components/Badge.tsx',
+    'components/Countdown.tsx',
+  ];
+
+  it('blue appears only where the assistant has acted or may act', () => {
+    const blue = sourceFiles
+      .filter((file) => /indigo/.test(stripComments(read(file))))
+      .map((file) => relative(ROOT, file).split(sep).join('/'))
+      .sort();
+    expect(blue).toEqual(ASSISTANT_SURFACES);
+  });
+
+  it('on the home screen blue is only the two assistant banners', () => {
+    const home = stripComments(read(join(PAGES, 'page.tsx')));
+    const lines = home.split('\n').filter((line) => /indigo/.test(line));
+    expect(lines).toHaveLength(2);
+    for (const line of lines) expect(line).toMatch(/href="\/assistant(\/action)?"|bg-indigo-wash/);
+  });
+
+  it('a primary button is ink, and stays ink when hovered', () => {
+    const button = stripComments(read(join(COMPONENTS, 'Button.tsx')));
+    expect(button).toMatch(/bg-ink/);
+    for (const file of sourceFiles) {
+      expect(read(file), relative(ROOT, file)).not.toMatch(/hover:bg-indigo|focus(-within)?:border-indigo/);
+    }
+  });
+
+  it('keyboard focus is always drawn, in ink', () => {
+    const stylesheet = read(join(PAGES, 'globals.css'));
+    expect(stylesheet).toMatch(/:focus-visible \{\s*outline: 2px solid rgb\(var\(--color-ink\)\);/);
+  });
+});
+
+describe('the undo window drains continuously, against the clock', () => {
+  const countdown = stripComments(read(join(COMPONENTS, 'Countdown.tsx')));
+
+  it('measures time instead of counting ticks', () => {
+    expect(countdown).toMatch(/performance\.now\(\)/);
+    expect(countdown).not.toMatch(/current - 1/);
+  });
+
+  it('slides the bar at one steady speed, and steps it for someone who asked for less motion', () => {
+    expect(countdown).toMatch(/countdown-drain/);
+    expect(countdown).toMatch(/prefers-reduced-motion: reduce/);
+    expect(read(join(PAGES, 'globals.css'))).toMatch(/animation-timing-function: linear;/);
+  });
+});
+
 describe('the assistant is a setting the person turns on, never a default', () => {
   const session = stripComments(read(join(ROOT, 'lib/session.ts')));
 

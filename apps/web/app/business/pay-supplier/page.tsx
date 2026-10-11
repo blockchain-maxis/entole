@@ -93,7 +93,7 @@ export default function PaySupplierPage() {
                   aria-label={`Pay ${entryContact.name}`}
                   onClick={() => setContactId(entryContact.id)}
                   className={`flex flex-none items-center gap-2 rounded-pill border py-1.5 pl-1.5 pr-3.5 transition-colors ${
-                    selected ? 'border-indigo bg-indigo-wash' : 'border-line bg-card hover:border-mist'
+                    selected ? 'border-ink bg-card' : 'border-line bg-card hover:border-mist'
                   }`}
                 >
                   <Avatar initials={entryContact.initials} tone={entryContact.tone} />
@@ -123,7 +123,7 @@ export default function PaySupplierPage() {
               type="button"
               disabled={!ready || sending}
               onClick={() => void submit()}
-              className="mt-3 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+              className="mt-3 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
             >
               {sending ? 'Sending' : amount > 0 ? `Pay ${formatNaira(amount)}` : 'Pay'}
             </button>

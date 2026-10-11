@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 const VARIANTS = {
-  primary: 'bg-ink text-paper hover:bg-indigo-deep',
+  primary: 'bg-ink text-paper hover:bg-ink/85',
   secondary: 'border border-line bg-card text-ink hover:border-mist',
 } as const;
 

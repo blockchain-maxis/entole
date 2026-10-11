@@ -184,7 +184,7 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
               type="button"
               aria-expanded={aboutOpen}
               onClick={() => setAboutOpen((open) => !open)}
-              className="mt-1.5 font-strong text-label-sm text-indigo"
+              className="mt-1.5 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               {aboutOpen ? 'Show less' : 'Read more'}
             </button>

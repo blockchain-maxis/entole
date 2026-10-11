@@ -55,7 +55,7 @@ function messageFor(error: unknown): string {
 }
 
 const PRIMARY =
-  'flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60';
+  'flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60';
 const SECONDARY =
   'flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist active:translate-y-px';
 
@@ -206,7 +206,7 @@ function AddMoney() {
             <button
               type="button"
               onClick={() => void refresh().catch(() => undefined)}
-              className="mt-1 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+              className="mt-1 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               Try again
             </button>
@@ -388,7 +388,7 @@ function WayRow({
         onClick={onPick}
         className="flex w-full items-center gap-3.5 rounded-row border border-line bg-card px-4 py-3.5 text-left transition-colors hover:border-mist active:translate-y-px disabled:opacity-60 disabled:hover:border-line"
       >
-        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-control bg-indigo-wash text-indigo">
+        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-control bg-press text-ink">
           <Icon size={20} strokeWidth={1.5} aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
@@ -513,7 +513,7 @@ function FromAnotherApp({
           type="button"
           disabled={code?.state !== 'ready'}
           onClick={() => code?.state === 'ready' && void copy(code.value)}
-          className="rounded-pill border border-line bg-card px-5 py-2.5 font-strong text-label text-indigo transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
+          className="rounded-pill border border-line bg-card px-5 py-2.5 font-strong text-label text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
         >
           {copied ? 'Copied' : 'Copy code'}
         </button>

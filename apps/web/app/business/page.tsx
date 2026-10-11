@@ -81,7 +81,7 @@ export default function BusinessPage() {
                   href={href}
                   className="rounded-card border border-line bg-card p-4 transition-colors hover:border-mist"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-chip bg-indigo-wash text-indigo">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-chip bg-press text-ink">
                     <Icon size={20} strokeWidth={1.5} />
                   </span>
                   <p className="mt-3 font-strong text-body-sm text-ink">{label}</p>
@@ -92,7 +92,7 @@ export default function BusinessPage() {
 
             {store.taxReserves.length > 0 ? (
               <div className="mb-7 rounded-panel bg-card p-5 shadow-raised">
-                <span className="rounded-chip bg-indigo-wash px-2 py-1 font-heavy text-badge uppercase text-indigo">
+                <span className="rounded-chip bg-press px-2 py-1 font-heavy text-badge uppercase text-slate">
                   Tax reserve
                 </span>
                 <p className="tabular mt-3 font-strong text-amount text-ink">
@@ -106,7 +106,7 @@ export default function BusinessPage() {
 
             <div className="flex items-baseline justify-between pb-3 pt-[10px]">
               <p className="font-strong text-body-lg text-ink">Invoices</p>
-              <Link href="/business/new-invoice" className="font-strong text-label text-indigo hover:underline">
+              <Link href="/business/new-invoice" className="font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
                 New
               </Link>
             </div>

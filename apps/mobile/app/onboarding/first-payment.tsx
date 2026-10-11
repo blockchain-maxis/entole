@@ -57,7 +57,7 @@ export default function FirstPayment() {
           <StepDots total={4} done={4} />
         </View>
         <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void finish({ to: 'home' })}>
-          <Text className="font-strong text-label text-indigo">Skip</Text>
+          <Text className="font-strong text-label text-ink underline">Skip</Text>
         </Pressable>
       </View>
 
@@ -87,7 +87,7 @@ export default function FirstPayment() {
                   key={contact.id}
                   contact={contact}
                   {...(where ? { caption: where } : {})}
-                  trailing={<Text className="font-strong text-caption-sm text-indigo">Send</Text>}
+                  trailing={<Text className="font-strong text-caption-sm text-ink">Send</Text>}
                   onPress={() => void finish({ to: 'send', contactId: contact.id })}
                 />
               );

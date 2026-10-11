@@ -127,7 +127,7 @@ export function SectionHeading({
       <Text className="font-heavy text-body-sm text-ink">{title}</Text>
       {action ? (
         <Pressable accessibilityRole="link" hitSlop={10} onPress={onActionPress}>
-          <Text className="font-strong text-label text-indigo">{action}</Text>
+          <Text className="font-strong text-label text-ink underline">{action}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -145,7 +145,7 @@ export function StepDots({ total, done }: { total: number; done: number }) {
       {Array.from({ length: total }, (_, index) => (
         <View
           key={index}
-          className={`h-1 w-[22px] rounded-pill ${index < done ? 'bg-indigo' : 'bg-line'}`}
+          className={`h-1 w-[22px] rounded-pill ${index < done ? 'bg-ink' : 'bg-line'}`}
         />
       ))}
     </View>

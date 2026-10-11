@@ -177,7 +177,7 @@ export default function NewBeneficiary() {
                   onPress={() => void paste()}
                   className="ml-3 self-start"
                 >
-                  <Text className="font-strong text-label text-indigo">Paste</Text>
+                  <Text className="font-strong text-label text-ink underline">Paste</Text>
                 </Pressable>
               }
             />

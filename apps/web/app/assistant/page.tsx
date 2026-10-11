@@ -122,7 +122,7 @@ export default function AssistantPage() {
               type="button"
               disabled={working || assistant.loading}
               onClick={() => void turnOn()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
             >
               {working ? 'Confirming' : 'Turn on the assistant'}
             </button>
@@ -180,7 +180,7 @@ function AskAssistant() {
         <p className="mt-1 font-body text-body-sm text-slate">
           Set an allowance for someone and you can ask the assistant to pay them.
         </p>
-        <Link href="/rules/new" className="mt-3 inline-block font-strong text-label text-indigo hover:text-indigo-deep">
+        <Link href="/rules/new" className="mt-3 inline-block font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
           Set up an allowance
         </Link>
       </section>
@@ -204,7 +204,7 @@ function AskAssistant() {
         autoCapitalize="sentences"
         enterKeyHint="send"
         aria-describedby="ask-help"
-        className={`mt-3 h-14 w-full rounded-control border-[1.5px] bg-card px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-indigo ${
+        className={`mt-3 h-14 w-full rounded-control border-[1.5px] bg-card px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-ink ${
           problem ? 'border-halt' : 'border-line'
         }`}
       />
@@ -214,7 +214,7 @@ function AskAssistant() {
       <button
         type="submit"
         disabled={working || text.trim().length === 0}
-        className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+        className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
       >
         {working ? 'Starting' : 'Ask the assistant'}
       </button>

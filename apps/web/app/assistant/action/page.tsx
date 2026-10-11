@@ -215,7 +215,7 @@ function SentPanel({ receiptId }: { receiptId: string }) {
       </dl>
       <Link
         href="/activity"
-        className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep"
+        className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
       >
         See activity
       </Link>

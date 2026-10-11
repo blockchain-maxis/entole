@@ -113,7 +113,7 @@ export default function OrderSuppliesPage() {
         <button
           type="button"
           onClick={addRow}
-          className="mt-3 flex items-center gap-1.5 font-strong text-label text-indigo hover:underline"
+          className="mt-3 flex items-center gap-1.5 font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
         >
           <Plus size={16} strokeWidth={1.5} />
           Add another item
@@ -131,7 +131,7 @@ export default function OrderSuppliesPage() {
           type="button"
           disabled={!ready || saving}
           onClick={() => void save()}
-          className="mt-6 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+          className="mt-6 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
         >
           {saving ? 'Saving' : 'Save request'}
         </button>

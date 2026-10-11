@@ -62,10 +62,10 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
               accessibilityState={{ selected: active }}
               onPress={() => setKind(filter.kind)}
               className={`rounded-pill border px-3.5 py-1.5 ${
-                active ? 'border-indigo bg-indigo-wash' : 'border-line bg-card active:border-mist'
+                active ? 'border-ink bg-card' : 'border-line bg-card active:border-mist'
               }`}
             >
-              <Text className={`font-strong text-label-sm ${active ? 'text-indigo' : 'text-slate'}`}>{filter.label}</Text>
+              <Text className={`font-strong text-label-sm ${active ? 'text-ink' : 'text-slate'}`}>{filter.label}</Text>
             </Pressable>
           );
         })}

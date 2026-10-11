@@ -221,7 +221,7 @@ export function ConfirmSendSheet({
                   }}
                   className="mt-2 self-start"
                 >
-                  <Text className="font-strong text-label text-indigo">Add money</Text>
+                  <Text className="font-strong text-label text-ink underline">Add money</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -246,7 +246,7 @@ export function ConfirmSendSheet({
                     onPress={() => setNoteOpen(true)}
                     className="self-start"
                   >
-                    <Text className="font-strong text-label text-indigo">Add a note</Text>
+                    <Text className="font-strong text-label text-ink underline">Add a note</Text>
                   </Pressable>
                 )}
               </View>

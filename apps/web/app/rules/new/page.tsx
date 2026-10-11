@@ -112,7 +112,7 @@ function NewRule() {
           </p>
           <Link
             href="/transfer/send"
-            className="mt-7 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px"
+            className="mt-7 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
           >
             Pay someone
           </Link>
@@ -130,7 +130,7 @@ function NewRule() {
               <button
                 type="button"
                 onClick={() => void store.refresh().catch(() => undefined)}
-                className="mt-2 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+                className="mt-2 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
               >
                 Try again
               </button>
@@ -140,7 +140,7 @@ function NewRule() {
               id="rule-recipient"
               value={recipientId}
               onChange={(event) => setPicked(event.target.value)}
-              className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink outline-none focus:border-indigo"
+              className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink outline-none focus:border-ink"
             >
               {store.contacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
@@ -160,7 +160,7 @@ function NewRule() {
                 onClick={() => setCadence(option)}
                 className={`flex-1 rounded-chip border px-3 py-2.5 font-strong text-label-sm transition-colors ${
                   option === cadence
-                    ? 'border-indigo bg-indigo-wash text-indigo'
+                    ? 'border-ink bg-card text-ink'
                     : 'border-hairline bg-paper text-slate hover:border-mist'
                 }`}
               >
@@ -201,7 +201,7 @@ function NewRule() {
             type="button"
             disabled={!ready || saving}
             onClick={() => void save()}
-            className="mt-2 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+            className="mt-2 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
           >
             {saving ? 'Creating' : 'Create allowance'}
           </button>

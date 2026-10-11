@@ -57,7 +57,7 @@ export function Field({
       </View>
       <View
         className={`mt-2 flex-row items-center rounded-control border-[1.5px] bg-card px-4 py-3.5 ${
-          error ? 'border-halt' : focused ? 'border-indigo' : 'border-line'
+          error ? 'border-halt' : focused ? 'border-ink' : 'border-line'
         } ${editable ? '' : 'opacity-50'}`}
       >
         <TextInput

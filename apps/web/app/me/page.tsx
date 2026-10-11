@@ -134,13 +134,13 @@ export default function MePage() {
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
               autoComplete="name"
-              className="h-12 rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body text-ink outline-none"
+              className="h-12 rounded-control border-[1.5px] border-ink bg-card px-4 font-strong text-body text-ink outline-none"
             />
             {touched && nameError ? <p className="font-body text-caption text-slate">{nameError}</p> : null}
             <label htmlFor="profile-username" className="mt-2 font-strong text-caption text-slate">
               Username
             </label>
-            <div className="flex h-12 items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-indigo">
+            <div className="flex h-12 items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-ink">
               <span className="font-strong text-body text-slate">@</span>
               <input
                 id="profile-username"
@@ -167,7 +167,7 @@ export default function MePage() {
               <button
                 type="submit"
                 disabled={Boolean(nameError || usernameError)}
-                className="flex h-12 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+                className="flex h-12 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 Save
               </button>
@@ -240,7 +240,7 @@ export default function MePage() {
                 aria-pressed={active}
                 onClick={(event) => setPreference(option.value, { x: event.clientX, y: event.clientY })}
                 className={`flex-1 rounded-chip py-2.5 font-strong text-label-sm transition-colors ${
-                  active ? 'bg-indigo-wash text-ink' : 'text-mist hover:text-slate'
+                  active ? 'bg-ink text-paper' : 'text-slate hover:text-ink'
                 }`}
               >
                 {option.label}

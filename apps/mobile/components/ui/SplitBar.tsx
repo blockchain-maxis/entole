@@ -15,7 +15,7 @@ export function SplitBar({ share, label }: { share: number; label: string }) {
       accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped * 100) }}
       className="h-2 flex-row overflow-hidden rounded-pill bg-track"
     >
-      <View className="h-full rounded-pill bg-indigo" style={{ flexGrow: clamped, flexBasis: 0, minWidth: 6 }} />
+      <View className="h-full rounded-pill bg-ink" style={{ flexGrow: clamped, flexBasis: 0, minWidth: 6 }} />
       <View style={{ flexGrow: 1 - clamped, flexBasis: 0 }} />
     </View>
   );

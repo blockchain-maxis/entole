@@ -105,7 +105,7 @@ export default function SavingsPage() {
               <button
                 type="button"
                 onClick={() => openMode('deposit')}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
               >
                 Add to savings
               </button>
@@ -144,7 +144,7 @@ export default function SavingsPage() {
                 type="button"
                 disabled={amount <= 0 || busy}
                 onClick={() => void submit()}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 {busy ? 'Working' : mode === 'deposit' ? `Add ${formatNaira(amount)}` : `Take out ${formatNaira(amount)}`}
               </button>

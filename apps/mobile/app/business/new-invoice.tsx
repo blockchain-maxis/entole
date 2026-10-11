@@ -191,7 +191,7 @@ export default function NewInvoice() {
               <Switch
                 value={hold}
                 onValueChange={setHold}
-                trackColor={{ true: colors.indigo.DEFAULT, false: colors.line }}
+                trackColor={{ true: colors.ink, false: colors.line }}
                 thumbColor={colors.card}
                 accessibilityLabel="Hold for a better rate"
               />
@@ -208,10 +208,10 @@ export default function NewInvoice() {
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
                         onPress={() => setPresetIndex(index)}
-                        className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-indigo-wash' : ''}`}
+                        className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-ink' : ''}`}
                       >
                         <Text
-                          className={`font-strong text-label-sm ${active ? 'text-ink' : 'text-mist'}`}
+                          className={`font-strong text-label-sm ${active ? 'text-paper' : 'text-slate'}`}
                         >
                           {preset.label}
                         </Text>

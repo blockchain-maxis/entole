@@ -136,7 +136,7 @@ export default function NewInvoicePage() {
             aria-checked={hold}
             aria-label="Hold for a better rate"
             onClick={() => setHold((on) => !on)}
-            className={`relative h-7 w-12 flex-none rounded-full transition-colors ${hold ? 'bg-indigo' : 'bg-line'}`}
+            className={`relative h-7 w-12 flex-none rounded-full transition-colors ${hold ? 'bg-ink' : 'bg-line'}`}
           >
             <span
               className={`absolute top-0.5 h-6 w-6 rounded-full bg-card transition-transform ${hold ? 'translate-x-5' : 'translate-x-0.5'}`}
@@ -156,7 +156,7 @@ export default function NewInvoicePage() {
                     aria-pressed={active}
                     onClick={() => setPresetIndex(index)}
                     className={`flex-1 rounded-chip py-2.5 font-strong text-label-sm transition-colors ${
-                      active ? 'bg-indigo-wash text-ink' : 'text-mist hover:text-slate'
+                      active ? 'bg-ink text-paper' : 'text-slate hover:text-ink'
                     }`}
                   >
                     {preset.label}
@@ -175,7 +175,7 @@ export default function NewInvoicePage() {
           type="button"
           disabled={!ready || saving}
           onClick={() => void save()}
-          className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+          className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
         >
           {saving ? 'Sending' : 'Send invoice'}
         </button>

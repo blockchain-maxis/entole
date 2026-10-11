@@ -124,7 +124,7 @@ export default function ReceivePage() {
               type="button"
               disabled={!link}
               onClick={() => void share()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
             >
               Share
             </button>
@@ -136,7 +136,7 @@ export default function ReceivePage() {
             className={
               canShare
                 ? 'flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body-lg text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60'
-                : 'flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60'
+                : 'flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60'
             }
           >
             {copied === 'link' ? 'Copied' : 'Copy link'}
@@ -156,7 +156,7 @@ export default function ReceivePage() {
             type="button"
             disabled={!paymentCode}
             onClick={() => paymentCode && void copy('code', paymentCode)}
-            className="flex-none font-strong text-label text-indigo transition-colors hover:text-indigo-deep disabled:opacity-60"
+            className="flex-none font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink transition-colors disabled:opacity-60"
           >
             {copied === 'code' ? 'Copied' : 'Copy code'}
           </button>

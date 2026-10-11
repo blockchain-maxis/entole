@@ -63,7 +63,7 @@ export default function Grow() {
             refreshing={reloading && !failed && !loading}
             onRefresh={() => void reload()}
             tintColor={colors.mist}
-            colors={[colors.indigo.DEFAULT]}
+            colors={[colors.ink]}
           />
         }
       >

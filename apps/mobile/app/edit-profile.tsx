@@ -82,7 +82,7 @@ export default function EditProfile() {
         <Text className="font-strong text-title text-ink">Edit profile</Text>
 
         <Text className="mt-5 font-strong text-caption text-slate">Full name</Text>
-        <View className="mt-2 rounded-control border-[1.5px] border-indigo bg-card px-4 py-3.5">
+        <View className="mt-2 rounded-control border-[1.5px] border-ink bg-card px-4 py-3.5">
           <TextInput
             value={fullName}
             onChangeText={setFullName}

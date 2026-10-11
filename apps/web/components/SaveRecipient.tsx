@@ -67,7 +67,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
         </p>
         <Link
           href={`/rules/new?for=${encodeURIComponent(done.id)}`}
-          className="mt-2.5 inline-block font-strong text-label text-indigo hover:text-indigo-deep"
+          className="mt-2.5 inline-block font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
         >
           Set an allowance for them
         </Link>
@@ -101,7 +101,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
           maxLength={60}
           aria-describedby={problem ? 'save-problem' : 'save-help'}
           aria-invalid={problem ? true : undefined}
-          className={`h-12 min-w-0 flex-1 rounded-control border-[1.5px] bg-paper px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-indigo ${
+          className={`h-12 min-w-0 flex-1 rounded-control border-[1.5px] bg-paper px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-ink ${
             problem ? 'border-halt' : 'border-line'
           }`}
         />

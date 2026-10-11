@@ -111,7 +111,7 @@ export default function ConnectionsPage() {
             type="button"
             disabled={working || store.status === 'loading'}
             onClick={() => void createCode()}
-            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
           >
             {working ? 'Creating' : code ? 'Create a new code' : 'Create a link code'}
           </button>

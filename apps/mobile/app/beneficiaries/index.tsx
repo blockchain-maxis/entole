@@ -97,7 +97,7 @@ export default function Beneficiaries() {
                 contact={contact}
                 caption={captionFor(item)}
                 accessibilityLabel={`Edit ${contact.name}`}
-                trailing={<Text className="font-strong text-caption-sm text-indigo">Edit</Text>}
+                trailing={<Text className="font-strong text-caption-sm text-ink">Edit</Text>}
                 onPress={() => router.push({ pathname: '/beneficiaries/[id]', params: { id: item.id } })}
               />
             );

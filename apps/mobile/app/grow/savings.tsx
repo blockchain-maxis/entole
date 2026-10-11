@@ -99,10 +99,10 @@ export default function Savings() {
                       accessibilityState={{ selected: active }}
                       onPress={() => pickMode(option)}
                       className={`flex-1 items-center rounded-control border py-3 ${
-                        active ? 'border-indigo bg-indigo-wash' : 'border-line bg-card'
+                        active ? 'border-ink bg-card' : 'border-line bg-card'
                       }`}
                     >
-                      <Text className={`font-strong text-body-sm ${active ? 'text-indigo' : 'text-slate'}`}>
+                      <Text className={`font-strong text-body-sm ${active ? 'text-ink' : 'text-slate'}`}>
                         {option === 'deposit' ? 'Add to savings' : 'Take out'}
                       </Text>
                     </Pressable>
@@ -132,7 +132,7 @@ export default function Savings() {
                       onPress={() => setEntry(entryFromMinor(kobo(saved)))}
                       className="mt-1"
                     >
-                      <Text className="font-strong text-label-sm text-indigo">Take out all of it</Text>
+                      <Text className="font-strong text-label-sm text-ink underline">Take out all of it</Text>
                     </Pressable>
                   ) : null}
                 </View>

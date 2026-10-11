@@ -168,7 +168,7 @@ export function InvoiceDetails({ checkout, now }: { checkout: Checkout; now: Dat
 // ---------------------------------------------------------------------------
 
 const PRIMARY =
-  'flex h-14 w-full items-center justify-center gap-2 rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px';
+  'flex h-14 w-full items-center justify-center gap-2 rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px';
 const SECONDARY =
   'flex h-14 w-full items-center justify-center gap-2 rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist active:translate-y-px';
 const QUIET =

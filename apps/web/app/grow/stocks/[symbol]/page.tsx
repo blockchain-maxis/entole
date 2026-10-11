@@ -135,7 +135,7 @@ function StockTradePage() {
                     aria-pressed={active}
                     onClick={() => pickSide(option)}
                     className={`flex-1 rounded-control border py-3 font-strong text-body-sm ${
-                      active ? 'border-indigo bg-indigo-wash text-indigo' : 'border-line bg-card text-slate'
+                      active ? 'border-ink bg-card text-ink' : 'border-line bg-card text-slate'
                     } ${disabled ? 'opacity-40' : ''}`}
                   >
                     {option === 'buy' ? 'Buy' : 'Sell'}
@@ -159,7 +159,7 @@ function StockTradePage() {
               <button
                 type="button"
                 onClick={() => setSellAll((v) => !v)}
-                className="mt-2 px-1 font-strong text-label-sm text-indigo"
+                className="mt-2 px-1 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
               >
                 {sellAll ? 'Choose an amount' : 'Sell all'}
               </button>
@@ -176,7 +176,7 @@ function StockTradePage() {
                 type="button"
                 disabled={!canSubmit}
                 onClick={() => void submit()}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 {busy ? 'Working' : side === 'buy' ? 'Buy' : 'Sell'}
               </button>

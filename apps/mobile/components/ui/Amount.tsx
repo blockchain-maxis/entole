@@ -37,7 +37,7 @@ export function Amount({
       <Text tabular className={`font-strong ${digits} text-ink`}>
         {formatNairaDigits(value)}
       </Text>
-      {caret ? <View className="ml-1 h-11 w-0.5 rounded-sm bg-indigo" /> : null}
+      {caret ? <View className="ml-1 h-11 w-0.5 rounded-sm bg-ink" /> : null}
     </View>
   );
 }

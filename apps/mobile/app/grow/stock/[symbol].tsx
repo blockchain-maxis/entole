@@ -148,10 +148,10 @@ export default function StockTrade() {
                     disabled={disabled}
                     onPress={() => pickSide(option)}
                     className={`flex-1 items-center rounded-control border py-3 ${
-                      active ? 'border-indigo bg-indigo-wash' : 'border-line bg-card'
+                      active ? 'border-ink bg-card' : 'border-line bg-card'
                     } ${disabled ? 'opacity-40' : ''}`}
                   >
-                    <Text className={`font-strong text-body-sm ${active ? 'text-indigo' : 'text-slate'}`}>
+                    <Text className={`font-strong text-body-sm ${active ? 'text-ink' : 'text-slate'}`}>
                       {option === 'buy' ? 'Buy' : 'Sell'}
                     </Text>
                   </Pressable>
@@ -172,7 +172,7 @@ export default function StockTrade() {
 
             {side === 'sell' && held > 0 ? (
               <Pressable accessibilityRole="button" className="mt-2 px-1" onPress={() => setSellAll((v) => !v)}>
-                <Text className="font-strong text-label-sm text-indigo">{sellAll ? 'Choose an amount' : 'Sell all'}</Text>
+                <Text className="font-strong text-label-sm text-ink underline">{sellAll ? 'Choose an amount' : 'Sell all'}</Text>
               </Pressable>
             ) : null}
 

@@ -189,7 +189,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             placeholder="Your full name"
             autoFocus
             autoComplete="name"
-            className="mt-2 h-14 w-full rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body-lg text-ink outline-none"
+            className="mt-2 h-14 w-full rounded-control border-[1.5px] border-ink bg-card px-4 font-strong text-body-lg text-ink outline-none"
           />
           {touched && nameError ? (
             <p className="mt-2 w-full font-body text-caption text-slate">{nameError}</p>
@@ -197,7 +197,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <label className="mt-5 w-full font-strong text-caption text-slate" htmlFor="username">
             Username
           </label>
-          <div className="mt-2 flex h-14 w-full items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-indigo">
+          <div className="mt-2 flex h-14 w-full items-center rounded-control border-[1.5px] border-line bg-card px-4 focus-within:border-ink">
             <span className="font-strong text-body-lg text-slate">@</span>
             <input
               id="username"
@@ -240,7 +240,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         type="button"
         disabled={busy || (showNameStep && !detailsValid)}
         onClick={() => void (onboarded ? signIn() : showNameStep ? onboard() : setStep('name'))}
-        className="mt-8 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+        className="mt-8 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
       >
         {busy
           ? 'Confirming'
@@ -256,7 +256,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           type="button"
           disabled={busy}
           onClick={() => void signInFromElsewhere()}
-          className="mt-2 flex h-12 w-full items-center justify-center rounded-control font-strong text-body-sm text-indigo transition-colors hover:bg-press active:translate-y-px disabled:opacity-50"
+          className="mt-2 flex h-12 w-full items-center justify-center rounded-control font-strong text-body-sm text-ink transition-colors hover:bg-press active:translate-y-px disabled:opacity-50"
         >
           I already have an account
         </button>

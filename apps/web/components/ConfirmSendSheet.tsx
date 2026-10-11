@@ -227,14 +227,14 @@ export function ConfirmSendSheet({
                   placeholder="A few words, if you like"
                   maxLength={80}
                   disabled={sending}
-                  className="mt-2 h-12 w-full rounded-control border border-line bg-paper px-3.5 font-body text-body-sm text-ink outline-none focus:border-indigo"
+                  className="mt-2 h-12 w-full rounded-control border border-line bg-paper px-3.5 font-body text-body-sm text-ink outline-none focus:border-ink"
                 />
               </label>
             ) : (
               <button
                 type="button"
                 onClick={() => setNoteOpen(true)}
-                className="font-strong text-label text-indigo hover:text-indigo-deep"
+                className="font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
               >
                 Add a note
               </button>
@@ -254,7 +254,7 @@ export function ConfirmSendSheet({
             <button
               type="button"
               onClick={retry}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
             >
               Try again
             </button>
@@ -263,7 +263,7 @@ export function ConfirmSendSheet({
               type="button"
               disabled={!ready || short || settled || sending}
               onClick={() => void confirm()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
             >
               {settled ? 'Settled' : sending ? 'Sending' : problem ? 'Try again' : 'Confirm and send'}
             </button>

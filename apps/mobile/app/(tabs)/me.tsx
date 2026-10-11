@@ -37,9 +37,9 @@ function ThemePicker() {
             onPress={(event) =>
               setPreference(option.value, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
             }
-            className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-indigo-wash' : ''}`}
+            className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-ink' : ''}`}
           >
-            <Text className={`font-strong text-label-sm ${active ? 'text-ink' : 'text-mist'}`}>
+            <Text className={`font-strong text-label-sm ${active ? 'text-paper' : 'text-slate'}`}>
               {option.label}
             </Text>
           </Pressable>

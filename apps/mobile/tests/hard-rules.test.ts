@@ -198,6 +198,41 @@ describe('assistant actions are visually distinct', () => {
   });
 });
 
+describe('two inks: black is the person, blue is the assistant', () => {
+  // Blue used to be the button, link, selection and focus colour as well as
+  // the assistant's, so it said nothing. It is now only ever the assistant.
+  const ASSISTANT_SURFACES = [
+    'app/assistant-action.tsx',
+    'app/assistant.tsx',
+    'app/connections.tsx',
+    'app/rules/[id].tsx',
+    'components/ui/ActivityRow.tsx',
+    'components/ui/Badge.tsx',
+    'components/ui/Countdown.tsx',
+    'components/ui/Meter.tsx',
+    'components/ui/Toast.tsx',
+  ];
+
+  it('blue appears only where the assistant has acted or may act', () => {
+    const blue = sourceFiles
+      .filter((file) => /indigo/.test(stripComments(read(file))))
+      .map(rel)
+      .sort();
+    expect(blue).toEqual(ASSISTANT_SURFACES);
+  });
+
+  it('a primary button is ink, as it is in the browser', () => {
+    const button = stripComments(read(join(ROOT, 'components/ui/Button.tsx')));
+    expect(button).toMatch(/primary: 'bg-ink /);
+    expect(button).toMatch(/raised: 'bg-ink /);
+  });
+
+  it('a field in focus and the active tab are ink on a neutral ground', () => {
+    expect(stripComments(read(join(ROOT, 'components/ui/Field.tsx')))).toMatch(/focused \? 'border-ink'/);
+    expect(stripComments(read(join(ROOT, 'components/ui/TabBarIcon.tsx')))).toMatch(/focused \? colors\.press/);
+  });
+});
+
 describe('a signed-in session needs a live account, not only a fresh timestamp', () => {
   // The timestamp is on disk and survives the app closing; the signing account
   // is deliberately memory-only. Checking only the timestamp lets a cold start

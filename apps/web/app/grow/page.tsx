@@ -54,7 +54,7 @@ export default function GrowHubPage() {
             <Link href="/grow/stocks" aria-label="Stocks" className="block rounded-panel border border-line bg-card p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <TrendingUp size={20} strokeWidth={1.5} className="text-indigo" />
+                  <TrendingUp size={20} strokeWidth={1.5} className="text-ink" />
                   <span className="font-heavy text-body text-ink">Stocks</span>
                 </div>
                 <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />

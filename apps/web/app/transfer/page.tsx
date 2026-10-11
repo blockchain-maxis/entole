@@ -33,7 +33,7 @@ export default function PayPage() {
               href={href}
               className="rounded-card border border-line bg-card p-4 transition-colors hover:border-mist"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-pill bg-indigo-wash text-indigo">
+              <span className="flex h-10 w-10 items-center justify-center rounded-pill bg-press text-ink">
                 <Icon size={20} strokeWidth={1.5} aria-hidden />
               </span>
               <p className="mt-3 font-strong text-body text-ink">{label}</p>
@@ -55,7 +55,7 @@ export default function PayPage() {
             <button
               type="button"
               onClick={() => void store.refresh().catch(() => undefined)}
-              className="mt-2 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+              className="mt-2 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               Try again
             </button>
@@ -80,7 +80,7 @@ export default function PayPage() {
                     <p className="font-strong text-body text-ink">{contact.name}</p>
                     {contact.place ? <p className="font-body text-caption text-slate">{contact.place}</p> : null}
                   </div>
-                  <span className="font-strong text-caption-sm text-indigo">Send</span>
+                  <span className="font-strong text-caption-sm text-ink">Send</span>
                 </Link>
               </li>
             ))}

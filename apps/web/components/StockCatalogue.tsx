@@ -33,7 +33,7 @@ export function StockCatalogue() {
 
   return (
     <section aria-label="Stocks to look through">
-      <label className="flex items-center gap-2.5 rounded-control border border-line bg-card px-4 py-3.5 focus-within:border-indigo">
+      <label className="flex items-center gap-2.5 rounded-control border border-line bg-card px-4 py-3.5 focus-within:border-ink">
         <Search size={18} strokeWidth={1.5} className="flex-none text-mist" />
         <input
           type="search"
@@ -59,7 +59,7 @@ export function StockCatalogue() {
               aria-pressed={active}
               onClick={() => setKind(filter.kind)}
               className={`rounded-pill border px-3.5 py-1.5 font-strong text-label-sm transition-colors active:translate-y-px ${
-                active ? 'border-indigo bg-indigo-wash text-indigo' : 'border-line bg-card text-slate hover:border-mist'
+                active ? 'border-ink bg-card text-ink' : 'border-line bg-card text-slate hover:border-mist'
               }`}
             >
               {filter.label}

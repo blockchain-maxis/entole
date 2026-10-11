@@ -308,7 +308,7 @@ export default function RunPayroll() {
                   <View
                     key={person.id}
                     className={`flex-row items-center gap-3 rounded-row border bg-card px-3.5 py-3 ${
-                      chosen ? 'border-indigo' : 'border-line'
+                      chosen ? 'border-ink' : 'border-line'
                     }`}
                   >
                     <Pressable
@@ -327,10 +327,10 @@ export default function RunPayroll() {
                     >
                       <View
                         className={`h-6 w-6 items-center justify-center rounded-md border ${
-                          chosen ? 'border-indigo bg-indigo' : 'border-line bg-paper'
+                          chosen ? 'border-ink bg-ink' : 'border-line bg-paper'
                         }`}
                       >
-                        {chosen ? <Check size={15} strokeWidth={2.5} color={colors.card} /> : null}
+                        {chosen ? <Check size={15} strokeWidth={2.5} color={colors.paper} /> : null}
                       </View>
                       <View className="min-w-0 flex-1">
                         <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
@@ -354,7 +354,7 @@ export default function RunPayroll() {
                       onPress={() => setEditing(person.id)}
                       className="rounded-chip bg-track px-3 py-2 active:bg-press"
                     >
-                      <Text tabular className={`font-strong text-body-sm ${amountMinor > 0 ? 'text-ink' : 'text-indigo'}`}>
+                      <Text tabular className={`font-strong text-body-sm ${amountMinor > 0 ? 'text-ink' : 'text-ink underline'}`}>
                         {amountMinor > 0 ? formatNaira(kobo(amountMinor)) : 'Set amount'}
                       </Text>
                     </Pressable>
@@ -394,7 +394,7 @@ export default function RunPayroll() {
                 <View className="mt-3 px-1">
                   <Text className="font-body text-label-sm text-halt">{feeProblem}</Text>
                   <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setFeeTry((count) => count + 1)}>
-                    <Text className="mt-1 font-strong text-label-sm text-indigo">Try again</Text>
+                    <Text className="mt-1 font-strong text-label-sm text-ink underline">Try again</Text>
                   </Pressable>
                 </View>
               ) : affordable.state === 'short' ? (
@@ -403,7 +403,7 @@ export default function RunPayroll() {
                     You are {shortByWords(affordable.shortByMinor)} short of the total with fees.
                   </Text>
                   <Pressable accessibilityRole="link" hitSlop={10} onPress={() => router.push('/add-money')}>
-                    <Text className="mt-1 font-strong text-label-sm text-indigo">Add money first</Text>
+                    <Text className="mt-1 font-strong text-label-sm text-ink underline">Add money first</Text>
                   </Pressable>
                 </View>
               ) : null}

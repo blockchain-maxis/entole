@@ -66,7 +66,7 @@ function Pill({
       onPress={onPress}
       className={`my-1 flex-row items-center rounded-pip border py-0.5 ${
         part.avatar ? 'pl-1 pr-2.5' : 'px-2.5'
-      } ${active ? 'border-indigo bg-indigo' : 'border-line bg-card'}`}
+      } ${active ? 'border-ink bg-ink' : 'border-line bg-card'}`}
     >
       {part.avatar ? (
         <View
@@ -79,7 +79,7 @@ function Pill({
       ) : null}
       <Text
         tabular={part.tabular}
-        className={`font-strong text-sentence ${active ? 'text-card' : 'text-ink'}`}
+        className={`font-strong text-sentence ${active ? 'text-paper' : 'text-ink'}`}
       >
         {part.text}
       </Text>

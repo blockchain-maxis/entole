@@ -45,7 +45,7 @@ export function PauseIntro() {
             setSeen(true);
             markPauseIntroSeen();
           }}
-          className="flex h-12 items-center justify-center rounded-control bg-ink px-5 font-strong text-body text-paper transition-colors hover:bg-indigo-deep"
+          className="flex h-12 items-center justify-center rounded-control bg-ink px-5 font-strong text-body text-paper transition-colors hover:bg-ink/85"
         >
           Get started
         </Link>

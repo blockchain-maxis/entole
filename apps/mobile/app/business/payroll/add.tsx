@@ -178,7 +178,7 @@ function PersonForm({ id, staff }: { id: string | undefined; staff: Staff[] }) {
                   hint="Ask them to share it from Receive in their app."
                   trailing={
                     <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void paste()}>
-                      <Text className="font-strong text-label text-indigo">Paste</Text>
+                      <Text className="font-strong text-label text-ink underline">Paste</Text>
                     </Pressable>
                   }
                 />
@@ -213,7 +213,7 @@ function PersonForm({ id, staff }: { id: string | undefined; staff: Staff[] }) {
                           accessibilityState={{ selected }}
                           onPress={() => setCadence(option.value)}
                           className={`flex-1 items-center rounded-chip py-3 ${
-                            selected ? 'border-[1.5px] border-indigo bg-indigo-wash' : 'border border-line bg-card'
+                            selected ? 'border-[1.5px] border-ink bg-card' : 'border border-line bg-card'
                           }`}
                         >
                           <Text className={`text-label ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}>

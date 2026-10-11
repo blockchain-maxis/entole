@@ -42,7 +42,7 @@ export default function SendAbroadPage() {
                     aria-pressed={active}
                     onClick={() => setSelectedId(corridor.id)}
                     className={`rounded-pill border px-4 py-2.5 font-strong text-label transition-colors ${
-                      active ? 'border-indigo bg-indigo-wash text-indigo' : 'border-line bg-card text-ink hover:border-mist'
+                      active ? 'border-ink bg-card text-ink' : 'border-line bg-card text-ink hover:border-mist'
                     }`}
                   >
                     Nigeria → {corridor.label}
@@ -64,7 +64,7 @@ export default function SendAbroadPage() {
                       <p className="font-strong text-body text-ink">{contact.name}</p>
                       {contact.place ? <p className="font-body text-caption text-slate">{contact.place}</p> : null}
                     </div>
-                    <span className="font-strong text-caption-sm text-indigo">Send</span>
+                    <span className="font-strong text-caption-sm text-ink">Send</span>
                   </Link>
                 </li>
               ))}

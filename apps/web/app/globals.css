@@ -24,6 +24,14 @@
     overscroll-behavior-y: none;
   }
 
+  /* Keyboard focus is always visible, and it is ink: blue belongs to the
+     assistant. Fields that draw focus on their own edge opt out with
+     `outline-none`. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-ink));
+    outline-offset: 2px;
+  }
+
   /* Digits must never shift the layout while an amount changes. */
   .tabular {
     font-variant-numeric: tabular-nums;
@@ -32,6 +40,14 @@
 }
 
 @layer components {
+  /* The undo window's bar: it slides out of its track at one steady speed.
+     How long it takes and whether it is running are set where it is drawn. */
+  .countdown-drain {
+    animation-name: countdown-drain;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
   /* Bottom-anchored actions sit above the home indicator, not under it. */
   .safe-bottom {
     padding-bottom: calc(theme('spacing.4') + env(safe-area-inset-bottom));
@@ -83,5 +99,14 @@ html.theme-fade *::after {
   }
   to {
     clip-path: circle(var(--reveal-r, 150vmax) at var(--reveal-x, 50%) var(--reveal-y, 50%));
+  }
+}
+
+@keyframes countdown-drain {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
   }
 }

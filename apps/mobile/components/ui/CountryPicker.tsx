@@ -33,7 +33,7 @@ export function CountryField({ value, onPress }: { value: string | undefined; on
         <Text className={`font-strong text-body-lg ${name ? 'text-ink' : 'text-mist'}`}>
           {name ?? 'Choose a country'}
         </Text>
-        <Text className="font-strong text-label text-indigo">{name ? 'Change' : 'Choose'}</Text>
+        <Text className="font-strong text-label text-ink underline">{name ? 'Change' : 'Choose'}</Text>
       </Pressable>
     </View>
   );
@@ -101,10 +101,10 @@ export function CountrySheet({
                     onPress={() => onPick(item.code)}
                     className="flex-row items-center justify-between border-b border-hairline px-1 py-3.5 active:bg-press"
                   >
-                    <Text className={`font-body text-body ${selected ? 'text-indigo' : 'text-ink'}`}>
+                    <Text className={`text-body text-ink ${selected ? 'font-strong' : 'font-body'}`}>
                       {item.name}
                     </Text>
-                    {selected ? <Check size={18} strokeWidth={2} color={colors.indigo.DEFAULT} /> : null}
+                    {selected ? <Check size={18} strokeWidth={2} color={colors.ink} /> : null}
                   </Pressable>
                 );
               }}

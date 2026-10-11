@@ -70,13 +70,13 @@ export default function NewSeatPage() {
               type="button"
               onClick={() => setRole(option.value)}
               className={`flex items-center justify-between rounded-chip border px-4 py-3.5 ${
-                option.value === role ? 'border-indigo bg-indigo-wash' : 'border-hairline bg-paper'
+                option.value === role ? 'border-ink bg-card' : 'border-hairline bg-paper'
               }`}
             >
               <span className={`font-body text-body ${option.value === role ? 'font-strong text-ink' : 'text-slate'}`}>
                 {option.label}
               </span>
-              <span className={`font-strong text-caption ${option.value === role ? 'text-indigo' : 'text-mist'}`}>
+              <span className={`font-strong text-caption ${option.value === role ? 'text-ink' : 'text-slate'}`}>
                 {option.spends ? 'Capped allowance' : 'No spend'}
               </span>
             </button>
@@ -106,7 +106,7 @@ export default function NewSeatPage() {
                   type="button"
                   onClick={() => setCadence(option)}
                   className={`flex-1 rounded-chip border px-3 py-2.5 font-strong text-label-sm ${
-                    option === cadence ? 'border-indigo bg-indigo-wash text-indigo' : 'border-hairline bg-paper text-slate'
+                    option === cadence ? 'border-ink bg-card text-ink' : 'border-hairline bg-paper text-slate'
                   }`}
                 >
                   {cadenceWords(option)}
@@ -132,7 +132,7 @@ export default function NewSeatPage() {
             <button
               type="button"
               onClick={() => setEditingLimit((v) => !v)}
-              className="mt-2 font-strong text-label-sm text-indigo"
+              className="mt-2 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               {editingLimit ? 'Set the per-payment amount instead' : 'Set the overall cap instead'}
             </button>
@@ -143,7 +143,7 @@ export default function NewSeatPage() {
           type="button"
           disabled={!ready || saving}
           onClick={() => void save()}
-          className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+          className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
         >
           {saving ? 'Granting' : 'Grant seat'}
         </button>

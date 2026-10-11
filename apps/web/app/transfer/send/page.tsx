@@ -101,7 +101,7 @@ function PickStep({
           Payment code or link
         </label>
         <div
-          className={`mt-2 flex items-center rounded-control border-[1.5px] bg-card px-4 focus-within:border-indigo ${
+          className={`mt-2 flex items-center rounded-control border-[1.5px] bg-card px-4 focus-within:border-ink ${
             error ? 'border-halt' : 'border-line'
           }`}
         >
@@ -123,7 +123,7 @@ function PickStep({
           <button
             type="button"
             onClick={() => void paste()}
-            className="ml-3 flex-none font-strong text-label text-indigo hover:text-indigo-deep"
+            className="ml-3 flex-none font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
           >
             Paste
           </button>
@@ -150,7 +150,7 @@ function PickStep({
             <button
               type="button"
               onClick={() => void store.refresh().catch(() => undefined)}
-              className="mt-2 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+              className="mt-2 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               Try again
             </button>
@@ -173,7 +173,7 @@ function PickStep({
                     <p className="truncate font-strong text-body text-ink">{contact.name}</p>
                     {contact.place ? <p className="font-body text-caption text-slate">{contact.place}</p> : null}
                   </div>
-                  <span className="font-strong text-caption-sm text-indigo">Send</span>
+                  <span className="font-strong text-caption-sm text-ink">Send</span>
                 </button>
               </li>
             ))}
@@ -186,7 +186,7 @@ function PickStep({
           type="button"
           disabled={!read}
           onClick={() => read && onPick({ id: read.id, link: read.checkout })}
-          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
         >
           Continue
         </button>
@@ -285,7 +285,7 @@ function ReceiptStep({ receiptId, link }: { receiptId: string; link: Checkout | 
         <button
           type="button"
           onClick={() => router.push('/transfer')}
-          className="flex h-14 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep"
+          className="flex h-14 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
         >
           Done
         </button>
@@ -340,7 +340,7 @@ function AmountStep({
               <button
                 type="button"
                 onClick={onBack}
-                className="font-strong text-label-sm text-indigo hover:text-indigo-deep"
+                className="font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
               >
                 Change
               </button>
@@ -357,7 +357,7 @@ function AmountStep({
             <button
               type="button"
               onClick={onBack}
-              className="mt-3 rounded-pill border border-line bg-card px-4 py-2.5 font-strong text-label text-indigo"
+              className="mt-3 rounded-pill border border-line bg-card px-4 py-2.5 font-strong text-label text-ink transition-colors hover:border-mist active:translate-y-px"
             >
               Choose a recipient
             </button>
@@ -380,7 +380,7 @@ function AmountStep({
               <button
                 type="button"
                 onClick={() => void store.refresh().catch(() => undefined)}
-                className="mt-1 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+                className="mt-1 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
               >
                 Try again
               </button>
@@ -400,7 +400,7 @@ function AmountStep({
             type="button"
             disabled={!canReview}
             onClick={() => setReviewing(true)}
-            className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px disabled:opacity-60"
+            className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
           >
             Review
           </button>

@@ -41,7 +41,7 @@ export default async function AddMoneyReturnPage({
       <div className="flex pb-10">
         <Link
           href="/add-money?returned=1"
-          className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px"
+          className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
         >
           Back to Entole
         </Link>

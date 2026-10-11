@@ -139,7 +139,7 @@ export default function PickRecipient() {
                   onPress={() => void paste()}
                   className="ml-3 self-start"
                 >
-                  <Text className="font-strong text-label text-indigo">Paste</Text>
+                  <Text className="font-strong text-label text-ink underline">Paste</Text>
                 </Pressable>
               }
             />
@@ -151,8 +151,8 @@ export default function PickRecipient() {
             onPress={() => router.push({ pathname: '/send/scan', params: note ? { note } : {} })}
             className="mt-3 flex-row items-center gap-3 rounded-control border border-line bg-card px-4 py-3 active:border-mist"
           >
-            <View className="h-9 w-9 items-center justify-center rounded-pill bg-indigo-wash">
-              <ScanLine size={18} strokeWidth={1.6} color={colors.indigo.DEFAULT} />
+            <View className="h-9 w-9 items-center justify-center rounded-pill bg-press">
+              <ScanLine size={18} strokeWidth={1.6} color={colors.ink} />
             </View>
             <Text className="font-strong text-body-sm text-ink">Scan their QR code</Text>
           </Pressable>
@@ -168,7 +168,7 @@ export default function PickRecipient() {
                       key={item.id}
                       contact={item}
                       {...(where ? { caption: where } : {})}
-                      trailing={<Text className="font-strong text-caption-sm text-indigo">Send</Text>}
+                      trailing={<Text className="font-strong text-caption-sm text-ink">Send</Text>}
                       onPress={() =>
                         router.replace({
                           pathname: '/send',

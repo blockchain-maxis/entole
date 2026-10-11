@@ -157,7 +157,7 @@ function SectionHeading({
     <div className="flex items-baseline justify-between pb-3 pt-[30px] first:pt-0">
       <h2 className="font-strong text-body-lg text-ink">{title}</h2>
       {action ? (
-        <Link href={action.href} className="font-strong text-label text-indigo hover:underline">
+        <Link href={action.href} className="font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
           {action.label}
         </Link>
       ) : null}

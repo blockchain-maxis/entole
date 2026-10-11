@@ -41,8 +41,8 @@ function WayRow({
         inactive ? 'opacity-60' : ''
       }`}
     >
-      <View className="h-10 w-10 items-center justify-center rounded-control bg-indigo-wash">
-        <Icon size={20} strokeWidth={1.5} color={colors.indigo.DEFAULT} />
+      <View className="h-10 w-10 items-center justify-center rounded-control bg-press">
+        <Icon size={20} strokeWidth={1.5} color={colors.ink} />
       </View>
       <View className="flex-1">
         <Text className="font-strong text-body text-ink">{title}</Text>

@@ -20,7 +20,7 @@ const BARE = new Set(['/assistant/action', '/offline']);
 /**
  * A floating pill bar, matching mobile's Phase 2 tab-bar spec exactly:
  * card background, panel radius, the floating shadow token, inset from the
- * screen edges rather than edge-to-edge, an indigo-wash pill behind the
+ * screen edges rather than edge-to-edge, a pill behind the
  * active icon+label instead of an underline indicator.
  */
 export function BottomNav() {
@@ -41,7 +41,7 @@ export function BottomNav() {
             aria-label={label}
             aria-current={active ? 'page' : undefined}
             className={`flex h-[52px] flex-1 flex-col items-center justify-center gap-1 rounded-pill transition-colors ${
-              active ? 'bg-indigo-wash text-indigo' : 'text-mist'
+              active ? 'bg-press text-ink' : 'text-slate'
             }`}
           >
             <Icon size={20} strokeWidth={1.5} aria-hidden />

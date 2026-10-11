@@ -160,7 +160,7 @@ function CadencePicker({ value, onChange }: { value: Cadence; onChange: (next: C
               onPress={() => onChange(option)}
               className={`flex-row items-center justify-between rounded-chip px-4 ${
                 selected
-                  ? 'border-[1.5px] border-indigo bg-indigo-wash py-[13.5px]'
+                  ? 'border-[1.5px] border-ink bg-card py-[13.5px]'
                   : 'border border-hairline bg-paper py-3.5'
               }`}
             >
@@ -171,7 +171,7 @@ function CadencePicker({ value, onChange }: { value: Cadence; onChange: (next: C
               </Text>
               <Text
                 className={`text-caption ${
-                  selected ? 'font-heavy text-indigo' : 'font-strong text-mist'
+                  selected ? 'font-heavy text-ink' : 'font-strong text-slate'
                 }`}
               >
                 {selected ? `${cadenceDetail(option)} · selected` : cadenceDetail(option)}
@@ -212,7 +212,7 @@ function RecipientPicker({
               onPress={() => onChange(contact.id)}
               className="w-16 items-center gap-1.5"
             >
-              <View className={selected ? 'rounded-pill border-2 border-indigo p-0.5' : 'p-0.5'}>
+              <View className={selected ? 'rounded-pill border-2 border-ink p-0.5' : 'p-0.5'}>
                 <Avatar initials={contact.initials} tone={contact.tone} size="lg" />
               </View>
               <Text

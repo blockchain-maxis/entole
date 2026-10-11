@@ -46,7 +46,7 @@ export default function Offline() {
         <button
           type="button"
           onClick={() => window.location.replace('/')}
-          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep"
+          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
         >
           {back ? 'Back online — continue' : 'Try again'}
         </button>

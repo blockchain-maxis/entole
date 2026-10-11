@@ -123,7 +123,7 @@ export default function Send() {
                   hitSlop={10}
                   onPress={changeRecipient}
                 >
-                  <Text className="font-strong text-label-sm text-indigo">Change</Text>
+                  <Text className="font-strong text-label-sm text-ink underline">Change</Text>
                 </Pressable>
                 {isOneOffId(contact.id) ? (
                   <>
@@ -139,7 +139,7 @@ export default function Send() {
                         })
                       }
                     >
-                      <Text className="font-strong text-label-sm text-indigo">Save</Text>
+                      <Text className="font-strong text-label-sm text-ink underline">Save</Text>
                     </Pressable>
                   </>
                 ) : null}
@@ -153,7 +153,7 @@ export default function Send() {
                 onPress={changeRecipient}
                 className="mt-3 rounded-pill border border-line bg-card px-4 py-2.5 active:border-mist"
               >
-                <Text className="font-strong text-label text-indigo">Choose who to send to</Text>
+                <Text className="font-strong text-label text-ink underline">Choose who to send to</Text>
               </Pressable>
             </View>
           )}
@@ -175,12 +175,12 @@ export default function Send() {
                   We couldn&apos;t load your account.
                 </Text>
                 <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void store.refresh()}>
-                  <Text className="mt-1 font-strong text-label-sm text-indigo">Try again</Text>
+                  <Text className="mt-1 font-strong text-label-sm text-ink underline">Try again</Text>
                 </Pressable>
               </>
             ) : !loading && check.ok === false && check.kind === 'no-balance' ? (
               <Pressable accessibilityRole="link" hitSlop={10} onPress={() => router.push('/add-money')}>
-                <Text className="text-center font-strong text-label text-indigo">Add money first</Text>
+                <Text className="text-center font-strong text-label text-ink underline">Add money first</Text>
               </Pressable>
             ) : !loading && !contact ? (
               <Text className="text-center font-body text-label-sm text-slate">

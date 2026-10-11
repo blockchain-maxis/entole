@@ -5,10 +5,10 @@ import { Text } from './Text';
 type Variant = 'primary' | 'raised' | 'secondary' | 'destructive' | 'quiet' | 'danger-outline';
 
 const CONTAINER: Record<Variant, string> = {
-  primary: 'bg-indigo active:bg-indigo-deep',
+  primary: 'bg-ink active:opacity-80',
   /** Same fill as `primary`, plus elevation — the one CTA per screen that
    * should read as the thing to press, e.g. a hero card's action. */
-  raised: 'bg-indigo active:bg-indigo-deep shadow-raised',
+  raised: 'bg-ink active:opacity-80 shadow-raised',
   secondary: 'bg-card border border-line active:border-mist',
   destructive: 'bg-halt active:bg-halt-deep',
   quiet: 'bg-transparent',
@@ -16,8 +16,8 @@ const CONTAINER: Record<Variant, string> = {
 };
 
 const LABEL: Record<Variant, string> = {
-  primary: 'text-card',
-  raised: 'text-card',
+  primary: 'text-paper',
+  raised: 'text-paper',
   secondary: 'text-ink',
   destructive: 'text-card',
   quiet: 'text-slate',

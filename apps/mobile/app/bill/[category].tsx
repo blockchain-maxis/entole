@@ -63,7 +63,7 @@ export default function BillReference() {
           We check it before any money moves, so you know whose bill it is.
         </Text>
 
-        <View className="mt-7 rounded-control border-[1.5px] border-indigo bg-card px-4 py-4">
+        <View className="mt-7 rounded-control border-[1.5px] border-ink bg-card px-4 py-4">
           <TextInput
             value={reference}
             onChangeText={setReference}

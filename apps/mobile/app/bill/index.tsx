@@ -43,8 +43,8 @@ export default function PayBill() {
                 onPress={() => router.push({ pathname: '/bill/[category]', params: { category: category.id } })}
                 className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
               >
-                <View className="h-11 w-11 items-center justify-center rounded-pill bg-indigo-wash">
-                  <Icon size={20} strokeWidth={1.5} color={colors.indigo.DEFAULT} />
+                <View className="h-11 w-11 items-center justify-center rounded-pill bg-press">
+                  <Icon size={20} strokeWidth={1.5} color={colors.ink} />
                 </View>
                 <View className="min-w-0 flex-1">
                   <Text className="font-strong text-body text-ink">{category.label}</Text>

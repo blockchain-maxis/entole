@@ -115,7 +115,7 @@ export default function PayBillPage() {
                     onClick={() => chooseCategory(category)}
                     className="flex w-full items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 text-left transition-colors hover:border-mist"
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-indigo-wash text-indigo">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-press text-ink">
                       <Icon size={20} strokeWidth={1.5} aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -146,7 +146,7 @@ export default function PayBillPage() {
             onKeyDown={(event) => {
               if (event.key === 'Enter' && trimmed) void check();
             }}
-            className="mt-7 h-14 w-full rounded-control border-[1.5px] border-indigo bg-card px-4 font-strong text-body-lg text-ink outline-none"
+            className="mt-7 h-14 w-full rounded-control border-[1.5px] border-ink bg-card px-4 font-strong text-body-lg text-ink outline-none"
           />
           {problem ? <p className="mt-4 font-body text-label-sm text-halt">{problem}</p> : null}
           <div className="mt-auto flex gap-2.5 pb-28 pt-6">
@@ -161,7 +161,7 @@ export default function PayBillPage() {
               type="button"
               disabled={!trimmed || checking}
               onClick={() => void check()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
             >
               {checking ? 'Checking' : 'Continue'}
             </button>
@@ -206,7 +206,7 @@ export default function PayBillPage() {
                 type="button"
                 disabled={!available || !enough || paying}
                 onClick={() => void submit()}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 {paying ? 'Paying' : amount > 0 ? `Pay ${formatNaira(amount)}` : 'Pay'}
               </button>

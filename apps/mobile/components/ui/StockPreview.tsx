@@ -220,7 +220,7 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
               onPress={() => setAboutOpen((open) => !open)}
               className="mt-1.5 self-start"
             >
-              <Text className="font-strong text-label-sm text-indigo">{aboutOpen ? 'Show less' : 'Read more'}</Text>
+              <Text className="font-strong text-label-sm text-ink underline">{aboutOpen ? 'Show less' : 'Read more'}</Text>
             </Pressable>
           ) : null}
         </View>

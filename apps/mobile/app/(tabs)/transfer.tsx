@@ -35,8 +35,8 @@ function ActionRow({ action, onPress }: { action: Action; onPress: () => void })
       onPress={onPress}
       className="flex-row items-center gap-3.5 rounded-row border border-line bg-card px-4 py-4 active:border-mist"
     >
-      <View className="h-11 w-11 items-center justify-center rounded-pill bg-indigo-wash">
-        <Icon size={20} strokeWidth={1.5} color={colors.indigo.DEFAULT} />
+      <View className="h-11 w-11 items-center justify-center rounded-pill bg-press">
+        <Icon size={20} strokeWidth={1.5} color={colors.ink} />
       </View>
       <View className="min-w-0 flex-1">
         <Text className="font-strong text-body text-ink">{action.label}</Text>

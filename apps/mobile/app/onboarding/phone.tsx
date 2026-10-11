@@ -82,7 +82,7 @@ export default function PhoneStep() {
             </Text>
             <Text className="font-body text-caption-sm text-mist">▾</Text>
           </View>
-          <View className="flex-1 justify-center rounded-control border-[1.5px] border-indigo bg-card px-4 py-4">
+          <View className="flex-1 justify-center rounded-control border-[1.5px] border-ink bg-card px-4 py-4">
             <Text tabular className="font-strong text-body-lg text-ink">
               {digits.length > 0 ? groupNumber(digits) : ' '}
             </Text>
