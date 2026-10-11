@@ -31,7 +31,7 @@ export default function SendAbroadPage() {
           </div>
         ) : selected ? (
           <>
-            <p className="pb-3 font-heavy text-body-sm text-ink">Send to</p>
+            <p className="pb-3 font-display text-subhead text-ink">Send to</p>
             <div className="flex flex-wrap gap-2 pb-6">
               {corridors.map((corridor) => {
                 const active = corridor.id === selected.id;
@@ -41,7 +41,7 @@ export default function SendAbroadPage() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setSelectedId(corridor.id)}
-                    className={`rounded-pill border px-4 py-2.5 font-strong text-label transition-colors ${
+                    className={`rounded-pill border px-4 py-2.5 font-strong text-ui transition-colors ${
                       active ? 'border-ink bg-card text-ink' : 'border-line bg-card text-ink hover:border-mist'
                     }`}
                   >
@@ -51,20 +51,20 @@ export default function SendAbroadPage() {
               })}
             </div>
 
-            <p className="pb-3 font-heavy text-body-sm text-ink">Who are you sending to?</p>
+            <p className="pb-3 font-display text-subhead text-ink">Who are you sending to?</p>
             <ul className="flex flex-col gap-2">
               {selected.contacts.map((contact) => (
                 <li key={contact.id}>
                   <Link
                     href={`/transfer/send?contact=${encodeURIComponent(contact.id)}`}
-                    className="flex w-full items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 text-left transition-colors hover:border-mist"
+                    className="flex w-full items-center gap-3 border-b border-hairline py-3 text-left transition-colors hover:bg-press"
                   >
                     <Avatar initials={contact.initials} tone={contact.tone} />
                     <div className="min-w-0 flex-1">
-                      <p className="font-strong text-body text-ink">{contact.name}</p>
-                      {contact.place ? <p className="font-body text-caption text-slate">{contact.place}</p> : null}
+                      <p className="font-strong text-ui text-ink">{contact.name}</p>
+                      {contact.place ? <p className="font-body text-note text-slate">{contact.place}</p> : null}
                     </div>
-                    <span className="font-strong text-caption-sm text-ink">Send</span>
+                    <span className="font-strong text-note text-ink">Send</span>
                   </Link>
                 </li>
               ))}
@@ -72,8 +72,8 @@ export default function SendAbroadPage() {
           </>
         ) : (
           <div className="rounded-control border border-line bg-card px-4 py-3.5">
-            <p className="font-strong text-body-sm text-ink">No countries yet</p>
-            <p className="mt-1 font-body text-label-sm text-slate">
+            <p className="font-strong text-ui text-ink">No countries yet</p>
+            <p className="mt-1 font-body text-note text-slate">
               Once you have a contact abroad, their country shows up here.
             </p>
           </div>

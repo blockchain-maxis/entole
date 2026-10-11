@@ -30,7 +30,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-4 bottom-[max(12px,env(safe-area-inset-bottom))] z-20 mx-auto flex h-16 w-[calc(100%-2rem)] max-w-[528px] items-center justify-evenly rounded-panel bg-card px-1.5 shadow-floating"
+      className="fixed inset-x-4 bottom-[max(12px,env(safe-area-inset-bottom))] z-20 mx-auto flex h-16 w-[calc(100%-2rem)] max-w-[528px] items-center justify-evenly rounded-card bg-card px-1.5 shadow-floating"
     >
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -45,7 +45,7 @@ export function BottomNav() {
             }`}
           >
             <Icon size={20} strokeWidth={1.5} aria-hidden />
-            <span className="font-strong text-caption-sm">{label}</span>
+            <span className="font-strong text-note">{label}</span>
           </Link>
         );
       })}

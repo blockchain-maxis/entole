@@ -121,7 +121,7 @@ export default function EditBeneficiary() {
           </View>
         ) : load.state === 'missing' || !draft ? (
           <View className="flex-1 items-center justify-center px-gutter-lg">
-            <Text className="text-center font-body text-body-sm text-slate">
+            <Text className="text-center font-body text-ui text-slate">
               That beneficiary is no longer here. They may have been removed.
             </Text>
             <View className="mt-5 flex-row">
@@ -160,9 +160,9 @@ export default function EditBeneficiary() {
 
             <View className="flex-none border-t border-hairline px-gutter pb-2.5 pt-3">
               {problem ? (
-                <Text className="pb-2.5 text-center font-body text-label-sm text-halt">{problem}</Text>
+                <Text className="pb-2.5 text-center font-body text-note text-halt">{problem}</Text>
               ) : blocker ? (
-                <Text className="pb-2.5 text-center font-body text-label-sm text-slate">{blocker}</Text>
+                <Text className="pb-2.5 text-center font-body text-note text-slate">{blocker}</Text>
               ) : null}
               <View className="flex-row">
                 <Button
@@ -191,13 +191,13 @@ export default function EditBeneficiary() {
       {confirmingRemove ? (
         <SheetLayer>
           <Sheet onDismiss={() => setConfirmingRemove(false)} locked={busy === 'removing'}>
-            <Text className="font-strong text-title text-ink">Remove {shownName}?</Text>
+            <Text className="font-display text-subhead text-ink">Remove {shownName}?</Text>
             {inUse ? (
-              <Text className="mt-2 font-body text-body-sm text-slate">
+              <Text className="mt-2 font-body text-ui text-slate">
                 An allowance or seat pays {shownName}. Remove or change that first, then you can remove them here.
               </Text>
             ) : (
-              <Text className="mt-2 font-body text-body-sm text-slate">
+              <Text className="mt-2 font-body text-ui text-slate">
                 They will no longer appear when you send money. Payments you have already made stay in your activity.
               </Text>
             )}

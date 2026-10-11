@@ -41,14 +41,14 @@ export default function PayBill() {
                 accessibilityRole="button"
                 accessibilityLabel={category.label}
                 onPress={() => router.push({ pathname: '/bill/[category]', params: { category: category.id } })}
-                className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
+                className="flex-row items-center gap-3 border-b border-hairline py-3 active:bg-press"
               >
                 <View className="h-11 w-11 items-center justify-center rounded-pill bg-press">
                   <Icon size={20} strokeWidth={1.5} color={colors.ink} />
                 </View>
                 <View className="min-w-0 flex-1">
-                  <Text className="font-strong text-body text-ink">{category.label}</Text>
-                  <Text className="mt-0.5 font-body text-caption text-slate">{category.hint}</Text>
+                  <Text className="font-strong text-ui text-ink">{category.label}</Text>
+                  <Text className="mt-0.5 font-body text-note text-slate">{category.hint}</Text>
                 </View>
                 <ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />
               </Pressable>

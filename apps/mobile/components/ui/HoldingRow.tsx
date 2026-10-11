@@ -21,15 +21,15 @@ export function HoldingRow({ position, onPress }: { position: StockPosition; onP
       className="flex-row items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 active:border-mist"
     >
       <View className="min-w-0 flex-1 pr-3">
-        <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
+        <Text numberOfLines={1} className="font-strong text-ui text-ink">
           {position.companyName}
         </Text>
-        <Text className="mt-0.5 font-body text-label-sm text-slate">
+        <Text className="mt-0.5 font-body text-note text-slate">
           {position.symbol} · {formatShares(position.quantityScaled)} shares
         </Text>
       </View>
       <View className="flex-row items-center gap-1.5">
-        <Text tabular className="font-strong text-body-sm text-ink">
+        <Text tabular className="font-strong text-ui text-ink">
           {formatNaira(kobo(position.currentValueMinor))}
         </Text>
         <ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />

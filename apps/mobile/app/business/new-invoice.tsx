@@ -131,14 +131,14 @@ export default function NewInvoice() {
               accessibilityRole="button"
               accessibilityLabel="Change the amount"
               onPress={() => setSheet('amount')}
-              className="rounded-row border border-line bg-card px-4 py-4 active:border-mist"
+              className="border-b border-hairline py-4 active:bg-press"
             >
-              <Text className="font-strong text-caption text-slate">Amount</Text>
+              <Text className="font-strong text-note text-slate">Amount</Text>
               <View className="mt-2 flex-row items-center justify-between">
                 {amount > 0 ? (
                   <Amount value={kobo(amount)} size="medium" />
                 ) : (
-                  <Text className="font-strong text-amount-sm text-mist">Tap to enter</Text>
+                  <Text className="font-strong text-subhead text-slate">Tap to enter</Text>
                 )}
                 <ChevronRight size={18} strokeWidth={1.5} color={colors.mist} />
               </View>
@@ -167,14 +167,14 @@ export default function NewInvoice() {
               />
             </View>
 
-            <Text className="mt-5 font-strong text-caption text-slate">Due</Text>
+            <Text className="mt-5 font-strong text-note text-slate">Due</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Change the due date"
               onPress={() => setSheet('due')}
               className="mt-2 flex-row items-center justify-between rounded-control border-[1.5px] border-line bg-card px-4 py-3.5 active:border-mist"
             >
-              <Text tabular className="font-strong text-body-lg text-ink">
+              <Text tabular className="font-strong text-prose text-ink">
                 {dueSummary(dueChoice, dueAt)}
               </Text>
               <ChevronRight size={18} strokeWidth={1.5} color={colors.mist} />
@@ -182,8 +182,8 @@ export default function NewInvoice() {
 
             <View className="mt-6 flex-row items-center justify-between">
               <View className="flex-1 pr-3">
-                <Text className="font-strong text-body text-ink">Hold for a better rate</Text>
-                <Text className="mt-1 font-body text-label-sm text-slate">
+                <Text className="font-strong text-ui text-ink">Hold for a better rate</Text>
+                <Text className="mt-1 font-body text-note text-slate">
                   Release only when the exchange rate is right, so a swing between now and payment
                   does not eat into what you receive.
                 </Text>
@@ -208,10 +208,10 @@ export default function NewInvoice() {
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
                         onPress={() => setPresetIndex(index)}
-                        className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-ink' : ''}`}
+                        className={`flex-1 items-center rounded-control py-2.5 ${active ? 'bg-ink' : ''}`}
                       >
                         <Text
-                          className={`font-strong text-label-sm ${active ? 'text-paper' : 'text-slate'}`}
+                          className={`font-strong text-note ${active ? 'text-paper' : 'text-slate'}`}
                         >
                           {preset.label}
                         </Text>
@@ -219,19 +219,19 @@ export default function NewInvoice() {
                     );
                   })}
                 </View>
-                <Text tabular className="mt-2 font-body text-label-sm text-slate">
+                <Text tabular className="mt-2 font-body text-note text-slate">
                   Releases at {formatRate({ koboPerDollar: maxKoboPerDollar(), quotedAt: '' })} or
                   better. Now {formatRate(store.rate)}.
                 </Text>
               </View>
             ) : null}
 
-            <Text className="mt-6 font-body text-label-sm text-slate">
+            <Text className="mt-6 font-body text-note text-slate">
               This is invoice {reference}. Saving it makes a link you can send. Anything paid to that link
               arrives in your balance.
             </Text>
 
-            {problem ? <Text className="mt-3 font-body text-label-sm text-halt">{problem}</Text> : null}
+            {problem ? <Text className="mt-3 font-body text-note text-halt">{problem}</Text> : null}
           </ScrollView>
         </KeyboardAvoidingView>
 

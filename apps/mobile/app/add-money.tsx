@@ -263,20 +263,20 @@ export default function AddMoney() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20 }}
         >
-          <View className="rounded-panel bg-card p-6 shadow-raised">
-            <Text className="font-strong text-label-sm text-mist">Your balance</Text>
+          <View className="rounded-card bg-card p-6 shadow-raised">
+            <Text className="font-strong text-note text-slate">Your balance</Text>
             {ready ? (
               <>
                 <View className="mt-2.5">
                   <Amount value={store.balance} size="large" />
                 </View>
-                <Text tabular className="mt-3 font-body text-body-sm text-slate">
+                <Text tabular className="mt-3 font-body text-ui text-slate">
                   ≈ {formatDollars(toDollars(store.balance, store.rate))}
                 </Text>
               </>
             ) : (
               <>
-                <Skeleton className="mt-3 h-[48px] w-56 rounded-chip" />
+                <Skeleton className="mt-3 h-[48px] w-56 rounded-control" />
                 <Skeleton className="mt-3.5 h-4 w-24 rounded-md" />
               </>
             )}
@@ -300,33 +300,33 @@ export default function AddMoney() {
 
           {entering ? (
             <View className="mt-7 items-center">
-              <Text className="font-strong text-label-sm text-slate">How much are you adding?</Text>
+              <Text className="font-strong text-note text-slate">How much are you adding?</Text>
               <View className="mt-3">
                 <Amount value={kobo(amount)} size="large" />
               </View>
-              <Text className="mt-2.5 font-body text-body-sm text-slate">
+              <Text className="mt-2.5 font-body text-ui text-slate">
                 {amount > 0 ? 'Paid by bank transfer' : 'Enter an amount'}
               </Text>
             </View>
           ) : null}
 
           {!REAL_MONEY ? (
-            <Text className="mt-6 px-1 font-body text-body-sm text-slate">
+            <Text className="mt-6 px-1 font-body text-ui text-slate">
               Add test money to try Entole. It’s not real money.
             </Text>
           ) : null}
 
           <View className="mt-5" accessibilityLiveRegion="polite">
             {phase.kind === 'requesting' || phase.kind === 'waiting' ? (
-              <View className="rounded-row border border-line bg-card px-4 py-4">
-                <Text className="font-strong text-body-sm text-ink">
+              <View className="border-b border-hairline py-4">
+                <Text className="font-strong text-ui text-ink">
                   {phase.kind === 'requesting'
                     ? 'Adding money'
                     : REAL_MONEY
                       ? 'Waiting for your money to arrive'
                       : 'Waiting for your balance to update'}
                 </Text>
-                <Text className="mt-1 font-body text-label-sm text-slate">
+                <Text className="mt-1 font-body text-note text-slate">
                   {phase.kind === 'requesting'
                     ? 'Sending your request.'
                     : showingCode
@@ -340,11 +340,11 @@ export default function AddMoney() {
             ) : null}
 
             {phase.kind === 'done' ? (
-              <View className="rounded-row border border-line bg-settled-wash px-4 py-4">
-                <Text tabular className="font-strong text-body text-settled">
+              <View className="rounded-card border border-line bg-settled-wash px-4 py-4">
+                <Text tabular className="font-strong text-ui text-settled">
                   {formatNaira(kobo(phase.addedMinor))} added
                 </Text>
-                <Text className="mt-1 font-body text-label-sm text-slate">
+                <Text className="mt-1 font-body text-note text-slate">
                   It’s in your balance now.
                 </Text>
               </View>
@@ -366,8 +366,8 @@ export default function AddMoney() {
             ) : null}
 
             {phase.kind === 'failed' && phase.code !== 'not_configured' ? (
-              <View accessibilityRole="alert" className="rounded-row border border-line bg-halt-wash px-4 py-4">
-                <Text className="font-strong text-body-sm text-halt">{phase.message}</Text>
+              <View accessibilityRole="alert" className="rounded-card border border-line bg-halt-wash px-4 py-4">
+                <Text className="font-strong text-ui text-halt">{phase.message}</Text>
               </View>
             ) : null}
           </View>
@@ -379,7 +379,7 @@ export default function AddMoney() {
               hitSlop={10}
               onPress={() => void Linking.openURL('https://www.exchangerate-api.com')}
             >
-              <Text className="font-body text-caption text-mist">Rates by Exchange Rate API</Text>
+              <Text className="font-body text-note text-slate">Rates by Exchange Rate API</Text>
             </Pressable>
           </View>
         </ScrollView>

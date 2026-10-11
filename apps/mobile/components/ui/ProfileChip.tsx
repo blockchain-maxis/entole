@@ -45,10 +45,10 @@ export function ProfileChip() {
     >
       <Avatar initials={profile.initials} size="sm" />
       <View className="min-w-0 flex-1">
-        <Text numberOfLines={1} className="font-strong text-body text-ink">
+        <Text numberOfLines={1} className="font-strong text-ui text-ink">
           {profile.fullName}
         </Text>
-        <Text numberOfLines={1} className="font-body text-caption text-slate">
+        <Text numberOfLines={1} className="font-body text-note text-slate">
           {handle}
         </Text>
       </View>

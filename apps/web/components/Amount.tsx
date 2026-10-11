@@ -1,10 +1,10 @@
 import { formatNairaDigits, type Naira } from '@entole/core/money';
 
 const SIZES = {
-  hero: { symbol: 'text-amount-lg', digits: 'text-balance' },
-  large: { symbol: 'text-amount', digits: 'text-balance-md' },
-  medium: { symbol: 'text-amount-sm', digits: 'text-balance-sm' },
-  small: { symbol: 'text-amount-xs', digits: 'text-balance-xs' },
+  hero: { symbol: 'text-heading', digits: 'text-figure' },
+  large: { symbol: 'text-subhead', digits: 'text-figure-md' },
+  medium: { symbol: 'text-subhead', digits: 'text-figure-md' },
+  small: { symbol: 'text-subhead', digits: 'text-figure-sm' },
 } as const;
 
 const FIGURE = {

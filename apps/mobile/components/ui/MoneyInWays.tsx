@@ -37,7 +37,7 @@ function WayRow({
       accessibilityState={{ disabled: inactive }}
       disabled={inactive}
       onPress={onPress}
-      className={`flex-row items-center gap-3.5 rounded-row border border-line bg-card px-4 py-3.5 active:border-mist ${
+      className={`flex-row items-center gap-3.5 border-b border-hairline py-3.5 active:bg-press ${
         inactive ? 'opacity-60' : ''
       }`}
     >
@@ -45,8 +45,8 @@ function WayRow({
         <Icon size={20} strokeWidth={1.5} color={colors.ink} />
       </View>
       <View className="flex-1">
-        <Text className="font-strong text-body text-ink">{title}</Text>
-        <Text className="mt-0.5 font-body text-label-sm text-slate">{hint}</Text>
+        <Text className="font-strong text-ui text-ink">{title}</Text>
+        <Text className="mt-0.5 font-body text-note text-slate">{hint}</Text>
       </View>
       {onPress ? <ChevronRight size={18} strokeWidth={1.5} color={colors.mist} /> : null}
     </Pressable>
@@ -69,7 +69,7 @@ export function WaysToAdd({
 }) {
   return (
     <View>
-      <Text className="pb-3 pt-7 font-strong text-body-lg text-ink">How do you want to add money?</Text>
+      <Text className="pb-3 pt-7 font-strong text-prose text-ink">How do you want to add money?</Text>
       <View className="gap-2.5">
         <WayRow
           icon={ScanLine}
@@ -116,12 +116,12 @@ export function FromAnotherApp({
   if (!source || code?.state === 'failed') {
     return (
       <View>
-        <Text className="pb-1 pt-7 font-strong text-body-lg text-ink">What are you sending?</Text>
-        <Text className="pb-3 font-body text-label-sm text-slate">
+        <Text className="pb-1 pt-7 font-strong text-prose text-ink">What are you sending?</Text>
+        <Text className="pb-3 font-body text-note text-slate">
           Pick what you hold in the other app. It arrives here as dollars in your balance.
         </Text>
         {code?.state === 'failed' ? (
-          <Text accessibilityRole="alert" className="pb-3 font-body text-label-sm text-halt">
+          <Text accessibilityRole="alert" className="pb-3 font-body text-note text-halt">
             {code.message}
           </Text>
         ) : null}
@@ -131,9 +131,9 @@ export function FromAnotherApp({
               key={option.id}
               accessibilityRole="button"
               onPress={() => onPick(option)}
-              className="flex-row items-center justify-between rounded-row border border-line bg-card px-4 py-3.5 active:border-mist"
+              className="flex-row items-center justify-between border-b border-hairline py-3.5 active:bg-press"
             >
-              <Text className="font-strong text-body text-ink">{depositSourceLabel(option)}</Text>
+              <Text className="font-strong text-ui text-ink">{depositSourceLabel(option)}</Text>
               <ChevronRight size={18} strokeWidth={1.5} color={colors.mist} />
             </Pressable>
           ))}
@@ -146,8 +146,8 @@ export function FromAnotherApp({
 
   return (
     <View className="pt-7">
-      <Text className="font-strong text-body-lg text-ink">Send {label} to this code</Text>
-      <Text className="mt-1 font-body text-label-sm text-slate">
+      <Text className="font-strong text-prose text-ink">Send {label} to this code</Text>
+      <Text className="mt-1 font-body text-note text-slate">
         Scan it from the app you are sending from, or copy it and paste it there. Send $1 or more.
       </Text>
 
@@ -158,12 +158,12 @@ export function FromAnotherApp({
           <View
             accessibilityRole="image"
             accessibilityLabel={`Code to send ${label} to`}
-            className="rounded-row border border-hairline bg-white p-3"
+            className="rounded-card border border-hairline bg-white p-3"
           >
             <QRCode value={code.value} size={208} color={token.ink} backgroundColor={token.white} />
           </View>
         ) : (
-          <Skeleton className="h-[232px] w-[232px] rounded-row" />
+          <Skeleton className="h-[232px] w-[232px] rounded-card" />
         )}
       </View>
 
@@ -179,7 +179,7 @@ export function FromAnotherApp({
         />
       </View>
 
-      <Text className="mt-4 font-body text-caption text-slate">
+      <Text className="mt-4 font-body text-note text-slate">
         Only send {label} to it. Something else sent here may not arrive and may not be returned.
       </Text>
     </View>
@@ -190,18 +190,18 @@ export function FromAnotherApp({
 export function CardStep({ card }: { card: Loaded<string> | null }) {
   return (
     <View className="pt-7">
-      <Text className="font-strong text-body-lg text-ink">Pay by card</Text>
+      <Text className="font-strong text-prose text-ink">Pay by card</Text>
       {card?.state === 'failed' ? (
-        <Text accessibilityRole="alert" className="mt-2 font-body text-label-sm text-halt">
+        <Text accessibilityRole="alert" className="mt-2 font-body text-note text-halt">
           {card.message}
         </Text>
       ) : card?.state === 'ready' ? (
         <View>
-          <Text className="mt-1 font-body text-label-sm text-slate">
+          <Text className="mt-1 font-body text-note text-slate">
             You pay on our card partner&apos;s page, which opens next. It shows the amount, their fee and what you get
             before you pay. $20 or more.
           </Text>
-          <Text className="mt-3 font-body text-label-sm text-slate">
+          <Text className="mt-3 font-body text-note text-slate">
             Come back here afterwards. Your balance changes once the money has arrived.
           </Text>
         </View>

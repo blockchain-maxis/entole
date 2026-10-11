@@ -70,7 +70,7 @@ export function Button({
           <LogoLoader size={21} color={markColor} label={`${label}, in progress`} />
         </View>
       ) : (
-        <Text className={`font-strong text-body ${LABEL[variant]}`}>{label}</Text>
+        <Text className={`font-strong text-ui ${LABEL[variant]}`}>{label}</Text>
       )}
     </Pressable>
   );

@@ -61,16 +61,16 @@ export default function PayBillAmount() {
       <Screen>
         <Header title={info.label} leading="none" trailing={<PauseButton />} />
         <View className="flex-1 items-center justify-center px-gutter-lg">
-          <View className="rounded-chip bg-settled-wash px-2.5 py-1">
-            <Text className="font-heavy text-caption-sm uppercase text-settled">
+          <View className="rounded-control bg-settled-wash px-2.5 py-1">
+            <Text className="font-heavy text-note uppercase text-settled">
               {outcome.status === 'successful' ? 'Paid' : 'Submitted'}
             </Text>
           </View>
           <View className="mt-4">
             <Amount value={kobo(amount)} size="large" />
           </View>
-          <Text className="mt-2 font-body text-body-sm text-slate">for {info.label}</Text>
-          <Text tabular className="mt-1 font-body text-caption text-mist">
+          <Text className="mt-2 font-body text-ui text-slate">for {info.label}</Text>
+          <Text tabular className="mt-1 font-body text-note text-slate">
             {outcome.reference}
           </Text>
         </View>
@@ -96,17 +96,17 @@ export default function PayBillAmount() {
         )}
 
         {params.name ? (
-          <Text className="mb-3 text-center font-strong text-body-sm text-ink">For {params.name}</Text>
+          <Text className="mb-3 text-center font-strong text-ui text-ink">For {params.name}</Text>
         ) : null}
-        <Text className="font-body text-label-sm text-slate">How much?</Text>
+        <Text className="font-body text-note text-slate">How much?</Text>
         <View className="mt-4">
           <Amount value={amount} size="large" caret />
         </View>
 
-        {problem ? <Text className="mt-4 text-center font-body text-label-sm text-halt">{problem}</Text> : null}
+        {problem ? <Text className="mt-4 text-center font-body text-note text-halt">{problem}</Text> : null}
 
         {amount > 0 && !enough ? (
-          <Text className="mt-4 text-center font-body text-label-sm text-caution">
+          <Text className="mt-4 text-center font-body text-note text-caution">
             That is more than your balance covers.
           </Text>
         ) : null}

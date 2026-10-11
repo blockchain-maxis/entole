@@ -19,8 +19,8 @@ type Phase = 'review' | 'waiting' | 'settled';
 function Line({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <View className="flex-row items-baseline justify-between py-2.5">
-      <Text className={`font-body text-label ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
-      <Text tabular className={`text-label text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>
+      <Text className={`font-body text-ui ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
+      <Text tabular className={`text-ui text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>
         {value}
       </Text>
     </View>
@@ -102,13 +102,13 @@ export function SavingsSheet({
       >
         {phase === 'settled' ? (
           <View>
-            <Text className="font-strong text-title text-ink">
+            <Text className="font-display text-subhead text-ink">
               {deposit ? 'Added to savings' : 'Taken out of savings'}
             </Text>
-            <Text tabular className="mt-4 font-strong text-title-xl text-ink">
+            <Text tabular className="mt-4 font-display text-heading text-ink">
               {formatNaira(kobo(amountMinor))}
             </Text>
-            <Text tabular className="mt-0.5 font-body text-caption text-slate">
+            <Text tabular className="mt-0.5 font-body text-note text-slate">
               ≈ {dollars}
             </Text>
             <View className="mt-3 border-t border-hairline">
@@ -117,13 +117,13 @@ export function SavingsSheet({
           </View>
         ) : (
           <View>
-            <Text className="font-strong text-title text-ink">
+            <Text className="font-display text-subhead text-ink">
               {deposit ? 'Add to savings' : 'Take out of savings'}
             </Text>
-            <Text tabular className="mt-4 font-strong text-title-xl text-ink">
+            <Text tabular className="mt-4 font-display text-heading text-ink">
               {formatNaira(kobo(amountMinor))}
             </Text>
-            <Text tabular className="mt-0.5 font-body text-caption text-slate">
+            <Text tabular className="mt-0.5 font-body text-note text-slate">
               ≈ {dollars}
             </Text>
 
@@ -143,22 +143,22 @@ export function SavingsSheet({
             </View>
 
             {earning ? (
-              <Text className="mt-2 font-body text-caption text-slate">
+              <Text className="mt-2 font-body text-note text-slate">
                 Earning about {earning.rate} a year right now. To earn it, your savings are lent out through a lending
                 market. You can take them out at any time, unless all of it happens to be lent out at that moment.
               </Text>
             ) : (
-              <Text className="mt-2 font-body text-caption text-slate">
+              <Text className="mt-2 font-body text-note text-slate">
                 Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
               </Text>
             )}
 
             {!check.ok && check.kind !== 'empty' ? (
-              <Text className="mt-3 font-body text-label text-caution">{check.reason}</Text>
+              <Text className="mt-3 font-body text-ui text-caution">{check.reason}</Text>
             ) : null}
-            {problem ? <Text className="mt-3 font-body text-label text-halt">{problem}</Text> : null}
+            {problem ? <Text className="mt-3 font-body text-ui text-halt">{problem}</Text> : null}
             {waiting ? (
-              <Text className="mt-3 font-body text-label text-slate">Waiting for it to settle.</Text>
+              <Text className="mt-3 font-body text-ui text-slate">Waiting for it to settle.</Text>
             ) : null}
           </View>
         )}

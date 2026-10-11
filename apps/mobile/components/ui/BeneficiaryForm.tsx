@@ -47,12 +47,12 @@ export function BeneficiaryForm({
       />
       <CountryField value={draft.country} onPress={onPickCountry} />
 
-      <View className="mt-1 rounded-tile border border-line bg-card px-4 pb-5 pt-4">
+      <View className="mt-1 rounded-card border border-line bg-card px-4 pb-5 pt-4">
         <View className="flex-row items-baseline justify-between">
-          <Text className="font-heavy text-body-sm text-ink">Bank details</Text>
-          <Text className="font-body text-caption text-mist">Optional</Text>
+          <Text className="font-display text-subhead text-ink">Bank details</Text>
+          <Text className="font-body text-note text-slate">Optional</Text>
         </View>
-        <Text className="mt-1 font-body text-label-sm text-slate">
+        <Text className="mt-1 font-body text-note text-slate">
           Saved for when bank payouts open. Nothing uses them to send money yet.
         </Text>
         <View className="mt-4 gap-4">

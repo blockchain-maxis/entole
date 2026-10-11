@@ -64,35 +64,35 @@ export default function PhoneStep() {
           hitSlop={14}
           onPress={() => router.back()}
         >
-          <Text className="font-body text-title text-slate">←</Text>
+          <Text className="font-body text-subhead text-slate">←</Text>
         </Pressable>
         <StepDots total={4} done={3} />
       </View>
 
       <View className="flex-1 px-7 pt-[34px]">
-        <Text className="font-strong text-title-xl text-ink">Confirm your number</Text>
-        <Text className="mt-3 font-body text-body-sm text-slate">
+        <Text className="font-display text-heading text-ink">Confirm your number</Text>
+        <Text className="mt-3 font-body text-ui text-slate">
           This is how friends and family find you — they can pay you by number instead of a long code.
         </Text>
 
         <View className="mt-7 flex-row gap-2.5">
           <View className="flex-none flex-row items-center gap-2 rounded-control border border-line bg-card px-3.5 py-4">
-            <Text tabular className="font-strong text-body-lg text-ink">
+            <Text tabular className="font-strong text-prose text-ink">
               +234
             </Text>
-            <Text className="font-body text-caption-sm text-mist">▾</Text>
+            <Text className="font-body text-note text-slate">▾</Text>
           </View>
           <View className="flex-1 justify-center rounded-control border-[1.5px] border-ink bg-card px-4 py-4">
-            <Text tabular className="font-strong text-body-lg text-ink">
+            <Text tabular className="font-strong text-prose text-ink">
               {digits.length > 0 ? groupNumber(digits) : ' '}
             </Text>
           </View>
         </View>
 
-        <Text className="mt-4 font-body text-label-sm text-mist">
+        <Text className="mt-4 font-body text-note text-slate">
           Only your name and your number are made findable — nothing else about your account.
         </Text>
-        {problem ? <Text className="mt-3 font-body text-label-sm text-halt">{problem}</Text> : null}
+        {problem ? <Text className="mt-3 font-body text-note text-halt">{problem}</Text> : null}
       </View>
 
       <View className="flex-none px-3.5 pb-2.5">

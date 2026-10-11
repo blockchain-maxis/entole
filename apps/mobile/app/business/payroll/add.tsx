@@ -58,8 +58,8 @@ export default function AddPerson() {
       <Screen>
         <Header title="Edit person" />
         <View className="px-gutter-lg pt-4">
-          <Text className="font-strong text-body text-ink">We couldn&apos;t find that person.</Text>
-          <Text className="mt-1 font-body text-label text-slate">They may have been removed from this phone.</Text>
+          <Text className="font-strong text-ui text-ink">We couldn&apos;t find that person.</Text>
+          <Text className="mt-1 font-body text-ui text-slate">They may have been removed from this phone.</Text>
         </View>
       </Screen>
     );
@@ -178,31 +178,31 @@ function PersonForm({ id, staff }: { id: string | undefined; staff: Staff[] }) {
                   hint="Ask them to share it from Receive in their app."
                   trailing={
                     <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void paste()}>
-                      <Text className="font-strong text-label text-ink underline">Paste</Text>
+                      <Text className="font-strong text-ui text-ink underline">Paste</Text>
                     </Pressable>
                   }
                 />
               </View>
 
-              <Text className="mt-6 font-strong text-caption text-slate">Regular pay</Text>
+              <Text className="mt-6 font-strong text-note text-slate">Regular pay</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Set regular pay"
                 onPress={() => setSheet('pay')}
                 className="mt-2 flex-row items-center justify-between rounded-control border-[1.5px] border-line bg-card px-4 py-3.5 active:border-mist"
               >
-                <Text tabular className={`font-strong text-body-lg ${pay > 0 ? 'text-ink' : 'text-mist'}`}>
+                <Text tabular className={`font-strong text-prose ${pay > 0 ? 'text-ink' : 'text-slate'}`}>
                   {pay > 0 ? formatNaira(kobo(pay)) : 'Optional'}
                 </Text>
                 <ChevronRight size={18} strokeWidth={1.5} color={colors.mist} />
               </Pressable>
-              <Text className="mt-2 font-body text-caption text-slate">
+              <Text className="mt-2 font-body text-note text-slate">
                 Filled in for you when you run payroll. You can change it each time.
               </Text>
 
               {pay > 0 ? (
                 <View className="mt-5">
-                  <Text className="font-strong text-caption text-slate">How often</Text>
+                  <Text className="font-strong text-note text-slate">How often</Text>
                   <View className="mt-2 flex-row gap-2">
                     {CADENCES.map((option) => {
                       const selected = option.value === cadence;
@@ -212,18 +212,18 @@ function PersonForm({ id, staff }: { id: string | undefined; staff: Staff[] }) {
                           accessibilityRole="radio"
                           accessibilityState={{ selected }}
                           onPress={() => setCadence(option.value)}
-                          className={`flex-1 items-center rounded-chip py-3 ${
+                          className={`flex-1 items-center rounded-control py-3 ${
                             selected ? 'border-[1.5px] border-ink bg-card' : 'border border-line bg-card'
                           }`}
                         >
-                          <Text className={`text-label ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}>
+                          <Text className={`text-ui ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}>
                             {option.label}
                           </Text>
                         </Pressable>
                       );
                     })}
                   </View>
-                  <Text className="mt-2 font-body text-caption text-slate">
+                  <Text className="mt-2 font-body text-note text-slate">
                     A reminder for you. Nothing is paid automatically.
                   </Text>
                 </View>
@@ -241,7 +241,7 @@ function PersonForm({ id, staff }: { id: string | undefined; staff: Staff[] }) {
                 />
               </View>
 
-              {problem ? <Text className="mt-4 font-body text-label-sm text-halt">{problem}</Text> : null}
+              {problem ? <Text className="mt-4 font-body text-note text-halt">{problem}</Text> : null}
 
               {existing ? (
                 <View className="mt-8 flex-row">

@@ -34,7 +34,7 @@ export function StockCatalogue() {
   return (
     <section aria-label="Stocks to look through">
       <label className="flex items-center gap-2.5 rounded-control border border-line bg-card px-4 py-3.5 focus-within:border-ink">
-        <Search size={18} strokeWidth={1.5} className="flex-none text-mist" />
+        <Search size={18} strokeWidth={1.5} className="flex-none text-slate" />
         <input
           type="search"
           name="q"
@@ -45,7 +45,7 @@ export function StockCatalogue() {
           autoCapitalize="none"
           autoCorrect="off"
           enterKeyHint="search"
-          className="min-w-0 flex-1 bg-transparent font-body text-body text-ink outline-none placeholder:text-mist"
+          className="min-w-0 flex-1 bg-transparent font-body text-ui text-ink outline-none placeholder:text-mist"
         />
       </label>
 
@@ -58,7 +58,7 @@ export function StockCatalogue() {
               type="button"
               aria-pressed={active}
               onClick={() => setKind(filter.kind)}
-              className={`rounded-pill border px-3.5 py-1.5 font-strong text-label-sm transition-colors active:translate-y-px ${
+              className={`rounded-pill border px-3.5 py-1.5 font-strong text-note transition-colors active:translate-y-px ${
                 active ? 'border-ink bg-card text-ink' : 'border-line bg-card text-slate hover:border-mist'
               }`}
             >
@@ -67,7 +67,7 @@ export function StockCatalogue() {
           );
         })}
         {browse.state === 'ready' && browse.total > 0 ? (
-          <p className="tabular ml-auto font-body text-label-sm text-slate">{stockCountLabel(browse.total, kind)}</p>
+          <p className="tabular ml-auto font-body text-note text-slate">{stockCountLabel(browse.total, kind)}</p>
         ) : null}
       </div>
 
@@ -79,23 +79,23 @@ export function StockCatalogue() {
             ))}
           </div>
         ) : browse.state === 'failed' ? (
-          <div className="rounded-panel border border-line bg-card p-5">
-            <p className="font-heavy text-body text-ink">We can&apos;t show stocks right now</p>
-            <p className="mt-2 text-pretty font-body text-body-sm text-slate">
+          <div className="rounded-card border border-line bg-card p-5">
+            <p className="font-heavy text-ui text-ink">We can&apos;t show stocks right now</p>
+            <p className="mt-2 text-pretty font-body text-ui text-slate">
               Prices are read live from the market, and it could not be reached just now. Nothing has changed.
             </p>
             <button
               type="button"
               onClick={browse.retry}
-              className="mt-4 flex h-12 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body-sm text-ink transition-colors hover:border-mist active:translate-y-px"
+              className="mt-4 flex h-12 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px"
             >
               Try again
             </button>
           </div>
         ) : browse.items.length === 0 ? (
           <div className="px-1 pt-2">
-            <p className="font-strong text-body-sm text-ink">Nothing matches that search</p>
-            <p className="mt-1 font-body text-label-sm text-slate">Try the company&apos;s name, or its symbol.</p>
+            <p className="font-strong text-ui text-ink">Nothing matches that search</p>
+            <p className="mt-1 font-body text-note text-slate">Try the company&apos;s name, or its symbol.</p>
           </div>
         ) : (
           <>
@@ -115,12 +115,12 @@ export function StockCatalogue() {
             ) : browse.hasMore ? (
               <>
                 {browse.moreFailed ? (
-                  <p className="mt-3 px-1 font-body text-label-sm text-halt">The next ones could not be loaded.</p>
+                  <p className="mt-3 px-1 font-body text-note text-halt">The next ones could not be loaded.</p>
                 ) : null}
                 <button
                   type="button"
                   onClick={browse.loadMore}
-                  className="mt-3 flex h-12 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-body-sm text-ink transition-colors hover:border-mist active:translate-y-px"
+                  className="mt-3 flex h-12 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px"
                 >
                   {browse.moreFailed ? 'Try again' : 'Show more'}
                 </button>
@@ -141,18 +141,18 @@ function StockRow({ item }: { item: StockListItem }) {
     <Link
       href={`/grow/stocks/${encodeURIComponent(item.symbol)}`}
       aria-label={`${item.name}, ${price}, ${change}`}
-      className="flex items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 transition-colors hover:border-mist active:translate-y-px"
+      className="flex items-center gap-3 border-b border-hairline py-3 transition-colors hover:bg-press active:translate-y-px"
     >
       <StockLogo src={item.logo} name={item.name} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-strong text-body-sm text-ink">{item.name}</p>
-        <p className="truncate font-body text-label-sm text-slate">
+        <p className="truncate font-strong text-ui text-ink">{item.name}</p>
+        <p className="truncate font-body text-note text-slate">
           {stockByline(item)}
         </p>
       </div>
       <div className="flex-none text-right">
-        <p className="tabular font-strong text-body-sm text-ink">{price}</p>
-        <p className={`tabular font-body text-label-sm ${TONE[changeTone(item.changeBps)]}`}>{change}</p>
+        <p className="tabular font-strong text-ui text-ink">{price}</p>
+        <p className={`tabular font-body text-note ${TONE[changeTone(item.changeBps)]}`}>{change}</p>
       </div>
     </Link>
   );

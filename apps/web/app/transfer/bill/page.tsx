@@ -21,8 +21,8 @@ type Step = 'category' | 'reference' | 'amount' | 'done';
 function UnavailableNote({ body }: { body: string }) {
   return (
     <div className="rounded-control border border-line bg-card px-4 py-3.5">
-      <p className="font-strong text-body-sm text-caution">Bill payments aren&apos;t available yet</p>
-      <p className="mt-1 font-body text-label-sm text-slate">{body}</p>
+      <p className="font-strong text-ui text-caution">Bill payments aren&apos;t available yet</p>
+      <p className="mt-1 font-body text-note text-slate">{body}</p>
     </div>
   );
 }
@@ -104,7 +104,7 @@ export default function PayBillPage() {
               <UnavailableNote body="You can look around. Paying switches on once bill payments are set up." />
             </div>
           )}
-          <p className="pb-3 font-heavy text-body-sm text-ink">What are you paying?</p>
+          <p className="pb-3 font-display text-subhead text-ink">What are you paying?</p>
           <ul className="flex flex-col gap-2">
             {BILL_CATEGORIES.map((category) => {
               const Icon = BILL_ICONS[category.id];
@@ -113,14 +113,14 @@ export default function PayBillPage() {
                   <button
                     type="button"
                     onClick={() => chooseCategory(category)}
-                    className="flex w-full items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 text-left transition-colors hover:border-mist"
+                    className="flex w-full items-center gap-3 border-b border-hairline py-3 text-left transition-colors hover:bg-press"
                   >
                     <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-press text-ink">
                       <Icon size={20} strokeWidth={1.5} aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-strong text-body text-ink">{category.label}</span>
-                      <span className="mt-0.5 block font-body text-caption text-slate">{category.hint}</span>
+                      <span className="block font-strong text-ui text-ink">{category.label}</span>
+                      <span className="mt-0.5 block font-body text-note text-slate">{category.hint}</span>
                     </span>
                     <ChevronRight size={16} strokeWidth={1.5} className="text-mist" aria-hidden />
                   </button>
@@ -133,8 +133,8 @@ export default function PayBillPage() {
 
       {step === 'reference' && info ? (
         <div className="flex flex-1 flex-col px-gutter-lg pt-4">
-          <h1 className="font-strong text-title-xl text-ink">{info.identifierLabel}</h1>
-          <p className="mt-3 font-body text-body-sm text-slate">
+          <h1 className="font-display text-heading text-ink">{info.identifierLabel}</h1>
+          <p className="mt-3 font-body text-ui text-slate">
             We check it before any money moves, so you know whose bill it is.
           </p>
           <input
@@ -146,14 +146,14 @@ export default function PayBillPage() {
             onKeyDown={(event) => {
               if (event.key === 'Enter' && trimmed) void check();
             }}
-            className="mt-7 h-14 w-full rounded-control border-[1.5px] border-ink bg-card px-4 font-strong text-body-lg text-ink outline-none"
+            className="mt-7 h-14 w-full rounded-control border-[1.5px] border-ink bg-card px-4 font-strong text-prose text-ink outline-none"
           />
-          {problem ? <p className="mt-4 font-body text-label-sm text-halt">{problem}</p> : null}
+          {problem ? <p className="mt-4 font-body text-note text-halt">{problem}</p> : null}
           <div className="mt-auto flex gap-2.5 pb-28 pt-6">
             <button
               type="button"
               onClick={() => setStep('category')}
-              className="flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body-lg text-ink"
+              className="flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-prose text-ink"
             >
               Back
             </button>
@@ -161,7 +161,7 @@ export default function PayBillPage() {
               type="button"
               disabled={!trimmed || checking}
               onClick={() => void check()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
             >
               {checking ? 'Checking' : 'Continue'}
             </button>
@@ -178,15 +178,15 @@ export default function PayBillPage() {
               </div>
             )}
             {customerName ? (
-              <p className="mb-3 text-center font-strong text-body-sm text-ink">For {customerName}</p>
+              <p className="mb-3 text-center font-strong text-ui text-ink">For {customerName}</p>
             ) : null}
-            <p className="font-body text-label-sm text-slate">How much?</p>
+            <p className="font-body text-note text-slate">How much?</p>
             <div className="mt-4">
               <Amount value={amount} size="large" />
             </div>
-            {problem ? <p className="mt-4 text-center font-body text-label-sm text-halt">{problem}</p> : null}
+            {problem ? <p className="mt-4 text-center font-body text-note text-halt">{problem}</p> : null}
             {amount > 0 && !enough ? (
-              <p className="mt-4 text-center font-body text-label-sm text-caution">
+              <p className="mt-4 text-center font-body text-note text-caution">
                 That is more than your balance covers.
               </p>
             ) : null}
@@ -198,7 +198,7 @@ export default function PayBillPage() {
               <button
                 type="button"
                 onClick={() => setStep('reference')}
-                className="flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body-lg text-ink"
+                className="flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-prose text-ink"
               >
                 Back
               </button>
@@ -206,7 +206,7 @@ export default function PayBillPage() {
                 type="button"
                 disabled={!available || !enough || paying}
                 onClick={() => void submit()}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 {paying ? 'Paying' : amount > 0 ? `Pay ${formatNaira(amount)}` : 'Pay'}
               </button>
@@ -217,18 +217,18 @@ export default function PayBillPage() {
 
       {step === 'done' && info && outcome ? (
         <div className="flex flex-1 flex-col items-center justify-center px-gutter-lg pb-28 text-center">
-          <span className="rounded-chip bg-settled-wash px-2.5 py-1 font-heavy text-caption-sm uppercase text-settled">
+          <span className="rounded-control bg-settled-wash px-2.5 py-1 font-heavy text-note uppercase text-settled">
             {outcome.status === 'successful' ? 'Paid' : 'Submitted'}
           </span>
           <div className="mt-4">
             <Amount value={kobo(amount)} size="large" />
           </div>
-          <p className="mt-2 font-body text-body-sm text-slate">for {info.label}</p>
-          <p className="tabular mt-1 font-body text-caption text-mist">{outcome.reference}</p>
+          <p className="mt-2 font-body text-ui text-slate">for {info.label}</p>
+          <p className="tabular mt-1 font-body text-note text-slate">{outcome.reference}</p>
           <button
             type="button"
             onClick={() => router.push('/transfer')}
-            className="mt-8 flex h-14 items-center justify-center rounded-control bg-ink px-8 font-strong text-body-lg text-paper"
+            className="mt-8 flex h-14 items-center justify-center rounded-control bg-ink px-8 font-strong text-prose text-paper"
           >
             Done
           </button>

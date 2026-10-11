@@ -60,8 +60,8 @@ export default function Beneficiaries() {
         </View>
       ) : load.state === 'failed' ? (
         <View className="flex-1 items-center justify-center px-gutter-lg">
-          <Text className="text-center font-strong text-body text-ink">We couldn&apos;t load your beneficiaries.</Text>
-          <Text className="mt-1.5 text-center font-body text-label-sm text-slate">
+          <Text className="text-center font-strong text-ui text-ink">We couldn&apos;t load your beneficiaries.</Text>
+          <Text className="mt-1.5 text-center font-body text-note text-slate">
             Nothing has been changed. Check your connection and try again.
           </Text>
           <View className="mt-5 flex-row">
@@ -78,8 +78,8 @@ export default function Beneficiaries() {
         </View>
       ) : load.list.length === 0 ? (
         <View className="flex-1 justify-center px-gutter-lg pb-16">
-          <Text className="font-strong text-title text-ink">No beneficiaries yet</Text>
-          <Text className="mt-2 font-body text-body-sm text-slate">
+          <Text className="font-display text-subhead text-ink">No beneficiaries yet</Text>
+          <Text className="mt-2 font-body text-ui text-slate">
             Add someone with their payment code, and you can send them money in a few taps.
           </Text>
         </View>
@@ -97,7 +97,7 @@ export default function Beneficiaries() {
                 contact={contact}
                 caption={captionFor(item)}
                 accessibilityLabel={`Edit ${contact.name}`}
-                trailing={<Text className="font-strong text-caption-sm text-ink">Edit</Text>}
+                trailing={<Text className="font-strong text-note text-ink">Edit</Text>}
                 onPress={() => router.push({ pathname: '/beneficiaries/[id]', params: { id: item.id } })}
               />
             );

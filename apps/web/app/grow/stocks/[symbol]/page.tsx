@@ -108,19 +108,19 @@ function StockTradePage() {
 
       <div className="flex-1 px-gutter pb-28">
         {quoteFailed ? (
-          <div className="rounded-panel border border-line bg-card p-5">
-            <p className="font-heavy text-body text-ink">No price available right now</p>
-            <p className="mt-2 font-body text-body-sm text-slate">
+          <div className="rounded-card border border-line bg-card p-5">
+            <p className="font-heavy text-ui text-ink">No price available right now</p>
+            <p className="mt-2 font-body text-ui text-slate">
               We could not get a live price for {symbol}, so trading it is switched off for now.
             </p>
           </div>
         ) : !quote ? (
-          <p className="px-1 font-body text-body-sm text-slate">Getting the latest price</p>
+          <p className="px-1 font-body text-ui text-slate">Getting the latest price</p>
         ) : (
           <>
             <div className="flex items-baseline justify-between px-1">
-              <p className="font-strong text-label-sm text-mist">{symbol} · per share</p>
-              <p className="tabular font-strong text-body text-ink">{formatNaira(kobo(quote.priceMinor))}</p>
+              <p className="font-strong text-note text-slate">{symbol} · per share</p>
+              <p className="tabular font-strong text-ui text-ink">{formatNaira(kobo(quote.priceMinor))}</p>
             </div>
 
             <div className="mt-4 flex gap-2">
@@ -134,7 +134,7 @@ function StockTradePage() {
                     disabled={disabled}
                     aria-pressed={active}
                     onClick={() => pickSide(option)}
-                    className={`flex-1 rounded-control border py-3 font-strong text-body-sm ${
+                    className={`flex-1 rounded-control border py-3 font-strong text-ui ${
                       active ? 'border-ink bg-card text-ink' : 'border-line bg-card text-slate'
                     } ${disabled ? 'opacity-40' : ''}`}
                   >
@@ -145,12 +145,12 @@ function StockTradePage() {
             </div>
 
             <div className="mt-5 flex items-baseline justify-between px-1">
-              <p className="font-heavy text-body-sm text-ink">{side === 'buy' ? 'Amount to buy' : 'Amount to sell'}</p>
-              <p className="tabular font-strong text-amount-sm text-ink">
+              <p className="font-display text-subhead text-ink">{side === 'buy' ? 'Amount to buy' : 'Amount to sell'}</p>
+              <p className="tabular font-strong text-subhead text-ink">
                 {sellAll ? formatNaira(kobo(stockValueForQuantity(held, quote.priceMinor))) : `₦${entryDisplay(entry)}`}
               </p>
             </div>
-            <p className="mt-1 px-1 font-body text-label-sm text-slate">
+            <p className="mt-1 px-1 font-body text-note text-slate">
               {quantity > 0 ? `About ${formatShares(quantity)} shares` : 'Enter an amount'}
               {side === 'sell' && held > 0 ? ` · you hold ${formatShares(held)}` : ''}
             </p>
@@ -159,7 +159,7 @@ function StockTradePage() {
               <button
                 type="button"
                 onClick={() => setSellAll((v) => !v)}
-                className="mt-2 px-1 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
+                className="mt-2 px-1 font-strong text-note text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
               >
                 {sellAll ? 'Choose an amount' : 'Sell all'}
               </button>
@@ -169,14 +169,14 @@ function StockTradePage() {
               <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
             </div>
 
-            {problem ? <p className="mt-3 text-center font-body text-label-sm text-halt">{problem}</p> : null}
+            {problem ? <p className="mt-3 text-center font-body text-note text-halt">{problem}</p> : null}
 
             <div className="mt-4 flex gap-3">
               <button
                 type="button"
                 disabled={!canSubmit}
                 onClick={() => void submit()}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 {busy ? 'Working' : side === 'buy' ? 'Buy' : 'Sell'}
               </button>

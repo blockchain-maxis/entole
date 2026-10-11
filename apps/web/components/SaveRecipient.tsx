@@ -58,16 +58,16 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
 
   if (done) {
     return (
-      <section role="status" className="rounded-tile border border-line bg-card px-[18px] py-4">
-        <p className="font-strong text-body text-ink">
+      <section role="status" className="rounded-card border border-line bg-card px-[18px] py-4">
+        <p className="font-strong text-ui text-ink">
           {done.already ? `You already saved them as ${done.name}` : `${done.name} is saved`}
         </p>
-        <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+        <p className="mt-1 text-pretty font-body text-note text-slate">
           You can pay them again without their code, or let the assistant pay them inside an allowance.
         </p>
         <Link
           href={`/rules/new?for=${encodeURIComponent(done.id)}`}
-          className="mt-2.5 inline-block font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
+          className="mt-2.5 inline-block font-strong text-ui text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
         >
           Set an allowance for them
         </Link>
@@ -78,12 +78,12 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
   return (
     <form
       onSubmit={(event) => void save(event)}
-      className="rounded-tile border border-line bg-card px-[18px] py-4"
+      className="rounded-card border border-line bg-card px-[18px] py-4"
     >
-      <label htmlFor="save-name" className="block font-strong text-body text-ink">
+      <label htmlFor="save-name" className="block font-strong text-ui text-ink">
         Save them for next time
       </label>
-      <p id="save-help" className="mt-1 text-pretty font-body text-label-sm text-slate">
+      <p id="save-help" className="mt-1 text-pretty font-body text-note text-slate">
         Give them a name and you can pay them again without their code.
       </p>
       <div className="mt-3 flex gap-2.5">
@@ -101,20 +101,20 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
           maxLength={60}
           aria-describedby={problem ? 'save-problem' : 'save-help'}
           aria-invalid={problem ? true : undefined}
-          className={`h-12 min-w-0 flex-1 rounded-control border-[1.5px] bg-paper px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-ink ${
+          className={`h-12 min-w-0 flex-1 rounded-control border-[1.5px] bg-paper px-4 font-body text-ui text-ink outline-none placeholder:text-mist focus:border-ink ${
             problem ? 'border-halt' : 'border-line'
           }`}
         />
         <button
           type="submit"
           disabled={saving || name.trim().length === 0}
-          className="flex h-12 flex-none items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
+          className="flex h-12 flex-none items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
         >
           {saving ? 'Saving' : 'Save'}
         </button>
       </div>
       {problem ? (
-        <p id="save-problem" role="alert" className="mt-2 font-body text-caption text-halt">
+        <p id="save-problem" role="alert" className="mt-2 font-body text-note text-halt">
           {problem}
         </p>
       ) : null}

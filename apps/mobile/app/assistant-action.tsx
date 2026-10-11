@@ -37,7 +37,7 @@ export default function AssistantAction() {
   if (!proposal) {
     return (
       <Sheet onDismiss={close} locked={false}>
-        <Text className="pb-6 font-body text-body-sm text-slate">
+        <Text className="pb-6 font-body text-ui text-slate">
           Nothing is waiting to be sent right now.
         </Text>
         <Button label="Close" variant="secondary" onPress={close} />

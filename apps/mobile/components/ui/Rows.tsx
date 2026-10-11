@@ -113,34 +113,26 @@ export function ContactRow({
   );
 }
 
+/** A section's name, in the display face, with at most one quiet action. */
 export function SectionHeading({
   title,
   action,
   onActionPress,
   className,
-  display = false,
 }: {
   title: string;
   action?: string | undefined;
   onActionPress?: () => void;
   className?: string;
-  /** The display face, on screens that have moved to the new type. The rest
-   * keep the earlier heading until they move too. */
-  display?: boolean;
 }) {
   return (
-    <View
-      className={`flex-row items-baseline justify-between pb-3 ${display ? 'gap-4 pt-10' : 'px-1'} ${className ?? ''}`}
-    >
-      <Text
-        accessibilityRole="header"
-        className={display ? 'font-display text-subhead text-ink' : 'font-heavy text-body-sm text-ink'}
-      >
+    <View className={`flex-row items-baseline justify-between gap-4 pb-3 pt-10 ${className ?? ''}`}>
+      <Text accessibilityRole="header" className="font-display text-subhead text-ink">
         {title}
       </Text>
       {action ? (
         <Pressable accessibilityRole="link" hitSlop={10} onPress={onActionPress}>
-          <Text className={`font-strong text-ink underline ${display ? 'text-ui' : 'text-label'}`}>{action}</Text>
+          <Text className="font-strong text-ui text-ink underline">{action}</Text>
         </Pressable>
       ) : null}
     </View>

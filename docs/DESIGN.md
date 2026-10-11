@@ -81,8 +81,11 @@ Seven sizes, each with one job:
 - Naira: `₦`, thousands separators, two decimals only when non-zero.
 - Sentence case everywhere. No exclamation marks.
 
-The earlier scale of 25 sizes stays in the preset while screens move to these
-seven, one screen at a time, and is removed when the last one has moved.
+Every screen is on these. The earlier scale of 25 sizes was removed from the
+preset on 11 October 2026, with the five extra radii. Three sizes exist beside
+the seven for one place each: `poster` for the first page's headline on a wide
+screen, `sentence` for the allowance sentence on the phone, `key` for the
+keypad.
 
 ## Surfaces
 

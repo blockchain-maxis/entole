@@ -331,7 +331,7 @@ export function Landing({
             <ul className="mt-6 space-y-3.5">
               {NOT_YET.map((item) => (
                 <li key={item} className="flex items-start gap-3 font-body text-prose text-slate">
-                  <Clock size={20} strokeWidth={1.75} aria-hidden className="mt-0.5 flex-none text-mist" />
+                  <Clock size={20} strokeWidth={1.75} aria-hidden className="mt-0.5 flex-none text-slate" />
                   {item}
                 </li>
               ))}

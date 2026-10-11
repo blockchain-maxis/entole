@@ -34,19 +34,19 @@ function HubRow({ hub, note, onPress }: { hub: Hub; note?: string | null; onPres
       accessibilityRole="button"
       accessibilityLabel={hub.label}
       onPress={onPress}
-      className="flex-row items-center gap-3.5 rounded-row border border-line bg-card px-4 py-3.5 active:border-mist"
+      className="flex-row items-center gap-3.5 border-b border-hairline py-3.5 active:bg-press"
     >
-      <View className="h-11 w-11 items-center justify-center rounded-chip bg-track">
+      <View className="h-11 w-11 items-center justify-center rounded-control bg-track">
         <hub.Icon size={21} strokeWidth={1.5} color={colors.ink} />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="font-strong text-body text-ink">{hub.label}</Text>
-        <Text numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+        <Text className="font-strong text-ui text-ink">{hub.label}</Text>
+        <Text numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
           {hub.hint}
         </Text>
       </View>
       {note ? (
-        <Text tabular className="font-strong text-caption text-slate">
+        <Text tabular className="font-strong text-note text-slate">
           {note}
         </Text>
       ) : null}
@@ -62,20 +62,20 @@ function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => voi
       accessibilityRole="button"
       accessibilityLabel={`Invoice for ${invoice.clientName}`}
       onPress={onPress}
-      className="rounded-row border border-line bg-card px-4 py-3.5 active:border-mist"
+      className="border-b border-hairline py-3.5 active:bg-press"
     >
       <View className="flex-row items-start justify-between gap-3">
         <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="font-strong text-body text-ink">
+          <Text numberOfLines={1} className="font-strong text-ui text-ink">
             {invoice.clientName}
           </Text>
-          <Text numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+          <Text numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
             {invoice.reference ? `${invoice.reference} · ` : ''}
             {status === 'paid' ? 'Paid' : `Due ${dueDateLabel(invoice.dueAt)}`}
           </Text>
         </View>
         <View className="items-end gap-1.5">
-          <Text tabular className="font-strong text-body text-ink">
+          <Text tabular className="font-strong text-ui text-ink">
             {formatNaira(kobo(invoice.amountMinor))}
           </Text>
           <StatusChip label={INVOICE_STATUS_LABEL[status]} tone={TONE[status]} />
@@ -96,9 +96,9 @@ function EmptyCard({
   children?: React.ReactNode;
 }) {
   return (
-    <View className="rounded-row border border-line bg-card px-4 py-4">
-      <Text className="font-strong text-body-sm text-ink">{title}</Text>
-      <Text className="mt-1 font-body text-label-sm text-slate">{body}</Text>
+    <View className="border-b border-hairline py-4">
+      <Text className="font-strong text-ui text-ink">{title}</Text>
+      <Text className="mt-1 font-body text-note text-slate">{body}</Text>
       {children ? <View className="mt-3 flex-row gap-2.5">{children}</View> : null}
     </View>
   );
@@ -256,14 +256,14 @@ export default function Business() {
                 accessibilityRole="button"
                 accessibilityLabel={`Edit ${person.name}`}
                 onPress={() => router.push({ pathname: '/business/payroll/add', params: { id: person.id } })}
-                className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
+                className="flex-row items-center gap-3 border-b border-hairline py-3 active:bg-press"
               >
                 <Avatar initials={initialsFor(person.name)} tone={1} size="lg" />
                 <View className="min-w-0 flex-1">
-                  <Text numberOfLines={1} className="font-strong text-body text-ink">
+                  <Text numberOfLines={1} className="font-strong text-ui text-ink">
                     {person.name}
                   </Text>
-                  <Text tabular numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+                  <Text tabular numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
                     {person.payAmountMinor
                       ? `${formatNaira(kobo(person.payAmountMinor))}${cadenceWord(person.cadence) ? ` · ${cadenceWord(person.cadence)}` : ''}`
                       : 'No regular pay set'}

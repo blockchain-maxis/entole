@@ -14,8 +14,8 @@ type Offer = { state: 'loading' } | { state: 'failed'; message: string } | { sta
 function Line({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <View className="flex-row items-baseline justify-between py-2.5">
-      <Text className={`font-body text-label ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
-      <Text tabular className={`text-label text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>
+      <Text className={`font-body text-ui ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
+      <Text tabular className={`text-ui text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>
         {value}
       </Text>
     </View>
@@ -64,12 +64,12 @@ export function BankTransferSheet({
   return (
     <SheetLayer>
       <Sheet className="shrink" onDismiss={onDismiss} handleOnly>
-        <Text className="font-strong text-title text-ink">Add by bank transfer</Text>
+        <Text className="font-display text-subhead text-ink">Add by bank transfer</Text>
 
         {offer.state === 'ready' ? (
           <View>
-            <Text className="mt-4 font-body text-caption text-slate">About this much arrives</Text>
-            <Text tabular className="mt-0.5 font-strong text-title-xl text-ink">
+            <Text className="mt-4 font-body text-note text-slate">About this much arrives</Text>
+            <Text tabular className="mt-0.5 font-display text-heading text-ink">
               {formatNaira(kobo(offer.offer.arrivesMinor))}
             </Text>
 
@@ -80,7 +80,7 @@ export function BankTransferSheet({
               </View>
             </View>
 
-            <Text className="mt-3 font-body text-label-sm text-slate">
+            <Text className="mt-3 font-body text-note text-slate">
               You pay on our payment partner&apos;s page. The first time, they ask for your phone number and ID. Your
               balance changes once the money has arrived.
             </Text>
@@ -93,7 +93,7 @@ export function BankTransferSheet({
             <Skeleton className="mt-4 h-4 w-full rounded-md" />
           </View>
         ) : (
-          <Text accessibilityRole="alert" className="mt-4 font-body text-label text-halt">
+          <Text accessibilityRole="alert" className="mt-4 font-body text-ui text-halt">
             {offer.message}
           </Text>
         )}

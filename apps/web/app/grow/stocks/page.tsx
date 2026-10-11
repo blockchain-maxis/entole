@@ -47,16 +47,16 @@ export default function StocksPage() {
       <div className="flex-1 px-gutter pb-28">
         {!store.stocksAvailable ? (
           <>
-            <p className="px-1 pb-4 text-pretty font-body text-body-sm text-slate">
+            <p className="px-1 pb-4 text-pretty font-body text-ui text-slate">
               Look through the companies and funds you will be able to own a piece of. Buying opens soon.
             </p>
             <StockCatalogue />
           </>
         ) : (
           <>
-            <h2 className="px-1 pb-3 font-heavy text-body-sm text-ink">Holdings</h2>
+            <h2 className="px-1 pb-3 font-display text-subhead text-ink">Holdings</h2>
             {store.stockPositions.length === 0 ? (
-              <p className="px-1 font-body text-body-sm text-slate">You do not hold any shares yet.</p>
+              <p className="px-1 font-body text-ui text-slate">You do not hold any shares yet.</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {store.stockPositions.map((position) => (
@@ -67,13 +67,13 @@ export default function StocksPage() {
                     className="flex items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 hover:border-mist"
                   >
                     <div className="flex-1 pr-3">
-                      <p className="font-strong text-body-sm text-ink">{position.companyName}</p>
-                      <p className="mt-0.5 font-body text-label-sm text-slate">
+                      <p className="font-strong text-ui text-ink">{position.companyName}</p>
+                      <p className="mt-0.5 font-body text-note text-slate">
                         {position.symbol} · {formatShares(position.quantityScaled)} shares
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="tabular font-strong text-body-sm text-ink">
+                      <span className="tabular font-strong text-ui text-ink">
                         {formatNaira(kobo(position.currentValueMinor))}
                       </span>
                       <ChevronRight size={16} strokeWidth={1.5} className="text-mist" />
@@ -83,7 +83,7 @@ export default function StocksPage() {
               </div>
             )}
 
-            <h2 className="px-1 pb-3 pt-6 font-heavy text-body-sm text-ink">Buy stock</h2>
+            <h2 className="px-1 pb-3 pt-6 font-display text-subhead text-ink">Buy stock</h2>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -91,7 +91,7 @@ export default function StocksPage() {
               }}
               className="flex items-center gap-2.5 rounded-control border border-line bg-card px-4 py-3.5"
             >
-              <Search size={18} strokeWidth={1.5} className="text-mist" />
+              <Search size={18} strokeWidth={1.5} className="text-slate" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -99,17 +99,17 @@ export default function StocksPage() {
                 aria-label="Search stocks"
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="flex-1 bg-transparent font-body text-body text-ink outline-none placeholder:text-mist"
+                className="flex-1 bg-transparent font-body text-ui text-ink outline-none placeholder:text-mist"
               />
             </form>
 
-            {problem ? <p className="mt-3 px-1 font-body text-label-sm text-halt">{problem}</p> : null}
+            {problem ? <p className="mt-3 px-1 font-body text-note text-halt">{problem}</p> : null}
 
             {searching ? (
-              <p className="mt-3 px-1 font-body text-label-sm text-slate">Searching</p>
+              <p className="mt-3 px-1 font-body text-note text-slate">Searching</p>
             ) : results ? (
               results.length === 0 ? (
-                <p className="mt-3 px-1 font-body text-body-sm text-slate">No matches.</p>
+                <p className="mt-3 px-1 font-body text-ui text-slate">No matches.</p>
               ) : (
                 <div className="mt-3 flex flex-col gap-2">
                   {results.map((result) => (
@@ -120,8 +120,8 @@ export default function StocksPage() {
                       className="flex items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 hover:border-mist"
                     >
                       <div className="flex-1 pr-3">
-                        <p className="font-strong text-body-sm text-ink">{result.name}</p>
-                        <p className="mt-0.5 font-body text-label-sm text-slate">{result.symbol}</p>
+                        <p className="font-strong text-ui text-ink">{result.name}</p>
+                        <p className="mt-0.5 font-body text-note text-slate">{result.symbol}</p>
                       </div>
                       <ChevronRight size={16} strokeWidth={1.5} className="text-mist" />
                     </Link>

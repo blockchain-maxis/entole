@@ -32,7 +32,7 @@ export default function AllowanceDetail() {
   if (!allowance) {
     return (
       <Sheet onDismiss={close} topInset={132}>
-        <Text className="pb-6 font-body text-body-sm text-slate">
+        <Text className="pb-6 font-body text-ui text-slate">
           That allowance is no longer here. It may have been revoked.
         </Text>
         <Button label="Close" variant="secondary" onPress={close} />
@@ -109,7 +109,7 @@ export default function AllowanceDetail() {
           </Text>
         </View>
 
-        <SectionHeading display title="Payments from it" />
+        <SectionHeading title="Payments from it" />
 
         <View className="border-y border-hairline pb-0.5">
           {payments.length === 0 ? (

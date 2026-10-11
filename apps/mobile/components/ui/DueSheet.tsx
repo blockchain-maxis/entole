@@ -50,7 +50,7 @@ export function DueSheet({
   return (
     <SheetLayer>
       <Sheet onDismiss={onDismiss} handleOnly>
-        <Text className="font-strong text-title text-ink">When is it due?</Text>
+        <Text className="font-display text-subhead text-ink">When is it due?</Text>
 
         {calendar ? (
           <View className="mt-4">
@@ -65,7 +65,7 @@ export function DueSheet({
               >
                 <ChevronLeft size={22} strokeWidth={1.5} color={colors.slate} />
               </Pressable>
-              <Text className="font-strong text-body text-ink">{monthLabel(cursor.year, cursor.month)}</Text>
+              <Text className="font-strong text-ui text-ink">{monthLabel(cursor.year, cursor.month)}</Text>
               <Pressable accessibilityRole="button" accessibilityLabel="Later month" hitSlop={12} onPress={() => step(1)}>
                 <ChevronRight size={22} strokeWidth={1.5} color={colors.slate} />
               </Pressable>
@@ -74,7 +74,7 @@ export function DueSheet({
             <View className="mt-3 flex-row">
               {WEEKDAYS.map((day, index) => (
                 <View key={index} className="flex-1 items-center py-1">
-                  <Text className="font-strong text-caption text-mist">{day}</Text>
+                  <Text className="font-strong text-note text-slate">{day}</Text>
                 </View>
               ))}
             </View>
@@ -96,7 +96,7 @@ export function DueSheet({
                           }
                           className={`h-10 w-10 items-center justify-center rounded-pill ${past ? 'opacity-30' : 'active:bg-press'}`}
                         >
-                          <Text tabular className="font-body text-body-sm text-ink">
+                          <Text tabular className="font-body text-ui text-ink">
                             {day}
                           </Text>
                         </Pressable>
@@ -118,10 +118,10 @@ export function DueSheet({
                 key={days}
                 accessibilityRole="button"
                 onPress={() => onPick(dueInDays(days), { kind: 'days', days })}
-                className="flex-row items-center justify-between rounded-chip border border-hairline bg-paper px-4 py-3.5 active:border-mist"
+                className="flex-row items-center justify-between rounded-control border border-hairline bg-paper px-4 py-3.5 active:border-mist"
               >
-                <Text className="font-strong text-body text-ink">In {days} days</Text>
-                <Text tabular className="font-body text-caption text-slate">
+                <Text className="font-strong text-ui text-ink">In {days} days</Text>
+                <Text tabular className="font-body text-note text-slate">
                   {dueDateLabel(dueInDays(days))}
                 </Text>
               </Pressable>
@@ -129,9 +129,9 @@ export function DueSheet({
             <Pressable
               accessibilityRole="button"
               onPress={() => setCalendar(true)}
-              className="flex-row items-center justify-between rounded-chip border border-hairline bg-paper px-4 py-3.5 active:border-mist"
+              className="flex-row items-center justify-between rounded-control border border-hairline bg-paper px-4 py-3.5 active:border-mist"
             >
-              <Text className="font-strong text-body text-ink">Pick a date</Text>
+              <Text className="font-strong text-ui text-ink">Pick a date</Text>
               <ChevronRight size={18} strokeWidth={1.5} color={colors.mist} />
             </Pressable>
           </View>

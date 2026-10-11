@@ -47,7 +47,7 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
           autoCorrect={false}
           returnKeyType="search"
           accessibilityLabel="Search stocks"
-          className="flex-1 font-body text-body text-ink"
+          className="flex-1 font-body text-ui text-ink"
           style={{ padding: 0 }}
         />
       </View>
@@ -65,12 +65,12 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
                 active ? 'border-ink bg-card' : 'border-line bg-card active:border-mist'
               }`}
             >
-              <Text className={`font-strong text-label-sm ${active ? 'text-ink' : 'text-slate'}`}>{filter.label}</Text>
+              <Text className={`font-strong text-note ${active ? 'text-ink' : 'text-slate'}`}>{filter.label}</Text>
             </Pressable>
           );
         })}
         {browse.state === 'ready' && browse.total > 0 ? (
-          <Text tabular className="ml-auto font-body text-label-sm text-slate">
+          <Text tabular className="ml-auto font-body text-note text-slate">
             {stockCountLabel(browse.total, kind)}
           </Text>
         ) : null}
@@ -84,9 +84,9 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
             ))}
           </View>
         ) : browse.state === 'failed' ? (
-          <View className="rounded-panel border border-line bg-card p-5">
-            <Text className="font-heavy text-body text-ink">We can&apos;t show stocks right now</Text>
-            <Text className="mt-2 font-body text-body-sm text-slate">
+          <View className="rounded-card border border-line bg-card p-5">
+            <Text className="font-heavy text-ui text-ink">We can&apos;t show stocks right now</Text>
+            <Text className="mt-2 font-body text-ui text-slate">
               Prices are read live from the market, and it could not be reached just now. Nothing has changed.
             </Text>
             <View className="mt-4 flex-row">
@@ -95,8 +95,8 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
           </View>
         ) : browse.items.length === 0 ? (
           <View className="px-1 pt-2">
-            <Text className="font-strong text-body-sm text-ink">Nothing matches that search</Text>
-            <Text className="mt-1 font-body text-label-sm text-slate">Try the company&apos;s name, or its symbol.</Text>
+            <Text className="font-strong text-ui text-ink">Nothing matches that search</Text>
+            <Text className="mt-1 font-body text-note text-slate">Try the company&apos;s name, or its symbol.</Text>
           </View>
         ) : (
           <>
@@ -114,7 +114,7 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
             ) : browse.hasMore ? (
               <>
                 {browse.moreFailed ? (
-                  <Text className="mt-3 px-1 font-body text-label-sm text-halt">The next ones could not be loaded.</Text>
+                  <Text className="mt-3 px-1 font-body text-note text-halt">The next ones could not be loaded.</Text>
                 ) : null}
                 <View className="mt-3 flex-row">
                   <Button
@@ -141,22 +141,22 @@ function StockRow({ item, onPress }: { item: StockListItem; onPress: () => void 
       accessibilityRole="button"
       accessibilityLabel={`${item.name}, ${price}, ${change}`}
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
+      className="flex-row items-center gap-3 border-b border-hairline py-3 active:bg-press"
     >
       <StockLogo src={item.logo} name={item.name} />
       <View className="min-w-0 flex-1">
-        <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
+        <Text numberOfLines={1} className="font-strong text-ui text-ink">
           {item.name}
         </Text>
-        <Text numberOfLines={1} className="font-body text-label-sm text-slate">
+        <Text numberOfLines={1} className="font-body text-note text-slate">
           {stockByline(item)}
         </Text>
       </View>
       <View className="items-end">
-        <Text tabular className="font-strong text-body-sm text-ink">
+        <Text tabular className="font-strong text-ui text-ink">
           {price}
         </Text>
-        <Text tabular className={`font-body text-label-sm ${TONE[changeTone(item.changeBps)]}`}>
+        <Text tabular className={`font-body text-note ${TONE[changeTone(item.changeBps)]}`}>
           {change}
         </Text>
       </View>

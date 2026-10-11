@@ -69,9 +69,9 @@ export default function Grow() {
       >
         {loading ? (
           <View accessibilityLabel="Loading" className="gap-3">
-            <View className="rounded-panel bg-card p-6 shadow-raised">
+            <View className="rounded-card bg-card p-6 shadow-raised">
               <Skeleton className="h-4 w-20 rounded-md" />
-              <Skeleton className="mt-4 h-[48px] w-56 rounded-chip" />
+              <Skeleton className="mt-4 h-[48px] w-56 rounded-control" />
               <Skeleton className="mt-3 h-4 w-24 rounded-md" />
               <Skeleton className="mt-4 h-4 w-full rounded-md" />
               <View className="mt-5 flex-row gap-3">
@@ -79,12 +79,12 @@ export default function Grow() {
                 <Skeleton className="h-[54px] flex-1 rounded-control" />
               </View>
             </View>
-            <View className="rounded-row border border-line bg-card p-4">
+            <View className="rounded-card border border-line bg-card p-4">
               <Skeleton className="h-4 w-28 rounded-md" />
               <Skeleton className="mt-3.5 h-4 w-full rounded-md" />
               <Skeleton className="mt-3.5 h-4 w-full rounded-md" />
             </View>
-            <View className="rounded-row border border-line bg-card p-4">
+            <View className="rounded-card border border-line bg-card p-4">
               <Skeleton className="h-4 w-20 rounded-md" />
               <Skeleton className="mt-3.5 h-4 w-full rounded-md" />
             </View>
@@ -97,28 +97,28 @@ export default function Grow() {
         ) : (
           <View className="gap-3">
             {savings ? (
-              <View className="rounded-panel bg-card p-6 shadow-raised">
-                <Text className="font-strong text-label-sm text-mist">Savings</Text>
+              <View className="rounded-card bg-card p-6 shadow-raised">
+                <Text className="font-strong text-note text-slate">Savings</Text>
                 <View className="mt-3">
                   <Amount value={kobo(saved)} size="large" />
                 </View>
-                <Text tabular className="mt-2 font-body text-body-sm text-slate">
+                <Text tabular className="mt-2 font-body text-ui text-slate">
                   ≈ {formatDollars(toDollars(kobo(saved), store.rate))}
                 </Text>
                 {earning ? (
                   <View className="mt-3">
                     {earning.earnedMinor > 0 ? (
-                      <Text tabular className="font-body text-body-sm text-settled">
+                      <Text tabular className="font-body text-ui text-settled">
                         + {formatNaira(kobo(earning.earnedMinor))} earned so far
                       </Text>
                     ) : null}
-                    <Text className="mt-1 font-strong text-body-sm text-ink">Earning about {earning.rate} a year</Text>
-                    <Text className="mt-1 font-body text-label-sm text-slate">
+                    <Text className="mt-1 font-strong text-ui text-ink">Earning about {earning.rate} a year</Text>
+                    <Text className="mt-1 font-body text-note text-slate">
                       The rate moves from day to day. To earn it, your savings are lent out through a lending market.
                     </Text>
                   </View>
                 ) : (
-                  <Text className="mt-3 font-body text-label-sm text-slate">
+                  <Text className="mt-3 font-body text-note text-slate">
                     Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
                   </Text>
                 )}
@@ -137,45 +137,45 @@ export default function Grow() {
                 </View>
               </View>
             ) : (
-              <View className="rounded-panel bg-card p-6 shadow-raised">
-                <Text className="font-strong text-label-sm text-mist">Savings</Text>
-                <Text className="mt-2.5 font-strong text-title text-ink">Savings isn&apos;t available yet</Text>
-                <Text className="mt-2 font-body text-body-sm text-slate">
+              <View className="rounded-card bg-card p-6 shadow-raised">
+                <Text className="font-strong text-note text-slate">Savings</Text>
+                <Text className="mt-2.5 font-display text-subhead text-ink">Savings isn&apos;t available yet</Text>
+                <Text className="mt-2 font-body text-ui text-slate">
                   It isn&apos;t switched on for your account yet. Your money hasn&apos;t moved.
                 </Text>
               </View>
             )}
 
             {savings ? (
-              <View className="rounded-row border border-line bg-card p-4">
-                <Text className="font-heavy text-body-sm text-ink">Your money</Text>
+              <View className="rounded-card border border-line bg-card p-4">
+                <Text className="font-display text-subhead text-ink">Your money</Text>
                 <View className="mt-3 flex-row items-baseline justify-between">
-                  <Text className="font-body text-label text-slate">You can spend</Text>
-                  <Text tabular className="font-strong text-label text-ink">
+                  <Text className="font-body text-ui text-slate">You can spend</Text>
+                  <Text tabular className="font-strong text-ui text-ink">
                     {formatNaira(kobo(spendable))}
                   </Text>
                 </View>
                 <View className="mt-2.5 flex-row items-baseline justify-between">
-                  <Text className="font-body text-label text-slate">In savings</Text>
-                  <Text tabular className="font-strong text-label text-ink">
+                  <Text className="font-body text-ui text-slate">In savings</Text>
+                  <Text tabular className="font-strong text-ui text-ink">
                     {formatNaira(kobo(saved))}
                   </Text>
                 </View>
                 {share !== null ? (
                   <View className="mt-4">
                     <SplitBar share={share} label={savedShareLabel(share)} />
-                    <Text className="mt-2 font-body text-caption text-slate">{savedShareLabel(share)}</Text>
+                    <Text className="mt-2 font-body text-note text-slate">{savedShareLabel(share)}</Text>
                   </View>
                 ) : null}
               </View>
             ) : null}
 
             {store.stocksAvailable ? (
-              <View className="rounded-row border border-line bg-card p-4">
+              <View className="rounded-card border border-line bg-card p-4">
                 <View className="flex-row items-baseline justify-between">
-                  <Text className="font-heavy text-body-sm text-ink">Stocks</Text>
+                  <Text className="font-display text-subhead text-ink">Stocks</Text>
                   {holdings.length > 0 ? (
-                    <Text tabular className="font-strong text-label text-ink">
+                    <Text tabular className="font-strong text-ui text-ink">
                       {formatNaira(kobo(holdingsValue))}
                     </Text>
                   ) : null}
@@ -193,7 +193,7 @@ export default function Grow() {
                     ))}
                   </View>
                 ) : (
-                  <Text className="mt-2 font-body text-label-sm text-slate">You don&apos;t hold any shares yet.</Text>
+                  <Text className="mt-2 font-body text-note text-slate">You don&apos;t hold any shares yet.</Text>
                 )}
                 <View className="mt-4 flex-row">
                   <Button
@@ -204,9 +204,9 @@ export default function Grow() {
                 </View>
               </View>
             ) : (
-              <View className="rounded-row border border-line bg-card p-4">
-                <Text className="font-heavy text-body-sm text-ink">Stocks</Text>
-                <Text className="mt-2 font-body text-label-sm text-slate">
+              <View className="rounded-card border border-line bg-card p-4">
+                <Text className="font-display text-subhead text-ink">Stocks</Text>
+                <Text className="mt-2 font-body text-note text-slate">
                   See the companies and funds you will be able to buy, with live prices. Buying opens soon.
                 </Text>
                 <View className="mt-4 flex-row">
@@ -215,9 +215,9 @@ export default function Grow() {
               </View>
             )}
 
-            <View className="rounded-row border border-line bg-card p-4">
-              <Text className="font-heavy text-body-sm text-ink">Earn</Text>
-              <Text className="mt-2 font-body text-label-sm text-slate">
+            <View className="rounded-card border border-line bg-card p-4">
+              <Text className="font-display text-subhead text-ink">Earn</Text>
+              <Text className="mt-2 font-body text-note text-slate">
                 Interest on savings is planned for when Entole goes live. Nothing earns interest today.
               </Text>
             </View>

@@ -44,8 +44,8 @@ export function AmountSheet({
   return (
     <SheetLayer>
       <Sheet onDismiss={onDismiss} handleOnly>
-        <Text className="font-strong text-title text-ink">{title}</Text>
-        {hint ? <Text className="mt-1 font-body text-label text-slate">{hint}</Text> : null}
+        <Text className="font-display text-subhead text-ink">{title}</Text>
+        {hint ? <Text className="mt-1 font-body text-ui text-slate">{hint}</Text> : null}
 
         <View className="mt-5 items-center">
           <Amount value={amount} size="large" caret />

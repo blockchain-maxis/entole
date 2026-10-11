@@ -117,9 +117,9 @@ export default function StockTrade() {
 
       <View className="flex-1 px-gutter pt-1">
         {quoteProblem ? (
-          <View className="rounded-row border border-line bg-card p-4">
-            <Text className="font-heavy text-body-sm text-ink">No price available right now</Text>
-            <Text className="mt-2 font-body text-label-sm text-slate">{quoteProblem}</Text>
+          <View className="rounded-card border border-line bg-card p-4">
+            <Text className="font-display text-subhead text-ink">No price available right now</Text>
+            <Text className="mt-2 font-body text-note text-slate">{quoteProblem}</Text>
           </View>
         ) : !quote ? (
           <View accessibilityLabel="Getting the latest price" className="px-1">
@@ -130,8 +130,8 @@ export default function StockTrade() {
         ) : (
           <>
             <View className="flex-row items-baseline justify-between px-1">
-              <Text className="font-strong text-label-sm text-mist">{symbol} · per share</Text>
-              <Text tabular className="font-strong text-body text-ink">
+              <Text className="font-strong text-note text-slate">{symbol} · per share</Text>
+              <Text tabular className="font-strong text-ui text-ink">
                 {formatNaira(kobo(quote.priceMinor))}
               </Text>
             </View>
@@ -151,7 +151,7 @@ export default function StockTrade() {
                       active ? 'border-ink bg-card' : 'border-line bg-card'
                     } ${disabled ? 'opacity-40' : ''}`}
                   >
-                    <Text className={`font-strong text-body-sm ${active ? 'text-ink' : 'text-slate'}`}>
+                    <Text className={`font-strong text-ui ${active ? 'text-ink' : 'text-slate'}`}>
                       {option === 'buy' ? 'Buy' : 'Sell'}
                     </Text>
                   </Pressable>
@@ -160,19 +160,19 @@ export default function StockTrade() {
             </View>
 
             <View className="mt-5 flex-row items-baseline justify-between px-1">
-              <Text className="font-heavy text-body-sm text-ink">{side === 'buy' ? 'Amount to buy' : 'Amount to sell'}</Text>
-              <Text tabular className="font-strong text-amount-sm text-ink">
+              <Text className="font-display text-subhead text-ink">{side === 'buy' ? 'Amount to buy' : 'Amount to sell'}</Text>
+              <Text tabular className="font-strong text-subhead text-ink">
                 {sellAll ? formatNaira(kobo(stockValueForQuantity(held, quote.priceMinor))) : `₦${entryDisplay(entry)}`}
               </Text>
             </View>
-            <Text className="mt-1 px-1 font-body text-label-sm text-slate">
+            <Text className="mt-1 px-1 font-body text-note text-slate">
               {quantity > 0 ? `About ${formatShares(quantity)} shares` : 'Enter an amount'}
               {side === 'sell' && held > 0 ? ` · you hold ${formatShares(held)}` : ''}
             </Text>
 
             {side === 'sell' && held > 0 ? (
               <Pressable accessibilityRole="button" className="mt-2 px-1" onPress={() => setSellAll((v) => !v)}>
-                <Text className="font-strong text-label-sm text-ink underline">{sellAll ? 'Choose an amount' : 'Sell all'}</Text>
+                <Text className="font-strong text-note text-ink underline">{sellAll ? 'Choose an amount' : 'Sell all'}</Text>
               </Pressable>
             ) : null}
 
@@ -180,7 +180,7 @@ export default function StockTrade() {
               <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
             </View>
 
-            {problem ? <Text className="mt-3 text-center font-body text-label-sm text-halt">{problem}</Text> : null}
+            {problem ? <Text className="mt-3 text-center font-body text-note text-halt">{problem}</Text> : null}
 
             <View className="mt-4 flex-row gap-3">
               <Button

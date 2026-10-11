@@ -98,8 +98,8 @@ export default function InvoiceDetail() {
         <Header title="Invoice" />
         <View className="px-gutter-lg pt-2">
           <Skeleton className="h-5 w-24 rounded-md" />
-          <Skeleton className="mt-4 h-10 w-52 rounded-chip" />
-          <Skeleton className="mt-6 h-[260px] w-full rounded-panel" />
+          <Skeleton className="mt-4 h-10 w-52 rounded-control" />
+          <Skeleton className="mt-6 h-[260px] w-full rounded-card" />
         </View>
       </Screen>
     );
@@ -110,8 +110,8 @@ export default function InvoiceDetail() {
       <Screen>
         <Header title="Invoice" />
         <View className="px-gutter-lg pt-4">
-          <Text className="font-strong text-body text-ink">We couldn&apos;t find that invoice.</Text>
-          <Text className="mt-1 font-body text-label text-slate">It may have been removed from this phone.</Text>
+          <Text className="font-strong text-ui text-ink">We couldn&apos;t find that invoice.</Text>
+          <Text className="mt-1 font-body text-ui text-slate">It may have been removed from this phone.</Text>
         </View>
       </Screen>
     );
@@ -131,21 +131,21 @@ export default function InvoiceDetail() {
         >
           <View className="px-1">
             <StatusChip label={INVOICE_STATUS_LABEL[status]} tone={TONE[status]} />
-            <Text numberOfLines={2} className="mt-3 font-strong text-title text-ink">
+            <Text numberOfLines={2} className="mt-3 font-display text-subhead text-ink">
               {invoice.clientName}
             </Text>
-            <Text tabular className="mt-1 font-strong text-amount-lg text-ink">
+            <Text tabular className="mt-1 font-strong text-heading text-ink">
               {formatNaira(kobo(invoice.amountMinor))}
             </Text>
-            <Text className="mt-2 font-body text-label text-slate">{invoice.note}</Text>
-            <Text tabular className="mt-1 font-body text-label text-slate">
+            <Text className="mt-2 font-body text-ui text-slate">{invoice.note}</Text>
+            <Text tabular className="mt-1 font-body text-ui text-slate">
               {paid && invoice.paidAt
                 ? `Marked as paid on ${dueDateLabel(invoice.paidAt)}`
                 : `Due ${dueDateLabel(invoice.dueAt)}`}
             </Text>
           </View>
 
-          <View className="mt-6 items-center rounded-panel bg-card px-gutter py-7 shadow-raised">
+          <View className="mt-6 items-center rounded-card bg-card px-gutter py-7 shadow-raised">
             {link ? (
               <>
                 <PaymentCode value={link} />
@@ -153,28 +153,28 @@ export default function InvoiceDetail() {
                   selectable
                   numberOfLines={2}
                   ellipsizeMode="middle"
-                  className="mt-5 text-center font-body text-caption text-slate"
+                  className="mt-5 text-center font-body text-note text-slate"
                 >
                   {link}
                 </Text>
               </>
             ) : (
               <View className="items-center">
-                <Skeleton className="h-[232px] w-[232px] rounded-row" />
+                <Skeleton className="h-[232px] w-[232px] rounded-card" />
                 <Skeleton className="mt-5 h-4 w-56 rounded-md" />
               </View>
             )}
           </View>
 
-          <Text className="mt-5 px-1 font-body text-body-sm text-slate">
+          <Text className="mt-5 px-1 font-body text-ui text-slate">
             Send this link to your client. It opens an invoice for exactly this amount, and what they pay
             arrives in your balance.
           </Text>
 
           {paid ? null : (
-            <View className="mt-7 rounded-row border border-line bg-card px-4 py-4">
-              <Text className="font-strong text-body-sm text-ink">Been paid already?</Text>
-              <Text className="mt-1 font-body text-label-sm text-slate">
+            <View className="mt-7 border-b border-hairline py-4">
+              <Text className="font-strong text-ui text-ink">Been paid already?</Text>
+              <Text className="mt-1 font-body text-note text-slate">
                 Entole doesn&apos;t match payments to invoices yet, so this is a mark you make yourself. It
                 only updates this list — no money moves. Once activity syncing is on, invoices will be
                 marked paid automatically.

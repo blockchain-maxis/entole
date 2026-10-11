@@ -54,12 +54,12 @@ export function StockPreview({ symbol }: { symbol: string }) {
             <Skeleton className="mt-2 h-3 w-28 rounded-md" />
           </View>
         </View>
-        <Skeleton className="mt-7 h-[42px] w-48 rounded-chip" />
+        <Skeleton className="mt-7 h-[42px] w-48 rounded-control" />
         <Skeleton className="mt-3 h-4 w-40 rounded-md" />
         <Skeleton className="mt-6 h-32 w-full rounded-card" />
         <View className="mt-3 flex-row gap-3">
-          <Skeleton className="h-[84px] flex-1 rounded-row" />
-          <Skeleton className="h-[84px] flex-1 rounded-row" />
+          <Skeleton className="h-[84px] flex-1 rounded-card" />
+          <Skeleton className="h-[84px] flex-1 rounded-card" />
         </View>
       </View>
     );
@@ -67,9 +67,9 @@ export function StockPreview({ symbol }: { symbol: string }) {
 
   if (!detail) {
     return (
-      <View className="rounded-panel border border-line bg-card p-5">
-        <Text className="font-heavy text-body text-ink">We can&apos;t show this stock right now</Text>
-        <Text className="mt-2 font-body text-body-sm text-slate">
+      <View className="rounded-card border border-line bg-card p-5">
+        <Text className="font-heavy text-ui text-ink">We can&apos;t show this stock right now</Text>
+        <Text className="mt-2 font-body text-ui text-slate">
           Its price is read live from the market, and it could not be reached just now. Nothing has changed.
         </Text>
         <View className="mt-4 flex-row">
@@ -124,27 +124,27 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
       <View className="flex-row items-center gap-3 px-1 pt-1">
         <StockLogo src={detail.logo} name={detail.name} size={52} />
         <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="font-heavy text-headline text-ink">
+          <Text numberOfLines={1} className="font-display text-subhead text-ink">
             {detail.name}
           </Text>
-          <Text numberOfLines={1} className="font-body text-label-sm text-slate">
+          <Text numberOfLines={1} className="font-body text-note text-slate">
             {stockByline(detail)}
           </Text>
         </View>
       </View>
 
       <View className="px-1 pt-6">
-        <Text tabular className="font-heavy text-balance-sm text-ink">
+        <Text tabular className="font-heavy text-figure-md text-ink">
           {formatUsd(detail.priceCents)}
         </Text>
-        <Text className="mt-2.5 font-body text-label text-slate">
-          <Text tabular className={`font-strong text-label ${TONE[changeTone(detail.changeBps)]}`}>
+        <Text className="mt-2.5 font-body text-ui text-slate">
+          <Text tabular className={`font-strong text-ui ${TONE[changeTone(detail.changeBps)]}`}>
             {formatChange(detail.changeBps)}
           </Text>
           {detail.asOf ? ` on ${formatStockDay(detail.asOf)}` : ' on its last trading day'}
         </Text>
         {nairaPrice ? (
-          <Text tabular className="mt-1 font-body text-label-sm text-slate">
+          <Text tabular className="mt-1 font-body text-note text-slate">
             About {nairaPrice} a share
           </Text>
         ) : null}
@@ -153,8 +153,8 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
       {month ? (
         <View className="mt-6 rounded-card border border-line bg-card p-4">
           <View className="flex-row items-baseline justify-between">
-            <Text className="font-body text-label-sm text-slate">Since {formatStockDay(month.since)}</Text>
-            <Text tabular className={`font-strong text-label ${TONE[changeTone(month.changeBps)]}`}>
+            <Text className="font-body text-note text-slate">Since {formatStockDay(month.since)}</Text>
+            <Text tabular className={`font-strong text-ui ${TONE[changeTone(month.changeBps)]}`}>
               {formatChange(month.changeBps)}
             </Text>
           </View>
@@ -187,13 +187,13 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
           {rows.map((pair) => (
             <View key={pair[0]?.label} className="flex-row gap-3">
               {pair.map((fact) => (
-                <View key={fact.label} className="flex-1 rounded-row border border-line bg-card px-4 py-3.5">
-                  <Text className="font-body text-label-sm text-slate">{fact.label}</Text>
-                  <Text tabular className="mt-1 font-strong text-body-lg text-ink">
+                <View key={fact.label} className="flex-1 border-b border-hairline py-3.5">
+                  <Text className="font-body text-note text-slate">{fact.label}</Text>
+                  <Text tabular className="mt-1 font-strong text-prose text-ink">
                     {fact.value}
                   </Text>
                   {fact.note ? (
-                    <Text tabular className="mt-0.5 font-body text-label-sm text-slate">
+                    <Text tabular className="mt-0.5 font-body text-note text-slate">
                       {fact.note}
                     </Text>
                   ) : null}
@@ -206,10 +206,10 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
 
       {detail.about ? (
         <View className="px-1 pt-6">
-          <Text className="font-heavy text-body-sm text-ink">About</Text>
+          <Text className="font-display text-subhead text-ink">About</Text>
           <Text
             {...(aboutFolds && !aboutOpen ? { numberOfLines: 4 } : {})}
-            className="mt-2 font-body text-body-sm text-slate"
+            className="mt-2 font-body text-ui text-slate"
           >
             {detail.about}
           </Text>
@@ -220,13 +220,13 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
               onPress={() => setAboutOpen((open) => !open)}
               className="mt-1.5 self-start"
             >
-              <Text className="font-strong text-label-sm text-ink underline">{aboutOpen ? 'Show less' : 'Read more'}</Text>
+              <Text className="font-strong text-note text-ink underline">{aboutOpen ? 'Show less' : 'Read more'}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
 
-      <Text className="px-1 pt-6 font-body text-label-sm text-slate">{tradingStatus(detail)}</Text>
+      <Text className="px-1 pt-6 font-body text-note text-slate">{tradingStatus(detail)}</Text>
 
       <View
         accessible
@@ -235,12 +235,12 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
         accessibilityLabel="Buy, coming soon"
         className="mt-3 h-14 flex-row items-center justify-center gap-2.5 rounded-control bg-press"
       >
-        <Text className="font-strong text-body-lg text-mist">Buy</Text>
-        <View className="rounded-chip border border-line bg-card px-2 py-0.5">
-          <Text className="font-strong text-label-sm text-slate">Coming soon</Text>
+        <Text className="font-strong text-prose text-slate">Buy</Text>
+        <View className="rounded-control border border-line bg-card px-2 py-0.5">
+          <Text className="font-strong text-note text-slate">Coming soon</Text>
         </View>
       </View>
-      <Text className="mt-2.5 px-1 text-center font-body text-label-sm text-slate">
+      <Text className="mt-2.5 px-1 text-center font-body text-note text-slate">
         Buying opens soon. Nothing here can move your money yet.
       </Text>
     </View>

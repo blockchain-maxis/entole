@@ -19,7 +19,7 @@ export function StatusChip({ label, tone = 'neutral' }: { label: string; tone?: 
   const { box, text } = CHIP[tone];
   return (
     <View className={`self-start rounded-md px-2 py-1 ${box}`}>
-      <Text className={`font-heavy text-badge uppercase ${text}`}>{label}</Text>
+      <Text className={`font-heavy text-micro uppercase ${text}`}>{label}</Text>
     </View>
   );
 }

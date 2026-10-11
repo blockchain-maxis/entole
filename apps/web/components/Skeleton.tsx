@@ -1,6 +1,6 @@
 /** Loading states are skeletons in the shape of the thing, never spinners. */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div aria-hidden className={`animate-pulse rounded-chip bg-press ${className}`} />;
+  return <div aria-hidden className={`animate-pulse rounded-control bg-press ${className}`} />;
 }
 
 export function BalanceSkeleton() {
@@ -15,7 +15,7 @@ export function BalanceSkeleton() {
 
 export function AllowanceCardSkeleton() {
   return (
-    <div className="rounded-row border border-line bg-card px-4 pb-[18px] pt-4">
+    <div className="rounded-card border border-line bg-card px-4 pb-[18px] pt-4">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="mt-3.5 h-6 w-32" />
       <Skeleton className="mt-3.5 h-1.5 w-full" />
@@ -25,7 +25,7 @@ export function AllowanceCardSkeleton() {
 
 export function RowSkeleton() {
   return (
-    <div className="flex items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3">
+    <div className="flex items-center gap-3 rounded-card border border-line bg-card px-3.5 py-3">
       <Skeleton className="h-10 w-10 flex-none rounded-pill" />
       <div className="min-w-0 flex-1">
         <Skeleton className="h-4 w-28" />

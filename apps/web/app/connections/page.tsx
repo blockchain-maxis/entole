@@ -69,8 +69,8 @@ export default function ConnectionsPage() {
       <Header title="Connections" back="/me" />
 
       <div className="flex-1 px-gutter pb-28 pt-2">
-        <h2 className="font-strong text-headline text-ink">Ask the assistant by message</h2>
-        <p className="mt-2.5 font-body text-body-sm text-slate">
+        <h2 className="font-display text-subhead text-ink">Ask the assistant by message</h2>
+        <p className="mt-2.5 font-body text-ui text-slate">
           Connect Telegram and you can message the assistant to pay someone. Every
           request still appears here and waits out its undo window before it settles.
         </p>
@@ -82,36 +82,36 @@ export default function ConnectionsPage() {
         </ol>
 
         {code ? (
-          <div className="mt-7 flex flex-col gap-2 rounded-row border border-line bg-card p-4">
-            <p className="font-body text-label-sm text-slate">Send this to the bot</p>
+          <div className="mt-7 flex flex-col gap-2 rounded-card border border-line bg-card p-4">
+            <p className="font-body text-note text-slate">Send this to the bot</p>
             <div className="flex items-center justify-between gap-3">
-              <span className="tabular font-strong text-title text-ink">/link {code}</span>
+              <span className="tabular font-display text-subhead text-ink">/link {code}</span>
               <button
                 type="button"
                 onClick={() => void copyCode()}
-                className="flex h-10 items-center gap-1.5 rounded-control border border-line bg-card px-3 font-strong text-label-sm text-ink transition-colors hover:border-mist"
+                className="flex h-10 items-center gap-1.5 rounded-control border border-line bg-card px-3 font-strong text-note text-ink transition-colors hover:border-mist"
               >
                 {copied ? <Check size={16} strokeWidth={1.75} /> : <Copy size={16} strokeWidth={1.75} />}
                 {copied ? 'Copied' : 'Copy'}
               </button>
             </div>
-            <p className="mt-1 font-body text-label-sm text-mist">The code works once and expires after it is used.</p>
+            <p className="mt-1 font-body text-note text-slate">The code works once and expires after it is used.</p>
           </div>
         ) : null}
 
         {!activeAllowance ? (
-          <p className="mt-6 font-body text-label-sm text-mist">
+          <p className="mt-6 font-body text-note text-slate">
             Set up an allowance first, or the assistant will have nothing it is allowed to spend.
           </p>
         ) : null}
-        {problem ? <p className="mt-4 font-body text-label-sm text-halt">{problem}</p> : null}
+        {problem ? <p className="mt-4 font-body text-note text-halt">{problem}</p> : null}
 
         <div className="mt-8">
           <button
             type="button"
             disabled={working || store.status === 'loading'}
             onClick={() => void createCode()}
-            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
           >
             {working ? 'Creating' : code ? 'Create a new code' : 'Create a link code'}
           </button>
@@ -124,12 +124,12 @@ export default function ConnectionsPage() {
 function Step({ n, title, body }: { n: number; title: string; body: string }) {
   return (
     <li className="flex gap-3.5">
-      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-control bg-indigo-wash font-strong text-body text-indigo">
+      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-control bg-indigo-wash font-strong text-ui text-indigo">
         {n}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-strong text-body text-ink">{title}</p>
-        <p className="mt-1 font-body text-body-sm text-slate">{body}</p>
+        <p className="font-strong text-ui text-ink">{title}</p>
+        <p className="mt-1 font-body text-ui text-slate">{body}</p>
       </div>
     </li>
   );

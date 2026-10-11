@@ -11,7 +11,7 @@ import { Header } from '@/components/Header';
 type Row = { key: number; name: string; quantity: string };
 
 const FIELD =
-  'w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink placeholder:text-mist';
+  'w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-ui text-ink placeholder:text-mist';
 
 /**
  * A request-drafting tool, not a marketplace. Saving records what you asked a
@@ -65,12 +65,12 @@ export default function OrderSuppliesPage() {
       <Header title="Order supplies" back="/business" />
 
       <div className="flex-1 px-gutter-lg pb-28">
-        <p className="font-body text-label-sm text-slate">
+        <p className="font-body text-note text-slate">
           Write down what you need from a supplier. This saves a request to your records — Entole does not place or
           ship the order.
         </p>
 
-        <p className="mt-6 font-heavy text-body-sm text-ink">Supplier</p>
+        <p className="mt-6 font-display text-subhead text-ink">Supplier</p>
         <input
           value={supplierName}
           onChange={(event) => setSupplierName(event.target.value)}
@@ -78,7 +78,7 @@ export default function OrderSuppliesPage() {
           className={`mt-2.5 ${FIELD}`}
         />
 
-        <p className="mt-6 font-heavy text-body-sm text-ink">Items</p>
+        <p className="mt-6 font-display text-subhead text-ink">Items</p>
         <div className="mt-2.5 flex flex-col gap-2.5">
           {rows.map((row) => (
             <div key={row.key} className="flex items-center gap-2.5">
@@ -95,7 +95,7 @@ export default function OrderSuppliesPage() {
                 placeholder="Qty"
                 aria-label="Quantity"
                 inputMode="numeric"
-                className="w-[76px] rounded-control border border-line bg-card px-3 py-3.5 text-center font-body text-body text-ink placeholder:text-mist"
+                className="w-[76px] rounded-control border border-line bg-card px-3 py-3.5 text-center font-body text-ui text-ink placeholder:text-mist"
               />
               <button
                 type="button"
@@ -113,13 +113,13 @@ export default function OrderSuppliesPage() {
         <button
           type="button"
           onClick={addRow}
-          className="mt-3 flex items-center gap-1.5 font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
+          className="mt-3 flex items-center gap-1.5 font-strong text-ui text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
         >
           <Plus size={16} strokeWidth={1.5} />
           Add another item
         </button>
 
-        <p className="mt-6 font-heavy text-body-sm text-ink">Note</p>
+        <p className="mt-6 font-display text-subhead text-ink">Note</p>
         <input
           value={note}
           onChange={(event) => setNote(event.target.value)}
@@ -131,7 +131,7 @@ export default function OrderSuppliesPage() {
           type="button"
           disabled={!ready || saving}
           onClick={() => void save()}
-          className="mt-6 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+          className="mt-6 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
         >
           {saving ? 'Saving' : 'Save request'}
         </button>

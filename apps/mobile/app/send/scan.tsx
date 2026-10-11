@@ -71,9 +71,9 @@ function usePasteToSend(note: string | undefined) {
 function Notice({ title, body, problem }: { title: string; body: string; problem?: string | null }) {
   return (
     <View className="flex-1 justify-center px-gutter-lg pb-16">
-      <Text className="font-strong text-title text-ink">{title}</Text>
-      <Text className="mt-2 font-body text-body-sm text-slate">{body}</Text>
-      {problem ? <Text className="mt-4 font-body text-label text-halt">{problem}</Text> : null}
+      <Text className="font-display text-subhead text-ink">{title}</Text>
+      <Text className="mt-2 font-body text-ui text-slate">{body}</Text>
+      {problem ? <Text className="mt-4 font-body text-ui text-halt">{problem}</Text> : null}
     </View>
   );
 }
@@ -125,7 +125,7 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
   if (permission === null) {
     return (
       <View className="flex-1 px-gutter pt-2" accessibilityLabel="Getting the camera ready">
-        <Skeleton className="flex-1 rounded-panel" />
+        <Skeleton className="flex-1 rounded-card" />
       </View>
     );
   }
@@ -158,7 +158,7 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
   return (
     <>
       <View className="flex-1 px-gutter pt-2">
-        <View className="flex-1 overflow-hidden rounded-panel bg-track">
+        <View className="flex-1 overflow-hidden rounded-card bg-track">
           <CameraView
             style={StyleSheet.absoluteFill}
             facing="back"
@@ -171,9 +171,9 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
         </View>
         <View className="min-h-[56px] justify-center px-1 py-3">
           {(problem ?? pasteProblem) ? (
-            <Text className="font-body text-label text-halt">{problem ?? pasteProblem}</Text>
+            <Text className="font-body text-ui text-halt">{problem ?? pasteProblem}</Text>
           ) : (
-            <Text className="font-body text-label text-slate">Hold their QR code inside the square.</Text>
+            <Text className="font-body text-ui text-slate">Hold their QR code inside the square.</Text>
           )}
         </View>
       </View>

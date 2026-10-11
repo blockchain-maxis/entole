@@ -101,7 +101,7 @@ export default function Pay() {
           })
         ) : null}
 
-        <SectionHeading display title="Other ways" />
+        <SectionHeading title="Other ways" />
         {OTHER_WAYS.map((action) => (
           <ActionRow key={action.label} action={action} onPress={() => router.push(action.href)} />
         ))}

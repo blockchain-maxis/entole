@@ -166,7 +166,7 @@ export function ConfirmSendSheet({
         <div className="mt-4 flex items-center gap-3">
           <span
             aria-hidden
-            className="flex h-10 w-10 flex-none items-center justify-center rounded-pill bg-avatar-1 font-strong text-label text-slate"
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-pill bg-avatar-1 font-strong text-ui text-slate"
           >
             {initials}
           </span>

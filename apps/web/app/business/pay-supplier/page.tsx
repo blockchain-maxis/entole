@@ -61,27 +61,27 @@ export default function PaySupplierPage() {
 
       {receipt && contact ? (
         <div className="flex flex-1 flex-col items-center justify-center px-gutter-lg pb-28 text-center">
-          <span className="rounded-chip bg-settled-wash px-2.5 py-1 font-heavy text-caption-sm uppercase text-settled">
+          <span className="rounded-control bg-settled-wash px-2.5 py-1 font-heavy text-note uppercase text-settled">
             Settled
           </span>
           <div className="mt-4">
             <Amount value={kobo(receipt.amountMinor)} size="large" />
           </div>
-          <p className="mt-2 font-body text-body-sm text-slate">to {contact.name}</p>
-          <p className="tabular mt-1 font-body text-caption text-mist">
+          <p className="mt-2 font-body text-ui text-slate">to {contact.name}</p>
+          <p className="tabular mt-1 font-body text-note text-slate">
             {receipt.reference} · {relativeMoment(receipt.settledAt)}
           </p>
           <button
             type="button"
             onClick={startOver}
-            className="mt-8 flex h-14 items-center justify-center rounded-control bg-ink px-8 font-strong text-body-lg text-paper"
+            className="mt-8 flex h-14 items-center justify-center rounded-control bg-ink px-8 font-strong text-prose text-paper"
           >
             Done
           </button>
         </div>
       ) : (
         <div className="flex flex-1 flex-col px-gutter-lg pt-2">
-          <p className="font-heavy text-body-sm text-ink">Who are you paying?</p>
+          <p className="font-display text-subhead text-ink">Who are you paying?</p>
           <div className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
             {store.contacts.map((entryContact) => {
               const selected = entryContact.id === contactId;
@@ -97,7 +97,7 @@ export default function PaySupplierPage() {
                   }`}
                 >
                   <Avatar initials={entryContact.initials} tone={entryContact.tone} />
-                  <span className="font-strong text-label-sm text-ink">{entryContact.name.split(' ')[0]}</span>
+                  <span className="font-strong text-note text-ink">{entryContact.name.split(' ')[0]}</span>
                 </button>
               );
             })}
@@ -105,13 +105,13 @@ export default function PaySupplierPage() {
 
           <div className="mt-6 flex flex-col items-center">
             <Amount value={amount} size="large" />
-            <p className="tabular mt-2.5 text-center font-body text-label-sm text-slate">
+            <p className="tabular mt-2.5 text-center font-body text-note text-slate">
               {contact ? `To ${contact.name}` : 'Pick a supplier first'} · Fee {formatNaira(kobo(FEE_MINOR))} · arrives
               in {arrivalEstimate(ESTIMATED_ARRIVAL_SECONDS)}
             </p>
-            {problem ? <p className="mt-4 text-center font-body text-label-sm text-halt">{problem}</p> : null}
+            {problem ? <p className="mt-4 text-center font-body text-note text-halt">{problem}</p> : null}
             {amount > 0 && !enough ? (
-              <p className="mt-4 text-center font-body text-label-sm text-caution">
+              <p className="mt-4 text-center font-body text-note text-caution">
                 That is more than your balance covers, including the fee.
               </p>
             ) : null}
@@ -123,7 +123,7 @@ export default function PaySupplierPage() {
               type="button"
               disabled={!ready || sending}
               onClick={() => void submit()}
-              className="mt-3 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+              className="mt-3 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
             >
               {sending ? 'Sending' : amount > 0 ? `Pay ${formatNaira(amount)}` : 'Pay'}
             </button>

@@ -62,7 +62,7 @@ export default function Stocks() {
       >
         {!store.stocksAvailable ? (
           <>
-            <Text className="px-1 pb-4 font-body text-body-sm text-slate">
+            <Text className="px-1 pb-4 font-body text-ui text-slate">
               Look through the companies and funds you will be able to own a piece of. Buying opens soon.
             </Text>
             <StockCatalogue
@@ -83,7 +83,7 @@ export default function Stocks() {
                 <RowSkeleton />
               </View>
             ) : store.stockPositions.length === 0 ? (
-              <Text className="px-1 font-body text-body-sm text-slate">You don&apos;t hold any shares yet.</Text>
+              <Text className="px-1 font-body text-ui text-slate">You don&apos;t hold any shares yet.</Text>
             ) : (
               <View className="gap-2">
                 {store.stockPositions.map((position) => (
@@ -109,12 +109,12 @@ export default function Stocks() {
                 returnKeyType="search"
                 onSubmitEditing={() => void search()}
                 accessibilityLabel="Search stocks"
-                className="flex-1 font-body text-body text-ink"
+                className="flex-1 font-body text-ui text-ink"
                 style={{ padding: 0 }}
               />
             </View>
 
-            {problem ? <Text className="mt-3 px-1 font-body text-label-sm text-halt">{problem}</Text> : null}
+            {problem ? <Text className="mt-3 px-1 font-body text-note text-halt">{problem}</Text> : null}
 
             {searching ? (
               <View accessibilityLabel="Searching" className="mt-3 gap-2">
@@ -124,7 +124,7 @@ export default function Stocks() {
               </View>
             ) : results ? (
               results.length === 0 ? (
-                <Text className="mt-3 px-1 font-body text-body-sm text-slate">No matches.</Text>
+                <Text className="mt-3 px-1 font-body text-ui text-slate">No matches.</Text>
               ) : (
                 <View className="mt-3 gap-2">
                   {results.map((result) => (
@@ -136,10 +136,10 @@ export default function Stocks() {
                       className="flex-row items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 active:border-mist"
                     >
                       <View className="min-w-0 flex-1 pr-3">
-                        <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
+                        <Text numberOfLines={1} className="font-strong text-ui text-ink">
                           {result.name}
                         </Text>
-                        <Text className="mt-0.5 font-body text-label-sm text-slate">{result.symbol}</Text>
+                        <Text className="mt-0.5 font-body text-note text-slate">{result.symbol}</Text>
                       </View>
                       <ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />
                     </Pressable>

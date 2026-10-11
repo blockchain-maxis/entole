@@ -79,8 +79,8 @@ export default function Connections() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text className="font-strong text-headline text-ink">Ask the assistant by message</Text>
-        <Text className="mt-2.5 font-body text-body-sm text-slate">
+        <Text className="font-display text-subhead text-ink">Ask the assistant by message</Text>
+        <Text className="mt-2.5 font-body text-ui text-slate">
           Connect Telegram and you can message the assistant to pay someone. Every request still
           appears here and waits out its undo window before it settles.
         </Text>
@@ -89,21 +89,21 @@ export default function Connections() {
           {STEPS.map((step, index) => (
             <View key={step.title} className="flex-row gap-3.5">
               <View className="h-10 w-10 items-center justify-center rounded-control bg-indigo-wash">
-                <Text className="font-strong text-body text-indigo">{index + 1}</Text>
+                <Text className="font-strong text-ui text-indigo">{index + 1}</Text>
               </View>
               <View className="flex-1">
-                <Text className="font-strong text-body text-ink">{step.title}</Text>
-                <Text className="mt-1 font-body text-body-sm text-slate">{step.body}</Text>
+                <Text className="font-strong text-ui text-ink">{step.title}</Text>
+                <Text className="mt-1 font-body text-ui text-slate">{step.body}</Text>
               </View>
             </View>
           ))}
         </View>
 
         {code ? (
-          <View className="mt-7 gap-2 rounded-row border border-line bg-card p-4">
-            <Text className="font-body text-label-sm text-slate">Send this to the bot</Text>
+          <View className="mt-7 gap-2 rounded-card border border-line bg-card p-4">
+            <Text className="font-body text-note text-slate">Send this to the bot</Text>
             <View className="flex-row items-center justify-between gap-3">
-              <Text tabular className="font-strong text-title text-ink">
+              <Text tabular className="font-display text-subhead text-ink">
                 /link {code}
               </Text>
               <Pressable
@@ -115,21 +115,21 @@ export default function Connections() {
                 ) : (
                   <Copy size={16} strokeWidth={1.75} color={colors.ink} />
                 )}
-                <Text className="font-strong text-label-sm text-ink">{copied ? 'Copied' : 'Copy'}</Text>
+                <Text className="font-strong text-note text-ink">{copied ? 'Copied' : 'Copy'}</Text>
               </Pressable>
             </View>
-            <Text className="mt-1 font-body text-label-sm text-mist">
+            <Text className="mt-1 font-body text-note text-slate">
               The code works once and expires after it is used.
             </Text>
           </View>
         ) : null}
 
         {!activeAllowance ? (
-          <Text className="mt-6 font-body text-label-sm text-mist">
+          <Text className="mt-6 font-body text-note text-slate">
             Set up an allowance first, or the assistant will have nothing it is allowed to spend.
           </Text>
         ) : null}
-        {problem ? <Text className="mt-4 font-body text-label-sm text-halt">{problem}</Text> : null}
+        {problem ? <Text className="mt-4 font-body text-note text-halt">{problem}</Text> : null}
       </ScrollView>
 
       <ActionBar>

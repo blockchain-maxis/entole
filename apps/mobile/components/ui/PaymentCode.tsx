@@ -17,7 +17,7 @@ export function PaymentCode({ value, size = 208 }: { value: string; size?: numbe
     <View
       accessibilityRole="image"
       accessibilityLabel="Scannable QR code for your payment link"
-      className="rounded-row border border-hairline bg-white p-3"
+      className="rounded-card border border-hairline bg-white p-3"
     >
       <QRCode value={value} size={size} color={token.ink} backgroundColor={token.white} />
     </View>
@@ -48,12 +48,12 @@ export function PaymentCodeText({ code }: { code: string }) {
       accessibilityLabel={`Payment code ${code.split('-').join(' ')}`}
       className="items-center"
     >
-      <Text className="font-heavy text-badge uppercase text-mist">{prefix}</Text>
+      <Text className="font-heavy text-micro uppercase text-slate">{prefix}</Text>
       <View className="mt-1.5 gap-1.5">
         {rows.map((row, index) => (
           <View key={index} className="flex-row justify-center gap-3.5">
             {row.map((group, position) => (
-              <Text key={position} selectable style={style} className="text-title text-ink">
+              <Text key={position} selectable style={style} className="text-subhead text-ink">
                 {group}
               </Text>
             ))}

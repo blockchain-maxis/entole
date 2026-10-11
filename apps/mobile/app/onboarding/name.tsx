@@ -77,20 +77,20 @@ export default function NameStep() {
           hitSlop={14}
           onPress={() => router.back()}
         >
-          <Text className="font-body text-title text-slate">←</Text>
+          <Text className="font-body text-subhead text-slate">←</Text>
         </Pressable>
         {returning ? null : <StepDots total={4} done={2} />}
       </View>
 
       <View className="flex-1 px-7 pt-[34px]">
-        <Text className="font-strong text-title-xl text-ink">{returning ? 'Welcome back' : 'Your details'}</Text>
-        <Text className="mt-3 font-body text-body-sm text-slate">
+        <Text className="font-display text-heading text-ink">{returning ? 'Welcome back' : 'Your details'}</Text>
+        <Text className="mt-3 font-body text-ui text-slate">
           {returning
             ? 'Your account and your money are already here. This phone just does not know your name yet.'
             : 'Your name is how Entole greets you. Your username is how people find you.'}
         </Text>
 
-        <Text className="mt-7 font-strong text-caption text-slate">Full name</Text>
+        <Text className="mt-7 font-strong text-note text-slate">Full name</Text>
         <View className="mt-2 rounded-control border-[1.5px] border-ink bg-card px-4 py-4">
           <TextInput
             value={fullName}
@@ -102,17 +102,17 @@ export default function NameStep() {
             autoComplete="name"
             returnKeyType="next"
             accessibilityLabel="Full name"
-            className="font-strong text-body-lg text-ink"
+            className="font-strong text-prose text-ink"
             style={{ padding: 0 }}
           />
         </View>
         {touched && nameError ? (
-          <Text className="mt-2 font-body text-caption text-slate">{nameError}</Text>
+          <Text className="mt-2 font-body text-note text-slate">{nameError}</Text>
         ) : null}
 
-        <Text className="mt-5 font-strong text-caption text-slate">Username</Text>
+        <Text className="mt-5 font-strong text-note text-slate">Username</Text>
         <View className="mt-2 flex-row items-center rounded-control border-[1.5px] border-line bg-card px-4 py-4">
-          <Text className="font-strong text-body-lg text-slate">@</Text>
+          <Text className="font-strong text-prose text-slate">@</Text>
           <TextInput
             value={username}
             onChangeText={onUsernameChange}
@@ -124,14 +124,14 @@ export default function NameStep() {
             returnKeyType="done"
             onSubmitEditing={() => void submit()}
             accessibilityLabel="Username"
-            className="ml-1 flex-1 font-strong text-body-lg text-ink"
+            className="ml-1 flex-1 font-strong text-prose text-ink"
             style={{ padding: 0 }}
           />
         </View>
         {touched && usernameError ? (
-          <Text className="mt-2 font-body text-caption text-slate">{usernameError}</Text>
+          <Text className="mt-2 font-body text-note text-slate">{usernameError}</Text>
         ) : (
-          <Text className="mt-2 font-body text-caption text-slate">
+          <Text className="mt-2 font-body text-note text-slate">
             Lowercase letters, numbers, dots and underscores.
           </Text>
         )}

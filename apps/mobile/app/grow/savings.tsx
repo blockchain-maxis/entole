@@ -66,7 +66,7 @@ export default function Savings() {
           <View className="px-gutter pt-2">
             <Skeleton className="h-11 w-full rounded-control" />
             <View className="items-center">
-              <Skeleton className="mt-9 h-[54px] w-56 rounded-chip" />
+              <Skeleton className="mt-9 h-[54px] w-56 rounded-control" />
               <Skeleton className="mt-4 h-4 w-28 rounded-md" />
             </View>
           </View>
@@ -79,9 +79,9 @@ export default function Savings() {
           </View>
         ) : !position ? (
           <View className="px-gutter pt-2">
-            <View className="rounded-panel bg-card p-6 shadow-raised">
-              <Text className="font-strong text-title text-ink">Savings isn&apos;t available yet</Text>
-              <Text className="mt-2 font-body text-body-sm text-slate">
+            <View className="rounded-card bg-card p-6 shadow-raised">
+              <Text className="font-display text-subhead text-ink">Savings isn&apos;t available yet</Text>
+              <Text className="mt-2 font-body text-ui text-slate">
                 It isn&apos;t switched on for your account yet. Your money hasn&apos;t moved.
               </Text>
             </View>
@@ -102,7 +102,7 @@ export default function Savings() {
                         active ? 'border-ink bg-card' : 'border-line bg-card'
                       }`}
                     >
-                      <Text className={`font-strong text-body-sm ${active ? 'text-ink' : 'text-slate'}`}>
+                      <Text className={`font-strong text-ui ${active ? 'text-ink' : 'text-slate'}`}>
                         {option === 'deposit' ? 'Add to savings' : 'Take out'}
                       </Text>
                     </Pressable>
@@ -112,18 +112,18 @@ export default function Savings() {
 
               <View className="flex-1 items-center justify-center">
                 <Amount value={kobo(amount)} size="large" caret />
-                <Text tabular className="mt-2.5 font-body text-body-sm text-slate">
+                <Text tabular className="mt-2.5 font-body text-ui text-slate">
                   {amount > 0 ? `≈ ${formatDollars(toDollars(kobo(amount), store.rate))}` : 'Enter an amount'}
                 </Text>
 
                 <View className="mt-3 min-h-[52px] items-center px-2">
-                  <Text tabular className="text-center font-body text-label-sm text-slate">
+                  <Text tabular className="text-center font-body text-note text-slate">
                     {deposit
                       ? `You can spend ${formatNaira(kobo(spendable))}`
                       : `You have ${formatNaira(kobo(saved))} in savings`}
                   </Text>
                   {reason ? (
-                    <Text className="mt-1 text-center font-body text-label-sm text-caution">{reason}</Text>
+                    <Text className="mt-1 text-center font-body text-note text-caution">{reason}</Text>
                   ) : null}
                   {!reason && !deposit && saved > 0 ? (
                     <Pressable
@@ -132,7 +132,7 @@ export default function Savings() {
                       onPress={() => setEntry(entryFromMinor(kobo(saved)))}
                       className="mt-1"
                     >
-                      <Text className="font-strong text-label-sm text-ink underline">Take out all of it</Text>
+                      <Text className="font-strong text-note text-ink underline">Take out all of it</Text>
                     </Pressable>
                   ) : null}
                 </View>

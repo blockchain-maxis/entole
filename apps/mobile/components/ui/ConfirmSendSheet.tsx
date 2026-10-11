@@ -25,8 +25,8 @@ type Quote = { state: 'loading' } | { state: 'failed'; message: string } | { sta
 function Line({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <View className="flex-row items-baseline justify-between py-2.5">
-      <Text className={`font-body text-label ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
-      <Text tabular className={`text-label text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>
+      <Text className={`font-body text-ui ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
+      <Text tabular className={`text-ui text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>
         {value}
       </Text>
     </View>
@@ -160,25 +160,25 @@ export function ConfirmSendSheet({
             showsVerticalScrollIndicator={false}
             style={{ flexShrink: 1, maxHeight: scrollMaxHeight }}
           >
-            <Text className="font-strong text-title text-ink">Review payment</Text>
+            <Text className="font-display text-subhead text-ink">Review payment</Text>
 
             <View className="mt-4 flex-row items-center gap-3">
               <Avatar initials={contact.initials} tone={contact.tone} size="md" />
               <View className="min-w-0 flex-1">
-                <Text numberOfLines={1} className="font-strong text-body text-ink">
+                <Text numberOfLines={1} className="font-strong text-ui text-ink">
                   {contact.name}
                 </Text>
-                {where ? <Text className="font-body text-caption text-slate">{where}</Text> : null}
+                {where ? <Text className="font-body text-note text-slate">{where}</Text> : null}
               </View>
             </View>
 
             {ready ? (
               <View className="mt-5">
-                <Text className="font-body text-caption text-slate">They receive</Text>
-                <Text tabular className="mt-0.5 font-strong text-title-xl text-ink">
+                <Text className="font-body text-note text-slate">They receive</Text>
+                <Text tabular className="mt-0.5 font-display text-heading text-ink">
                   {formatDollars(cents(Math.floor(ready.receivesCents)))}
                 </Text>
-                <Text tabular className="mt-0.5 font-body text-caption text-slate">
+                <Text tabular className="mt-0.5 font-body text-note text-slate">
                   {rateLine(ready.rate)}
                 </Text>
 
@@ -204,12 +204,12 @@ export function ConfirmSendSheet({
             ) : null}
 
             {quote.state === 'failed' ? (
-              <Text className="mt-5 font-body text-label text-halt">{quote.message}</Text>
+              <Text className="mt-5 font-body text-ui text-halt">{quote.message}</Text>
             ) : null}
 
             {ready && short ? (
               <View className="mt-3">
-                <Text className="font-body text-label text-caution">
+                <Text className="font-body text-ui text-caution">
                   You don&apos;t have enough for this payment and its fee. You have {formatNaira(store.balance)}.
                 </Text>
                 <Pressable
@@ -221,7 +221,7 @@ export function ConfirmSendSheet({
                   }}
                   className="mt-2 self-start"
                 >
-                  <Text className="font-strong text-label text-ink underline">Add money</Text>
+                  <Text className="font-strong text-ui text-ink underline">Add money</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -246,15 +246,15 @@ export function ConfirmSendSheet({
                     onPress={() => setNoteOpen(true)}
                     className="self-start"
                   >
-                    <Text className="font-strong text-label text-ink underline">Add a note</Text>
+                    <Text className="font-strong text-ui text-ink underline">Add a note</Text>
                   </Pressable>
                 )}
               </View>
             ) : null}
 
-            {problem ? <Text className="mt-4 font-body text-label text-halt">{problem}</Text> : null}
+            {problem ? <Text className="mt-4 font-body text-ui text-halt">{problem}</Text> : null}
             {sending && !settled ? (
-              <Text className="mt-4 font-body text-label text-slate">
+              <Text className="mt-4 font-body text-ui text-slate">
                 Sending. This updates when the payment has settled.
               </Text>
             ) : null}

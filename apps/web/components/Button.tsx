@@ -6,7 +6,7 @@ const VARIANTS = {
 } as const;
 
 const SIZES = {
-  regular: 'h-14 text-body-lg',
+  regular: 'h-14 text-prose',
   /** For a row of several, where three full-height buttons read as blocks. */
   compact: 'h-12 text-ui',
 } as const;

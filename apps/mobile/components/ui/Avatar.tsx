@@ -20,11 +20,11 @@ function gradientsFor(colors: ReturnType<typeof useThemeColors>): Record<AvatarT
 }
 
 const SIZES = {
-  sm: { box: 'h-[38px] w-[38px]', text: 'text-label' },
-  md: { box: 'h-[42px] w-[42px]', text: 'text-body' },
-  lg: { box: 'h-[46px] w-[46px]', text: 'text-body-lg' },
-  xl: { box: 'h-14 w-14', text: 'text-headline' },
-  hero: { box: 'h-[88px] w-[88px]', text: 'text-amount-lg' },
+  sm: { box: 'h-[38px] w-[38px]', text: 'text-ui' },
+  md: { box: 'h-[42px] w-[42px]', text: 'text-ui' },
+  lg: { box: 'h-[46px] w-[46px]', text: 'text-prose' },
+  xl: { box: 'h-14 w-14', text: 'text-subhead' },
+  hero: { box: 'h-[88px] w-[88px]', text: 'text-heading' },
 } as const;
 
 export type AvatarSize = keyof typeof SIZES;

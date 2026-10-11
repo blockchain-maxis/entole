@@ -74,7 +74,7 @@ export default function Receive() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 }}
         >
-          <View className="items-center rounded-panel bg-card px-gutter py-7 shadow-raised">
+          <View className="items-center rounded-card bg-card px-gutter py-7 shadow-raised">
             {link ? (
               <>
                 <PaymentCode value={link} />
@@ -82,25 +82,25 @@ export default function Receive() {
                   selectable
                   numberOfLines={2}
                   ellipsizeMode="middle"
-                  className="mt-5 text-center font-body text-caption text-slate"
+                  className="mt-5 text-center font-body text-note text-slate"
                 >
                   {link}
                 </Text>
                 {amount > 0 ? (
-                  <Text tabular className="mt-3 font-strong text-body-sm text-ink">
+                  <Text tabular className="mt-3 font-strong text-ui text-ink">
                     Asking for {formatNaira(kobo(amount))}
                   </Text>
                 ) : null}
               </>
             ) : (
               <View className="items-center">
-                <Skeleton className="h-[232px] w-[232px] rounded-row" />
+                <Skeleton className="h-[232px] w-[232px] rounded-card" />
                 <Skeleton className="mt-5 h-4 w-56 rounded-md" />
               </View>
             )}
           </View>
 
-          <Text className="mt-5 px-1 font-body text-body-sm text-slate">
+          <Text className="mt-5 px-1 font-body text-ui text-slate">
             {paymentCode
               ? 'Anyone you send this link to can open it and pay you, even without Entole.'
               : 'Your link shows up here once you are signed in.'}
@@ -124,7 +124,7 @@ export default function Receive() {
                   }
                 : {})}
             />
-            <View className="items-center rounded-row border border-line bg-card px-gutter py-5">
+            <View className="items-center rounded-card border border-line bg-card px-gutter py-5">
               {paymentCode ? (
                 <PaymentCodeText code={paymentCode} />
               ) : (
@@ -134,7 +134,7 @@ export default function Receive() {
                 </View>
               )}
             </View>
-            <Text className="mt-2.5 px-1 font-body text-caption text-slate">
+            <Text className="mt-2.5 px-1 font-body text-note text-slate">
               For someone who would rather type it than open a link.
             </Text>
           </View>

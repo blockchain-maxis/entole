@@ -52,12 +52,12 @@ export default function FirstPayment() {
             hitSlop={14}
             onPress={() => router.back()}
           >
-            <Text className="font-body text-title text-slate">←</Text>
+            <Text className="font-body text-subhead text-slate">←</Text>
           </Pressable>
           <StepDots total={4} done={4} />
         </View>
         <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void finish({ to: 'home' })}>
-          <Text className="font-strong text-label text-ink underline">Skip</Text>
+          <Text className="font-strong text-ui text-ink underline">Skip</Text>
         </Pressable>
       </View>
 
@@ -65,8 +65,8 @@ export default function FirstPayment() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 30, paddingBottom: 16 }}
       >
-        <Text className="font-strong text-title-xl text-ink">Send your first payment</Text>
-        <Text className="mt-3 font-body text-body-sm text-slate">
+        <Text className="font-display text-heading text-ink">Send your first payment</Text>
+        <Text className="mt-3 font-body text-ui text-slate">
           {empty
             ? 'Send money to someone with their code or the link they shared.'
             : 'Choose who you are sending to, or use a code or link.'}
@@ -87,7 +87,7 @@ export default function FirstPayment() {
                   key={contact.id}
                   contact={contact}
                   {...(where ? { caption: where } : {})}
-                  trailing={<Text className="font-strong text-caption-sm text-ink">Send</Text>}
+                  trailing={<Text className="font-strong text-note text-ink">Send</Text>}
                   onPress={() => void finish({ to: 'send', contactId: contact.id })}
                 />
               );
@@ -98,11 +98,11 @@ export default function FirstPayment() {
 
       <View className="flex-none border-t border-hairline px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row items-baseline justify-between px-0.5 pb-3">
-          <Text className="font-strong text-label-sm text-slate">Your balance</Text>
+          <Text className="font-strong text-note text-slate">Your balance</Text>
           {loading ? (
             <Skeleton className="h-4 w-20 rounded-md" />
           ) : (
-            <Text tabular className="font-strong text-body-sm text-ink">
+            <Text tabular className="font-strong text-ui text-ink">
               {formatNaira(store.balance)}
             </Text>
           )}

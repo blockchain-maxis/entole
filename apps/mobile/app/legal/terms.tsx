@@ -10,7 +10,7 @@ export default function Terms() {
     <Screen>
       <Header title="Terms" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}>
-        <Text className="font-body text-body-sm text-slate">
+        <Text className="font-body text-ui text-slate">
           Placeholder — Entole&apos;s terms of service go here once written and reviewed. Nothing
           on this screen is a real legal document yet.
         </Text>

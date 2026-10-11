@@ -37,7 +37,7 @@ export function Header({ title, back }: { title?: string; back?: string }) {
           <ProfileChip />
         )}
 
-        {title ? <h1 className="truncate font-strong text-body-lg text-ink">{title}</h1> : null}
+        {title ? <h1 className="truncate font-strong text-prose text-ink">{title}</h1> : null}
       </div>
 
       <div className="ml-3 flex-none">

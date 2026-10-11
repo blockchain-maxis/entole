@@ -29,7 +29,7 @@ export default function BillReference() {
       <Screen>
         <Header title="Pay a bill" trailing={<PauseButton />} />
         <View className="flex-1 px-gutter-lg pt-6">
-          <Text className="font-body text-body-sm text-slate">That kind of bill isn&apos;t one we know yet.</Text>
+          <Text className="font-body text-ui text-slate">That kind of bill isn&apos;t one we know yet.</Text>
         </View>
       </Screen>
     );
@@ -58,8 +58,8 @@ export default function BillReference() {
       <Header title={info.label} trailing={<PauseButton />} />
 
       <View className="flex-1 px-gutter-lg pt-4">
-        <Text className="font-strong text-title-xl text-ink">{info.identifierLabel}</Text>
-        <Text className="mt-3 font-body text-body-sm text-slate">
+        <Text className="font-display text-heading text-ink">{info.identifierLabel}</Text>
+        <Text className="mt-3 font-body text-ui text-slate">
           We check it before any money moves, so you know whose bill it is.
         </Text>
 
@@ -74,11 +74,11 @@ export default function BillReference() {
             autoCorrect={false}
             returnKeyType="next"
             onSubmitEditing={() => void next()}
-            className="font-strong text-body-lg text-ink"
+            className="font-strong text-prose text-ink"
             style={{ padding: 0 }}
           />
         </View>
-        {problem ? <Text className="mt-4 font-body text-label-sm text-halt">{problem}</Text> : null}
+        {problem ? <Text className="mt-4 font-body text-note text-halt">{problem}</Text> : null}
       </View>
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">

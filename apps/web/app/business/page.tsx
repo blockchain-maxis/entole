@@ -73,7 +73,7 @@ export default function BusinessPage() {
           </div>
         ) : (
           <>
-            <p className="pb-3 pt-[10px] font-strong text-body-lg text-ink">Services</p>
+            <p className="pb-3 pt-[10px] font-strong text-prose text-ink">Services</p>
             <div className="mb-7 grid grid-cols-2 gap-3">
               {SERVICES.map(({ label, hint, Icon, href }) => (
                 <Link
@@ -81,57 +81,57 @@ export default function BusinessPage() {
                   href={href}
                   className="rounded-card border border-line bg-card p-4 transition-colors hover:border-mist"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-chip bg-press text-ink">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-control bg-press text-ink">
                     <Icon size={20} strokeWidth={1.5} />
                   </span>
-                  <p className="mt-3 font-strong text-body-sm text-ink">{label}</p>
-                  <p className="mt-0.5 font-body text-caption-sm text-slate">{hint}</p>
+                  <p className="mt-3 font-strong text-ui text-ink">{label}</p>
+                  <p className="mt-0.5 font-body text-note text-slate">{hint}</p>
                 </Link>
               ))}
             </div>
 
             {store.taxReserves.length > 0 ? (
-              <div className="mb-7 rounded-panel bg-card p-5 shadow-raised">
-                <span className="rounded-chip bg-press px-2 py-1 font-heavy text-badge uppercase text-slate">
+              <div className="mb-7 rounded-card bg-card p-5 shadow-raised">
+                <span className="rounded-control bg-press px-2 py-1 font-heavy text-micro uppercase text-slate">
                   Tax reserve
                 </span>
-                <p className="tabular mt-3 font-strong text-amount text-ink">
+                <p className="tabular mt-3 font-strong text-subhead text-ink">
                   {formatNaira(kobo(store.taxReserves[0]!.balanceMinor))}
                 </p>
-                <p className="mt-1.5 font-body text-label-sm text-slate">
+                <p className="mt-1.5 font-body text-note text-slate">
                   Held aside, {resetLabel(store.taxReserves[0]!.payoutAt)}
                 </p>
               </div>
             ) : null}
 
             <div className="flex items-baseline justify-between pb-3 pt-[10px]">
-              <p className="font-strong text-body-lg text-ink">Invoices</p>
-              <Link href="/business/new-invoice" className="font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
+              <p className="font-strong text-prose text-ink">Invoices</p>
+              <Link href="/business/new-invoice" className="font-strong text-ui text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
                 New
               </Link>
             </div>
             <div className="flex flex-col gap-2.5">
               {store.invoices.length === 0 ? (
-                <p className="font-body text-label-sm text-mist">No invoices yet.</p>
+                <p className="font-body text-note text-slate">No invoices yet.</p>
               ) : (
                 store.invoices.map((invoice) => (
-                  <div key={invoice.id} className="rounded-row border border-line bg-card px-4 py-3.5">
+                  <div key={invoice.id} className="border-b border-hairline py-3.5">
                     <div className="flex items-start justify-between gap-3">
-                      <span className="flex-1 font-strong text-body text-ink">{invoice.clientName}</span>
+                      <span className="flex-1 font-strong text-ui text-ink">{invoice.clientName}</span>
                       <span
-                        className={`font-heavy text-caption-sm uppercase ${
+                        className={`font-heavy text-note uppercase ${
                           invoice.status === 'paid' ? 'text-settled' : 'text-slate'
                         }`}
                       >
                         {invoice.status === 'pending-release' ? 'Held' : invoice.status}
                       </span>
                     </div>
-                    <p className="tabular mt-1.5 font-strong text-amount-sm text-ink">
+                    <p className="tabular mt-1.5 font-strong text-subhead text-ink">
                       {formatNaira(kobo(invoice.amountMinor))}
                     </p>
-                    <p className="mt-0.5 font-body text-caption-sm text-slate">{invoice.note}</p>
+                    <p className="mt-0.5 font-body text-note text-slate">{invoice.note}</p>
                     {invoice.releaseCondition ? (
-                      <p className="mt-1.5 font-body text-caption-sm text-slate">
+                      <p className="mt-1.5 font-body text-note text-slate">
                         Releases at{' '}
                         {formatRate({ koboPerDollar: invoice.releaseCondition.maxKoboPerDollar, quotedAt: '' })} or
                         better · now {formatRate(store.rate)}
@@ -142,13 +142,13 @@ export default function BusinessPage() {
                         type="button"
                         disabled={checkingId === invoice.id}
                         onClick={() => void checkRelease(invoice.id)}
-                        className="mt-3 rounded-control border border-line bg-card px-4 py-2 font-strong text-label-sm text-ink hover:border-mist disabled:opacity-60"
+                        className="mt-3 rounded-control border border-line bg-card px-4 py-2 font-strong text-note text-ink hover:border-mist disabled:opacity-60"
                       >
                         {checkingId === invoice.id ? 'Checking' : 'Check condition'}
                       </button>
                     ) : null}
                     {checked?.id === invoice.id && invoice.status === 'pending-release' ? (
-                      <p role="status" className="mt-2 font-body text-caption-sm text-slate">
+                      <p role="status" className="mt-2 font-body text-note text-slate">
                         {checked.text}
                       </p>
                     ) : null}
@@ -156,7 +156,7 @@ export default function BusinessPage() {
                       <button
                         type="button"
                         onClick={() => void store.settleInvoice(invoice.id)}
-                        className="mt-3 rounded-control border border-line bg-card px-4 py-2 font-strong text-label-sm text-ink hover:border-mist"
+                        className="mt-3 rounded-control border border-line bg-card px-4 py-2 font-strong text-note text-ink hover:border-mist"
                       >
                         Mark as paid
                       </button>
@@ -169,7 +169,7 @@ export default function BusinessPage() {
               <button
                 type="button"
                 onClick={exportInvoices}
-                className="mt-3 flex h-12 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-label text-ink transition-colors hover:border-mist"
+                className="mt-3 flex h-12 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-ui text-ink transition-colors hover:border-mist"
               >
                 Download for your accountant
               </button>

@@ -57,9 +57,9 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
       <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
         <Header title="Allowance" back="/" />
         <div className="px-gutter">
-          <Skeleton className="h-[132px] w-full rounded-panel" />
-          <Skeleton className="mt-5 h-[52px] w-full rounded-row" />
-          <Skeleton className="mt-2.5 h-[52px] w-full rounded-row" />
+          <Skeleton className="h-[132px] w-full rounded-card" />
+          <Skeleton className="mt-5 h-[52px] w-full rounded-card" />
+          <Skeleton className="mt-2.5 h-[52px] w-full rounded-card" />
         </div>
       </main>
     );
@@ -69,7 +69,7 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
         <Header title="Allowance" back="/" />
-        <p className="px-gutter pt-6 font-body text-label-sm text-slate">
+        <p className="px-gutter pt-6 font-body text-note text-slate">
           {store.status === 'failed'
             ? "We couldn't load this allowance. Nothing about it has changed."
             : 'This allowance no longer exists.'}
@@ -138,12 +138,12 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
         {asking ? (
           // Asked in place: revoking cannot be taken back, so one tap is not enough.
           <div className="mt-10 rounded-card border border-halt bg-halt-wash p-5">
-            <p className="font-strong text-body text-ink">Revoke this allowance?</p>
-            <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+            <p className="font-strong text-ui text-ink">Revoke this allowance?</p>
+            <p className="mt-1 text-pretty font-body text-note text-slate">
               The assistant can no longer pay {recipient?.name ?? 'them'} from it. Payments already made stay made.
             </p>
             {problem ? (
-              <p role="alert" className="mt-2 font-body text-label-sm text-halt">
+              <p role="alert" className="mt-2 font-body text-note text-halt">
                 {problem}
               </p>
             ) : null}
@@ -152,7 +152,7 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
                 type="button"
                 disabled={revoking}
                 onClick={() => void revoke()}
-                className="flex h-12 flex-1 items-center justify-center rounded-control bg-halt font-strong text-body text-card transition-colors hover:bg-halt-deep active:translate-y-px disabled:opacity-60"
+                className="flex h-12 flex-1 items-center justify-center rounded-control bg-halt font-strong text-ui text-card transition-colors hover:bg-halt-deep active:translate-y-px disabled:opacity-60"
               >
                 {revoking ? 'Revoking' : 'Revoke'}
               </button>
@@ -163,7 +163,7 @@ export default function RuleDetailPage({ params }: { params: Promise<{ id: strin
                   setAsking(false);
                   setProblem(null);
                 }}
-                className="flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-body text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
+                className="flex h-12 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
               >
                 Keep it
               </button>

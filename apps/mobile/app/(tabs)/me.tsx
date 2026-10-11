@@ -37,9 +37,9 @@ function ThemePicker() {
             onPress={(event) =>
               setPreference(option.value, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
             }
-            className={`flex-1 items-center rounded-chip py-2.5 ${active ? 'bg-ink' : ''}`}
+            className={`flex-1 items-center rounded-control py-2.5 ${active ? 'bg-ink' : ''}`}
           >
-            <Text className={`font-strong text-label-sm ${active ? 'text-paper' : 'text-slate'}`}>
+            <Text className={`font-strong text-note ${active ? 'text-paper' : 'text-slate'}`}>
               {option.label}
             </Text>
           </Pressable>
@@ -109,15 +109,15 @@ export default function Me() {
             <>
               {/* TODO(photo): initials until a picture can be chosen — needs a native image picker and a rebuild. */}
               <Avatar initials={profile.initials} tone={1} size="hero" />
-              <Text numberOfLines={1} className="mt-3 max-w-full font-strong text-title text-ink">
+              <Text numberOfLines={1} className="mt-3 max-w-full font-display text-subhead text-ink">
                 {profile.fullName}
               </Text>
               {profile.username ? (
-                <Text numberOfLines={1} className="mt-1 font-body text-body-sm text-slate">
+                <Text numberOfLines={1} className="mt-1 font-body text-ui text-slate">
                   @{profile.username}
                 </Text>
               ) : null}
-              <Text tabular className="mt-0.5 font-body text-label-sm text-mist">
+              <Text tabular className="mt-0.5 font-body text-note text-slate">
                 {profile.code}
               </Text>
             </>
@@ -161,7 +161,7 @@ export default function Me() {
 
         <View>
           <SectionHeading title="Preferences" />
-          <Text className="mb-2.5 px-1 font-body text-label-sm text-slate">Theme</Text>
+          <Text className="mb-2.5 px-1 font-body text-note text-slate">Theme</Text>
           <ThemePicker />
         </View>
 

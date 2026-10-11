@@ -52,8 +52,8 @@ export function Field({
   return (
     <View>
       <View className="flex-row items-baseline justify-between">
-        <Text className="font-strong text-caption text-slate">{label}</Text>
-        {optional ? <Text className="font-body text-caption text-mist">Optional</Text> : null}
+        <Text className="font-strong text-note text-slate">{label}</Text>
+        {optional ? <Text className="font-body text-note text-slate">Optional</Text> : null}
       </View>
       <View
         className={`mt-2 flex-row items-center rounded-control border-[1.5px] bg-card px-4 py-3.5 ${
@@ -70,15 +70,15 @@ export function Field({
           }}
           placeholderTextColor={colors.mist}
           accessibilityLabel={label}
-          className="min-w-0 flex-1 font-strong text-body-lg text-ink"
+          className="min-w-0 flex-1 font-strong text-prose text-ink"
           style={{ padding: 0 }}
         />
         {trailing}
       </View>
       {error ? (
-        <Text className="mt-2 font-body text-caption text-halt">{error}</Text>
+        <Text className="mt-2 font-body text-note text-halt">{error}</Text>
       ) : hint ? (
-        <Text className="mt-2 font-body text-caption text-slate">{hint}</Text>
+        <Text className="mt-2 font-body text-note text-slate">{hint}</Text>
       ) : null}
     </View>
   );

@@ -31,9 +31,9 @@ export function ConfirmSheet({
   return (
     <SheetLayer>
       <Sheet onDismiss={onDismiss} locked={busy}>
-        <Text className="font-strong text-title text-ink">{title}</Text>
-        <Text className="mt-2 font-body text-body-sm text-slate">{body}</Text>
-        {problem ? <Text className="mt-3 font-body text-label-sm text-halt">{problem}</Text> : null}
+        <Text className="font-display text-subhead text-ink">{title}</Text>
+        <Text className="mt-2 font-body text-ui text-slate">{body}</Text>
+        {problem ? <Text className="mt-3 font-body text-note text-halt">{problem}</Text> : null}
         <View className="mt-5 flex-row gap-2.5">
           <Button label="Not now" variant="secondary" disabled={busy} onPress={onDismiss} />
           <Button

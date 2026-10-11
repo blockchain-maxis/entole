@@ -24,7 +24,7 @@ export function PauseControl() {
       <Link
         href="/assistant"
         aria-label="The assistant is off. Learn what it does and turn it on."
-        className="flex h-9 flex-none items-center gap-1.5 rounded-pill border border-line bg-card px-3 font-strong text-label-sm text-slate transition-colors hover:border-mist"
+        className="flex h-9 flex-none items-center gap-1.5 rounded-pill border border-line bg-card px-3 font-strong text-note text-slate transition-colors hover:border-mist"
       >
         <ShieldOff size={15} strokeWidth={1.75} aria-hidden />
         Assistant · Off
@@ -41,7 +41,7 @@ export function PauseControl() {
           : 'The assistant is on. Pause it.'
       }
       onClick={() => void setPaused(!paused)}
-      className={`flex h-9 flex-none items-center gap-1.5 rounded-pill border px-3 font-strong text-label-sm transition-colors ${
+      className={`flex h-9 flex-none items-center gap-1.5 rounded-pill border px-3 font-strong text-note transition-colors ${
         paused
           ? 'border-halt bg-halt-wash text-halt hover:bg-halt-tint'
           : 'border-line bg-card text-slate hover:border-halt'

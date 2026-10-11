@@ -63,14 +63,14 @@ export default function AssistantPage() {
       <Header title="Assistant" back="/me" />
 
       <div className="flex-1 px-gutter pb-28 pt-2">
-        <span className="inline-block rounded-md bg-indigo-wash px-2 py-1 font-heavy text-badge uppercase text-indigo">
+        <span className="inline-block rounded-md bg-indigo-wash px-2 py-1 font-heavy text-micro uppercase text-indigo">
           {assistant.enabled ? 'On' : 'Off'}
         </span>
 
-        <h2 className="mt-4 font-strong text-headline text-ink">
+        <h2 className="mt-4 font-display text-subhead text-ink">
           {assistant.enabled ? 'The assistant is on' : 'Let Entole pay for you, within limits'}
         </h2>
-        <p className="mt-2.5 font-body text-body-sm text-slate">
+        <p className="mt-2.5 font-body text-ui text-slate">
           {assistant.enabled
             ? 'It can propose and make payments for you, only inside the allowances you set. Turn it off any time and it stops proposing anything.'
             : 'The assistant can propose and make payments for you, like a bill that comes round every month. It is off until you turn it on here.'}
@@ -85,19 +85,19 @@ export default function AssistantPage() {
                 <point.icon size={20} strokeWidth={1.75} aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-strong text-body text-ink">{point.title}</p>
-                <p className="mt-1 font-body text-body-sm text-slate">{point.body}</p>
+                <p className="font-strong text-ui text-ink">{point.title}</p>
+                <p className="mt-1 font-body text-ui text-slate">{point.body}</p>
               </div>
             </li>
           ))}
         </ul>
 
         {assistant.enabled ? null : (
-          <p className="mt-7 font-body text-label-sm text-mist">
+          <p className="mt-7 font-body text-note text-slate">
             Turning it on asks you to confirm with your passkey once more.
           </p>
         )}
-        {problem ? <p className="mt-4 font-body text-label-sm text-halt">{problem}</p> : null}
+        {problem ? <p className="mt-4 font-body text-note text-halt">{problem}</p> : null}
 
         <div className="mt-8 flex gap-2.5">
           {assistant.enabled ? (
@@ -105,14 +105,14 @@ export default function AssistantPage() {
               <button
                 type="button"
                 onClick={turnOff}
-                className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist"
+                className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist"
               >
                 Turn off the assistant
               </button>
               <button
                 type="button"
                 onClick={() => router.replace('/')}
-                className="flex h-14 items-center justify-center rounded-control px-5 font-strong text-body-lg text-slate"
+                className="flex h-14 items-center justify-center rounded-control px-5 font-strong text-prose text-slate"
               >
                 Done
               </button>
@@ -122,7 +122,7 @@ export default function AssistantPage() {
               type="button"
               disabled={working || assistant.loading}
               onClick={() => void turnOn()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
             >
               {working ? 'Confirming' : 'Turn on the assistant'}
             </button>
@@ -170,17 +170,17 @@ function AskAssistant() {
   }
 
   if (store.status === 'loading') {
-    return <Skeleton className="mt-6 h-[188px] w-full rounded-panel" />;
+    return <Skeleton className="mt-6 h-[188px] w-full rounded-card" />;
   }
 
   if (store.allowances.length === 0) {
     return (
-      <section className="mt-6 rounded-panel bg-indigo-wash p-5">
-        <p className="font-strong text-body text-ink">Nothing for it to do yet</p>
-        <p className="mt-1 font-body text-body-sm text-slate">
+      <section className="mt-6 rounded-card bg-indigo-wash p-5">
+        <p className="font-strong text-ui text-ink">Nothing for it to do yet</p>
+        <p className="mt-1 font-body text-ui text-slate">
           Set an allowance for someone and you can ask the assistant to pay them.
         </p>
-        <Link href="/rules/new" className="mt-3 inline-block font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
+        <Link href="/rules/new" className="mt-3 inline-block font-strong text-ui text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
           Set up an allowance
         </Link>
       </section>
@@ -188,8 +188,8 @@ function AskAssistant() {
   }
 
   return (
-    <form onSubmit={(event) => void ask(event)} className="mt-6 rounded-panel bg-indigo-wash p-5">
-      <label htmlFor="ask" className="block font-strong text-body text-ink">
+    <form onSubmit={(event) => void ask(event)} className="mt-6 rounded-card bg-indigo-wash p-5">
+      <label htmlFor="ask" className="block font-strong text-ui text-ink">
         Ask it to pay someone
       </label>
       <input
@@ -204,17 +204,17 @@ function AskAssistant() {
         autoCapitalize="sentences"
         enterKeyHint="send"
         aria-describedby="ask-help"
-        className={`mt-3 h-14 w-full rounded-control border-[1.5px] bg-card px-4 font-body text-body text-ink outline-none placeholder:text-mist focus:border-ink ${
+        className={`mt-3 h-14 w-full rounded-control border-[1.5px] bg-card px-4 font-body text-ui text-ink outline-none placeholder:text-mist focus:border-ink ${
           problem ? 'border-halt' : 'border-line'
         }`}
       />
-      <p id="ask-help" role={problem ? 'alert' : undefined} className={`mt-2 font-body text-caption ${problem ? 'text-halt' : 'text-slate'}`}>
+      <p id="ask-help" role={problem ? 'alert' : undefined} className={`mt-2 font-body text-note ${problem ? 'text-halt' : 'text-slate'}`}>
         {problem ?? `Say who and how much. You get ${ASK_UNDO_SECONDS} seconds to stop it before it is sent.`}
       </p>
       <button
         type="submit"
         disabled={working || text.trim().length === 0}
-        className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+        className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
       >
         {working ? 'Starting' : 'Ask the assistant'}
       </button>

@@ -55,9 +55,9 @@ function messageFor(error: unknown): string {
 }
 
 const PRIMARY =
-  'flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60';
+  'flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60';
 const SECONDARY =
-  'flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist active:translate-y-px';
+  'flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist active:translate-y-px';
 
 /**
  * Adding money. Nothing here is optimistic: the balance only changes when a
@@ -191,22 +191,22 @@ function AddMoney() {
 
       <div className="flex-1 px-gutter">
         {ready ? (
-          <section className="rounded-panel bg-card p-6 shadow-raised">
-            <p className="font-strong text-label-sm text-mist">Your balance</p>
+          <section className="rounded-card bg-card p-6 shadow-raised">
+            <p className="font-strong text-note text-slate">Your balance</p>
             <div className="mt-2.5">
               <Amount value={store.balance} size="large" />
             </div>
-            <p className="tabular mt-3 font-body text-body-sm text-slate">
+            <p className="tabular mt-3 font-body text-ui text-slate">
               ≈ {formatDollars(toDollars(store.balance, store.rate))}
             </p>
           </section>
         ) : store.status === 'failed' ? (
-          <div className="rounded-row border border-line bg-card px-4 py-4">
-            <p className="font-strong text-body-sm text-ink">We couldn&apos;t load your account.</p>
+          <div className="border-b border-hairline py-4">
+            <p className="font-strong text-ui text-ink">We couldn&apos;t load your account.</p>
             <button
               type="button"
               onClick={() => void refresh().catch(() => undefined)}
-              className="mt-1 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
+              className="mt-1 font-strong text-note text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               Try again
             </button>
@@ -232,33 +232,33 @@ function AddMoney() {
 
         {enteringBank ? (
           <div className="mt-7 flex flex-col items-center">
-            <p className="font-strong text-label-sm text-slate">How much are you adding?</p>
+            <p className="font-strong text-note text-slate">How much are you adding?</p>
             <div className="mt-3">
               <Amount value={kobo(amount)} size="large" />
             </div>
-            <p className="mt-2.5 font-body text-body-sm text-slate">
+            <p className="mt-2.5 font-body text-ui text-slate">
               {amount > 0 ? 'Paid by bank transfer' : 'Enter an amount'}
             </p>
           </div>
         ) : null}
 
         {!REAL_MONEY && phase.kind === 'idle' ? (
-          <p className="mt-6 px-1 font-body text-body-sm text-slate">
+          <p className="mt-6 px-1 font-body text-ui text-slate">
             Add test money to try Entole. It&apos;s not real money.
           </p>
         ) : null}
 
         <div className="mt-5" aria-live="polite">
           {busy ? (
-            <div className="rounded-row border border-line bg-card px-4 py-4">
-              <p className="font-strong text-body-sm text-ink">
+            <div className="border-b border-hairline py-4">
+              <p className="font-strong text-ui text-ink">
                 {phase.kind === 'requesting'
                   ? 'Adding money'
                   : REAL_MONEY
                     ? 'Waiting for your money to arrive'
                     : 'Waiting for your balance to update'}
               </p>
-              <p className="mt-1 font-body text-label-sm text-slate">
+              <p className="mt-1 font-body text-note text-slate">
                 {phase.kind === 'requesting'
                   ? 'Sending your request.'
                   : showingCode
@@ -272,18 +272,18 @@ function AddMoney() {
           ) : null}
 
           {phase.kind === 'done' ? (
-            <div className="rounded-row border border-line bg-settled-wash px-4 py-4">
-              <p className="tabular font-strong text-body text-settled">{formatNaira(kobo(phase.addedMinor))} added</p>
-              <p className="mt-1 font-body text-label-sm text-slate">It&apos;s in your balance now.</p>
+            <div className="rounded-card border border-line bg-settled-wash px-4 py-4">
+              <p className="tabular font-strong text-ui text-settled">{formatNaira(kobo(phase.addedMinor))} added</p>
+              <p className="mt-1 font-body text-note text-slate">It&apos;s in your balance now.</p>
             </div>
           ) : null}
 
           {phase.kind === 'slow' ? (
-            <div className="rounded-row border border-line bg-card px-4 py-4">
-              <p className="font-strong text-body-sm text-ink">
+            <div className="border-b border-hairline py-4">
+              <p className="font-strong text-ui text-ink">
                 {REAL_MONEY ? 'Nothing has arrived yet' : 'Still on its way'}
               </p>
-              <p className="mt-1 font-body text-label-sm text-slate">
+              <p className="mt-1 font-body text-note text-slate">
                 {REAL_MONEY
                   ? "If you have sent it, it is on its way. Check again in a few minutes. If you haven't, nothing was taken."
                   : "Your request went through, but the money hasn't shown up yet. Check again in a moment."}
@@ -292,8 +292,8 @@ function AddMoney() {
           ) : null}
 
           {phase.kind === 'failed' ? (
-            <div role="alert" className="rounded-row border border-line bg-halt-wash px-4 py-4">
-              <p className="font-strong text-body-sm text-halt">{phase.message}</p>
+            <div role="alert" className="rounded-card border border-line bg-halt-wash px-4 py-4">
+              <p className="font-strong text-ui text-halt">{phase.message}</p>
             </div>
           ) : null}
         </div>
@@ -386,14 +386,14 @@ function WayRow({
         type="button"
         disabled={disabled || !onPick}
         onClick={onPick}
-        className="flex w-full items-center gap-3.5 rounded-row border border-line bg-card px-4 py-3.5 text-left transition-colors hover:border-mist active:translate-y-px disabled:opacity-60 disabled:hover:border-line"
+        className="flex w-full items-center gap-3.5 border-b border-hairline py-3.5 text-left transition-colors hover:bg-press active:translate-y-px disabled:opacity-60 disabled:hover:border-line"
       >
         <span className="flex h-10 w-10 flex-none items-center justify-center rounded-control bg-press text-ink">
           <Icon size={20} strokeWidth={1.5} aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-strong text-body text-ink">{title}</span>
-          <span className="mt-0.5 block font-body text-label-sm text-slate">{hint}</span>
+          <span className="block font-strong text-ui text-ink">{title}</span>
+          <span className="mt-0.5 block font-body text-note text-slate">{hint}</span>
         </span>
         {onPick ? <ChevronRight size={18} strokeWidth={1.5} className="flex-none text-mist" aria-hidden /> : null}
       </button>
@@ -415,7 +415,7 @@ function WaysToAdd({
 }) {
   return (
     <>
-      <p className="pb-3 pt-7 font-strong text-body-lg text-ink">How do you want to add money?</p>
+      <p className="pb-3 pt-7 font-strong text-prose text-ink">How do you want to add money?</p>
       <ul className="flex flex-col gap-2.5">
         <WayRow
           icon={ScanLine}
@@ -464,12 +464,12 @@ function FromAnotherApp({
   if (!source || code?.state === 'failed') {
     return (
       <>
-        <p className="pb-1 pt-7 font-strong text-body-lg text-ink">What are you sending?</p>
-        <p className="pb-3 font-body text-label-sm text-slate">
+        <p className="pb-1 pt-7 font-strong text-prose text-ink">What are you sending?</p>
+        <p className="pb-3 font-body text-note text-slate">
           Pick what you hold in the other app. It arrives here as dollars in your balance.
         </p>
         {code?.state === 'failed' ? (
-          <p role="alert" className="pb-3 font-body text-label-sm text-halt">
+          <p role="alert" className="pb-3 font-body text-note text-halt">
             {code.message}
           </p>
         ) : null}
@@ -479,9 +479,9 @@ function FromAnotherApp({
               <button
                 type="button"
                 onClick={() => onPick(option)}
-                className="flex w-full items-center justify-between rounded-row border border-line bg-card px-4 py-3.5 text-left transition-colors hover:border-mist active:translate-y-px"
+                className="flex w-full items-center justify-between border-b border-hairline py-3.5 text-left transition-colors hover:bg-press active:translate-y-px"
               >
-                <span className="font-strong text-body text-ink">{depositSourceLabel(option)}</span>
+                <span className="font-strong text-ui text-ink">{depositSourceLabel(option)}</span>
                 <ChevronRight size={18} strokeWidth={1.5} className="text-mist" aria-hidden />
               </button>
             </li>
@@ -495,8 +495,8 @@ function FromAnotherApp({
 
   return (
     <div className="pt-7">
-      <p className="font-strong text-body-lg text-ink">Send {label} to this code</p>
-      <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+      <p className="font-strong text-prose text-ink">Send {label} to this code</p>
+      <p className="mt-1 text-pretty font-body text-note text-slate">
         Scan it from the app you are sending from, or copy it and paste it there. Send $1 or more.
       </p>
 
@@ -513,13 +513,13 @@ function FromAnotherApp({
           type="button"
           disabled={code?.state !== 'ready'}
           onClick={() => code?.state === 'ready' && void copy(code.value)}
-          className="rounded-pill border border-line bg-card px-5 py-2.5 font-strong text-label text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
+          className="rounded-pill border border-line bg-card px-5 py-2.5 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
         >
           {copied ? 'Copied' : 'Copy code'}
         </button>
       </div>
 
-      <p className="mt-4 text-pretty font-body text-caption text-slate">
+      <p className="mt-4 text-pretty font-body text-note text-slate">
         Only send {label} to it. Something else sent here may not arrive and may not be returned.
       </p>
     </div>
@@ -530,18 +530,18 @@ function FromAnotherApp({
 function CardStep({ card }: { card: Loaded<string> | null }) {
   return (
     <div className="pt-7">
-      <p className="font-strong text-body-lg text-ink">Pay by card</p>
+      <p className="font-strong text-prose text-ink">Pay by card</p>
       {card?.state === 'failed' ? (
-        <p role="alert" className="mt-2 font-body text-label-sm text-halt">
+        <p role="alert" className="mt-2 font-body text-note text-halt">
           {card.message}
         </p>
       ) : card?.state === 'ready' ? (
         <>
-          <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+          <p className="mt-1 text-pretty font-body text-note text-slate">
             You pay on our card partner&apos;s page, which opens next. It shows the amount, their fee and what you
             get before you pay. $20 or more.
           </p>
-          <p className="mt-3 text-pretty font-body text-label-sm text-slate">
+          <p className="mt-3 text-pretty font-body text-note text-slate">
             Come back here afterwards. Your balance changes once the money has arrived.
           </p>
         </>
@@ -558,8 +558,8 @@ function CardStep({ card }: { card: Loaded<string> | null }) {
 function Line({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between py-2.5">
-      <dt className={`font-body text-label ${strong ? 'text-ink' : 'text-slate'}`}>{label}</dt>
-      <dd className={`tabular text-label text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>{value}</dd>
+      <dt className={`font-body text-ui ${strong ? 'text-ink' : 'text-slate'}`}>{label}</dt>
+      <dd className={`tabular text-ui text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>{value}</dd>
     </div>
   );
 }
@@ -628,14 +628,14 @@ function BankTransferSheet({
       >
         <div aria-hidden className="mx-auto h-1 w-10 rounded-pill bg-line" />
 
-        <h2 id="add-money-title" className="mt-4 font-strong text-title text-ink">
+        <h2 id="add-money-title" className="mt-4 font-display text-subhead text-ink">
           Add by bank transfer
         </h2>
 
         {ready ? (
           <div className="mt-5">
-            <p className="font-body text-caption text-slate">About this much arrives</p>
-            <p className="tabular mt-0.5 font-strong text-title-xl text-ink">{formatNaira(kobo(ready.arrivesMinor))}</p>
+            <p className="font-body text-note text-slate">About this much arrives</p>
+            <p className="tabular mt-0.5 font-display text-heading text-ink">{formatNaira(kobo(ready.arrivesMinor))}</p>
 
             <dl className="mt-3 border-t border-hairline">
               <Line label="You pay" value={formatNaira(kobo(ready.payMinor))} strong />
@@ -644,7 +644,7 @@ function BankTransferSheet({
               </div>
             </dl>
 
-            <p className="mt-3 text-pretty font-body text-label-sm text-slate">
+            <p className="mt-3 text-pretty font-body text-note text-slate">
               You pay on our payment partner&apos;s page. The first time, they ask for your phone number and ID. Your
               balance changes once the money has arrived.
             </p>
@@ -659,7 +659,7 @@ function BankTransferSheet({
             </div>
           </div>
         ) : offer.state === 'failed' ? (
-          <p role="alert" className="mt-5 font-body text-label text-halt">
+          <p role="alert" className="mt-5 font-body text-ui text-halt">
             {offer.message}
           </p>
         ) : null}

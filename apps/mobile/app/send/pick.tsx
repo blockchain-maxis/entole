@@ -142,7 +142,7 @@ export default function PickRecipient() {
                   onPress={() => void paste()}
                   className="ml-3 self-start"
                 >
-                  <Text className="font-strong text-label text-ink underline">Paste</Text>
+                  <Text className="font-strong text-ui text-ink underline">Paste</Text>
                 </Pressable>
               }
             />
@@ -163,7 +163,7 @@ export default function PickRecipient() {
 
           {saved.length > 0 ? (
             <View>
-              <SectionHeading display title="Or a beneficiary" />
+              <SectionHeading title="Or a beneficiary" />
               <View className="border-t border-hairline">
                 {saved.map((item) => {
                   const where = countryName(item.place);

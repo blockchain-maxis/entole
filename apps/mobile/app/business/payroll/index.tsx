@@ -33,14 +33,14 @@ function AddRow({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="flex-row items-center gap-3.5 rounded-row border border-line bg-card px-4 py-3.5 active:border-mist"
+      className="flex-row items-center gap-3.5 border-b border-hairline py-3.5 active:bg-press"
     >
-      <View className="h-10 w-10 items-center justify-center rounded-chip bg-track">
+      <View className="h-10 w-10 items-center justify-center rounded-control bg-track">
         <Icon size={19} strokeWidth={1.5} color={colors.ink} />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="font-strong text-body-sm text-ink">{label}</Text>
-        <Text className="font-body text-caption text-slate">{hint}</Text>
+        <Text className="font-strong text-ui text-ink">{label}</Text>
+        <Text className="font-body text-note text-slate">{hint}</Text>
       </View>
     </Pressable>
   );
@@ -74,17 +74,17 @@ export default function Payroll() {
             <RowSkeleton />
           </View>
         ) : team.status === 'failed' ? (
-          <View className="rounded-row border border-line bg-card px-4 py-4">
-            <Text className="font-strong text-body-sm text-ink">We couldn&apos;t load your team</Text>
-            <Text className="mt-1 font-body text-label-sm text-slate">They are saved on this phone. Try again.</Text>
+          <View className="border-b border-hairline py-4">
+            <Text className="font-strong text-ui text-ink">We couldn&apos;t load your team</Text>
+            <Text className="mt-1 font-body text-note text-slate">They are saved on this phone. Try again.</Text>
             <View className="mt-3 flex-row">
               <Button label="Try again" variant="secondary" width="hug" onPress={() => void team.reload()} />
             </View>
           </View>
         ) : team.staff.length === 0 ? (
           <View className="px-1 pt-1">
-            <Text className="font-strong text-title text-ink">Add the people you pay</Text>
-            <Text className="mt-2 font-body text-body-sm text-slate">
+            <Text className="font-display text-subhead text-ink">Add the people you pay</Text>
+            <Text className="mt-2 font-body text-ui text-slate">
               Put each person in once, with their payment code. Then paying everyone is one screen, and you
               see the total and the fees before anything moves.
             </Text>
@@ -92,14 +92,14 @@ export default function Payroll() {
         ) : (
           <View>
             <View className="px-1">
-              <Text className="font-body text-label text-slate">{peopleWords(team.staff.length)}</Text>
+              <Text className="font-body text-ui text-slate">{peopleWords(team.staff.length)}</Text>
               {regularMinor > 0 ? (
-                <Text tabular className="mt-1 font-strong text-amount text-ink">
+                <Text tabular className="mt-1 font-strong text-subhead text-ink">
                   {formatNaira(kobo(regularMinor))}
                 </Text>
               ) : null}
               {regularMinor > 0 ? (
-                <Text className="mt-0.5 font-body text-caption text-slate">
+                <Text className="mt-0.5 font-body text-note text-slate">
                   in regular pay across {peopleWords(withPay.length)}
                 </Text>
               ) : null}
@@ -112,23 +112,23 @@ export default function Payroll() {
                   accessibilityRole="button"
                   accessibilityLabel={`Edit ${person.name}`}
                   onPress={() => router.push({ pathname: '/business/payroll/add', params: { id: person.id } })}
-                  className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
+                  className="flex-row items-center gap-3 border-b border-hairline py-3 active:bg-press"
                 >
                   <Avatar initials={initialsFor(person.name)} tone={1} size="lg" />
                   <View className="min-w-0 flex-1">
-                    <Text numberOfLines={1} className="font-strong text-body text-ink">
+                    <Text numberOfLines={1} className="font-strong text-ui text-ink">
                       {person.name}
                     </Text>
-                    <Text numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+                    <Text numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
                       {person.note ?? 'No note'}
                     </Text>
                   </View>
                   <View className="items-end">
-                    <Text tabular className="font-strong text-body-sm text-ink">
+                    <Text tabular className="font-strong text-ui text-ink">
                       {person.payAmountMinor ? formatNaira(kobo(person.payAmountMinor)) : 'No amount'}
                     </Text>
                     {cadenceWord(person.cadence) ? (
-                      <Text className="font-body text-caption text-slate">{cadenceWord(person.cadence)}</Text>
+                      <Text className="font-body text-note text-slate">{cadenceWord(person.cadence)}</Text>
                     ) : null}
                   </View>
                 </Pressable>

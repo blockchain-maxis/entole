@@ -27,13 +27,13 @@ export default async function AddMoneyReturnPage({
       <CheckoutHeader />
 
       <div className="flex flex-1 flex-col justify-center pb-10">
-        <h1 className="text-pretty font-strong text-headline text-ink">
+        <h1 className="text-pretty font-display text-subhead text-ink">
           {confirmed ? 'Your payment went through' : 'Your payment is being confirmed'}
         </h1>
-        <p className="mt-3 text-pretty font-body text-body-sm text-slate">
+        <p className="mt-3 text-pretty font-body text-ui text-slate">
           The money shows up once it has arrived. A bank transfer can take a few minutes.
         </p>
-        <p className="mt-3 text-pretty font-body text-body-sm text-slate">
+        <p className="mt-3 text-pretty font-body text-ui text-slate">
           If you use Entole on your phone, go back to the app to see it.
         </p>
       </div>
@@ -41,7 +41,7 @@ export default async function AddMoneyReturnPage({
       <div className="flex pb-10">
         <Link
           href="/add-money?returned=1"
-          className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
+          className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
         >
           Back to Entole
         </Link>

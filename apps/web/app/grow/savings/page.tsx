@@ -76,26 +76,26 @@ export default function SavingsPage() {
           <BalanceSkeleton />
         ) : mode === 'view' ? (
           <>
-            <div className="rounded-panel bg-card p-6 shadow-raised">
-              <p className="font-strong text-label-sm text-mist">In savings</p>
+            <div className="rounded-card bg-card p-6 shadow-raised">
+              <p className="font-strong text-note text-slate">In savings</p>
               <div className="mt-2.5">
                 <Amount value={kobo(position.balanceMinor)} />
               </div>
               {earning ? (
                 <>
                   {earning.earnedMinor > 0 ? (
-                    <p className="tabular mt-2 font-body text-body-sm text-settled">
+                    <p className="tabular mt-2 font-body text-ui text-settled">
                       + {formatNaira(kobo(earning.earnedMinor))} earned so far
                     </p>
                   ) : null}
-                  <p className="mt-3 font-strong text-body-sm text-ink">Earning about {earning.rate} a year</p>
-                  <p className="mt-1 text-pretty font-body text-label-sm text-slate">
+                  <p className="mt-3 font-strong text-ui text-ink">Earning about {earning.rate} a year</p>
+                  <p className="mt-1 text-pretty font-body text-note text-slate">
                     The rate moves from day to day. To earn it, your savings are lent out through a lending market.
                     You can take them out at any time, unless all of it happens to be lent out at that moment.
                   </p>
                 </>
               ) : (
-                <p className="mt-3 text-pretty font-body text-label-sm text-slate">
+                <p className="mt-3 text-pretty font-body text-note text-slate">
                   Money set aside, separate from what you spend. It doesn&apos;t earn interest yet.
                 </p>
               )}
@@ -105,7 +105,7 @@ export default function SavingsPage() {
               <button
                 type="button"
                 onClick={() => openMode('deposit')}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
               >
                 Add to savings
               </button>
@@ -113,7 +113,7 @@ export default function SavingsPage() {
                 type="button"
                 disabled={position.balanceMinor <= 0}
                 onClick={() => openMode('withdraw')}
-                className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-body-lg text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
               >
                 Take out
               </button>
@@ -122,21 +122,21 @@ export default function SavingsPage() {
         ) : (
           <div className="pt-2">
             <div className="flex items-baseline justify-between">
-              <p className="font-heavy text-body-sm text-ink">{mode === 'deposit' ? 'Add to savings' : 'Take out of savings'}</p>
-              <p className="tabular font-strong text-amount-sm text-ink">₦{entryDisplay(entry)}</p>
+              <p className="font-display text-subhead text-ink">{mode === 'deposit' ? 'Add to savings' : 'Take out of savings'}</p>
+              <p className="tabular font-strong text-subhead text-ink">₦{entryDisplay(entry)}</p>
             </div>
 
             <div className="mt-3">
               <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
             </div>
 
-            {problem ? <p className="mt-3 text-center font-body text-label-sm text-halt">{problem}</p> : null}
+            {problem ? <p className="mt-3 text-center font-body text-note text-halt">{problem}</p> : null}
 
             <div className="mt-4 flex gap-3">
               <button
                 type="button"
                 onClick={() => openMode('view')}
-                className="flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body-lg text-ink"
+                className="flex h-14 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-prose text-ink"
               >
                 Cancel
               </button>
@@ -144,7 +144,7 @@ export default function SavingsPage() {
                 type="button"
                 disabled={amount <= 0 || busy}
                 onClick={() => void submit()}
-                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+                className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 {busy ? 'Working' : mode === 'deposit' ? `Add ${formatNaira(amount)}` : `Take out ${formatNaira(amount)}`}
               </button>

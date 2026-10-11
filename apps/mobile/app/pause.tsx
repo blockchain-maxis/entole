@@ -42,10 +42,10 @@ export default function Pause() {
       <View className="flex-1 items-center px-gutter-lg pt-6">
         <KillSwitchBadge />
 
-        <Text className="mt-6 text-center font-strong text-headline text-ink">
+        <Text className="mt-6 text-center font-display text-subhead text-ink">
           {store.paused ? 'The assistant is paused' : 'Pause the assistant?'}
         </Text>
-        <Text className="mt-2.5 text-center font-body text-body-sm text-slate">
+        <Text className="mt-2.5 text-center font-body text-ui text-slate">
           {store.paused
             ? 'The assistant cannot propose or make a payment for you while this is on. You can still send money yourself, and you can resume it any time. Every allowance stays exactly where it is.'
             : 'Entole\u2019s assistant stops proposing and making payments for you. You can still send money yourself. Your allowances and their balances stay exactly as they are.'}

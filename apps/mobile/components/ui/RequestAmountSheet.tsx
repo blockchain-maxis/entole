@@ -39,8 +39,8 @@ export function RequestAmountSheet({
   return (
     <SheetLayer>
       <Sheet onDismiss={onDismiss} handleOnly>
-        <Text className="font-strong text-title text-ink">Request an amount</Text>
-        <Text className="mt-1 font-body text-label text-slate">
+        <Text className="font-display text-subhead text-ink">Request an amount</Text>
+        <Text className="mt-1 font-body text-ui text-slate">
           The link will ask for exactly this. Leave it off and they choose.
         </Text>
 

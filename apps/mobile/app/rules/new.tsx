@@ -99,8 +99,8 @@ export default function RuleBuilder() {
 
         {nobodySaved ? (
           <View>
-            <Text className="px-1 font-heavy text-body-sm text-ink">Save someone first</Text>
-            <Text className="mt-2 px-1 font-body text-label text-slate">
+            <Text className="px-1 font-display text-subhead text-ink">Save someone first</Text>
+            <Text className="mt-2 px-1 font-body text-ui text-slate">
               An allowance is for one person you have saved. Add them as a beneficiary, then come back.
             </Text>
           </View>
@@ -132,9 +132,9 @@ export default function RuleBuilder() {
         </View>
 
         {problem ? (
-          <Text className="mt-3 text-center font-body text-label-sm text-halt">{problem}</Text>
+          <Text className="mt-3 text-center font-body text-note text-halt">{problem}</Text>
         ) : !nobodySaved && limit < perRun ? (
-          <Text className="mt-3 text-center font-body text-label-sm text-caution">
+          <Text className="mt-3 text-center font-body text-note text-caution">
             The limit has to cover at least one payment.
           </Text>
         ) : null}
@@ -146,7 +146,7 @@ export default function RuleBuilder() {
 function CadencePicker({ value, onChange }: { value: Cadence; onChange: (next: Cadence) => void }) {
   return (
     <View>
-      <Text className="px-1 font-heavy text-body-sm text-ink">How often</Text>
+      <Text className="px-1 font-display text-subhead text-ink">How often</Text>
       <View className="mt-3.5 gap-2">
         {CADENCES.map((option) => {
           const selected = option === value;
@@ -156,19 +156,19 @@ function CadencePicker({ value, onChange }: { value: Cadence; onChange: (next: C
               accessibilityRole="radio"
               accessibilityState={{ selected }}
               onPress={() => onChange(option)}
-              className={`flex-row items-center justify-between rounded-chip px-4 ${
+              className={`flex-row items-center justify-between rounded-control px-4 ${
                 selected
                   ? 'border-[1.5px] border-ink bg-card py-[13.5px]'
                   : 'border border-hairline bg-paper py-3.5'
               }`}
             >
               <Text
-                className={`text-body ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}
+                className={`text-ui ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}
               >
                 {sentenceCase(cadenceWords(option))}
               </Text>
               <Text
-                className={`text-caption ${
+                className={`text-note ${
                   selected ? 'font-heavy text-ink' : 'font-strong text-slate'
                 }`}
               >
@@ -193,7 +193,7 @@ function RecipientPicker({
 }) {
   return (
     <View>
-      <Text className="px-1 font-heavy text-body-sm text-ink">Who it goes to</Text>
+      <Text className="px-1 font-display text-subhead text-ink">Who it goes to</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -215,7 +215,7 @@ function RecipientPicker({
               </View>
               <Text
                 numberOfLines={1}
-                className={`text-caption-sm ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}
+                className={`text-note ${selected ? 'font-strong text-ink' : 'font-body text-slate'}`}
               >
                 {contact.name.split(' ')[0]}
               </Text>
@@ -241,8 +241,8 @@ function AmountPad({
   return (
     <View>
       <View className="flex-row items-baseline justify-between px-1">
-        <Text className="font-heavy text-body-sm text-ink">{title}</Text>
-        <Text tabular className="font-strong text-amount-sm text-ink">
+        <Text className="font-display text-subhead text-ink">{title}</Text>
+        <Text tabular className="font-strong text-subhead text-ink">
           ₦{entryDisplay(entry)}
         </Text>
       </View>

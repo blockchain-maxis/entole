@@ -34,7 +34,7 @@ type Phase = 'choose' | 'running' | 'done';
 function SummaryLine({ label, children, strong = false }: { label: string; children: React.ReactNode; strong?: boolean }) {
   return (
     <View className="flex-row items-center justify-between py-2.5">
-      <Text className={`font-body text-label ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
+      <Text className={`font-body text-ui ${strong ? 'text-ink' : 'text-slate'}`}>{label}</Text>
       {children}
     </View>
   );
@@ -172,14 +172,14 @@ export default function RunPayroll() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 2 }}
         >
           <View className="px-1">
-            <Text className="font-strong text-title text-ink">
+            <Text className="font-display text-subhead text-ink">
               {running
                 ? `Paying ${peopleWords(runLines.length)}`
                 : remaining.length === 0
                   ? `Paid ${peopleWords(summary.settled)}`
                   : `${summary.settled} of ${runLines.length} paid`}
             </Text>
-            <Text tabular className="mt-1 font-body text-label text-slate">
+            <Text tabular className="mt-1 font-body text-ui text-slate">
               {running
                 ? 'One at a time. Each is paid only once it has really gone through.'
                 : `${formatNaira(kobo(summary.paidMinor))} sent, ${formatNaira(kobo(summary.feeMinor))} in fees.`}
@@ -190,14 +190,14 @@ export default function RunPayroll() {
             {runLines.map((line) => {
               const state = states[line.id] ?? { status: 'waiting' };
               return (
-                <View key={line.id} className="rounded-row border border-line bg-card px-4 py-3">
+                <View key={line.id} className="border-b border-hairline py-3">
                   <View className="flex-row items-center gap-3">
                     <StateMark state={state} />
                     <View className="min-w-0 flex-1">
-                      <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
+                      <Text numberOfLines={1} className="font-strong text-ui text-ink">
                         {line.name}
                       </Text>
-                      <Text className="font-body text-caption text-slate">
+                      <Text className="font-body text-note text-slate">
                         {state.status === 'waiting'
                           ? 'Waiting'
                           : state.status === 'paying'
@@ -207,12 +207,12 @@ export default function RunPayroll() {
                               : "Didn't go through"}
                       </Text>
                     </View>
-                    <Text tabular className="font-strong text-body-sm text-ink">
+                    <Text tabular className="font-strong text-ui text-ink">
                       {formatNaira(kobo(line.amountMinor))}
                     </Text>
                   </View>
                   {state.status === 'failed' ? (
-                    <Text className="mt-2 font-body text-label-sm text-halt">{state.message}</Text>
+                    <Text className="mt-2 font-body text-note text-halt">{state.message}</Text>
                   ) : null}
                 </View>
               );
@@ -220,9 +220,9 @@ export default function RunPayroll() {
           </View>
 
           {!running && stoppedForBalance ? (
-            <View className="mt-5 rounded-row border border-line bg-card px-4 py-4">
-              <Text className="font-strong text-body-sm text-ink">We stopped because the money ran out</Text>
-              <Text className="mt-1 font-body text-label-sm text-slate">
+            <View className="mt-5 border-b border-hairline py-4">
+              <Text className="font-strong text-ui text-ink">We stopped because the money ran out</Text>
+              <Text className="mt-1 font-body text-note text-slate">
                 {firstStopped ? `${firstStopped.name} and everyone after them` : 'Everyone still waiting'} was not
                 paid. Add money, then retry to pay them.
               </Text>
@@ -277,9 +277,9 @@ export default function RunPayroll() {
               <RowSkeleton />
             </View>
           ) : people.length === 0 ? (
-            <View className="rounded-row border border-line bg-card px-4 py-4">
-              <Text className="font-strong text-body-sm text-ink">No one to pay yet</Text>
-              <Text className="mt-1 font-body text-label-sm text-slate">
+            <View className="border-b border-hairline py-4">
+              <Text className="font-strong text-ui text-ink">No one to pay yet</Text>
+              <Text className="mt-1 font-body text-note text-slate">
                 Add your team first, by hand or from a spreadsheet.
               </Text>
               <View className="mt-3 flex-row">
@@ -294,12 +294,12 @@ export default function RunPayroll() {
           ) : (
             <View>
               <View className="flex-row items-baseline justify-between px-1">
-                <Text className="font-strong text-body-sm text-ink">Who are you paying?</Text>
-                <Text tabular className="font-body text-caption text-slate">
+                <Text className="font-strong text-ui text-ink">Who are you paying?</Text>
+                <Text tabular className="font-body text-note text-slate">
                   You have {formatNaira(store.balance)}
                 </Text>
               </View>
-              <Text className="mt-1 px-1 font-body text-caption text-slate">
+              <Text className="mt-1 px-1 font-body text-note text-slate">
                 Tap a person to include them. Tap an amount to change it for this run only.
               </Text>
 
@@ -307,7 +307,7 @@ export default function RunPayroll() {
                 {people.map(({ person, amountMinor, problem, chosen }) => (
                   <View
                     key={person.id}
-                    className={`flex-row items-center gap-3 rounded-row border bg-card px-3.5 py-3 ${
+                    className={`flex-row items-center gap-3 rounded-card border bg-card px-3.5 py-3 ${
                       chosen ? 'border-ink' : 'border-line'
                     }`}
                   >
@@ -333,15 +333,15 @@ export default function RunPayroll() {
                         {chosen ? <Check size={15} strokeWidth={2.5} color={colors.paper} /> : null}
                       </View>
                       <View className="min-w-0 flex-1">
-                        <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
+                        <Text numberOfLines={1} className="font-strong text-ui text-ink">
                           {person.name}
                         </Text>
                         {problem ? (
-                          <Text numberOfLines={2} className="font-body text-caption text-caution">
+                          <Text numberOfLines={2} className="font-body text-note text-caution">
                             {problem}
                           </Text>
                         ) : person.note ? (
-                          <Text numberOfLines={1} className="font-body text-caption text-slate">
+                          <Text numberOfLines={1} className="font-body text-note text-slate">
                             {person.note}
                           </Text>
                         ) : null}
@@ -352,9 +352,9 @@ export default function RunPayroll() {
                       accessibilityLabel={`Change ${person.name}'s amount`}
                       hitSlop={8}
                       onPress={() => setEditing(person.id)}
-                      className="rounded-chip bg-track px-3 py-2 active:bg-press"
+                      className="rounded-control bg-track px-3 py-2 active:bg-press"
                     >
-                      <Text tabular className={`font-strong text-body-sm ${amountMinor > 0 ? 'text-ink' : 'text-ink underline'}`}>
+                      <Text tabular className={`font-strong text-ui ${amountMinor > 0 ? 'text-ink' : 'text-ink underline'}`}>
                         {amountMinor > 0 ? formatNaira(kobo(amountMinor)) : 'Set amount'}
                       </Text>
                     </Pressable>
@@ -362,9 +362,9 @@ export default function RunPayroll() {
                 ))}
               </View>
 
-              <View className="mt-6 rounded-row border border-line bg-card px-4 py-1.5">
+              <View className="mt-6 border-b border-hairline py-1.5">
                 <SummaryLine label={`Paying ${peopleWords(lines.length)}`}>
-                  <Text tabular className="font-strong text-label text-ink">
+                  <Text tabular className="font-strong text-ui text-ink">
                     {formatNaira(kobo(totals.payMinor))}
                   </Text>
                 </SummaryLine>
@@ -373,7 +373,7 @@ export default function RunPayroll() {
                   {totals.feeMinor === null && lines.length > 0 && !feeProblem ? (
                     <Skeleton className="h-4 w-20 rounded-md" />
                   ) : (
-                    <Text tabular className="font-strong text-label text-ink">
+                    <Text tabular className="font-strong text-ui text-ink">
                       {totals.feeMinor === null ? '—' : formatNaira(kobo(totals.feeMinor))}
                     </Text>
                   )}
@@ -383,7 +383,7 @@ export default function RunPayroll() {
                   {totals.totalMinor === null && lines.length > 0 && !feeProblem ? (
                     <Skeleton className="h-5 w-24 rounded-md" />
                   ) : (
-                    <Text tabular className="font-heavy text-body-sm text-ink">
+                    <Text tabular className="font-display text-subhead text-ink">
                       {totals.totalMinor === null ? '—' : formatNaira(kobo(totals.totalMinor))}
                     </Text>
                   )}
@@ -392,18 +392,18 @@ export default function RunPayroll() {
 
               {feeProblem ? (
                 <View className="mt-3 px-1">
-                  <Text className="font-body text-label-sm text-halt">{feeProblem}</Text>
+                  <Text className="font-body text-note text-halt">{feeProblem}</Text>
                   <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setFeeTry((count) => count + 1)}>
-                    <Text className="mt-1 font-strong text-label-sm text-ink underline">Try again</Text>
+                    <Text className="mt-1 font-strong text-note text-ink underline">Try again</Text>
                   </Pressable>
                 </View>
               ) : affordable.state === 'short' ? (
                 <View className="mt-3 px-1">
-                  <Text tabular className="font-body text-label-sm text-caution">
+                  <Text tabular className="font-body text-note text-caution">
                     You are {shortByWords(affordable.shortByMinor)} short of the total with fees.
                   </Text>
                   <Pressable accessibilityRole="link" hitSlop={10} onPress={() => router.push('/add-money')}>
-                    <Text className="mt-1 font-strong text-label-sm text-ink underline">Add money first</Text>
+                    <Text className="mt-1 font-strong text-note text-ink underline">Add money first</Text>
                   </Pressable>
                 </View>
               ) : null}

@@ -104,10 +104,8 @@ extend: {
     'display-plain': ['SourceSerif4_400Regular'],
   },
   fontSize: {
-    // The seven roles of docs/DESIGN.md. Screens move onto these one at a
-    // time; everything below them is the earlier scale and goes when the last
-    // screen has moved. No weight is set here: on the phone a weight comes
-    // from which font file a family names, never from a number.
+    // The seven roles of docs/DESIGN.md. No weight is set here: on the phone
+    // a weight comes from which font file a family names, never from a number.
     figure: ['56px', { lineHeight: '60px', letterSpacing: '-1.2px' }],
     // The same role, for a figure too long to fit a phone at full size.
     'figure-md': ['44px', { lineHeight: '48px', letterSpacing: '-0.9px' }],
@@ -118,52 +116,21 @@ extend: {
     ui: ['15px', { lineHeight: '21px', letterSpacing: '-0.1px' }],
     note: ['13px', { lineHeight: '18px' }],
     micro: ['11px', { lineHeight: '14px', letterSpacing: '0.5px' }],
+
     // The first page's headline on a wide screen, and nowhere else.
     poster: ['72px', { lineHeight: '76px', letterSpacing: '-1.8px' }],
-
-    // Balances and amounts
-    balance: ['54px', { lineHeight: '54px', letterSpacing: '-2.4px' }],
-    'balance-md': ['48px', { lineHeight: '48px', letterSpacing: '-2px' }],
-    'balance-sm': ['42px', { lineHeight: '42px', letterSpacing: '-1.8px' }],
-    'balance-xs': ['38px', { lineHeight: '38px', letterSpacing: '-1.5px' }],
-
-    // Headings
-    hero: ['34px', { lineHeight: '39px', letterSpacing: '-1.3px' }],
-    'title-xl': ['28px', { lineHeight: '34px', letterSpacing: '-1px' }],
-    'title-lg': ['27px', { lineHeight: '33px', letterSpacing: '-0.9px' }],
+    // The allowance sentence on the phone, with room between its lines for
+    // the blanks.
     sentence: ['26px', { lineHeight: '42px', letterSpacing: '-0.5px' }],
-    title: ['22px', { lineHeight: '28px', letterSpacing: '-0.5px' }],
-    'title-sm': ['21px', { lineHeight: '27px', letterSpacing: '-0.5px' }],
-    headline: ['18px', { lineHeight: '24px', letterSpacing: '-0.3px' }],
-    'body-lg': ['17px', { lineHeight: '24px', letterSpacing: '-0.3px' }],
-    body: ['15.5px', { lineHeight: '21px', letterSpacing: '-0.2px' }],
-    'body-sm': ['15px', { lineHeight: '23px' }],
-    label: ['14px', { lineHeight: '20px' }],
-    'label-sm': ['13.5px', { lineHeight: '20px' }],
-    caption: ['13px', { lineHeight: '18px' }],
-    'caption-sm': ['12.5px', { lineHeight: '17px' }],
-    badge: ['10.5px', { lineHeight: '14px', letterSpacing: '0.5px' }],
-    kill: ['11px', { lineHeight: '15px', letterSpacing: '0.6px' }],
-
-    // Amounts inside rows and sheets
-    'amount-lg': ['30px', { lineHeight: '34px', letterSpacing: '-1px' }],
-    amount: ['24px', { lineHeight: '28px', letterSpacing: '-0.7px' }],
-    'amount-sm': ['22px', { lineHeight: '26px', letterSpacing: '-0.6px' }],
-    'amount-xs': ['20px', { lineHeight: '24px', letterSpacing: '-0.4px' }],
-
-    // Keypad glyphs
+    // Keypad glyphs.
     key: ['24px', { lineHeight: '30px' }],
   },
+  // Four radii, each with one job (docs/DESIGN.md).
   borderRadius: {
     pill: '999px',
     sheet: '26px',
-    panel: '24px',
     card: '20px',
-    tile: '18px',
-    row: '16px',
     control: '14px',
-    chip: '12px',
-    pip: '10px',
   },
   spacing: {
     gutter: '20px',

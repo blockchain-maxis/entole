@@ -19,7 +19,7 @@ export function StockLogo({ src, name, size = 40 }: { src?: string | undefined; 
         importantForAccessibility="no-hide-descendants"
         className={`items-center justify-center rounded-pill bg-press ${BOX[size]}`}
       >
-        <Text className="font-strong text-label text-slate">{name.trim().charAt(0).toUpperCase()}</Text>
+        <Text className="font-strong text-ui text-slate">{name.trim().charAt(0).toUpperCase()}</Text>
       </View>
     );
   }

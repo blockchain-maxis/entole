@@ -6,8 +6,8 @@ import { Text } from './Text';
 export function UnavailableNote({ title, body }: { title: string; body: string }) {
   return (
     <View className="rounded-control border border-line bg-card px-4 py-3.5">
-      <Text className="font-strong text-body-sm text-caution">{title}</Text>
-      <Text className="mt-1 font-body text-label-sm text-slate">{body}</Text>
+      <Text className="font-strong text-ui text-caution">{title}</Text>
+      <Text className="mt-1 font-body text-note text-slate">{body}</Text>
     </View>
   );
 }

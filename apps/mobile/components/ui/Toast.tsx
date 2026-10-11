@@ -40,7 +40,7 @@ export function ToastHost() {
         }`}
       >
         <CheckCircle2 size={18} strokeWidth={1.8} color={assistant ? colors.indigo.DEFAULT : colors.settled.DEFAULT} />
-        <Text className="flex-1 font-strong text-label-sm text-ink">{entry.message}</Text>
+        <Text className="flex-1 font-strong text-note text-ink">{entry.message}</Text>
         {assistant ? <AssistantBadge /> : null}
       </Pressable>
     </Animated.View>

@@ -79,9 +79,9 @@ export default function EditProfile() {
   return (
     <KeyboardAvoidingView behavior="padding" className="flex-1">
       <Sheet onDismiss={close}>
-        <Text className="font-strong text-title text-ink">Edit profile</Text>
+        <Text className="font-display text-subhead text-ink">Edit profile</Text>
 
-        <Text className="mt-5 font-strong text-caption text-slate">Full name</Text>
+        <Text className="mt-5 font-strong text-note text-slate">Full name</Text>
         <View className="mt-2 rounded-control border-[1.5px] border-ink bg-card px-4 py-3.5">
           <TextInput
             value={fullName}
@@ -92,17 +92,17 @@ export default function EditProfile() {
             autoComplete="name"
             returnKeyType="next"
             accessibilityLabel="Full name"
-            className="font-strong text-body-lg text-ink"
+            className="font-strong text-prose text-ink"
             style={{ padding: 0 }}
           />
         </View>
         {touched && nameError ? (
-          <Text className="mt-2 font-body text-caption text-slate">{nameError}</Text>
+          <Text className="mt-2 font-body text-note text-slate">{nameError}</Text>
         ) : null}
 
-        <Text className="mt-4 font-strong text-caption text-slate">Username</Text>
+        <Text className="mt-4 font-strong text-note text-slate">Username</Text>
         <View className="mt-2 flex-row items-center rounded-control border-[1.5px] border-line bg-card px-4 py-3.5">
-          <Text className="font-strong text-body-lg text-slate">@</Text>
+          <Text className="font-strong text-prose text-slate">@</Text>
           <TextInput
             value={username}
             onChangeText={(next) => setUsername(normalizeUsername(next))}
@@ -114,12 +114,12 @@ export default function EditProfile() {
             returnKeyType="done"
             onSubmitEditing={() => void save()}
             accessibilityLabel="Username"
-            className="ml-1 flex-1 font-strong text-body-lg text-ink"
+            className="ml-1 flex-1 font-strong text-prose text-ink"
             style={{ padding: 0 }}
           />
         </View>
         {touched && usernameError ? (
-          <Text className="mt-2 font-body text-caption text-slate">{usernameError}</Text>
+          <Text className="mt-2 font-body text-note text-slate">{usernameError}</Text>
         ) : null}
 
         <View className="mt-6 flex-row">

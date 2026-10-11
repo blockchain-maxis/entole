@@ -50,7 +50,7 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
         ) : null}
 
         {title ? (
-          <Text numberOfLines={1} className="shrink font-strong text-body-lg text-ink">
+          <Text numberOfLines={1} className="shrink font-strong text-prose text-ink">
             {title}
           </Text>
         ) : null}

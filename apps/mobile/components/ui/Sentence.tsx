@@ -64,7 +64,7 @@ function Pill({
       accessibilityState={{ selected: active }}
       accessibilityLabel={`Change ${part.text}`}
       onPress={onPress}
-      className={`my-1 flex-row items-center rounded-pip border py-0.5 ${
+      className={`my-1 flex-row items-center rounded-control border py-0.5 ${
         part.avatar ? 'pl-1 pr-2.5' : 'px-2.5'
       } ${active ? 'border-ink bg-ink' : 'border-line bg-card'}`}
     >
@@ -74,7 +74,7 @@ function Pill({
             part.avatar.tone === 1 ? 'bg-avatar-1' : part.avatar.tone === 2 ? 'bg-avatar-2' : 'bg-avatar-3'
           }`}
         >
-          <Text className="font-strong text-badge text-slate">{part.avatar.initials}</Text>
+          <Text className="font-strong text-micro text-slate">{part.avatar.initials}</Text>
         </View>
       ) : null}
       <Text

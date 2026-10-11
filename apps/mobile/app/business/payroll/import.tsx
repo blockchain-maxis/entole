@@ -156,23 +156,23 @@ export default function ImportPayroll() {
       >
         {phase.kind === 'reading' ? (
           <View className="gap-2.5">
-            <Text className="px-1 pb-1 font-body text-label text-slate">Reading {phase.fileName}</Text>
+            <Text className="px-1 pb-1 font-body text-ui text-slate">Reading {phase.fileName}</Text>
             <RowSkeleton />
             <RowSkeleton />
             <RowSkeleton />
           </View>
         ) : review ? (
           <View>
-            <Text numberOfLines={1} className="px-1 font-body text-label text-slate">
+            <Text numberOfLines={1} className="px-1 font-body text-ui text-slate">
               {review.fileName}
             </Text>
-            <Text className="mt-1 px-1 font-strong text-title text-ink">
+            <Text className="mt-1 px-1 font-display text-subhead text-ink">
               {review.result.rows.length > 0
                 ? `${peopleWords(review.result.rows.length)} ready`
                 : 'Nobody could be read from this file'}
             </Text>
             {merge && review.result.rows.length > 0 ? (
-              <Text className="mt-1 px-1 font-body text-label text-slate">
+              <Text className="mt-1 px-1 font-body text-ui text-slate">
                 {merge.added > 0 ? `${merge.added} new` : 'No new people'}
                 {merge.updated > 0 ? `, ${merge.updated} you already have will be updated` : ''}. Nothing is paid
                 until you run payroll.
@@ -191,7 +191,7 @@ export default function ImportPayroll() {
                       className="rounded-control border border-line bg-card px-4 py-3"
                     >
                       <Text
-                        className={`font-body text-label-sm ${problem.kind === 'error' ? 'text-halt' : 'text-caution'}`}
+                        className={`font-body text-note ${problem.kind === 'error' ? 'text-halt' : 'text-caution'}`}
                       >
                         {problem.message}
                       </Text>
@@ -199,7 +199,7 @@ export default function ImportPayroll() {
                   ))}
                 </View>
                 {errors.length > 0 && review.result.rows.length > 0 ? (
-                  <Text className="mt-2 px-1 font-body text-caption text-slate">
+                  <Text className="mt-2 px-1 font-body text-note text-slate">
                     Rows with a problem are left out. Fix them in the file and choose it again, or use the
                     rest now.
                   </Text>
@@ -214,20 +214,20 @@ export default function ImportPayroll() {
                   {review.result.rows.map((row) => (
                     <View
                       key={`${row.line}-${row.code}`}
-                      className="flex-row items-center gap-3 rounded-row border border-line bg-card px-4 py-3"
+                      className="flex-row items-center gap-3 border-b border-hairline py-3"
                     >
                       <Check size={16} strokeWidth={2} color={colors.settled.DEFAULT} />
                       <View className="min-w-0 flex-1">
-                        <Text numberOfLines={1} className="font-strong text-body-sm text-ink">
+                        <Text numberOfLines={1} className="font-strong text-ui text-ink">
                           {row.name}
                         </Text>
                         {row.note ? (
-                          <Text numberOfLines={1} className="font-body text-caption text-slate">
+                          <Text numberOfLines={1} className="font-body text-note text-slate">
                             {row.note}
                           </Text>
                         ) : null}
                       </View>
-                      <Text tabular className="font-strong text-body-sm text-ink">
+                      <Text tabular className="font-strong text-ui text-ink">
                         {formatNaira(kobo(row.amountMinor))}
                       </Text>
                     </View>
@@ -248,29 +248,29 @@ export default function ImportPayroll() {
             ) : null}
             {phase.kind === 'failed' ? (
               <View className="mb-5 rounded-control border border-line bg-card px-4 py-3.5">
-                <Text className="font-strong text-body-sm text-halt">We couldn&apos;t use that file</Text>
-                <Text className="mt-1 font-body text-label-sm text-slate">{phase.message}</Text>
+                <Text className="font-strong text-ui text-halt">We couldn&apos;t use that file</Text>
+                <Text className="mt-1 font-body text-note text-slate">{phase.message}</Text>
               </View>
             ) : null}
 
-            <Text className="px-1 font-strong text-title text-ink">Bring your team in from a spreadsheet</Text>
-            <Text className="mt-2 px-1 font-body text-body-sm text-slate">
+            <Text className="px-1 font-display text-subhead text-ink">Bring your team in from a spreadsheet</Text>
+            <Text className="mt-2 px-1 font-body text-ui text-slate">
               Choose an Excel or CSV file with one row per person and these columns:
             </Text>
-            <View className="mt-4 rounded-row border border-line bg-card px-4 py-4">
+            <View className="mt-4 border-b border-hairline py-4">
               <ColumnLine name="Name" note="who you are paying" />
               <ColumnLine name="Payment code" note="their code, or the link they shared" />
               <ColumnLine name="Amount" note="in naira, like 150,000" />
               <ColumnLine name="Note" note="optional, like September salary" last />
             </View>
-            <Text className="mt-3 px-1 font-body text-caption text-slate">
+            <Text className="mt-3 px-1 font-body text-note text-slate">
               The file is read on this phone. You review every row before anything is saved.
             </Text>
 
             <View className="mt-7 gap-2.5">
               <LinkRow label="Get a sample file" onPress={() => void shareSample()} />
-              {sampleNote ? <Text className="px-1 font-body text-caption text-halt">{sampleNote}</Text> : null}
-              <Text className="px-1 font-body text-caption text-slate">
+              {sampleNote ? <Text className="px-1 font-body text-note text-halt">{sampleNote}</Text> : null}
+              <Text className="px-1 font-body text-note text-slate">
                 Shares the columns as text you can paste into a spreadsheet or save as a .csv.
               </Text>
               <View className="mt-2">
@@ -315,8 +315,8 @@ export default function ImportPayroll() {
 function ColumnLine({ name, note, last = false }: { name: string; note: string; last?: boolean }) {
   return (
     <View className={last ? '' : 'mb-3'}>
-      <Text className="font-strong text-body-sm text-ink">{name}</Text>
-      <Text className="font-body text-caption text-slate">{note}</Text>
+      <Text className="font-strong text-ui text-ink">{name}</Text>
+      <Text className="font-body text-note text-slate">{note}</Text>
     </View>
   );
 }

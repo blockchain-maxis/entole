@@ -70,7 +70,7 @@ export function Countdown({
 
   return (
     <div className="flex w-16 flex-none flex-col items-center gap-1.5">
-      <span aria-live="off" className="tabular font-strong text-title text-ink">
+      <span aria-live="off" className="tabular font-display text-subhead text-ink">
         {left}
       </span>
       <div

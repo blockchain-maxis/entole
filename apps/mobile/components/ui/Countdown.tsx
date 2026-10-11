@@ -91,7 +91,7 @@ export function Countdown({
           animatedProps={ringProps}
         />
       </Svg>
-      <Text tabular className="font-heavy text-caption text-ink">
+      <Text tabular className="font-heavy text-note text-ink">
         {remaining}s
       </Text>
     </View>

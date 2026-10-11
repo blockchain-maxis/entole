@@ -150,7 +150,7 @@ export default function NewBeneficiary() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, gap: 22 }}
           >
-            <Text className="font-body text-body-sm text-slate">
+            <Text className="font-body text-ui text-slate">
               Ask them for their payment code. They can share it from Receive in their app.
             </Text>
 
@@ -177,7 +177,7 @@ export default function NewBeneficiary() {
                   onPress={() => void paste()}
                   className="ml-3 self-start"
                 >
-                  <Text className="font-strong text-label text-ink underline">Paste</Text>
+                  <Text className="font-strong text-ui text-ink underline">Paste</Text>
                 </Pressable>
               }
             />
@@ -192,9 +192,9 @@ export default function NewBeneficiary() {
 
           <View className="flex-none border-t border-hairline px-gutter pb-2.5 pt-3">
             {problem ? (
-              <Text className="pb-2.5 text-center font-body text-label-sm text-halt">{problem}</Text>
+              <Text className="pb-2.5 text-center font-body text-note text-halt">{problem}</Text>
             ) : blocker ? (
-              <Text className="pb-2.5 text-center font-body text-label-sm text-slate">{blocker}</Text>
+              <Text className="pb-2.5 text-center font-body text-note text-slate">{blocker}</Text>
             ) : null}
             <View className="flex-row">
               <Button

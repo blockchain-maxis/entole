@@ -33,16 +33,16 @@ export default function GrowHubPage() {
           <BalanceSkeleton />
         ) : (
           <div className="flex flex-col gap-3">
-            <Link href="/grow/savings" aria-label="Savings" className="block rounded-panel bg-card p-5 shadow-raised">
+            <Link href="/grow/savings" aria-label="Savings" className="block rounded-card bg-card p-5 shadow-raised">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Sprout size={20} strokeWidth={1.5} className="text-settled" />
-                  <span className="font-heavy text-body text-ink">Savings</span>
+                  <span className="font-heavy text-ui text-ink">Savings</span>
                 </div>
                 <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />
               </div>
-              <p className="tabular mt-4 font-heavy text-amount text-ink">{formatNaira(kobo(savings.balanceMinor))}</p>
-              <p className="mt-1 font-body text-label-sm text-slate">
+              <p className="tabular mt-4 font-heavy text-subhead text-ink">{formatNaira(kobo(savings.balanceMinor))}</p>
+              <p className="mt-1 font-body text-note text-slate">
                 {!earning
                   ? "Money set aside, separate from what you spend. It doesn't earn interest yet."
                   : earning.earnedMinor > 0
@@ -51,25 +51,25 @@ export default function GrowHubPage() {
               </p>
             </Link>
 
-            <Link href="/grow/stocks" aria-label="Stocks" className="block rounded-panel border border-line bg-card p-5">
+            <Link href="/grow/stocks" aria-label="Stocks" className="block rounded-card border border-line bg-card p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <TrendingUp size={20} strokeWidth={1.5} className="text-ink" />
-                  <span className="font-heavy text-body text-ink">Stocks</span>
+                  <span className="font-heavy text-ui text-ink">Stocks</span>
                 </div>
                 <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />
               </div>
               {store.stocksAvailable ? (
                 <>
-                  <p className="tabular mt-4 font-heavy text-amount text-ink">{formatNaira(kobo(holdingsValue))}</p>
-                  <p className="mt-1 font-body text-label-sm text-slate">
+                  <p className="tabular mt-4 font-heavy text-subhead text-ink">{formatNaira(kobo(holdingsValue))}</p>
+                  <p className="mt-1 font-body text-note text-slate">
                     {store.stockPositions.length > 0
                       ? `${store.stockPositions.length} ${store.stockPositions.length === 1 ? 'holding' : 'holdings'}`
                       : 'Buy your first share.'}
                   </p>
                 </>
               ) : (
-                <p className="mt-3 text-pretty font-body text-label-sm text-slate">
+                <p className="mt-3 text-pretty font-body text-note text-slate">
                   See the companies and funds you will be able to buy, with live prices. Buying opens soon.
                 </p>
               )}

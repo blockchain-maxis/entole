@@ -36,7 +36,7 @@ export default function ActivityDetail() {
       <Screen>
         <Header title="Payment" />
         <View className="flex-1 items-center justify-center px-gutter">
-          <Text className="text-center font-body text-body-sm text-slate">
+          <Text className="text-center font-body text-ui text-slate">
             That payment is no longer in your activity.
           </Text>
         </View>
@@ -59,22 +59,22 @@ export default function ActivityDetail() {
         <View className="items-center pb-[26px] pt-3.5">
           <Avatar initials={contact?.initials ?? '?'} tone={contact?.tone ?? 1} size="hero" />
           <View className="mt-3 flex-row items-center gap-1.5">
-            <Text className="font-strong text-title text-ink">{contact?.name ?? 'Someone'}</Text>
+            <Text className="font-display text-subhead text-ink">{contact?.name ?? 'Someone'}</Text>
             {byAssistant ? <AssistantBadge /> : null}
           </View>
           {countryName(contact?.place) ? (
-            <Text className="mt-0.5 font-body text-caption text-slate">{countryName(contact?.place)}</Text>
+            <Text className="mt-0.5 font-body text-note text-slate">{countryName(contact?.place)}</Text>
           ) : null}
         </View>
 
-        <View className="rounded-tile border border-line bg-card px-[18px] py-5">
+        <View className="rounded-card border border-line bg-card px-[18px] py-5">
           <View className="flex-row items-baseline justify-between border-b border-hairline pb-[18px]">
-            <Text className="font-heavy text-body-sm text-ink">
+            <Text className="font-display text-subhead text-ink">
               {entry.direction === 'in' ? 'Amount received' : 'Amount sent'}
             </Text>
             <Text
               tabular
-              className={`font-strong text-amount-xs ${entry.direction === 'in' ? 'text-settled' : 'text-ink'}`}
+              className={`font-strong text-subhead ${entry.direction === 'in' ? 'text-settled' : 'text-ink'}`}
             >
               {formatNaira(kobo(entry.amountMinor))}
             </Text>
@@ -98,8 +98,8 @@ export default function ActivityDetail() {
               />
               <ReceiptLine label="Reference" value={receipt.reference} />
               <View className="mt-1.5 flex-row items-baseline justify-between border-t border-hairline pb-0.5 pt-4">
-                <Text className="font-heavy text-body-sm text-ink">Amount received</Text>
-                <Text tabular className="font-strong text-amount-xs text-settled">
+                <Text className="font-display text-subhead text-ink">Amount received</Text>
+                <Text tabular className="font-strong text-subhead text-settled">
                   {formatDollars(cents(receipt.receivedMinor))}
                 </Text>
               </View>

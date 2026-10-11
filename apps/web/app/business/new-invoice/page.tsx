@@ -98,25 +98,25 @@ export default function NewInvoicePage() {
       <Header title="New invoice" />
 
       <div className="flex-1 px-gutter pb-28">
-        <p className="font-heavy text-body-sm text-ink">Bill to</p>
+        <p className="font-display text-subhead text-ink">Bill to</p>
         <input
           value={clientName}
           onChange={(event) => setClientName(event.target.value)}
           placeholder="Client or business name"
-          className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink placeholder:text-mist"
+          className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-ui text-ink placeholder:text-mist"
         />
 
-        <p className="mt-5 font-heavy text-body-sm text-ink">For</p>
+        <p className="mt-5 font-display text-subhead text-ink">For</p>
         <input
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="What this invoice is for"
-          className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink placeholder:text-mist"
+          className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-ui text-ink placeholder:text-mist"
         />
 
-        <p className="mt-6 font-heavy text-body-sm text-ink">Amount</p>
-        <p className="tabular mt-2.5 font-strong text-amount text-ink">₦{entryDisplay(entry)}</p>
-        <p className="mt-1.5 font-body text-label-sm text-slate">Due in {DUE_IN_DAYS} days</p>
+        <p className="mt-6 font-display text-subhead text-ink">Amount</p>
+        <p className="tabular mt-2.5 font-strong text-subhead text-ink">₦{entryDisplay(entry)}</p>
+        <p className="mt-1.5 font-body text-note text-slate">Due in {DUE_IN_DAYS} days</p>
 
         <div className="mt-4">
           <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
@@ -124,8 +124,8 @@ export default function NewInvoicePage() {
 
         <div className="mt-6 flex items-center justify-between">
           <div className="min-w-0 pr-3">
-            <p className="font-heavy text-body-sm text-ink">Hold for a better rate</p>
-            <p className="mt-1 font-body text-label-sm text-slate">
+            <p className="font-display text-subhead text-ink">Hold for a better rate</p>
+            <p className="mt-1 font-body text-note text-slate">
               Release only when the exchange rate is right, so a swing between now and payment does
               not eat into what you receive.
             </p>
@@ -155,7 +155,7 @@ export default function NewInvoicePage() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setPresetIndex(index)}
-                    className={`flex-1 rounded-chip py-2.5 font-strong text-label-sm transition-colors ${
+                    className={`flex-1 rounded-control py-2.5 font-strong text-note transition-colors ${
                       active ? 'bg-ink text-paper' : 'text-slate hover:text-ink'
                     }`}
                   >
@@ -164,7 +164,7 @@ export default function NewInvoicePage() {
                 );
               })}
             </div>
-            <p className="tabular mt-2 font-body text-label-sm text-slate">
+            <p className="tabular mt-2 font-body text-note text-slate">
               Releases at {formatRate({ koboPerDollar: maxKoboPerDollar(), quotedAt: '' })} or better.
               Now {formatRate(store.rate)}.
             </p>
@@ -175,7 +175,7 @@ export default function NewInvoicePage() {
           type="button"
           disabled={!ready || saving}
           onClick={() => void save()}
-          className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
+          className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
         >
           {saving ? 'Sending' : 'Send invoice'}
         </button>

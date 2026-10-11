@@ -82,10 +82,10 @@ export default function AssistantSettings() {
       >
         <AssistantTag>{assistant.enabled ? 'On' : 'Off'}</AssistantTag>
 
-        <Text className="mt-4 font-strong text-headline text-ink">
+        <Text className="mt-4 font-display text-subhead text-ink">
           {assistant.enabled ? 'The assistant is on' : 'Let Entole pay for you, within limits'}
         </Text>
-        <Text className="mt-2.5 font-body text-body-sm text-slate">
+        <Text className="mt-2.5 font-body text-ui text-slate">
           {assistant.enabled
             ? 'It can propose and make payments for you, only inside the allowances you set. Turn it off any time and it stops proposing anything.'
             : 'The assistant can propose and make payments for you, like a bill that comes round every month. It is off until you turn it on here.'}
@@ -100,19 +100,19 @@ export default function AssistantSettings() {
                 <point.icon size={20} strokeWidth={1.75} color={colors.indigo.DEFAULT} />
               </View>
               <View className="flex-1">
-                <Text className="font-strong text-body text-ink">{point.title}</Text>
-                <Text className="mt-1 font-body text-body-sm text-slate">{point.body}</Text>
+                <Text className="font-strong text-ui text-ink">{point.title}</Text>
+                <Text className="mt-1 font-body text-ui text-slate">{point.body}</Text>
               </View>
             </View>
           ))}
         </View>
 
         {assistant.enabled ? null : (
-          <Text className="mt-7 font-body text-label-sm text-mist">
+          <Text className="mt-7 font-body text-note text-slate">
             Turning it on asks you to confirm with your passkey once more.
           </Text>
         )}
-        {problem ? <Text className="mt-4 font-body text-label-sm text-halt">{problem}</Text> : null}
+        {problem ? <Text className="mt-4 font-body text-note text-halt">{problem}</Text> : null}
       </ScrollView>
 
       <ActionBar>
@@ -182,9 +182,9 @@ function AskAssistant() {
 
   if (store.allowances.length === 0) {
     return (
-      <View className="mt-6 rounded-panel bg-indigo-wash p-5">
-        <Text className="font-strong text-body text-ink">Nothing for it to do yet</Text>
-        <Text className="mt-1 font-body text-body-sm text-slate">
+      <View className="mt-6 rounded-card bg-indigo-wash p-5">
+        <Text className="font-strong text-ui text-ink">Nothing for it to do yet</Text>
+        <Text className="mt-1 font-body text-ui text-slate">
           Set an allowance for someone and you can ask the assistant to pay them.
         </Text>
         <View className="mt-3 flex-row">
@@ -195,7 +195,7 @@ function AskAssistant() {
   }
 
   return (
-    <View className="mt-6 rounded-panel bg-indigo-wash p-5">
+    <View className="mt-6 rounded-card bg-indigo-wash p-5">
       <Field
         label="Ask it to pay someone"
         value={text}

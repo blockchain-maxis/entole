@@ -8,7 +8,7 @@ export function Avatar({ initials, tone = 1 }: { initials: string; tone?: 1 | 2 
   return (
     <span
       aria-hidden
-      className={`flex h-10 w-10 flex-none items-center justify-center rounded-pill font-strong text-label text-slate ${TONES[tone]}`}
+      className={`flex h-10 w-10 flex-none items-center justify-center rounded-pill font-strong text-ui text-slate ${TONES[tone]}`}
     >
       {initials}
     </span>

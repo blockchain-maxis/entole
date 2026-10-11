@@ -15,7 +15,7 @@ export function StockLogo({ src, name, size = 40 }: { src?: string | undefined; 
     return (
       <span
         aria-hidden
-        className={`flex flex-none items-center justify-center rounded-pill bg-press font-strong text-label text-slate ${BOX[size]}`}
+        className={`flex flex-none items-center justify-center rounded-pill bg-press font-strong text-ui text-slate ${BOX[size]}`}
       >
         {name.trim().charAt(0).toUpperCase()}
       </span>

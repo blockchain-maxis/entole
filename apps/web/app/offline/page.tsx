@@ -34,9 +34,9 @@ export default function Offline() {
       <Header />
 
       <div className="flex flex-1 flex-col justify-center px-gutter pb-8">
-        <span aria-hidden className="h-3 w-3 rounded-pip bg-mist" />
-        <h1 className="pt-5 font-heavy text-title text-ink">No connection</h1>
-        <p className="max-w-[36ch] pt-3 font-body text-body text-slate">
+        <span aria-hidden className="h-3 w-3 rounded-control bg-mist" />
+        <h1 className="pt-5 font-display text-subhead text-ink">No connection</h1>
+        <p className="max-w-[36ch] pt-3 font-body text-ui text-slate">
           Entole needs a connection to show you what is true right now. Nothing has moved and
           nothing was lost — this screen is just waiting with you.
         </p>
@@ -46,7 +46,7 @@ export default function Offline() {
         <button
           type="button"
           onClick={() => window.location.replace('/')}
-          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
+          className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85"
         >
           {back ? 'Back online — continue' : 'Try again'}
         </button>

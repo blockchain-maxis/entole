@@ -43,8 +43,8 @@ export function ProfileChip() {
     >
       <Avatar initials={profile.initials} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-strong text-body text-ink">{profile.fullName}</span>
-        <span className="block truncate font-body text-caption text-slate">{handle}</span>
+        <span className="block truncate font-strong text-ui text-ink">{profile.fullName}</span>
+        <span className="block truncate font-body text-note text-slate">{handle}</span>
       </span>
     </Link>
   );

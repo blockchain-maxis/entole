@@ -165,7 +165,6 @@ export default function Home() {
             {failed ? null : (
               <>
                 <SectionHeading
-                  display
                   title="Allowances"
                   action={!loading && assistant.enabled && hasAllowances ? 'New allowance' : undefined}
                   onActionPress={() => router.push('/rules/new')}
@@ -206,7 +205,6 @@ export default function Home() {
                 )}
 
                 <SectionHeading
-                  display
                   title="Activity"
                   action={store.activity.length > 5 ? 'All activity' : undefined}
                   onActionPress={() => router.push('/activity')}

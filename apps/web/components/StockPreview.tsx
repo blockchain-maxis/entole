@@ -59,20 +59,20 @@ export function StockPreview({ symbol }: { symbol: string }) {
             <Skeleton className="mt-3 h-4 w-40" />
             <Skeleton className="mt-6 h-32 w-full rounded-card" />
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <Skeleton className="h-[84px] rounded-row" />
-              <Skeleton className="h-[84px] rounded-row" />
+              <Skeleton className="h-[84px] rounded-card" />
+              <Skeleton className="h-[84px] rounded-card" />
             </div>
           </div>
         ) : !detail ? (
-          <div className="rounded-panel border border-line bg-card p-5">
-            <p className="font-heavy text-body text-ink">We can&apos;t show this stock right now</p>
-            <p className="mt-2 text-pretty font-body text-body-sm text-slate">
+          <div className="rounded-card border border-line bg-card p-5">
+            <p className="font-heavy text-ui text-ink">We can&apos;t show this stock right now</p>
+            <p className="mt-2 text-pretty font-body text-ui text-slate">
               Its price is read live from the market, and it could not be reached just now. Nothing has changed.
             </p>
             <button
               type="button"
               onClick={look.retry}
-              className="mt-4 flex h-12 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-body-sm text-ink transition-colors hover:border-mist active:translate-y-px"
+              className="mt-4 flex h-12 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px"
             >
               Try again
             </button>
@@ -116,27 +116,27 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
       <div className="flex items-center gap-3 px-1 pt-1">
         <StockLogo src={detail.logo} name={detail.name} size={52} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-heavy text-headline text-ink">{detail.name}</p>
-          <p className="truncate font-body text-label-sm text-slate">
+          <p className="truncate font-display text-subhead text-ink">{detail.name}</p>
+          <p className="truncate font-body text-note text-slate">
             {stockByline(detail)}
           </p>
         </div>
       </div>
 
       <div className="px-1 pt-6">
-        <p className="tabular font-heavy text-balance-sm text-ink">{formatUsd(detail.priceCents)}</p>
-        <p className="mt-2.5 font-body text-label text-slate">
+        <p className="tabular font-heavy text-figure-md text-ink">{formatUsd(detail.priceCents)}</p>
+        <p className="mt-2.5 font-body text-ui text-slate">
           <span className={`tabular font-strong ${TONE[changeTone(detail.changeBps)]}`}>{formatChange(detail.changeBps)}</span>
           {detail.asOf ? ` on ${formatStockDay(detail.asOf)}` : ' on its last trading day'}
         </p>
-        {nairaPrice ? <p className="tabular mt-1 font-body text-label-sm text-slate">About {nairaPrice} a share</p> : null}
+        {nairaPrice ? <p className="tabular mt-1 font-body text-note text-slate">About {nairaPrice} a share</p> : null}
       </div>
 
       {line && month ? (
         <div className="mt-6 rounded-card border border-line bg-card p-4">
           <div className="flex items-baseline justify-between">
-            <p className="font-body text-label-sm text-slate">Since {formatStockDay(month.since)}</p>
-            <p className={`tabular font-strong text-label ${TONE[changeTone(month.changeBps)]}`}>{formatChange(month.changeBps)}</p>
+            <p className="font-body text-note text-slate">Since {formatStockDay(month.since)}</p>
+            <p className={`tabular font-strong text-ui ${TONE[changeTone(month.changeBps)]}`}>{formatChange(month.changeBps)}</p>
           </div>
           <svg
             role="img"
@@ -163,11 +163,11 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
           {facts.map((fact) => (
             <div
               key={fact.label}
-              className="rounded-row border border-line bg-card px-4 py-3.5 [&:last-child:nth-child(odd)]:col-span-2"
+              className="border-b border-hairline py-3.5 [&:last-child:nth-child(odd)]:col-span-2"
             >
-              <dt className="font-body text-label-sm text-slate">{fact.label}</dt>
-              <dd className="tabular mt-1 font-strong text-body-lg text-ink">{fact.value}</dd>
-              {fact.note ? <dd className="tabular mt-0.5 font-body text-label-sm text-slate">{fact.note}</dd> : null}
+              <dt className="font-body text-note text-slate">{fact.label}</dt>
+              <dd className="tabular mt-1 font-strong text-prose text-ink">{fact.value}</dd>
+              {fact.note ? <dd className="tabular mt-0.5 font-body text-note text-slate">{fact.note}</dd> : null}
             </div>
           ))}
         </dl>
@@ -175,8 +175,8 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
 
       {detail.about ? (
         <div className="px-1 pt-6">
-          <h2 className="font-heavy text-body-sm text-ink">About</h2>
-          <p className={`mt-2 text-pretty font-body text-body-sm text-slate ${aboutOpen || !aboutFolds ? '' : 'line-clamp-4'}`}>
+          <h2 className="font-display text-subhead text-ink">About</h2>
+          <p className={`mt-2 text-pretty font-body text-ui text-slate ${aboutOpen || !aboutFolds ? '' : 'line-clamp-4'}`}>
             {detail.about}
           </p>
           {aboutFolds ? (
@@ -184,7 +184,7 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
               type="button"
               aria-expanded={aboutOpen}
               onClick={() => setAboutOpen((open) => !open)}
-              className="mt-1.5 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
+              className="mt-1.5 font-strong text-note text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
             >
               {aboutOpen ? 'Show less' : 'Read more'}
             </button>
@@ -192,18 +192,18 @@ function StockFacts({ detail, nairaPrice }: { detail: StockDetail; nairaPrice: s
         </div>
       ) : null}
 
-      <p className="px-1 pt-6 font-body text-label-sm text-slate">{tradingStatus(detail)}</p>
+      <p className="px-1 pt-6 font-body text-note text-slate">{tradingStatus(detail)}</p>
 
       <button
         type="button"
         disabled
         aria-disabled
-        className="mt-3 flex h-14 w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-control bg-press font-strong text-body-lg text-mist"
+        className="mt-3 flex h-14 w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-control bg-press font-strong text-prose text-mist"
       >
         Buy
-        <span className="rounded-chip border border-line bg-card px-2 py-0.5 font-strong text-label-sm text-slate">Coming soon</span>
+        <span className="rounded-control border border-line bg-card px-2 py-0.5 font-strong text-note text-slate">Coming soon</span>
       </button>
-      <p className="mt-2.5 text-pretty px-1 text-center font-body text-label-sm text-slate">
+      <p className="mt-2.5 text-pretty px-1 text-center font-body text-note text-slate">
         Buying opens soon. Nothing here can move your money yet.
       </p>
     </>

@@ -21,8 +21,8 @@ export function CountryField({ value, onPress }: { value: string | undefined; on
   return (
     <View>
       <View className="flex-row items-baseline justify-between">
-        <Text className="font-strong text-caption text-slate">Country</Text>
-        <Text className="font-body text-caption text-mist">Optional</Text>
+        <Text className="font-strong text-note text-slate">Country</Text>
+        <Text className="font-body text-note text-slate">Optional</Text>
       </View>
       <Pressable
         accessibilityRole="button"
@@ -30,10 +30,10 @@ export function CountryField({ value, onPress }: { value: string | undefined; on
         onPress={onPress}
         className="mt-2 flex-row items-center justify-between rounded-control border-[1.5px] border-line bg-card px-4 py-3.5 active:border-mist"
       >
-        <Text className={`font-strong text-body-lg ${name ? 'text-ink' : 'text-mist'}`}>
+        <Text className={`font-strong text-prose ${name ? 'text-ink' : 'text-slate'}`}>
           {name ?? 'Choose a country'}
         </Text>
-        <Text className="font-strong text-label text-ink underline">{name ? 'Change' : 'Choose'}</Text>
+        <Text className="font-strong text-ui text-ink underline">{name ? 'Change' : 'Choose'}</Text>
       </Pressable>
     </View>
   );
@@ -58,10 +58,10 @@ export function CountrySheet({
       <KeyboardAvoidingView behavior="padding" className="flex-1">
         <Sheet onDismiss={onDismiss} handleOnly topInset={72}>
           <View className="flex-row items-baseline justify-between">
-            <Text className="font-strong text-title text-ink">Country</Text>
+            <Text className="font-display text-subhead text-ink">Country</Text>
             {value ? (
               <Pressable accessibilityRole="button" hitSlop={10} onPress={() => onPick(undefined)}>
-                <Text className="font-strong text-label text-slate">Clear</Text>
+                <Text className="font-strong text-ui text-slate">Clear</Text>
               </Pressable>
             ) : null}
           </View>
@@ -76,7 +76,7 @@ export function CountrySheet({
               autoCorrect={false}
               returnKeyType="search"
               accessibilityLabel="Search countries"
-              className="min-w-0 flex-1 font-strong text-body text-ink"
+              className="min-w-0 flex-1 font-strong text-ui text-ink"
               style={{ padding: 0 }}
             />
           </View>
@@ -88,7 +88,7 @@ export function CountrySheet({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
-                <Text className="px-1 py-6 font-body text-body-sm text-slate">
+                <Text className="px-1 py-6 font-body text-ui text-slate">
                   No country matches that. Check the spelling.
                 </Text>
               }
@@ -101,7 +101,7 @@ export function CountrySheet({
                     onPress={() => onPick(item.code)}
                     className="flex-row items-center justify-between border-b border-hairline px-1 py-3.5 active:bg-press"
                   >
-                    <Text className={`text-body text-ink ${selected ? 'font-strong' : 'font-body'}`}>
+                    <Text className={`text-ui text-ink ${selected ? 'font-strong' : 'font-body'}`}>
                       {item.name}
                     </Text>
                     {selected ? <Check size={18} strokeWidth={2} color={colors.ink} /> : null}

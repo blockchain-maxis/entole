@@ -51,8 +51,8 @@ export function PauseButton() {
         <ShieldCheck size={15} strokeWidth={1.75} color={colors.slate} />
       )}
       <Text
-        className={`font-strong text-label-sm ${
-          state === 'paused' ? 'text-halt' : state === 'off' ? 'text-mist' : 'text-slate'
+        className={`font-strong text-note ${
+          state === 'paused' ? 'text-halt' : state === 'off' ? 'text-slate' : 'text-slate'
         }`}
       >
         {label}
