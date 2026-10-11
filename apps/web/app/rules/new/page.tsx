@@ -1,7 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 
 import { cadenceWords } from '@entole/core/allowance';
 import { entryToMinor, pressKey, type AmountEntry, EMPTY_ENTRY } from '@entole/core/amount-entry';
@@ -11,6 +12,7 @@ import { useStore } from '@entole/core/store';
 
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { Skeleton } from '@/components/Skeleton';
 
 const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
 
@@ -18,19 +20,27 @@ const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
  * A rule, written in plain terms. Simpler than the phone app's tap-to-edit
  * sentence builder, but the same three facts: who, how much, how often —
  * enforced on the contract, never a permission or a toggle.
+ *
+ * `?for=` names the saved person it starts on, for arriving straight from
+ * saving them.
  */
-export default function NewRulePage() {
+function NewRule() {
   const router = useRouter();
   const store = useStore();
+  const preset = useSearchParams().get('for');
 
-  const [recipientId, setRecipientId] = useState(store.contacts[0]?.id ?? '');
+  // Nothing is held until the person chooses: the saved people may not have
+  // loaded when this first renders, and a list of one cannot be re-chosen.
+  const [picked, setPicked] = useState<string | null>(null);
   const [cadence, setCadence] = useState<Cadence>('monthly');
   const [perRunEntry, setPerRunEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [limitEntry, setLimitEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [editingLimit, setEditingLimit] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const recipient = store.contact(recipientId);
+  const presetId = store.contacts.some((contact) => contact.id === preset) ? preset : null;
+  const recipientId = picked ?? presetId ?? store.contacts[0]?.id ?? '';
+  const recipient = recipientId ? store.contact(recipientId) : undefined;
   const perRun: Naira = kobo(entryToMinor(perRunEntry));
   const limit: Naira = kobo(entryToMinor(limitEntry));
   const ready = Boolean(recipient) && perRun > 0 && limit >= perRun;
@@ -56,76 +66,118 @@ export default function NewRulePage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
       <Header title="New rule" />
 
-      <div className="flex-1 px-gutter pb-28">
-        <p className="font-heavy text-body-sm text-ink">Who it goes to</p>
-        <select
-          value={recipientId}
-          onChange={(event) => setRecipientId(event.target.value)}
-          className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink"
-        >
-          {store.contacts.map((contact) => (
-            <option key={contact.id} value={contact.id}>
-              {contact.name}
-            </option>
-          ))}
-        </select>
-
-        <p className="mt-5 font-heavy text-body-sm text-ink">How often</p>
-        <div className="mt-2.5 flex gap-2">
-          {CADENCES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setCadence(option)}
-              className={`flex-1 rounded-chip border px-3 py-2.5 font-strong text-label-sm ${
-                option === cadence ? 'border-indigo bg-indigo-wash text-indigo' : 'border-hairline bg-paper text-slate'
-              }`}
+      {store.status === 'ready' && store.contacts.length === 0 ? (
+        <div className="flex-1 px-gutter pb-28 pt-2">
+          <h2 className="font-strong text-headline text-ink">Save someone first</h2>
+          <p className="mt-2.5 text-pretty font-body text-body-sm text-slate">
+            An allowance is for one person you have saved. Pay them once with their payment code, then save them
+            from the receipt.
+          </p>
+          <Link
+            href="/transfer/send"
+            className="mt-7 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep active:translate-y-px"
+          >
+            Pay someone
+          </Link>
+        </div>
+      ) : (
+        <div className="flex-1 px-gutter pb-28">
+          <label htmlFor="rule-recipient" className="block font-heavy text-body-sm text-ink">
+            Who it goes to
+          </label>
+          {store.status === 'loading' ? (
+            <Skeleton className="mt-2.5 h-[52px] w-full rounded-control" />
+          ) : store.status === 'failed' ? (
+            <div className="mt-2.5">
+              <p className="font-body text-label-sm text-slate">We couldn&apos;t load the people you saved.</p>
+              <button
+                type="button"
+                onClick={() => void store.refresh().catch(() => undefined)}
+                className="mt-2 font-strong text-label-sm text-indigo hover:text-indigo-deep"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <select
+              id="rule-recipient"
+              value={recipientId}
+              onChange={(event) => setPicked(event.target.value)}
+              className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-body text-ink outline-none focus:border-indigo"
             >
-              {cadenceWords(option)}
-            </button>
-          ))}
-        </div>
+              {store.contacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name}
+                </option>
+              ))}
+            </select>
+          )}
 
-        <div className="mt-6 flex items-baseline justify-between">
-          <p className="font-heavy text-body-sm text-ink">
-            {editingLimit ? 'Never more than, per period' : 'How much each time'}
-          </p>
-          <p className="tabular font-strong text-amount-sm text-ink">
-            {formatNaira(editingLimit ? limit : perRun)}
-          </p>
-        </div>
-        <div className="mt-3">
-          <Keypad
-            onKey={(key) =>
-              editingLimit
-                ? setLimitEntry((current) => pressKey(current, key))
-                : setPerRunEntry((current) => pressKey(current, key))
-            }
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setEditingLimit((v) => !v)}
-          className="mt-2 font-strong text-label-sm text-indigo"
-        >
-          {editingLimit ? 'Set the per-payment amount instead' : 'Set the overall cap instead'}
-        </button>
+          <p className="mt-5 font-heavy text-body-sm text-ink">How often</p>
+          <div className="mt-2.5 flex gap-2">
+            {CADENCES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setCadence(option)}
+                className={`flex-1 rounded-chip border px-3 py-2.5 font-strong text-label-sm ${
+                  option === cadence ? 'border-indigo bg-indigo-wash text-indigo' : 'border-hairline bg-paper text-slate'
+                }`}
+              >
+                {cadenceWords(option)}
+              </button>
+            ))}
+          </div>
 
-        {limit > 0 && limit < perRun ? (
-          <p className="mt-3 text-center font-body text-label-sm text-caution">
-            The cap has to be at least as large as one payment.
-          </p>
-        ) : null}
+          <div className="mt-6 flex items-baseline justify-between">
+            <p className="font-heavy text-body-sm text-ink">
+              {editingLimit ? 'Never more than, per period' : 'How much each time'}
+            </p>
+            <p className="tabular font-strong text-amount-sm text-ink">
+              {formatNaira(editingLimit ? limit : perRun)}
+            </p>
+          </div>
+          <div className="mt-3">
+            <Keypad
+              onKey={(key) =>
+                editingLimit
+                  ? setLimitEntry((current) => pressKey(current, key))
+                  : setPerRunEntry((current) => pressKey(current, key))
+              }
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditingLimit((v) => !v)}
+            className="mt-2 font-strong text-label-sm text-indigo"
+          >
+            {editingLimit ? 'Set the per-payment amount instead' : 'Set the overall cap instead'}
+          </button>
 
-        <button
-          type="button"
-          disabled={!ready || saving}
-          onClick={() => void save()}
-          className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
-        >
-          {saving ? 'Creating' : 'Create rule'}
-        </button>
-      </div>
+          {limit > 0 && limit < perRun ? (
+            <p className="mt-3 text-center font-body text-label-sm text-caution">
+              The cap has to be at least as large as one payment.
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            disabled={!ready || saving}
+            onClick={() => void save()}
+            className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60"
+          >
+            {saving ? 'Creating' : 'Create rule'}
+          </button>
+        </div>
+      )}
     </main>
+  );
+}
+
+export default function NewRulePage() {
+  return (
+    <Suspense fallback={null}>
+      <NewRule />
+    </Suspense>
   );
 }

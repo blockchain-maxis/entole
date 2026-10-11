@@ -24,6 +24,7 @@ import { Avatar } from '@/components/Avatar';
 import { ConfirmSendSheet } from '@/components/ConfirmSendSheet';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { SaveRecipient } from '@/components/SaveRecipient';
 import { RowSkeleton, Skeleton } from '@/components/Skeleton';
 import { nairaAmountOf } from '@/lib/checkout';
 import { checkSendAmount, rateLine } from '@/lib/send';
@@ -280,11 +281,7 @@ function ReceiptStep({ receiptId, link }: { receiptId: string; link: Checkout | 
       </p>
 
       <div className="mt-6 flex flex-col gap-2.5">
-        {isOneOffId(receipt.contactId) ? (
-          <p className="text-pretty text-center font-body text-label-sm text-slate">
-            Paid with a code. Add them as a beneficiary from the phone app to save them for next time.
-          </p>
-        ) : null}
+        {isOneOffId(receipt.contactId) ? <SaveRecipient recipientId={receipt.contactId} /> : null}
         <button
           type="button"
           onClick={() => router.push('/transfer')}

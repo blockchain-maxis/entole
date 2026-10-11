@@ -76,6 +76,11 @@ export function oneOffCode(id: string): string | null {
   return address ? encodePaymentCode(address) : null;
 }
 
+/** The name a payment link gave a one-off recipient, when it gave one. */
+export function oneOffName(id: string): string | undefined {
+  return isOneOffId(id) ? parts(id).name : undefined;
+}
+
 /**
  * How a one-off recipient is shown: the name on their payment link when it
  * carried one, otherwise the end of their code — never an address.

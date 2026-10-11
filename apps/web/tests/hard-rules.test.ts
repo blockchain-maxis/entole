@@ -190,6 +190,39 @@ describe('an account made on another device can be signed in to, not only made a
   });
 });
 
+describe('a person can be saved in the browser, so an allowance can be set there', () => {
+  // An allowance is for a saved person, and only the phone app could save one.
+  // In a browser that left the assistant with nobody it could ever pay.
+  const send = stripComments(read(join(PAGES, 'transfer/send/page.tsx')));
+  const save = stripComments(read(join(COMPONENTS, 'SaveRecipient.tsx')));
+  const rule = stripComments(read(join(PAGES, 'rules/new/page.tsx')));
+
+  it('the receipt for a payment by code offers to save them', () => {
+    expect(send).toMatch(/isOneOffId\(receipt\.contactId\) \? <SaveRecipient recipientId=\{receipt\.contactId\} \/>/);
+    expect(send).not.toMatch(/from the phone app/);
+  });
+
+  it('saves through the shared record and never handles where the money lands', () => {
+    expect(save).toMatch(/beneficiaryFromOneOff\(/);
+    expect(save).toMatch(/source\.saveBeneficiary\(outcome\.beneficiary\)/);
+    expect(save).not.toMatch(/\.address\b|oneOffAddress|0x/);
+  });
+
+  it('leads on to an allowance for the person just saved', () => {
+    expect(save).toMatch(/\/rules\/new\?for=\$\{encodeURIComponent\(done\.id\)\}/);
+    expect(rule).toMatch(/useSearchParams\(\)\.get\('for'\)/);
+  });
+
+  it('says how to get someone to set an allowance for, where there is nobody yet', () => {
+    expect(rule).toMatch(/store\.contacts\.length === 0/);
+    expect(rule).toMatch(/href="\/transfer\/send"/);
+  });
+
+  it('does not hold a choice made before the saved people had loaded', () => {
+    expect(rule).not.toMatch(/useState\(store\.contacts\[0\]/);
+  });
+});
+
 describe('the public checkout page', () => {
   const page = read(join(PAGES, 'pay/[code]/page.tsx'));
   const checkoutFiles = [
