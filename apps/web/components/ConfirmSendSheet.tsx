@@ -15,8 +15,8 @@ type Quote = { state: 'loading' } | { state: 'failed'; message: string } | { sta
 function Line({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between py-2.5">
-      <dt className={`font-body text-label ${strong ? 'text-ink' : 'text-slate'}`}>{label}</dt>
-      <dd className={`tabular text-label text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>{value}</dd>
+      <dt className={`font-body text-ui ${strong ? 'text-ink' : 'text-slate'}`}>{label}</dt>
+      <dd className={`tabular text-ui text-ink ${strong ? 'font-heavy' : 'font-strong'}`}>{value}</dd>
     </div>
   );
 }
@@ -146,7 +146,7 @@ export function ConfirmSendSheet({
         aria-label="Close"
         disabled={sending}
         onClick={onDismiss}
-        className="absolute inset-0 bg-scrim"
+        className="scrim-fade absolute inset-0 bg-scrim"
       />
       <div
         ref={panel}
@@ -154,11 +154,11 @@ export function ConfirmSendSheet({
         aria-modal="true"
         aria-labelledby="review-title"
         tabIndex={-1}
-        className="relative max-h-[86dvh] w-full max-w-[560px] overflow-y-auto rounded-t-sheet bg-card px-gutter-lg pb-[max(24px,env(safe-area-inset-bottom))] pt-3 shadow-floating outline-none"
+        className="sheet-rise relative max-h-[86dvh] w-full max-w-[560px] overflow-y-auto rounded-t-sheet bg-card px-gutter-lg pb-[max(24px,env(safe-area-inset-bottom))] pt-3 shadow-floating outline-none"
       >
         <div aria-hidden className="mx-auto h-1 w-10 rounded-pill bg-line" />
 
-        <h2 id="review-title" className="mt-4 font-strong text-title text-ink">
+        <h2 id="review-title" className="mt-4 font-display text-heading text-ink">
           Review payment
         </h2>
 
@@ -170,18 +170,18 @@ export function ConfirmSendSheet({
             {initials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-strong text-body text-ink">{name}</p>
-            {caption ? <p className="font-body text-caption text-slate">{caption}</p> : null}
+            <p className="truncate font-strong text-ui text-ink">{name}</p>
+            {caption ? <p className="font-body text-note text-slate">{caption}</p> : null}
           </div>
         </div>
 
         {ready ? (
           <div className="mt-5">
-            <p className="font-body text-caption text-slate">They receive</p>
-            <p className="tabular mt-0.5 font-strong text-title-xl text-ink">
+            <p className="font-body text-note text-slate">They receive</p>
+            <p className="tabular mt-0.5 font-display text-figure-sm text-ink">
               {formatDollars(cents(Math.floor(ready.receivesCents)))}
             </p>
-            <p className="tabular mt-0.5 font-body text-caption text-slate">{rateLine(ready.rate)}</p>
+            <p className="tabular mt-0.5 font-body text-note text-slate">{rateLine(ready.rate)}</p>
 
             <dl className="mt-3 border-t border-hairline">
               <Line label="Amount" value={formatNaira(kobo(ready.amountMinor))} />
@@ -205,11 +205,13 @@ export function ConfirmSendSheet({
         ) : null}
 
         {quote.state === 'failed' ? (
-          <p className="mt-5 font-body text-label text-halt">{quote.message}</p>
+          <p role="alert" className="mt-5 text-pretty font-body text-ui text-halt">
+            {quote.message}
+          </p>
         ) : null}
 
         {ready && short ? (
-          <p className="mt-3 font-body text-label text-caution">
+          <p className="mt-3 text-pretty font-body text-ui text-caution">
             You don&apos;t have enough for this payment and its fee. You have {formatNaira(store.balance)}.
           </p>
         ) : null}
@@ -218,8 +220,8 @@ export function ConfirmSendSheet({
           <div className="mt-4">
             {noteOpen ? (
               <label className="block">
-                <span className="font-strong text-caption text-slate">
-                  What&apos;s it for? <span className="font-body text-mist">Optional</span>
+                <span className="font-strong text-note text-slate">
+                  What&apos;s it for? <span className="font-body text-slate">Optional</span>
                 </span>
                 <input
                   value={note}
@@ -227,14 +229,14 @@ export function ConfirmSendSheet({
                   placeholder="A few words, if you like"
                   maxLength={80}
                   disabled={sending}
-                  className="mt-2 h-12 w-full rounded-control border border-line bg-paper px-3.5 font-body text-body-sm text-ink outline-none focus:border-ink"
+                  className="mt-2 h-12 w-full rounded-control border-[1.5px] border-line bg-paper px-3.5 font-body text-ui text-ink outline-none placeholder:text-mist focus:border-ink"
                 />
               </label>
             ) : (
               <button
                 type="button"
                 onClick={() => setNoteOpen(true)}
-                className="font-strong text-label text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
+                className="font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink"
               >
                 Add a note
               </button>
@@ -242,11 +244,13 @@ export function ConfirmSendSheet({
           </div>
         ) : null}
 
-        {problem ? <p className="mt-4 font-body text-label text-halt">{problem}</p> : null}
-        {sending && !settled ? (
-          <p className="mt-4 font-body text-label text-slate">
-            Sending. This updates when the payment has settled.
+        {problem ? (
+          <p role="alert" className="mt-4 text-pretty font-body text-ui text-halt">
+            {problem}
           </p>
+        ) : null}
+        {sending && !settled ? (
+          <p className="mt-4 font-body text-ui text-slate">Sending. This updates when the payment has been delivered.</p>
         ) : null}
 
         <div className="mt-5 flex">
@@ -254,7 +258,7 @@ export function ConfirmSendSheet({
             <button
               type="button"
               onClick={retry}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
             >
               Try again
             </button>
@@ -263,9 +267,9 @@ export function ConfirmSendSheet({
               type="button"
               disabled={!ready || short || settled || sending}
               onClick={() => void confirm()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-body-lg text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
             >
-              {settled ? 'Settled' : sending ? 'Sending' : problem ? 'Try again' : 'Confirm and send'}
+              {settled ? 'Delivered' : sending ? 'Sending' : problem ? 'Try again' : 'Confirm and send'}
             </button>
           )}
         </div>

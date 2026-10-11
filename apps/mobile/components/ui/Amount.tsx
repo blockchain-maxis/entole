@@ -22,9 +22,24 @@ const FIGURE = {
  * receipt is for. It steps down as the figure grows, so nine million naira
  * fits a phone as surely as nine hundred does. Tabular like every amount.
  */
-export function Figure({ value }: { value: Naira }) {
+export function Figure({
+  value,
+  steady = false,
+  caret = false,
+}: {
+  value: Naira;
+  /** While an amount is being typed nothing may move, so it holds one size. */
+  steady?: boolean;
+  caret?: boolean;
+}) {
   const digits = formatNairaDigits(value);
-  const fit = digits.length <= 9 ? FIGURE.full : digits.length <= 12 ? FIGURE.long : FIGURE.longest;
+  const fit = steady
+    ? FIGURE.long
+    : digits.length <= 9
+      ? FIGURE.full
+      : digits.length <= 12
+        ? FIGURE.long
+        : FIGURE.longest;
 
   return (
     <View className="flex-row items-baseline gap-0.5">
@@ -34,6 +49,7 @@ export function Figure({ value }: { value: Naira }) {
       <Text tabular className={`font-display ${fit.digits} text-ink`}>
         {digits}
       </Text>
+      {caret ? <View className="ml-1 h-10 w-0.5 self-center rounded-sm bg-ink" /> : null}
     </View>
   );
 }

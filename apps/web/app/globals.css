@@ -48,6 +48,16 @@
     animation-fill-mode: forwards;
   }
 
+  /* A sheet rises into place on a curve that does not overshoot, and the
+     ground behind it dims with it. */
+  .sheet-rise {
+    animation: sheet-rise 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .scrim-fade {
+    animation: scrim-fade 200ms ease-out both;
+  }
+
   /* Bottom-anchored actions sit above the home indicator, not under it. */
   .safe-bottom {
     padding-bottom: calc(theme('spacing.4') + env(safe-area-inset-bottom));
@@ -108,5 +118,27 @@ html.theme-fade *::after {
   }
   to {
     transform: translateX(-100%);
+  }
+}
+
+@keyframes sheet-rise {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+}
+
+@keyframes scrim-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Someone who asked for less motion gets the sheet in place at once, and the
+ * undo window's bar steps with its number (see components/Countdown.tsx). */
+@media (prefers-reduced-motion: reduce) {
+  .sheet-rise,
+  .scrim-fade {
+    animation: none;
   }
 }

@@ -617,14 +617,14 @@ function BankTransferSheet({
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center">
-      <button type="button" tabIndex={-1} aria-label="Close" onClick={onDismiss} className="absolute inset-0 bg-scrim" />
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onDismiss} className="scrim-fade absolute inset-0 bg-scrim" />
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-money-title"
         tabIndex={-1}
-        className="relative max-h-[86dvh] w-full max-w-[560px] overflow-y-auto rounded-t-sheet bg-card px-gutter-lg pb-[max(24px,env(safe-area-inset-bottom))] pt-3 shadow-floating outline-none"
+        className="sheet-rise relative max-h-[86dvh] w-full max-w-[560px] overflow-y-auto rounded-t-sheet bg-card px-gutter-lg pb-[max(24px,env(safe-area-inset-bottom))] pt-3 shadow-floating outline-none"
       >
         <div aria-hidden className="mx-auto h-1 w-10 rounded-pill bg-line" />
 

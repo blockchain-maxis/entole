@@ -8,7 +8,9 @@ import { useThemeColors } from '@/lib/theme';
 import { Avatar } from './Avatar';
 import { Text } from './Text';
 
-/** "Amount   ₦75,000" — a labelled value on a card. */
+/** "Amount   ₦75,000": a labelled value, as a ruled line on the page. Rows
+ * in this file carry a hairline under them and no box around them; a border
+ * round every row made every row equally important, and so none. */
 export function DetailRow({
   label,
   value,
@@ -19,9 +21,9 @@ export function DetailRow({
   tabular?: boolean;
 }) {
   return (
-    <View className="flex-row items-center justify-between rounded-control border border-line bg-card px-4 py-3.5">
-      <Text className="font-body text-body-sm text-slate">{label}</Text>
-      <Text tabular={tabular} className="font-strong text-body-sm text-ink">
+    <View className="flex-row items-center justify-between gap-4 border-b border-hairline py-3.5">
+      <Text className="font-body text-ui text-slate">{label}</Text>
+      <Text tabular={tabular} className="flex-shrink text-right font-strong text-ui text-ink">
         {value}
       </Text>
     </View>
@@ -48,11 +50,11 @@ export function LinkRow({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="flex-row items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 active:border-mist"
+      className="flex-row items-center justify-between gap-4 border-b border-hairline py-3.5 active:bg-press"
     >
-      <Text className={`font-body text-body-sm ${tone === 'danger' ? 'text-halt' : 'text-ink'}`}>{label}</Text>
+      <Text className={`font-strong text-ui ${tone === 'danger' ? 'text-halt' : 'text-ink'}`}>{label}</Text>
       <View className="flex-row items-center gap-1.5">
-        {value ? <Text className="font-body text-body-sm text-slate">{value}</Text> : null}
+        {value ? <Text className="font-body text-ui text-slate">{value}</Text> : null}
         <ChevronRight size={16} strokeWidth={1.5} color={tone === 'danger' ? colors.halt.DEFAULT : colors.mist} />
       </View>
     </Pressable>
@@ -62,9 +64,9 @@ export function LinkRow({
 /** A line inside a receipt breakdown. */
 export function ReceiptLine({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-row items-baseline justify-between py-3">
-      <Text className="font-body text-label text-slate">{label}</Text>
-      <Text tabular className="font-strong text-label text-ink">
+    <View className="flex-row items-baseline justify-between gap-4 border-b border-hairline py-3">
+      <Text className="font-body text-ui text-slate">{label}</Text>
+      <Text tabular className="flex-shrink text-right font-strong text-ui text-ink">
         {value}
       </Text>
     </View>
@@ -93,15 +95,15 @@ export function ContactRow({
       accessibilityLabel={accessibilityLabel ?? `Send to ${contact.name}`}
       disabled={!onPress}
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 active:border-mist"
+      className="flex-row items-center gap-3 border-b border-hairline py-3 active:bg-press"
     >
-      <Avatar initials={contact.initials} tone={contact.tone} size="lg" />
+      <Avatar initials={contact.initials} tone={contact.tone} size="md" />
       <View className="min-w-0 flex-1">
-        <Text numberOfLines={1} className="font-strong text-body text-ink">
+        <Text numberOfLines={1} className="font-strong text-ui text-ink">
           {contact.name}
         </Text>
         {subtitle ? (
-          <Text tabular numberOfLines={1} className="mt-0.5 font-body text-caption text-slate">
+          <Text tabular numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
             {subtitle}
           </Text>
         ) : null}

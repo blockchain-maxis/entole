@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ScanLine } from 'lucide-react-native';
+import { ChevronRight, ScanLine } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 
@@ -103,7 +103,7 @@ export default function PickRecipient() {
 
   return (
     <Screen>
-      <Header title="Who are you sending to?" />
+      <Header title="Send" />
 
       <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView
@@ -111,7 +111,10 @@ export default function PickRecipient() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 }}
         >
-          <Text className="font-body text-body-sm text-slate">
+          <Text accessibilityRole="header" className="pt-1 font-display text-heading text-ink">
+            Who are you sending to?
+          </Text>
+          <Text className="mt-2 font-body text-ui text-slate">
             Enter their code or number, paste the link they shared, or scan their QR code.
           </Text>
 
@@ -149,18 +152,19 @@ export default function PickRecipient() {
             accessibilityRole="button"
             accessibilityLabel="Scan their QR code"
             onPress={() => router.push({ pathname: '/send/scan', params: note ? { note } : {} })}
-            className="mt-3 flex-row items-center gap-3 rounded-control border border-line bg-card px-4 py-3 active:border-mist"
+            className="mt-3 flex-row items-center gap-3 border-y border-hairline py-3 active:bg-press"
           >
-            <View className="h-9 w-9 items-center justify-center rounded-pill bg-press">
+            <View className="h-[42px] w-[42px] items-center justify-center rounded-pill bg-press">
               <ScanLine size={18} strokeWidth={1.6} color={colors.ink} />
             </View>
-            <Text className="font-strong text-body-sm text-ink">Scan their QR code</Text>
+            <Text className="flex-1 font-strong text-ui text-ink">Scan their QR code</Text>
+            <ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />
           </Pressable>
 
           {saved.length > 0 ? (
-            <View className="mt-8">
-              <SectionHeading title="Or choose someone you’ve saved" />
-              <View className="gap-2">
+            <View>
+              <SectionHeading display title="Or a beneficiary" />
+              <View className="border-t border-hairline">
                 {saved.map((item) => {
                   const where = countryName(item.place);
                   return (
@@ -168,7 +172,7 @@ export default function PickRecipient() {
                       key={item.id}
                       contact={item}
                       {...(where ? { caption: where } : {})}
-                      trailing={<Text className="font-strong text-caption-sm text-ink">Send</Text>}
+                      trailing={<ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />}
                       onPress={() =>
                         router.replace({
                           pathname: '/send',

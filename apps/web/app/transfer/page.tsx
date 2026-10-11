@@ -1,91 +1,111 @@
 'use client';
 
-import { ArrowDownLeft, Globe, Receipt, SendHorizontal, type LucideIcon } from 'lucide-react';
+import { ArrowDownLeft, ChevronRight, Globe, Plus, Receipt, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { useStore } from '@entole/core/store';
 
 import { Avatar } from '@/components/Avatar';
 import { Header } from '@/components/Header';
-import { RowSkeleton } from '@/components/Skeleton';
+import { SectionHeading } from '@/components/SectionHeading';
+import { ActivityRowSkeleton } from '@/components/Skeleton';
 
-const ACTIONS: { label: string; caption: string; icon: LucideIcon; href: string }[] = [
-  { label: 'Send money', caption: 'To a payment code or link', icon: SendHorizontal, href: '/transfer/send' },
+const OTHER_WAYS: { label: string; caption: string; icon: LucideIcon; href: string }[] = [
   { label: 'Get paid', caption: 'Share your payment link', icon: ArrowDownLeft, href: '/receive' },
   { label: 'Pay a bill', caption: 'Power, airtime, TV', icon: Receipt, href: '/transfer/bill' },
   { label: 'Send abroad', caption: 'Pick a country first', icon: Globe, href: '/transfer/abroad' },
 ];
 
-/** Everything you can do with money moving out or in, one tap away. */
+const ROW =
+  '-mx-3 flex items-center gap-3 rounded-control px-3 py-3 text-left transition-colors hover:bg-press active:translate-y-px';
+
+/**
+ * Paying starts from people. The beneficiaries already saved lead; someone new
+ * comes in by their payment code or link, one row above them. Everything else
+ * money can do sits under that, as plain rows.
+ */
 export default function PayPage() {
   const store = useStore();
-  const loading = store.status === 'loading';
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
       <Header title="Pay" />
 
       <div className="flex-1 px-gutter pb-28">
-        <div className="grid grid-cols-2 gap-3 pb-6 pt-1">
-          {ACTIONS.map(({ label, caption, icon: Icon, href }) => (
-            <Link
-              key={label}
-              href={href}
-              className="rounded-card border border-line bg-card p-4 transition-colors hover:border-mist"
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-pill bg-press text-ink">
-                <Icon size={20} strokeWidth={1.5} aria-hidden />
-              </span>
-              <p className="mt-3 font-strong text-body text-ink">{label}</p>
-              <p className="mt-0.5 font-body text-caption text-slate">{caption}</p>
-            </Link>
-          ))}
-        </div>
+        <h2 className="pt-2 font-display text-heading text-ink">Who are you paying?</h2>
 
-        <p className="pb-3 font-heavy text-body-sm text-ink">Saved beneficiaries</p>
-        {loading ? (
-          <div className="flex flex-col gap-2">
-            <RowSkeleton />
-            <RowSkeleton />
-            <RowSkeleton />
-          </div>
-        ) : store.status === 'failed' ? (
-          <div>
-            <p className="font-body text-label-sm text-slate">We couldn&apos;t load your saved beneficiaries.</p>
-            <button
-              type="button"
-              onClick={() => void store.refresh().catch(() => undefined)}
-              className="mt-2 font-strong text-label-sm text-ink underline decoration-mist underline-offset-4 hover:decoration-ink"
-            >
-              Try again
-            </button>
-          </div>
-        ) : store.contacts.length === 0 ? (
-          <div className="rounded-control border border-line bg-card px-4 py-3.5">
-            <p className="font-strong text-body-sm text-ink">No one saved yet</p>
-            <p className="mt-1 text-pretty font-body text-label-sm text-slate">
-              You can still pay anyone with their payment code or link. Choose Send money to start.
-            </p>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {store.contacts.map((contact) => (
-              <li key={contact.id}>
-                <Link
-                  href={`/transfer/send?contact=${encodeURIComponent(contact.id)}`}
-                  className="flex w-full items-center gap-3 rounded-row border border-line bg-card px-3.5 py-3 text-left transition-colors hover:border-mist"
-                >
+        <ul className="mt-4">
+          <li>
+            <Link href="/transfer/send" className={ROW}>
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-pill bg-ink text-paper">
+                <Plus size={20} strokeWidth={1.75} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-strong text-ui text-ink">Someone new</span>
+                <span className="block font-body text-note text-slate">With their payment code or link</span>
+              </span>
+              <ChevronRight size={18} strokeWidth={1.5} aria-hidden className="flex-none text-mist" />
+            </Link>
+          </li>
+
+          {store.status === 'loading' ? (
+            <li className="border-t border-hairline">
+              <ActivityRowSkeleton />
+              <ActivityRowSkeleton />
+            </li>
+          ) : store.status === 'failed' ? (
+            <li className="border-t border-hairline py-4">
+              <p className="font-body text-ui text-slate">We couldn&apos;t load your beneficiaries.</p>
+              <button
+                type="button"
+                onClick={() => void store.refresh().catch(() => undefined)}
+                className="mt-2 font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink"
+              >
+                Try again
+              </button>
+            </li>
+          ) : store.contacts.length === 0 ? (
+            <li className="border-t border-hairline py-4">
+              <p className="text-pretty font-body text-ui text-slate">
+                No beneficiaries yet. After you pay someone you can save them from the receipt, and they appear
+                here.
+              </p>
+            </li>
+          ) : (
+            store.contacts.map((contact) => (
+              <li key={contact.id} className="border-t border-hairline">
+                <Link href={`/transfer/send?contact=${encodeURIComponent(contact.id)}`} className={ROW}>
                   <Avatar initials={contact.initials} tone={contact.tone} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-strong text-body text-ink">{contact.name}</p>
-                    {contact.place ? <p className="font-body text-caption text-slate">{contact.place}</p> : null}
-                  </div>
-                  <span className="font-strong text-caption-sm text-ink">Send</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-strong text-ui text-ink">{contact.name}</span>
+                    {contact.place ? (
+                      <span className="block truncate font-body text-note text-slate">{contact.place}</span>
+                    ) : null}
+                  </span>
+                  <ChevronRight size={18} strokeWidth={1.5} aria-hidden className="flex-none text-mist" />
                 </Link>
               </li>
-            ))}
-          </ul>
-        )}
+            ))
+          )}
+        </ul>
+
+        <SectionHeading title="Other ways" />
+        <ul>
+          {OTHER_WAYS.map(({ label, caption, icon: Icon, href }, index) => (
+            <li key={label} className={index > 0 ? 'border-t border-hairline' : ''}>
+              <Link href={href} className={ROW}>
+                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-pill bg-press text-ink">
+                  <Icon size={20} strokeWidth={1.5} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-strong text-ui text-ink">{label}</span>
+                  <span className="block font-body text-note text-slate">{caption}</span>
+                </span>
+                <ChevronRight size={18} strokeWidth={1.5} aria-hidden className="flex-none text-mist" />
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </main>
   );

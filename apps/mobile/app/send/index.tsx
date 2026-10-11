@@ -11,7 +11,7 @@ import { isOneOffId, oneOffAddress, oneOffCode } from '@entole/core/one-off';
 import type { Contact } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
-import { Amount } from '@/components/ui/Amount';
+import { Figure } from '@/components/ui/Amount';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { ConfirmSendSheet } from '@/components/ui/ConfirmSendSheet';
@@ -105,29 +105,36 @@ export default function Send() {
       <Screen>
         <Header title="Send" />
 
-        <View className="flex-1 items-center px-gutter-lg pt-3">
+        <View className="flex-1 px-gutter pt-2">
           {loading ? (
-            <View className="items-center">
-              <Skeleton className="h-[88px] w-[88px] rounded-pill" />
-              <Skeleton className="mt-3 h-5 w-36 rounded-md" />
+            <View className="flex-row items-center gap-3">
+              <Skeleton className="h-[42px] w-[42px] rounded-pill" />
+              <Skeleton className="h-5 w-36 rounded-md" />
             </View>
           ) : contact ? (
-            <>
-              <Avatar initials={contact.initials} tone={contact.tone} size="hero" />
-              <Text className="mt-3 font-strong text-headline text-ink">{contact.name}</Text>
-              <View className="mt-1 flex-row items-center gap-1.5">
-                {where ? <Text className="font-body text-label-sm text-slate">{where}</Text> : null}
+            <View className="flex-row items-center gap-3">
+              <Avatar initials={contact.initials} tone={contact.tone} size="md" />
+              <View className="min-w-0 flex-1">
+                <Text numberOfLines={1} className="font-strong text-ui text-ink">
+                  {contact.name}
+                </Text>
+                {where ? (
+                  <Text numberOfLines={1} className="font-body text-note text-slate">
+                    {where}
+                  </Text>
+                ) : null}
+              </View>
+              <View className="flex-row items-center gap-3">
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Change who you are sending to"
                   hitSlop={10}
                   onPress={changeRecipient}
                 >
-                  <Text className="font-strong text-label-sm text-ink underline">Change</Text>
+                  <Text className="font-strong text-ui text-ink underline">Change</Text>
                 </Pressable>
                 {isOneOffId(contact.id) ? (
                   <>
-                    <Text className="font-body text-label-sm text-mist">·</Text>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Save this payment code as a beneficiary"
@@ -139,55 +146,58 @@ export default function Send() {
                         })
                       }
                     >
-                      <Text className="font-strong text-label-sm text-ink underline">Save</Text>
+                      <Text className="font-strong text-ui text-ink underline">Save</Text>
                     </Pressable>
                   </>
                 ) : null}
               </View>
-            </>
+            </View>
           ) : (
-            <View className="items-center pt-4">
-              <Text className="font-strong text-headline text-ink">Who are you sending to?</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={changeRecipient}
-                className="mt-3 rounded-pill border border-line bg-card px-4 py-2.5 active:border-mist"
-              >
-                <Text className="font-strong text-label text-ink underline">Choose who to send to</Text>
+            <View>
+              <Text className="font-display text-subhead text-ink">Who are you sending to?</Text>
+              <Pressable accessibilityRole="button" hitSlop={10} onPress={changeRecipient} className="mt-2 self-start">
+                <Text className="font-strong text-ui text-ink underline">Choose who to send to</Text>
               </Pressable>
             </View>
           )}
 
-          <View className="mt-7">
-            <Amount value={amount} size="large" caret />
+          <Text className="mt-9 font-body text-note text-slate">Amount</Text>
+          <View className="mt-1.5">
+            <Figure value={amount} steady caret />
           </View>
 
-          <Text tabular className="mt-2.5 font-body text-body-sm text-slate">
+          <Text tabular className="mt-2 font-body text-ui text-slate">
             {amount > 0 && !loading
               ? `${firstName} receives ${formatDollars(toDollars(amount, store.rate))}`
               : 'Enter an amount'}
           </Text>
 
-          <View className="mt-3 min-h-[44px] items-center">
+          <View className="mt-3 min-h-[44px]">
             {store.status === 'failed' ? (
               <>
-                <Text className="text-center font-body text-label-sm text-halt">
-                  We couldn&apos;t load your account.
-                </Text>
-                <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void store.refresh()}>
-                  <Text className="mt-1 font-strong text-label-sm text-ink underline">Try again</Text>
+                <Text className="font-body text-ui text-halt">We couldn&apos;t load your account.</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  onPress={() => void store.refresh()}
+                  className="self-start"
+                >
+                  <Text className="mt-1 font-strong text-ui text-ink underline">Try again</Text>
                 </Pressable>
               </>
             ) : !loading && check.ok === false && check.kind === 'no-balance' ? (
-              <Pressable accessibilityRole="link" hitSlop={10} onPress={() => router.push('/add-money')}>
-                <Text className="text-center font-strong text-label text-ink underline">Add money first</Text>
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={10}
+                onPress={() => router.push('/add-money')}
+                className="self-start"
+              >
+                <Text className="font-strong text-ui text-ink underline">Add money first</Text>
               </Pressable>
             ) : !loading && !contact ? (
-              <Text className="text-center font-body text-label-sm text-slate">
-                Choose who you&apos;re sending to.
-              </Text>
+              <Text className="font-body text-ui text-slate">Choose who you&apos;re sending to.</Text>
             ) : reason ? (
-              <Text className="text-center font-body text-label-sm text-caution">{reason}</Text>
+              <Text className="font-body text-ui text-caution">{reason}</Text>
             ) : null}
           </View>
         </View>

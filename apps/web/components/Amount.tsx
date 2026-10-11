@@ -18,10 +18,16 @@ const FIGURE = {
  * receipt is for. It steps down as the figure grows, so nine million naira
  * fits a phone as surely as nine hundred does. Tabular like every amount.
  */
-export function Figure({ value }: { value: Naira }) {
+export function Figure({ value, steady = false }: { value: Naira; steady?: boolean }) {
   const digits = formatNairaDigits(value);
-  const { symbol, digits: size } =
-    digits.length <= 9 ? FIGURE.full : digits.length <= 12 ? FIGURE.long : FIGURE.longest;
+  // While an amount is being typed nothing may move, so it holds one size.
+  const { symbol, digits: size } = steady
+    ? FIGURE.long
+    : digits.length <= 9
+      ? FIGURE.full
+      : digits.length <= 12
+        ? FIGURE.long
+        : FIGURE.longest;
 
   return (
     <span className="flex items-start gap-0.5">
