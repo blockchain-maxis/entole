@@ -8,10 +8,12 @@ import { useThemeColors } from '@/lib/theme';
 
 import { TAB_PILL_RADIUS, TabBarIcon } from './TabBarIcon';
 
-/** Panel radius, matching `packages/tokens`' `panel` token — a plain style
- * object can't take a className, so the value is repeated here. */
-const PANEL_RADIUS = 24;
 export const TAB_BAR_HEIGHT = 68;
+const BAR_PADDING = 6;
+/** The bar is a capsule round the capsules inside it: its radius is theirs
+ * plus the padding between them (28 + 6), which is half its own height. With
+ * a tighter corner outside a rounder one, the two curves fought. */
+const BAR_RADIUS = TAB_PILL_RADIUS + BAR_PADDING;
 /** How far the floating bar sits above the bottom safe-area edge. */
 export const TAB_BAR_LIFT = 20;
 /** Gap between the bar and each screen edge: 16 gutter + 25 so the bar is 50px
@@ -62,8 +64,8 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
         zIndex: 10,
         height: TAB_BAR_HEIGHT,
         flexDirection: 'row',
-        padding: 6,
-        borderRadius: PANEL_RADIUS,
+        padding: BAR_PADDING,
+        borderRadius: BAR_RADIUS,
         backgroundColor: colors.card,
         // A hairline gives the bar an edge on dark, where the shadow alone
         // barely reads against a dark page.

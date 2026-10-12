@@ -11,6 +11,7 @@ import { Amount } from '@/components/Amount';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
 import { BalanceSkeleton } from '@/components/Skeleton';
+import { confirmWithPasskey } from '@/lib/session';
 
 type Mode = 'view' | 'deposit' | 'withdraw';
 
@@ -53,6 +54,14 @@ export default function SavingsPage() {
     }
     setBusy(true);
     setProblem(null);
+    // Moving money into or out of savings is confirmed with the passkey.
+    // Cancelled, nothing is sent.
+    const confirmed = await confirmWithPasskey();
+    if (!confirmed.ok) {
+      setProblem(confirmed.reason);
+      setBusy(false);
+      return;
+    }
     try {
       if (mode === 'deposit') await store.depositGrow(amount);
       else if (mode === 'withdraw') await store.withdrawGrow(amount);

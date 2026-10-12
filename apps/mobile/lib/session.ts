@@ -44,6 +44,8 @@ const CREDENTIAL_SITE_KEY = 'entole.passkey.site';
 const DISPLAY_NAME_KEY = 'entole.display-name';
 
 const PROFILE_KEY = 'entole.profile';
+/** `address:username` once the directory has accepted it, so it is not asked again on every launch. */
+const USERNAME_CLAIM_KEY = 'entole.username.claimed';
 
 /** Full name and username, captured in `onboarding/name.tsx` and editable in
  * Me — not the passkey ceremony's own (unrelated) display label. One JSON
@@ -102,6 +104,27 @@ async function loadCredential(): Promise<PasskeyCredentialMetadata | undefined> 
   const raw = await SecureStore.getItemAsync(CREDENTIAL_KEY);
   if (!raw || !(await credentialIsForThisSite())) return undefined;
   return JSON.parse(raw) as PasskeyCredentialMetadata;
+}
+
+export type Confirmation = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Asks for the phone's own fingerprint, face or screen lock before the person
+ * moves their money, with what is about to happen as the prompt's title.
+ *
+ * It is a check that whoever holds the phone is its owner. The key that signs
+ * is already in memory from signing in, so this is a gate in the app, not a
+ * second authorisation by the payment network. Cancelling it moves nothing.
+ */
+export async function confirmWithBiometric(what: string): Promise<Confirmation> {
+  const deviceProblem = await checkDeviceCanAuthenticate();
+  if (deviceProblem) return { ok: false, reason: deviceProblem };
+  try {
+    const result = await LocalAuthentication.authenticateAsync({ promptMessage: what, cancelLabel: 'Cancel' });
+    return result.success ? { ok: true } : { ok: false, reason: 'Not confirmed. Nothing was moved.' };
+  } catch {
+    return { ok: false, reason: 'Not confirmed. Nothing was moved.' };
+  }
 }
 
 async function checkDeviceCanAuthenticate(): Promise<string | undefined> {
@@ -397,6 +420,7 @@ export async function forgetEverything(): Promise<void> {
     SecureStore.deleteItemAsync(ONBOARDED_KEY),
     SecureStore.deleteItemAsync(DISPLAY_NAME_KEY),
     SecureStore.deleteItemAsync(PROFILE_KEY),
+    SecureStore.deleteItemAsync(USERNAME_CLAIM_KEY),
     SecureStore.deleteItemAsync(PAUSE_INTRO_KEY),
     SecureStore.deleteItemAsync(ASSISTANT_ENABLED_KEY),
     SecureStore.deleteItemAsync(ASSISTANT_ADDRESS_KEY),
@@ -422,3 +446,15 @@ export async function clearAccountFromAnotherSite(): Promise<boolean> {
   await forgetEverything();
   return true;
 }
+
+const claimRecord = (address: string, username: string) => `${address.toLowerCase()}:${username}`;
+
+/** Whether the directory has already accepted this username for this account. */
+export async function usernameClaimRecorded(address: string, username: string): Promise<boolean> {
+  return (await SecureStore.getItemAsync(USERNAME_CLAIM_KEY)) === claimRecord(address, username);
+}
+
+export async function recordUsernameClaim(address: string, username: string): Promise<void> {
+  await SecureStore.setItemAsync(USERNAME_CLAIM_KEY, claimRecord(address, username));
+}
+

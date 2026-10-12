@@ -12,7 +12,7 @@ import { LoadFailed } from '@/components/ui/LoadFailed';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
-import { RowSkeleton } from '@/components/ui/Skeleton';
+import { StockRowSkeleton } from '@/components/ui/Skeleton';
 import { StockCatalogue } from '@/components/ui/StockCatalogue';
 import { Text } from '@/components/ui/Text';
 import { plainMessage } from '@/lib/send';
@@ -78,9 +78,9 @@ export default function Stocks() {
           <>
             <SectionHeading title="Holdings" className="pt-1" />
             {loading ? (
-              <View accessibilityLabel="Loading holdings" className="gap-2">
-                <RowSkeleton />
-                <RowSkeleton />
+              <View accessibilityLabel="Loading holdings">
+                <StockRowSkeleton index={0} />
+                <StockRowSkeleton index={2} />
               </View>
             ) : store.stockPositions.length === 0 ? (
               <Text className="px-1 font-body text-ui text-slate">You don&apos;t hold any shares yet.</Text>
@@ -117,10 +117,10 @@ export default function Stocks() {
             {problem ? <Text className="mt-3 px-1 font-body text-note text-halt">{problem}</Text> : null}
 
             {searching ? (
-              <View accessibilityLabel="Searching" className="mt-3 gap-2">
-                <RowSkeleton />
-                <RowSkeleton />
-                <RowSkeleton />
+              <View accessibilityLabel="Searching" className="mt-3">
+                <StockRowSkeleton index={0} />
+                <StockRowSkeleton index={1} />
+                <StockRowSkeleton index={2} />
               </View>
             ) : results ? (
               results.length === 0 ? (

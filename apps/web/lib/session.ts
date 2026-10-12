@@ -127,6 +127,51 @@ export async function registerAccount(displayName: string): Promise<SignInResult
  * the sign-in / re-auth path, one prompt. The assistant's key comes back only
  * if the person has turned the assistant on, and then lazily.
  */
+function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+export type Confirmation = { ok: true } | { ok: false; reason: string };
+
+const NOT_CONFIRMED = 'Not confirmed. Nothing was moved.';
+
+/**
+ * Asks the browser for the person's passkey (their fingerprint, face or screen
+ * lock) before they move their money. The phone app does the same with the
+ * phone's own biometric prompt.
+ *
+ * It is a check that whoever is at the browser can unlock the passkey. The key
+ * that signs is already in memory from signing in, and nothing here is sent to
+ * a server, so this is a gate in the app, not a second authorisation by the
+ * payment network. Cancelling it moves nothing.
+ */
+export async function confirmWithPasskey(): Promise<Confirmation> {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+    return { ok: false, reason: 'This browser cannot confirm with a passkey.' };
+  }
+  const credential = loadCredential();
+  try {
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rpId: RP_ID,
+        userVerification: 'required',
+        timeout: 60_000,
+        ...(credential
+          ? { allowCredentials: [{ type: 'public-key' as const, id: base64UrlToBytes(credential.credentialId) }] }
+          : {}),
+      },
+    });
+    return assertion ? { ok: true } : { ok: false, reason: NOT_CONFIRMED };
+  } catch {
+    return { ok: false, reason: NOT_CONFIRMED };
+  }
+}
+
 export async function reauthenticate(): Promise<SignInResult> {
   try {
     const credential = loadCredential();

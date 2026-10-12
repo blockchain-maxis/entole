@@ -1408,3 +1408,50 @@ describe('the bottom of a screen, and the keyboard', () => {
     expect(name).toMatch(/onSubmitEditing=\{\(\) => usernameField\.current\?\.focus\(\)\}/);
   });
 });
+
+describe('moving money into or out of savings is confirmed with a fingerprint', () => {
+  const sheet = stripComments(read(join(ROOT, 'components/ui/SavingsSheet.tsx')));
+  const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+
+  it('asks before anything is sent, and says what is about to happen', () => {
+    const confirm = /async function confirm\(\)[\s\S]*?\n  }\n/.exec(sheet)?.[0] ?? '';
+    expect(confirm).toMatch(/await confirmWithBiometric\(/);
+    expect(confirm.indexOf('confirmWithBiometric(')).toBeLessThan(confirm.indexOf('store.depositGrow('));
+    expect(confirm.indexOf('confirmWithBiometric(')).toBeLessThan(confirm.indexOf('store.withdrawGrow('));
+    expect(confirm).toMatch(/to savings`[\s\S]*out of savings`/);
+  });
+
+  it('a prompt that is cancelled moves nothing and goes back to the review', () => {
+    const confirm = /async function confirm\(\)[\s\S]*?\n  }\n/.exec(sheet)?.[0] ?? '';
+    expect(confirm).toMatch(/if \(!confirmed\.ok\) \{\s*setPhase\('review'\);\s*setProblem\(confirmed\.reason\);\s*return;/);
+    expect(session).toMatch(/LocalAuthentication\.authenticateAsync\(/);
+    expect(session).toMatch(/Not confirmed\. Nothing was moved\./);
+  });
+});
+
+describe('a loading list looks like the list', () => {
+  const skeleton = stripComments(read(join(ROOT, 'components/ui/Skeleton.tsx')));
+
+  it('row skeletons are ruled rows, not bordered boxes', () => {
+    const row = /export function RowSkeleton[\s\S]*?\n}\n/.exec(skeleton)?.[0] ?? '';
+    expect(row).toMatch(/border-b border-hairline/);
+    expect(row).not.toMatch(/border border-line bg-card/);
+  });
+
+  it('stocks load as stock rows: a logo, a name over a symbol, a price over a change', () => {
+    expect(skeleton).toMatch(/export function StockRowSkeleton/);
+    expect(stripComments(read(join(ROOT, 'components/ui/StockCatalogue.tsx')))).toMatch(/<StockRowSkeleton key=\{index\} index=\{index\} \/>/);
+    expect(stripComments(read(join(ROOT, 'app/grow/stocks.tsx')))).not.toMatch(/<RowSkeleton/);
+  });
+});
+
+describe('the bar is a capsule round the capsules in it', () => {
+  it('its radius is the tab radius plus the padding between them, half its own height', () => {
+    const bar = read(join(COMPONENTS, 'ui/FloatingTabBar.tsx'));
+    expect(bar).toMatch(/const BAR_RADIUS = TAB_PILL_RADIUS \+ BAR_PADDING;/);
+    expect(bar).toMatch(/padding: BAR_PADDING,\s*borderRadius: BAR_RADIUS/);
+    const padding = Number(/const BAR_PADDING = (\d+)/.exec(bar)?.[1]);
+    const height = Number(/TAB_BAR_HEIGHT = (\d+)/.exec(bar)?.[1]);
+    expect(28 + padding).toBe(height / 2);
+  });
+});

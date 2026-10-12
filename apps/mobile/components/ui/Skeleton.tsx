@@ -45,9 +45,11 @@ export function AllowanceCardSkeleton() {
   );
 }
 
+/** A ruled row, like the rows it stands in for. It was a bordered box from
+ * before lists were ruled, and a loading list did not look like the list. */
 export function RowSkeleton() {
   return (
-    <View className="flex-row items-center gap-3 rounded-card border border-line bg-card px-3.5 py-3">
+    <View className="flex-row items-center gap-3 border-b border-hairline py-3">
       <Skeleton className="h-[42px] w-[42px] rounded-pill" />
       <View className="flex-1">
         <Skeleton className="h-4 w-32 rounded-md" />
@@ -92,3 +94,25 @@ export function ActivityRowSkeleton() {
     </View>
   );
 }
+
+const STOCK_NAME_WIDTHS = ['w-36', 'w-28', 'w-44', 'w-32', 'w-40'] as const;
+
+/** A stock before its price is known: a logo, a name over a symbol, and a
+ * price over a change, on a ruled line. Names differ in length, so a list of
+ * these does not read as one bar repeated. */
+export function StockRowSkeleton({ index = 0 }: { index?: number }) {
+  return (
+    <View className="flex-row items-center gap-3 border-b border-hairline py-3">
+      <Skeleton className="h-10 w-10 rounded-pill" />
+      <View className="min-w-0 flex-1">
+        <Skeleton className={`h-4 rounded-md ${STOCK_NAME_WIDTHS[index % STOCK_NAME_WIDTHS.length]}`} />
+        <Skeleton className="mt-2 h-3 w-14 rounded-md" />
+      </View>
+      <View className="items-end">
+        <Skeleton className="h-4 w-20 rounded-md" />
+        <Skeleton className="mt-2 h-3 w-12 rounded-md" />
+      </View>
+    </View>
+  );
+}
+

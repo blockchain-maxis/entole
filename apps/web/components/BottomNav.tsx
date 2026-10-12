@@ -22,7 +22,8 @@ const BARE = new Set(['/assistant/action', '/offline']);
 /**
  * On a phone, a floating pill bar matching mobile's tab-bar spec: card
  * background, the floating shadow token, inset from the screen edges, a pill
- * behind the active icon and label.
+ * behind the active icon and label. The bar is a capsule round those
+ * capsules, so the outer curve follows the inner one.
  *
  * From 1024px the same five places run along the top instead, with the mark
  * beside them: a bar across the bottom of a wide window is a phone drawn on a
@@ -35,7 +36,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-4 bottom-[max(12px,env(safe-area-inset-bottom))] z-20 mx-auto flex h-16 w-[calc(100%-2rem)] max-w-[528px] items-center justify-evenly rounded-card bg-card px-1.5 shadow-floating lg:inset-x-0 lg:bottom-auto lg:top-0 lg:h-[68px] lg:w-full lg:max-w-none lg:justify-start lg:gap-1 lg:rounded-none lg:border-b lg:border-hairline lg:bg-paper lg:px-8 lg:shadow-none"
+      className="fixed inset-x-4 bottom-[max(12px,env(safe-area-inset-bottom))] z-20 mx-auto flex h-16 w-[calc(100%-2rem)] max-w-[528px] items-center justify-evenly rounded-pill bg-card px-1.5 shadow-floating lg:inset-x-0 lg:bottom-auto lg:top-0 lg:h-[68px] lg:w-full lg:max-w-none lg:justify-start lg:gap-1 lg:rounded-none lg:border-b lg:border-hairline lg:bg-paper lg:px-8 lg:shadow-none"
     >
       <Link href="/" aria-label="Entole, home" className="mr-8 hidden flex-none items-center gap-2.5 lg:flex">
         <BrandGlyph size={24} />

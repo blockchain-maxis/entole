@@ -866,3 +866,30 @@ describe('nothing is wider than a small phone', () => {
     expect(control.match(/aria-label/g)?.length).toBe(2);
   });
 });
+
+describe('moving money into or out of savings is confirmed with the passkey', () => {
+  const savings = stripComments(read(join(PAGES, 'grow/savings/page.tsx')));
+  const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+
+  it('asks before anything is sent, and a cancelled prompt moves nothing', () => {
+    const submit = /async function submit\(\)[\s\S]*?\n  }\n/.exec(savings)?.[0] ?? '';
+    expect(submit).toMatch(/await confirmWithPasskey\(\)/);
+    expect(submit.indexOf('confirmWithPasskey()')).toBeLessThan(submit.indexOf('store.depositGrow('));
+    expect(submit.indexOf('confirmWithPasskey()')).toBeLessThan(submit.indexOf('store.withdrawGrow('));
+    expect(submit).toMatch(/if \(!confirmed\.ok\) \{\s*setProblem\(confirmed\.reason\);\s*setBusy\(false\);\s*return;/);
+  });
+
+  it('the browser is asked to verify the person, for this site, with the saved passkey', () => {
+    expect(session).toMatch(/userVerification: 'required'/);
+    expect(session).toMatch(/rpId: RP_ID/);
+    expect(session).toMatch(/allowCredentials: \[\{ type: 'public-key' as const, id: base64UrlToBytes\(credential\.credentialId\) \}\]/);
+  });
+});
+
+describe('the bar is a capsule round the capsules in it', () => {
+  it('on a phone the tab bar and its active tab share one curve', () => {
+    const nav = stripComments(read(join(COMPONENTS, 'BottomNav.tsx')));
+    expect(nav).toMatch(/h-16 [^"]*rounded-pill bg-card/);
+    expect(nav).toMatch(/h-\[52px\] [^`]*rounded-pill/);
+  });
+});

@@ -8,6 +8,7 @@ import { savingsEarning } from '@entole/core/savings';
 import { useStore } from '@entole/core/store';
 
 import { plainMessage } from '@/lib/send';
+import { confirmWithBiometric } from '@/lib/session';
 import { checkSavingsAmount, type SavingsMode } from '@/lib/savings';
 
 import { Button } from './Button';
@@ -67,6 +68,17 @@ export function SavingsSheet({
     if (!check.ok || phase !== 'review') return;
     setProblem(null);
     setPhase('waiting');
+    // Moving money into or out of savings is confirmed with the phone's own
+    // fingerprint, face or screen lock. Cancelled, nothing is sent.
+    const amountWords = formatNaira(kobo(amountMinor));
+    const confirmed = await confirmWithBiometric(
+      deposit ? `Add ${amountWords} to savings` : `Take ${amountWords} out of savings`,
+    );
+    if (!confirmed.ok) {
+      setPhase('review');
+      setProblem(confirmed.reason);
+      return;
+    }
     try {
       // These resolve only once the change has settled — there is no interim
       // success and no balance moved ahead of time.

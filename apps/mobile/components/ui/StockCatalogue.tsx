@@ -10,7 +10,7 @@ import { stockMarket } from '@/lib/stocks';
 import { useThemeColors } from '@/lib/theme';
 
 import { Button } from './Button';
-import { RowSkeleton } from './Skeleton';
+import { StockRowSkeleton } from './Skeleton';
 import { StockLogo } from './StockLogo';
 import { Text } from './Text';
 
@@ -78,9 +78,9 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
 
       <View className="mt-4">
         {browse.state === 'loading' ? (
-          <View accessibilityLabel="Loading stocks" className="gap-2">
-            {Array.from({ length: 7 }, (_, index) => (
-              <RowSkeleton key={index} />
+          <View accessibilityLabel="Loading stocks">
+            {Array.from({ length: 9 }, (_, index) => (
+              <StockRowSkeleton key={index} index={index} />
             ))}
           </View>
         ) : browse.state === 'failed' ? (
@@ -107,9 +107,9 @@ export function StockCatalogue({ onOpen }: { onOpen: (symbol: string) => void })
             </View>
 
             {browse.loadingMore ? (
-              <View accessibilityLabel="Loading more stocks" className="mt-2 gap-2">
-                <RowSkeleton />
-                <RowSkeleton />
+              <View accessibilityLabel="Loading more stocks">
+                <StockRowSkeleton index={1} />
+                <StockRowSkeleton index={3} />
               </View>
             ) : browse.hasMore ? (
               <>
