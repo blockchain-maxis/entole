@@ -265,6 +265,10 @@ describe('the one thing that turns is the Entole mark', () => {
     expect(stripComments(read(join(ROOT, 'app/_layout.tsx')))).toMatch(/<ToastHost \/>\s*<Intro \/>/);
     expect(intro).toMatch(/<LogoLoader size=\{84\} once/);
     expect(intro).toMatch(/if \(gone\) return null;/);
+    // Pinned over the whole screen by a plain view; the animated one only fades.
+    expect(intro).toMatch(/<View style=\{styles\.over\}/);
+    expect(intro).toMatch(/over: \{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100 \}/);
+    expect(intro).not.toMatch(/<Animated\.View[^>]*absoluteFill/);
     // It runs on a clock of its own and waits on nothing the app is doing.
     expect(intro).not.toMatch(/useStore|useAccount|fontsLoaded/);
   });

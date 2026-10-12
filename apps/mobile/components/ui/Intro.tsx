@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -23,6 +23,10 @@ const LEAVE_MS = 240;
  * app. Once per launch, a little over a second, and it never waits on
  * anything: the app is loading behind it the whole time. It picks up exactly
  * where the splash image left off, on the same ground, so the two read as one.
+ *
+ * A plain view pins it over the whole screen, and the animated one inside only
+ * fades. With both jobs on the animated view its position was dropped on
+ * Android, and the mark turned up in line at the bottom of the screen.
  */
 export function Intro() {
   const colors = useThemeColors();
@@ -49,19 +53,19 @@ export function Intro() {
   if (gone) return null;
 
   return (
-    <Animated.View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={[StyleSheet.absoluteFill, styles.cover, { backgroundColor: colors.paper }, coverStyle]}
-    >
-      <LogoLoader size={84} once label="Entole" />
-      <Animated.View style={nameStyle}>
-        <Text className="mt-5 font-display text-heading text-ink">Entole</Text>
+    <View style={styles.over} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Animated.View style={[styles.cover, { backgroundColor: colors.paper }, coverStyle]}>
+        <LogoLoader size={84} once label="Entole" />
+        <Animated.View style={nameStyle}>
+          <Text className="mt-5 font-display text-heading text-ink">Entole</Text>
+        </Animated.View>
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  cover: { alignItems: 'center', justifyContent: 'center' },
+  // Above the toasts (50) and everything else, edge to edge.
+  over: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100 },
+  cover: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
