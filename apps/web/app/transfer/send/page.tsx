@@ -2,7 +2,8 @@
 
 import { ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import type { Address } from 'viem';
 
 import {
   EMPTY_ENTRY,
@@ -11,11 +12,14 @@ import {
   pressKey,
   type AmountEntry,
 } from '@entole/core/amount-entry';
+import { useBackend } from '@entole/core/backend';
 import { parseCheckout, type Checkout } from '@entole/core/checkout-link';
 import { timeWithSeconds } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
+import { formatHandle, parseHandle, resolveHandle } from '@entole/core/handle';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { isOneOffId, oneOffId } from '@entole/core/one-off';
+import { encodePaymentCode } from '@entole/core/payment-code';
 import { initialsFor } from '@entole/core/profile';
 import type { Contact } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
@@ -56,8 +60,10 @@ function noteFor(link: Checkout | null): string | undefined {
   return undefined;
 }
 
+type Read = { checkout: Checkout; id: string };
+
 /** What a link or code names, read once — `null` if it isn't one. */
-function readRecipient(text: string): { checkout: Checkout; id: string } | null {
+function readRecipient(text: string): Read | null {
   const checkout = text.trim() ? parseCheckout(text) : null;
   const id = checkout ? oneOffId(checkout.code, checkout.payee) : null;
   return checkout && id ? { checkout, id } : null;
@@ -73,8 +79,40 @@ function PickStep({
   const [touched, setTouched] = useState(false);
   const [pasteNote, setPasteNote] = useState<string | null>(null);
 
-  const read = useMemo(() => readRecipient(text), [text]);
-  const error = text.trim() && !read && touched ? BAD_CODE : null;
+  const backend = useBackend();
+  const direct = useMemo(() => readRecipient(text), [text]);
+  // Not a code or a link: a username or a phone number, which the directory
+  // turns into a person a moment after typing stops.
+  const handle = useMemo(() => (direct ? null : parseHandle(text)), [text, direct]);
+  const [found, setFound] = useState<{ text: string; who: Read | 'nobody' } | null>(null);
+
+  useEffect(() => {
+    if (!handle) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      void resolveHandle(backend.directory, handle)
+        .catch(() => null)
+        .then((identity) => {
+          if (!live) return;
+          const code = identity ? encodePaymentCode(identity.address as Address) : null;
+          const id = identity && code ? oneOffId(code, identity.name) : null;
+          setFound(
+            identity && code && id
+              ? { text, who: { checkout: { code, address: identity.address as Address, kind: 'pay', payee: identity.name }, id } }
+              : { text, who: 'nobody' },
+          );
+        });
+    }, 350);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [handle, text, backend]);
+
+  const looked = handle && found?.text === text ? found.who : null;
+  const read = direct ?? (looked && looked !== 'nobody' ? looked : null);
+  const nobody = looked === 'nobody' && handle ? `Nobody on Entole has ${formatHandle(handle)} yet.` : null;
+  const error = nobody ?? (text.trim() && !read && !handle && touched ? BAD_CODE : null);
 
   async function paste() {
     setPasteNote(null);
@@ -96,11 +134,11 @@ function PickStep({
       <div className="flex-1 px-gutter pb-6">
         <h2 className="pt-2 font-display text-heading text-ink">Who are you paying?</h2>
         <p className="mt-2 text-pretty font-body text-ui text-slate">
-          Paste their payment code or payment link. You don&apos;t need to save them first.
+          Their username or phone number is enough. A payment code or link works too.
         </p>
 
         <label htmlFor="recipient" className="mt-6 block font-strong text-note text-slate">
-          Payment code or link
+          Username, number, code or link
         </label>
         <div
           className={`mt-2 flex items-center rounded-control border-[1.5px] bg-card px-4 focus-within:border-ink ${
@@ -115,9 +153,9 @@ function PickStep({
               setPasteNote(null);
             }}
             onBlur={() => setTouched(true)}
-            placeholder="PAY-XXXX-XXXX-XXXX"
+            placeholder="@username or 0803 123 4567"
             autoComplete="off"
-            autoCapitalize="characters"
+            autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
             aria-invalid={error ? true : undefined}
@@ -139,7 +177,9 @@ function PickStep({
           <p className="mt-2 font-body text-note text-slate">
             {read
               ? `That checks out.${read.checkout.payee ? ` You are paying ${read.checkout.payee}.` : ''}`
-              : 'Dashes and capitals do not matter.'}
+              : handle
+                ? `Looking for ${formatHandle(handle)}.`
+                : 'Type who it is for. Dashes and capitals in a code do not matter.'}
           </p>
         )}
 
@@ -162,7 +202,7 @@ function PickStep({
           </div>
         ) : store.contacts.length === 0 ? (
           <p className="text-pretty pt-2 font-body text-ui text-slate">
-            No one saved yet. Pay a code above and you can save them from the receipt.
+            No one saved yet. Pay someone above and you can save them from the receipt.
           </p>
         ) : (
           <ul>

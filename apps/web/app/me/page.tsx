@@ -2,19 +2,24 @@
 
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 import {
   USERNAME_MAX,
+  initialsFor,
   normalizeUsername,
   validateFullName,
   validateUsername,
 } from '@entole/core/profile';
+import { useBackend } from '@entole/core/backend';
+import { DirectoryError } from '@entole/core/directory';
 import { useStore } from '@entole/core/store';
+import { USERNAME_TAKEN, useUsernameCheck } from '@entole/core/username-check';
 
 import { Avatar } from '@/components/Avatar';
 import { Header } from '@/components/Header';
+import { UsernameTakenNotice } from '@/components/UsernameTakenNotice';
 import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
 import { useProfile } from '@/lib/profile';
@@ -26,6 +31,7 @@ import {
   storeProfile,
 } from '@/lib/session';
 import { useTheme, type ThemePreference } from '@/lib/theme';
+import { recordUsernameClaim, useUsernameClaim } from '@/lib/username-claim';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -34,7 +40,19 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 ];
 
 export default function MePage() {
+  // `useSearchParams` needs a boundary above it to be prerendered.
+  return (
+    <Suspense fallback={null}>
+      <Me />
+    </Suspense>
+  );
+}
+
+function Me() {
   const router = useRouter();
+  const backend = useBackend();
+  const claim = useUsernameClaim();
+  const wantsEdit = useSearchParams().get('edit') === '1';
   const store = useStore();
   const { account, setAccount } = useAccount();
   const { preference, setPreference } = useTheme();
@@ -49,8 +67,14 @@ export default function MePage() {
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [touched, setTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveProblem, setSaveProblem] = useState<string | null>(null);
+  /** A name the directory refused when it was claimed. */
+  const [refused, setRefused] = useState<string | null>(null);
+  const usernameCheck = useUsernameCheck('', username, account?.owner.address);
+  const usernameTaken = editing && (usernameCheck === 'taken' || refused === username);
   const nameError = validateFullName(fullName);
-  const usernameError = validateUsername(username);
+  const usernameError = validateUsername(username) ?? (usernameTaken ? USERNAME_TAKEN : null);
 
   useEffect(() => {
     function check() {
@@ -64,17 +88,54 @@ export default function MePage() {
     setFullName(account?.displayName ?? '');
     setUsername(account?.username ?? '');
     setTouched(false);
+    setSaveProblem(null);
     setEditing(true);
   }
 
-  // Format is checked; uniqueness is not — there is no backend to check it
-  // against yet (see `@entole/core/profile`).
-  function saveProfile() {
+  // Sent here to choose again because the username turned out to be someone
+  // else's: open the form instead of leaving them to find it.
+  const sentToEdit = wantsEdit && claim === 'taken' && Boolean(account);
+  useEffect(() => {
+    if (!sentToEdit || !account) return;
+    const timer = setTimeout(() => {
+      setFullName(account.displayName);
+      setUsername(account.username);
+      setEditing(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [sentToEdit, account]);
+
+  // A username is one person's. Saving claims it in the directory first: if
+  // someone else holds it, nothing is saved. Any other failure keeps the
+  // change on this device and says that other people cannot see it yet.
+  async function saveProfile() {
     setTouched(true);
-    if (nameError || usernameError || !account) return;
+    if (nameError || usernameError || usernameCheck === 'checking' || !account || saving) return;
     const next = { fullName: fullName.trim(), username };
+    setSaving(true);
+    setSaveProblem(null);
+    try {
+      await backend.directory.claim({
+        address: account.owner.address,
+        name: next.fullName,
+        initials: initialsFor(next.fullName),
+        tone: 1,
+        username,
+      });
+      recordUsernameClaim(account.owner.address, username);
+    } catch (error) {
+      if (error instanceof DirectoryError && error.code === 'username_taken') {
+        setRefused(username);
+        setSaving(false);
+        return;
+      }
+      setSaveProblem(
+        error instanceof DirectoryError ? error.message : "Saved here, but other people can't see the change yet.",
+      );
+    }
     storeProfile(next);
     setAccount({ ...account, displayName: next.fullName, username: next.username });
+    setSaving(false);
     setEditing(false);
   }
 
@@ -118,12 +179,14 @@ export default function MePage() {
         </div>
 
         <SectionLabel>Profile</SectionLabel>
+        {editing ? null : <UsernameTakenNotice editHref={null} />}
+        {saveProblem && !editing ? <p className="mb-2 font-body text-note text-slate">{saveProblem}</p> : null}
         {editing ? (
           <form
             className="flex flex-col gap-2 rounded-card border border-line bg-card p-4"
             onSubmit={(event) => {
               event.preventDefault();
-              saveProfile();
+              void saveProfile();
             }}
           >
             <label htmlFor="profile-full-name" className="font-strong text-note text-slate">
@@ -154,7 +217,11 @@ export default function MePage() {
                 className="ml-1 min-w-0 flex-1 bg-transparent font-strong text-ui text-ink outline-none"
               />
             </div>
-            {touched && usernameError ? (
+            {usernameTaken ? (
+              <p role="alert" className="font-body text-note text-halt">
+                {USERNAME_TAKEN}
+              </p>
+            ) : touched && usernameError ? (
               <p className="font-body text-note text-slate">{usernameError}</p>
             ) : null}
             <div className="mt-3 flex gap-2">
@@ -167,7 +234,7 @@ export default function MePage() {
               </button>
               <button
                 type="submit"
-                disabled={Boolean(nameError || usernameError)}
+                disabled={Boolean(nameError || usernameError) || usernameCheck === 'checking' || saving}
                 className="flex h-12 flex-1 items-center justify-center rounded-control bg-ink font-strong text-ui text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
               >
                 Save

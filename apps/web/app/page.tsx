@@ -20,6 +20,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
 import { SectionHeading } from '@/components/SectionHeading';
 import { ActivityRowSkeleton, AllowanceRowSkeleton, FigureSkeleton } from '@/components/Skeleton';
+import { UsernameTakenNotice } from '@/components/UsernameTakenNotice';
 import { useAssistant } from '@/lib/assistant';
 
 /**
@@ -55,6 +56,7 @@ export default function Home() {
       <div className="flex-1 px-gutter pb-28 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] lg:items-start lg:gap-x-20">
         <div className="min-w-0">
           {store.paused ? <PausedNotice onResume={() => void store.setPaused(false)} /> : null}
+          <UsernameTakenNotice />
           {waiting ? (
             <Link
               href="/assistant/action"

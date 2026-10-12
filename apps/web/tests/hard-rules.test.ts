@@ -893,3 +893,61 @@ describe('the bar is a capsule round the capsules in it', () => {
     expect(nav).toMatch(/h-\[52px\] [^`]*rounded-pill/);
   });
 });
+
+describe('a username is one person\'s, and it is how they are paid', () => {
+  const gate = stripComments(read(join(COMPONENTS, 'AuthGate.tsx')));
+  const me = stripComments(read(join(PAGES, 'me/page.tsx')));
+  const claim = stripComments(read(join(ROOT, 'lib/username-claim.tsx')));
+  const send = stripComments(read(join(PAGES, 'transfer/send/page.tsx')));
+  const receive = stripComments(read(join(PAGES, 'receive/page.tsx')));
+  const pay = stripComments(read(join(PAGES, 'pay/[code]/page.tsx')));
+  const route = stripComments(read(join(ROOT, 'app/api/directory/route.ts')));
+  const storage = stripComments(read(join(ROOT, 'lib/server/directory.ts')));
+
+  it('the server gives a username to the first account that claims it, in one step', () => {
+    expect(storage).toMatch(/db\.set\(usernameKey\(username\), address, \{ nx: true \}\)/);
+    expect(route).toMatch(/if \(username && !\(await claimUsername\(username, claimAddress\)\)\) \{\s*return json\(\{ error: 'username_taken' \}, 409\);/);
+    // Refused before anything about the claimant is written.
+    expect(route.indexOf('claimUsername(username, claimAddress)')).toBeLessThan(route.indexOf('await saveRecord('));
+  });
+
+  it('sign-up asks as the name is typed and will not continue with one that is taken', () => {
+    expect(gate).toMatch(/useUsernameCheck\('', username, returning\?\.owner\.address\)/);
+    expect(gate).toMatch(/validateUsername\(username\) \?\? \(usernameTaken \? USERNAME_TAKEN : null\)/);
+    expect(gate).toMatch(/usernameCheck !== 'checking'/);
+  });
+
+  it('every signed-in account claims its username once, and is told if someone else holds it', () => {
+    expect(claim).toMatch(/backend\.directory\.claim\(\{[\s\S]*?username,\s*\}\)/);
+    expect(claim).toMatch(/error\.code === 'username_taken'\) \{\s*setResult\(\{ record, claim: 'taken' \}\);/);
+    expect(stripComments(read(join(ROOT, 'app/providers.tsx')))).toMatch(/<UsernameClaimProvider>\s*<Gate>/);
+    expect(stripComments(read(join(PAGES, 'page.tsx')))).toMatch(/<UsernameTakenNotice \/>/);
+  });
+
+  it('editing a profile claims the new username first, and a refusal saves nothing', () => {
+    const save = /async function saveProfile\(\)[\s\S]*?\n  }\n/.exec(me)?.[0] ?? '';
+    expect(save.indexOf('backend.directory.claim(')).toBeGreaterThan(-1);
+    expect(save.indexOf('backend.directory.claim(')).toBeLessThan(save.indexOf('storeProfile(next)'));
+    expect(save).toMatch(/error\.code === 'username_taken'\) \{\s*setRefused\(username\);\s*setSaving\(false\);\s*return;/);
+  });
+
+  it('the send field takes a username or a number, and names the person from the directory', () => {
+    expect(send).toMatch(/placeholder="@username or 0803 123 4567"/);
+    expect(send).toMatch(/resolveHandle\(backend\.directory, handle\)/);
+    expect(send).toMatch(/payee: identity\.name/);
+    expect(send).toMatch(/Nobody on Entole has \$\{formatHandle\(handle\)\} yet\./);
+  });
+
+  it('receive leads with the username and a link made from it, once the username is theirs', () => {
+    expect(receive).toMatch(/const username = claim === 'held' \? profile\?\.username : undefined;/);
+    expect(receive).toMatch(/`\$\{origin\}\/pay\/@\$\{username\}`/);
+    expect(receive).toMatch(/@\{username\}<\/p>/);
+  });
+
+  it('a pay link made from a username opens the same checkout, and one nobody holds is invalid', () => {
+    expect(pay).toMatch(/if \(!text\.startsWith\('@'\)\) return null;/);
+    expect(pay).toMatch(/getUsernameOwner\(handle\.username\)/);
+    expect(pay).toMatch(/if \(!record\) return null;/);
+    expect(pay).toMatch(/checkoutFromRequest\(encodePaymentCode\(record\.address\), \{ \.\.\.query, n: record\.name \}\)/);
+  });
+});

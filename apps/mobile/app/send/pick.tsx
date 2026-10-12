@@ -8,7 +8,6 @@ import { useBackend } from '@entole/core/backend';
 import { parseCheckout } from '@entole/core/checkout-link';
 import { countryName } from '@entole/core/countries';
 import { formatNaira, kobo } from '@entole/core/money';
-import { parsePhoneLink } from '@entole/core/phone-link';
 import { useStore } from '@entole/core/store';
 
 import { Button } from '@/components/ui/Button';
@@ -17,18 +16,20 @@ import { Header } from '@/components/ui/Header';
 import { ContactRow, SectionHeading } from '@/components/ui/Rows';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { cleanNote, resolveSendTarget, sendParamsFor } from '@/lib/recipient';
+import { cleanNote, handleIn, resolveSendTarget, sendParamsFor } from '@/lib/recipient';
 import { useThemeColors } from '@/lib/theme';
 
 const BAD_CODE = "That code doesn't look right — check it and try again.";
 const NUMBER_NOT_LINKED = "That number isn't linked to an Entole account yet.";
+const NOBODY_BY_THAT_NAME = 'Nobody on Entole has that username.';
 /** A payment code is PAY plus 36 characters. Past that many, a code that still
  * does not read is wrong, and there is no point waiting for the field to blur. */
 const COMPLETE_CODE_LENGTH = 39;
 
 /**
- * Who to pay: their code, or the link they shared. One field, one door — a
- * pasted link, a scanned QR and a typed code are read the same way. People you
+ * Who to pay: their username or phone number, or the code or link they
+ * shared. One field, one door — a typed name, a pasted link, a scanned QR and
+ * a typed code are read the same way. People you
  * have saved appear underneath as a shortcut when there are any; there is
  * nothing to set up first.
  *
@@ -50,7 +51,8 @@ export default function PickRecipient() {
   const [resolveProblem, setResolveProblem] = useState<string | null>(null);
 
   const parsed = useMemo(() => parseCheckout(text), [text]);
-  const phone = useMemo(() => (parsed ? null : parsePhoneLink(text)), [text, parsed]);
+  // A username or a number: it names someone, and Continue asks who.
+  const handle = useMemo(() => (parsed ? null : handleIn(text)), [text, parsed]);
   const target = useMemo(
     () => sendParamsFor(text, note, backend.source.resolveContactId),
     [text, note, backend],
@@ -58,7 +60,7 @@ export default function PickRecipient() {
   const typed = text.trim().length > 0;
   const looksComplete = text.replace(/[^0-9a-z]/gi, '').length >= COMPLETE_CODE_LENGTH;
   const error =
-    typed && !parsed && !phone && (touched || looksComplete) ? (resolveProblem ?? BAD_CODE) : resolveProblem;
+    typed && !parsed && !handle && (touched || looksComplete) ? (resolveProblem ?? BAD_CODE) : resolveProblem;
 
   const asked =
     parsed?.amountMinor !== undefined && parsed.currency === 'NGN'
@@ -68,9 +70,11 @@ export default function PickRecipient() {
     ? asked
       ? `That checks out. It asks for ${asked}.`
       : 'That checks out.'
-    : phone
-      ? "Looks like a number's payment link — Continue checks if it's linked."
-      : 'Paste a link, their number, or type a code. Dashes and capitals do not matter.';
+    : handle
+      ? handle.kind === 'username'
+        ? `Continue checks who @${handle.username} is.`
+        : 'Continue checks whose number that is.'
+      : 'Their username or number is enough. A code or a link works too.';
 
   async function paste() {
     setPasteNote(null);
@@ -89,12 +93,14 @@ export default function PickRecipient() {
       router.replace({ pathname: '/send', params: target });
       return;
     }
-    if (!phone || resolving) return;
+    if (!handle || resolving) return;
     setResolving(true);
     setResolveProblem(null);
     const result = await resolveSendTarget(text, note, backend);
     setResolving(false);
-    if (result === 'unclaimed') return setResolveProblem(NUMBER_NOT_LINKED);
+    if (result === 'unclaimed') {
+      return setResolveProblem(handle.kind === 'username' ? NOBODY_BY_THAT_NAME : NUMBER_NOT_LINKED);
+    }
     if (!result) return setResolveProblem(BAD_CODE);
     router.replace({ pathname: '/send', params: result });
   }
@@ -115,12 +121,12 @@ export default function PickRecipient() {
             Who are you sending to?
           </Text>
           <Text className="mt-2 font-body text-ui text-slate">
-            Enter their code or number, paste the link they shared, or scan their QR code.
+            Enter their username or phone number, paste the link they shared, or scan their QR code.
           </Text>
 
           <View className="mt-5">
             <Field
-              label="Their code, number or link"
+              label="Username, number, code or link"
               value={text}
               onChangeText={(next) => {
                 setText(next.replace(/\s*\n\s*/g, ''));
@@ -128,7 +134,7 @@ export default function PickRecipient() {
                 setResolveProblem(null);
               }}
               onBlur={() => setTouched(true)}
-              placeholder="PAY-XXXX-XXXX-XXXX"
+              placeholder="@username or 0803 123 4567"
               autoCapitalize="none"
               autoCorrect={false}
               multiline
@@ -191,7 +197,7 @@ export default function PickRecipient() {
           <Button
             label={resolving ? 'Checking…' : 'Continue'}
             busy={resolving}
-            disabled={(!target && !phone) || resolving}
+            disabled={(!target && !handle) || resolving}
             onPress={() => void continueToSend()}
           />
         </ActionBar>

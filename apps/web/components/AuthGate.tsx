@@ -10,6 +10,7 @@ import {
   validateFullName,
   validateUsername,
 } from '@entole/core/profile';
+import { USERNAME_TAKEN, useUsernameCheck } from '@entole/core/username-check';
 
 import { BottomNav } from '@/components/BottomNav';
 import { BrandGlyph } from '@/components/Header';
@@ -76,6 +77,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('visibilitychange', check);
   }, [account]);
 
+  // A username is one person's. The directory is asked as it is typed; the
+  // claim itself is made once the account exists (`UsernameClaimProvider`).
+  // Called before the signed-in return below: a hook cannot sit after one.
+  const usernameCheck = useUsernameCheck('', username, returning?.owner.address);
+
   if (account && !stale) {
     return (
       <>
@@ -86,9 +92,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const usernameTaken = usernameCheck === 'taken';
   const nameError = validateFullName(name);
-  const usernameError = validateUsername(username);
-  const detailsValid = !nameError && !usernameError;
+  const usernameError = validateUsername(username) ?? (usernameTaken ? USERNAME_TAKEN : null);
+  const detailsValid = !nameError && !usernameError && usernameCheck !== 'checking';
 
   function onNameChange(next: string) {
     setName(next);
@@ -249,7 +256,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </label>
           <div
             className={`mt-2 flex h-14 w-full items-center rounded-control border-[1.5px] bg-card px-4 focus-within:border-ink ${
-              touched && usernameError ? 'border-halt' : 'border-line'
+              usernameTaken || (touched && usernameError) ? 'border-halt' : 'border-line'
             }`}
           >
             <span className="font-strong text-prose text-slate">@</span>
@@ -262,19 +269,23 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               autoCorrect="off"
               spellCheck={false}
               maxLength={USERNAME_MAX}
-              aria-invalid={touched && usernameError ? true : undefined}
+              aria-invalid={usernameTaken || (touched && usernameError) ? true : undefined}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') void onboard();
               }}
               className="ml-1 min-w-0 flex-1 bg-transparent font-strong text-prose text-ink outline-none placeholder:font-body placeholder:text-mist"
             />
           </div>
-          {touched && usernameError ? (
+          {usernameTaken || (touched && usernameError) ? (
             <p role="alert" className="mt-2 font-body text-note text-halt">
               {usernameError}
             </p>
           ) : (
-            <p className="mt-2 font-body text-note text-slate">Lowercase letters, numbers, dots and underscores.</p>
+            <p className="mt-2 font-body text-note text-slate">
+              {usernameCheck === 'free'
+                ? 'That one is yours to take. People can pay you with it.'
+                : 'Lowercase letters, numbers, dots and underscores.'}
+            </p>
           )}
         </div>
       ) : null}

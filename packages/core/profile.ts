@@ -15,10 +15,10 @@ export const USERNAME_MAX = 20;
 const USERNAME_PATTERN = /^[a-z0-9_.]+$/;
 
 /**
- * Validates *format only*. Two people can pick the same username: nothing here
- * can check uniqueness, because there is no backend to ask. The unique handle
- * for a person is their code (`entoleCode`), which is derived from their
- * account and so cannot collide in practice.
+ * Validates *format only*. That a username is one person's is the directory's
+ * job (`directory.ts`: the first account to claim it holds it), and a screen
+ * asks it with `useUsernameCheck`. The code below (`entoleCode`) is a second
+ * handle, derived from the account, that needs no directory at all.
  */
 export const profileSchema = z.object({
   fullName: z.string().trim().min(FULL_NAME_MIN).max(FULL_NAME_MAX),

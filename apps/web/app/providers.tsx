@@ -11,6 +11,7 @@ import { AssistantProvider, useAssistant } from '@/lib/assistant';
 import { useOnChainBackend } from '@/lib/onchain';
 import { isPublicPath } from '@/lib/public-routes';
 import { ThemeProvider } from '@/lib/theme';
+import { UsernameClaimProvider } from '@/lib/username-claim';
 
 /**
  * Public routes (`/pay/…`, the checkout page) are for people with no account:
@@ -38,7 +39,9 @@ function GatewayBoundary({ children }: { children: React.ReactNode }) {
   return (
     <BackendProvider value={backend}>
       <StoreProvider gateway={gateway}>
-        <Gate>{children}</Gate>
+        <UsernameClaimProvider>
+          <Gate>{children}</Gate>
+        </UsernameClaimProvider>
       </StoreProvider>
     </BackendProvider>
   );

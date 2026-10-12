@@ -13,8 +13,8 @@ export type SignedInAccount = {
   session: EntoleKeyAccount | null;
   /** The person's full name — what the greeting and the profile chip show. */
   displayName: string;
-  /** Their chosen handle, lowercase, no "@". Format-checked only; see
-   * `@entole/core/profile` for why uniqueness is not. */
+  /** Their chosen handle, lowercase, no "@". One person's: the directory
+   * gives it to the first account that claims it (`@entole/core/directory`). */
   username: string;
 };
 

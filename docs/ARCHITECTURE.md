@@ -82,6 +82,28 @@ functions (`createOwnerAccount`, `signInToOwnerAccount`,
 (the viem `LocalAccount`, `createOnChainGateway`) only depends on getting a
 `LocalAccount<"mera">`-shaped object back, not on how it was derived.
 
+## Names people are paid by
+
+A person is paid by their username, their phone number, or a payment code.
+
+- **A username is one person's.** The directory (`apps/web/app/api/directory`,
+  storage in `apps/web/lib/server/directory.ts`, client in
+  `packages/core/directory.ts`) keeps `username -> account` and gives a username
+  to the first account that claims it, in one step, so two claims arriving
+  together cannot both win. Every claim is signed by the account, and the
+  username is part of what is signed. Changing a username releases the old one.
+- **Both apps ask before they claim.** The sign-up and profile screens ask the
+  directory as the name is typed (`useUsernameCheck`), and the claim itself is
+  what decides. An account made before this claims its username the next time
+  the app is opened; if someone else got there first, the person is told and
+  chooses another.
+- **Paying by name.** `packages/core/handle.ts` reads `@username`, a Nigerian
+  phone number in any of its spellings, or a pay link made from a username
+  (`/pay/@name`), and the directory says who it is. The address it returns is
+  used to pay and is never shown.
+- **The payment code still works with no directory at all.** It is long because
+  it carries the whole account. It is the fallback, not the first thing shown.
+
 ## Allowances
 
 An allowance is a scoped delegation with on-chain enforcement. The pattern to

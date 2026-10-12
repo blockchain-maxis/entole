@@ -1455,3 +1455,51 @@ describe('the bar is a capsule round the capsules in it', () => {
     expect(28 + padding).toBe(height / 2);
   });
 });
+
+describe('a username is one person\'s, and it is how they are paid', () => {
+  const name = stripComments(read(join(ROOT, 'app/onboarding/name.tsx')));
+  const edit = stripComments(read(join(ROOT, 'app/edit-profile.tsx')));
+  const tabs = stripComments(read(join(ROOT, 'app/(tabs)/_layout.tsx')));
+  const pick = stripComments(read(join(ROOT, 'app/send/pick.tsx')));
+  const recipient = stripComments(read(join(ROOT, 'lib/recipient.ts')));
+  const receive = stripComments(read(join(ROOT, 'app/receive.tsx')));
+
+  it.each([
+    ['sign-up', name],
+    ['edit profile', edit],
+  ])('%s asks the directory as the name is typed and will not go on with one that is taken', (_where, source) => {
+    expect(source).toMatch(/useUsernameCheck\(API_BASE, username, account\?\.owner\.address\)/);
+    expect(source).toMatch(/check === 'taken' \|\| refused === username/);
+    expect(source).toMatch(/\{USERNAME_TAKEN\}/);
+  });
+
+  it.each([
+    ['sign-up', name],
+    ['edit profile', edit],
+  ])('%s claims the username with the account, and a refusal saves nothing', (_where, source) => {
+    const claim = source.indexOf('backend.directory.claim(');
+    expect(claim).toBeGreaterThan(-1);
+    expect(source.slice(claim, claim + 260)).toMatch(/username,/);
+    expect(source).toMatch(/error\.code === 'username_taken'\) \{\s*setRefused\(username\);/);
+    // The claim comes before the profile is stored on the phone.
+    expect(claim).toBeLessThan(source.indexOf('await storeProfile(profile)'));
+  });
+
+  it('an account made before this claims its username when the app opens, and is sent to choose again if it lost', () => {
+    expect(tabs).toMatch(/useUsernameClaim\(\);/);
+    expect(tabs).toMatch(/if \(await usernameClaimRecorded\(address, username\)\) return;/);
+    expect(tabs).toMatch(/pathname: '\/edit-profile', params: \{ taken: '1' \}/);
+  });
+
+  it('the send field takes a username or a number, and names the person from the directory', () => {
+    expect(pick).toMatch(/placeholder="@username or 0803 123 4567"/);
+    expect(pick).toMatch(/handleIn\(text\)/);
+    expect(recipient).toMatch(/resolveHandle\(backend\.directory, handle\)/);
+    expect(recipient).toMatch(/oneOffId\(code, identity\.name\)/);
+  });
+
+  it('receive shows the username before the long code', () => {
+    expect(receive).toMatch(/title="Your username"/);
+    expect(receive.indexOf('title="Your username"')).toBeLessThan(receive.indexOf('title="Your code"'));
+  });
+});

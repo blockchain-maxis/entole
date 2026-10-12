@@ -81,3 +81,13 @@ describe('the privacy notice names what the code does', () => {
     expect(text).toMatch(/stay in that device’s storage until you clear/);
   });
 });
+
+describe('the privacy notice says a username is published', () => {
+  it('names what is published, that it is one person\'s, and that changing it frees the old one', () => {
+    const text = [PRIVACY.lead, ...PRIVACY.sections.flatMap((section) => section.body)].join('\n');
+    expect(text).toMatch(/your username are published/);
+    expect(text).toMatch(/A username belongs to one person/);
+    expect(text).toMatch(/Changing your username releases the old one/);
+  });
+});
+

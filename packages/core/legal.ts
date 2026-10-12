@@ -128,7 +128,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'The short version',
       body: [
-        'We ask for a name. The phone app also asks for your phone number, so people can pay you by number. We do not ask for your email, your BVN, an identity document or your contact list.',
+        'We ask for a name and a username. The phone app also asks for your phone number, so people can pay you by number. We do not ask for your email, your BVN, an identity document or your contact list.',
         'There are no ads, we do not sell or rent anything about you, and there is no tracking or analytics software in the app.',
       ],
     },
@@ -143,7 +143,8 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'What we keep',
       body: [
-        'If you give your phone number in the phone app, we publish your name and initials against that number and your account number, so that someone paying you sees a name. Anyone who has your number or your payment code can see that name.',
+        'Your name, your initials and your username are published against your account number, so that people can find and pay you by username and see a name when they do. A username belongs to one person: the first to choose it. Anyone who has your username or your payment code can see that name.',
+        'If you give your phone number in the phone app, it is published the same way, so that you can be paid by number. Anyone who has your number can see your name.',
         'If you connect the assistant to a messaging app, we keep the link between that chat and your account, the names and account numbers of the people you have saved, the allowance it may use, and the payments it has proposed.',
         'Like every website, the service records the usual technical details of each request, such as an IP address, the kind of browser and the time. We use them to keep the service running and to stop abuse.',
       ],
@@ -170,7 +171,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'How long',
       body: [
         'What is on your device stays until you clear it there.',
-        'A published name, or a connected chat, stays until you ask us to remove it.',
+        'A published name, username or number, or a connected chat, stays until you ask us to remove it. Changing your username releases the old one for someone else to take.',
         'The public payment record cannot be removed by anyone.',
       ],
     },

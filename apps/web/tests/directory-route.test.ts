@@ -15,17 +15,27 @@ import type { DirectoryRecord } from '@/lib/server/directory';
 vi.mock('@/lib/server/directory', () => {
   const byAddress = new Map<string, DirectoryRecord>();
   const byPhone = new Map<string, string>();
+  const byUsername = new Map<string, string>();
   return {
     directoryConfigured: vi.fn(() => true),
     getByAddress: vi.fn(async (address: string) => byAddress.get(address.toLowerCase()) ?? null),
     getPhoneOwner: vi.fn(async (country: string, number: string) => byPhone.get(`${country}:${number}`) ?? null),
+    getUsernameOwner: vi.fn(async (username: string) => byUsername.get(username) ?? null),
+    // First claim wins, as `SET ... NX` does in the real store.
+    claimUsername: vi.fn(async (username: string, address: string) => {
+      if (!byUsername.has(username)) byUsername.set(username, address);
+      return byUsername.get(username)!.toLowerCase() === address.toLowerCase();
+    }),
     saveRecord: vi.fn(async (record: DirectoryRecord) => {
+      const previous = byAddress.get(record.address.toLowerCase());
       byAddress.set(record.address.toLowerCase(), record);
       if (record.phone) byPhone.set(`${record.phone.country}:${record.phone.number}`, record.address);
+      if (previous?.username && previous.username !== record.username) byUsername.delete(previous.username);
     }),
     __reset: () => {
       byAddress.clear();
       byPhone.clear();
+      byUsername.clear();
     },
   };
 });
@@ -57,6 +67,7 @@ async function claimBody(overrides: Record<string, unknown> = {}) {
     name: base.name,
     timestampSeconds: base.timestampSeconds,
     ...('phone' in overrides && overrides.phone ? { phone: overrides.phone as never } : {}),
+    ...('username' in overrides && overrides.username ? { username: overrides.username as string } : {}),
   });
   const signature =
     'signature' in overrides ? (overrides.signature as string) : await OWNER.signMessage({ message });
@@ -160,3 +171,68 @@ describe('GET /api/directory', () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe('a username is one person\'s', () => {
+  async function claimAs(account: typeof OWNER, username: string, name = 'Ada Lovelace') {
+    const timestampSeconds = Math.floor(Date.now() / 1000);
+    const message = buildClaimMessage({ address: account.address, name, username, timestampSeconds });
+    const signature = await account.signMessage({ message });
+    return POST(req('POST', { address: account.address, name, initials: 'AL', tone: 1, username, timestampSeconds, signature }));
+  }
+
+  it('claims a username and resolves it back to who it is', async () => {
+    expect((await claimAs(OWNER, 'ada.eze')).status).toBe(200);
+
+    const read = await GET(req('GET', undefined, '?username=ada.eze'));
+    expect(read.status).toBe(200);
+    await expect(read.json()).resolves.toMatchObject({ name: 'Ada Lovelace', username: 'ada.eze', address: OWNER.address });
+  });
+
+  it('refuses the same username to a second person, and leaves the first holding it', async () => {
+    expect((await claimAs(OWNER, 'ada.eze')).status).toBe(200);
+
+    const second = await claimAs(OTHER, 'ada.eze', 'Someone Else');
+    expect(second.status).toBe(409);
+    await expect(second.json()).resolves.toEqual({ error: 'username_taken' });
+
+    const read = await GET(req('GET', undefined, '?username=ada.eze'));
+    await expect(read.json()).resolves.toMatchObject({ address: OWNER.address, name: 'Ada Lovelace' });
+    // The refused claim wrote nothing at all for the second person.
+    expect((await GET(req('GET', undefined, `?address=${OTHER.address}`))).status).toBe(404);
+  });
+
+  it('lets the holder claim it again, and change their name with it', async () => {
+    expect((await claimAs(OWNER, 'ada.eze')).status).toBe(200);
+    expect((await claimAs(OWNER, 'ada.eze', 'Ada King')).status).toBe(200);
+    const read = await GET(req('GET', undefined, '?username=ada.eze'));
+    await expect(read.json()).resolves.toMatchObject({ name: 'Ada King' });
+  });
+
+  it('gives a username back when its holder takes another', async () => {
+    expect((await claimAs(OWNER, 'ada.eze')).status).toBe(200);
+    expect((await claimAs(OWNER, 'ada.king')).status).toBe(200);
+
+    expect((await GET(req('GET', undefined, '?username=ada.eze'))).status).toBe(404);
+    expect((await claimAs(OTHER, 'ada.eze', 'Someone Else')).status).toBe(200);
+  });
+
+  it('keeps the username when a later update does not mention it', async () => {
+    expect((await claimAs(OWNER, 'ada.eze')).status).toBe(200);
+    expect((await POST(req('POST', await claimBody({ name: 'Ada King' })))).status).toBe(200);
+
+    const read = await GET(req('GET', undefined, `?address=${OWNER.address}`));
+    await expect(read.json()).resolves.toMatchObject({ name: 'Ada King', username: 'ada.eze' });
+  });
+
+  it('answers 404 for a username nobody has, and 400 for one that is not a username', async () => {
+    expect((await GET(req('GET', undefined, '?username=nobody.here'))).status).toBe(404);
+    expect((await GET(req('GET', undefined, '?username=NO%20SPACES'))).status).toBe(400);
+  });
+
+  it('rejects a username the signature did not cover', async () => {
+    const body = await claimBody();
+    const response = await POST(req('POST', { ...body, username: 'ada.eze' }));
+    expect(response.status).toBe(401);
+  });
+});
+

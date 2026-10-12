@@ -5,9 +5,13 @@ import { AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingTabBar, TAB_BAR_HEIGHT, TAB_BAR_LIFT } from '@/components/ui/FloatingTabBar';
+import { useBackend } from '@entole/core/backend';
+import { DirectoryError } from '@entole/core/directory';
+import { initialsFor } from '@entole/core/profile';
+
 import { useAccount } from '@/lib/account';
 import { lockScreen } from '@/lib/lock-state';
-import { sessionIsFresh } from '@/lib/session';
+import { recordUsernameClaim, sessionIsFresh, usernameClaimRecorded } from '@/lib/session';
 import { useThemeColors } from '@/lib/theme';
 
 function renderTabBar(props: React.ComponentProps<typeof FloatingTabBar>) {
@@ -52,10 +56,51 @@ function useSessionGuard() {
   }, [router, account]);
 }
 
+/**
+ * Claims the signed-in person's username in the directory, once. It runs for
+ * every account, including ones made before usernames were kept anywhere but
+ * the phone: the first of two people who chose the same name to open the app
+ * holds it, and the other is taken straight to choose another.
+ */
+function useUsernameClaim() {
+  const router = useRouter();
+  const backend = useBackend();
+  const { account } = useAccount();
+  const address = account?.owner.address;
+  const username = account?.username;
+  const displayName = account?.displayName;
+
+  useEffect(() => {
+    if (!address || !username || !displayName) return;
+    let live = true;
+    void (async () => {
+      if (await usernameClaimRecorded(address, username)) return;
+      try {
+        await backend.directory.claim({
+          address,
+          name: displayName,
+          initials: initialsFor(displayName),
+          tone: 1,
+          username,
+        });
+        await recordUsernameClaim(address, username);
+      } catch (error) {
+        if (live && error instanceof DirectoryError && error.code === 'username_taken') {
+          router.push({ pathname: '/edit-profile', params: { taken: '1' } });
+        }
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [address, username, displayName, backend, router]);
+}
+
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const themeColors = useThemeColors();
   useSessionGuard();
+  useUsernameClaim();
 
   return (
     <MaterialTopTabs

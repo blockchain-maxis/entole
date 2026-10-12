@@ -18,12 +18,14 @@ import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { CHECKOUT_BASE } from '@/lib/onchain';
 
-type Copied = 'link' | 'code' | null;
+type Copied = 'link' | 'code' | 'username' | null;
 
 /**
- * How someone pays you: one link. It opens in any browser, so a payer without
- * the app can pay from it; the QR is the same link, for someone standing next
- * to you. Your plain code sits underneath for anyone who would rather type it.
+ * How someone pays you. Someone with Entole needs only your username or your
+ * phone number, so the username comes first. For anyone else there is one
+ * link: it opens in any browser, so a payer without the app can pay from it,
+ * and the QR is the same link, for someone standing next to you. Your plain
+ * code sits underneath as the way that works with nothing looked up.
  * An amount can be put on the link. Nothing here is invented, and no address is
  * ever shown — the link names you by your payment code and your name.
  */
@@ -106,6 +108,24 @@ export default function Receive() {
               : 'Your link shows up here once you are signed in.'}
           </Text>
 
+          {account?.username ? (
+            <View className="mt-6">
+              <SectionHeading
+                title="Your username"
+                action={copied === 'username' ? 'Copied' : 'Copy'}
+                onActionPress={() => void copy('username', `@${account.username}`)}
+              />
+              <View className="items-center border-y border-hairline py-5">
+                <Text selectable className="font-display text-heading text-ink">
+                  @{account.username}
+                </Text>
+              </View>
+              <Text className="mt-2.5 px-1 font-body text-note text-slate">
+                Anyone with Entole can pay you with this, or with your phone number. Nothing longer to copy.
+              </Text>
+            </View>
+          ) : null}
+
           <View className="mt-5">
             <LinkRow
               label="Request an amount"
@@ -135,7 +155,7 @@ export default function Receive() {
               )}
             </View>
             <Text className="mt-2.5 px-1 font-body text-note text-slate">
-              For someone who would rather type it than open a link.
+              The long way: it works even when nothing can be looked up.
             </Text>
           </View>
         </ScrollView>

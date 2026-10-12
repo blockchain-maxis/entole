@@ -10,6 +10,7 @@ import { QrCode } from '@/components/QrCode';
 import { Skeleton } from '@/components/Skeleton';
 import { useProfile } from '@/lib/profile';
 import { onrampConfigured } from '@/lib/onramp';
+import { useUsernameClaim } from '@/lib/username-claim';
 
 const noSubscription = () => () => undefined;
 
@@ -31,12 +32,17 @@ function useCanShare(): boolean {
   );
 }
 
-type Copied = 'link' | 'code' | null;
+type Copied = 'link' | 'code' | 'username' | null;
 
 /**
  * The far end of the corridor. Whoever pays has no app, no account and no
  * reason to get one — so everything they need is in the link: a checkout page
  * that opens in any browser, named for this account and nothing else.
+ *
+ * Someone who does have Entole needs less: the username, or the phone number.
+ * Once the username is this person's in the directory, the link is built from
+ * it too, short enough to say aloud. The long code stays underneath as the way
+ * that works with nothing looked up.
  */
 export default function ReceivePage() {
   const { paymentCode } = useBackend();
@@ -49,7 +55,9 @@ export default function ReceivePage() {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const link =
+  const claim = useUsernameClaim();
+  const username = claim === 'held' ? profile?.username : undefined;
+  const codeLink =
     origin && paymentCode
       ? buildCheckoutLink(origin, {
           code: paymentCode,
@@ -57,6 +65,8 @@ export default function ReceivePage() {
           ...(profile?.fullName ? { payee: profile.fullName } : {}),
         })
       : null;
+  // `/pay/@ada.eze`: the pay page looks the name up and shows the same checkout.
+  const link = origin && username ? `${origin}/pay/@${username}` : codeLink;
 
   async function copy(what: Exclude<Copied, null>, text: string) {
     setProblem(null);
@@ -93,10 +103,21 @@ export default function ReceivePage() {
               <div className="w-full max-w-[220px] rounded-card bg-white p-2.5 shadow-raised">
                 <QrCode value={link} label="QR code for your payment link" />
               </div>
-              <p className="mt-5 font-display text-subhead text-ink">Your payment link</p>
-              <p className="mt-1 max-w-full truncate font-body text-note text-slate">
-                {link.replace(/^https?:\/\//, '')}
-              </p>
+              {username ? (
+                <>
+                  <p className="mt-5 font-display text-heading text-ink">@{username}</p>
+                  <p className="mt-1 max-w-full truncate font-body text-note text-slate">
+                    {link.replace(/^https?:\/\//, '')}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-5 font-display text-subhead text-ink">Your payment link</p>
+                  <p className="mt-1 max-w-full truncate font-body text-note text-slate">
+                    {link.replace(/^https?:\/\//, '')}
+                  </p>
+                </>
+              )}
             </>
           ) : (
             <div aria-label="Preparing your payment link" className="flex w-full flex-col items-center">
@@ -108,6 +129,12 @@ export default function ReceivePage() {
         </div>
 
         <div className="mt-5 border-t border-hairline pt-4">
+          {username ? (
+            <p className="mb-3 text-pretty font-body text-ui text-slate">
+              Someone with Entole can pay you with <span className="font-strong text-ink">@{username}</span>, or with
+              your phone number. Nothing longer to copy.
+            </p>
+          ) : null}
           <p className="font-strong text-ui text-ink">They don&apos;t need the app</p>
           <p className="mt-1 text-pretty font-body text-note text-slate">
             {bankAndCard
@@ -145,7 +172,7 @@ export default function ReceivePage() {
 
         <div className="mt-6 flex items-center justify-between gap-3 border-t border-hairline pt-4">
           <div className="min-w-0">
-            <p className="font-body text-ui text-slate">Your code</p>
+            <p className="font-body text-ui text-slate">Payment code, for when nothing can be looked up</p>
             {paymentCode ? (
               <p className="tabular mt-0.5 truncate font-strong text-ui text-ink">{paymentCode}</p>
             ) : (

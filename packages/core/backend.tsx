@@ -62,6 +62,7 @@ export const pendingBackend: Backend = {
   directory: {
     resolveByAddress: async () => null,
     resolveByPhone: async () => null,
+    resolveByUsername: async () => null,
     claim: notSignedIn,
   },
   inbox: {

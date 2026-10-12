@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, TextInput, View } from 'react-native';
 
@@ -11,19 +11,21 @@ import {
   validateFullName,
   validateUsername,
 } from '@entole/core/profile';
+import { USERNAME_TAKEN, useUsernameCheck } from '@entole/core/username-check';
 import { token } from '@entole/tokens';
 
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
-import { storeProfile } from '@/lib/session';
+import { API_BASE } from '@/lib/onchain';
+import { recordUsernameClaim, storeProfile } from '@/lib/session';
 import { useToast } from '@/lib/toast';
 
 /**
  * Change the name and username shown across the app. A bottom sheet, primary
- * action underneath. Format is checked here; uniqueness is not — there is no
- * backend to check it against yet (see `@entole/core/profile`).
+ * action underneath. A username is one person's: the directory is asked as it
+ * is typed, and saving claims it. If someone else holds it, nothing is saved.
  *
  * The name also re-publishes to the identity directory if this account has
  * ever claimed one (a phone link, or being resolved as a stranger's code) —
@@ -40,10 +42,16 @@ export default function EditProfile() {
   const [username, setUsername] = useState(account?.username ?? '');
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refused, setRefused] = useState<string | null>(null);
+  // Opened by the app itself when the name on this phone turned out to be
+  // someone else's.
+  const sentHere = useLocalSearchParams<{ taken?: string }>().taken === '1';
 
+  const check = useUsernameCheck(API_BASE, username, account?.owner.address);
+  const taken = check === 'taken' || refused === username;
   const nameError = validateFullName(fullName);
-  const usernameError = validateUsername(username);
-  const valid = !nameError && !usernameError;
+  const usernameError = validateUsername(username) ?? (taken ? USERNAME_TAKEN : null);
+  const valid = !nameError && !usernameError && check !== 'checking';
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/me'));
 
@@ -53,23 +61,27 @@ export default function EditProfile() {
     setSaving(true);
     try {
       const profile = { fullName: fullName.trim(), username };
-      await storeProfile(profile);
-      setAccount({ ...account, displayName: profile.fullName, username: profile.username });
-      // The name change above already succeeded on this device; the
-      // directory publish is what other people see when they resolve this
-      // account, so a failure here is surfaced after closing, not blocking.
-      backend.directory
-        .claim({
+      // The directory first: it is what makes the username this person's. If
+      // someone else holds it, nothing is saved. Any other failure keeps the
+      // change on this phone and says that others cannot see it yet.
+      try {
+        await backend.directory.claim({
           address: account.owner.address,
           name: profile.fullName,
           initials: initialsFor(profile.fullName),
           tone: 1,
-        })
-        .catch((error: unknown) => {
-          show(
-            error instanceof DirectoryError ? error.message : "Saved here, but couldn't update what others see.",
-          );
+          username,
         });
+        await recordUsernameClaim(account.owner.address, username);
+      } catch (error) {
+        if (error instanceof DirectoryError && error.code === 'username_taken') {
+          setRefused(username);
+          return;
+        }
+        show(error instanceof DirectoryError ? error.message : "Saved here, but couldn't update what others see.");
+      }
+      await storeProfile(profile);
+      setAccount({ ...account, displayName: profile.fullName, username: profile.username });
       close();
     } finally {
       setSaving(false);
@@ -80,6 +92,11 @@ export default function EditProfile() {
     <KeyboardAvoidingView behavior="padding" className="flex-1">
       <Sheet onDismiss={close}>
         <Text className="font-display text-subhead text-ink">Edit profile</Text>
+        {sentHere ? (
+          <Text className="mt-2 font-body text-ui text-slate">
+            Someone else already has your username. Choose another so people can find and pay you.
+          </Text>
+        ) : null}
 
         <Text className="mt-5 font-strong text-note text-slate">Full name</Text>
         <View className="mt-2 rounded-control border-[1.5px] border-ink bg-card px-4 py-3.5">
@@ -118,7 +135,9 @@ export default function EditProfile() {
             style={{ padding: 0 }}
           />
         </View>
-        {touched && usernameError ? (
+        {taken ? (
+          <Text className="mt-2 font-body text-note text-halt">{USERNAME_TAKEN}</Text>
+        ) : touched && usernameError ? (
           <Text className="mt-2 font-body text-note text-slate">{usernameError}</Text>
         ) : null}
 

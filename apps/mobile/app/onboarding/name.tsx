@@ -2,13 +2,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
+import { useBackend } from '@entole/core/backend';
+import { DirectoryError } from '@entole/core/directory';
 import {
   USERNAME_MAX,
+  initialsFor,
   normalizeUsername,
   suggestUsername,
   validateFullName,
   validateUsername,
 } from '@entole/core/profile';
+import { USERNAME_TAKEN, useUsernameCheck } from '@entole/core/username-check';
 import { token } from '@entole/tokens';
 
 import { Button } from '@/components/ui/Button';
@@ -16,7 +20,8 @@ import { StepDots } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
-import { markOnboarded, storeProfile } from '@/lib/session';
+import { API_BASE } from '@/lib/onchain';
+import { markOnboarded, recordUsernameClaim, storeProfile } from '@/lib/session';
 
 /**
  * The onboarding fields that aren't money — plain text inputs are correct here,
@@ -24,8 +29,9 @@ import { markOnboarded, storeProfile } from '@/lib/session';
  * say; the username is the handle people can find them by. The username is
  * suggested from the name until the person edits it themselves.
  *
- * Format is checked here; uniqueness is not — there is no backend to check it
- * against yet (see `@entole/core/profile`).
+ * A username is one person's. The field says so as it is typed, and
+ * continuing claims it for this account: if someone else got there first, the
+ * claim is refused and the person picks another before going on.
  *
  * Someone who signed in with a passkey from another device lands here too
  * (`returning`): their account exists, this phone just has no name for them.
@@ -40,10 +46,16 @@ export default function NameStep() {
   const [username, setUsername] = useState('');
   const [usernameEdited, setUsernameEdited] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+  /** A name the directory refused when it was claimed: someone took it in between. */
+  const [refused, setRefused] = useState<string | null>(null);
+  const backend = useBackend();
 
+  const check = useUsernameCheck(API_BASE, username, account?.owner.address);
+  const taken = check === 'taken' || refused === username;
   const nameError = validateFullName(fullName);
-  const usernameError = validateUsername(username);
-  const canContinue = !nameError && !usernameError;
+  const usernameError = validateUsername(username) ?? (taken ? USERNAME_TAKEN : null);
+  const canContinue = !nameError && !usernameError && check !== 'checking' && !saving;
 
   function onNameChange(next: string) {
     setFullName(next);
@@ -59,6 +71,29 @@ export default function NameStep() {
     setTouched(true);
     if (!canContinue) return;
     const profile = { fullName: fullName.trim(), username };
+    if (account) {
+      setSaving(true);
+      try {
+        await backend.directory.claim({
+          address: account.owner.address,
+          name: profile.fullName,
+          initials: initialsFor(profile.fullName),
+          tone: 1,
+          username,
+        });
+        await recordUsernameClaim(account.owner.address, username);
+      } catch (error) {
+        // Taken in the moment between the check and the claim: stay and pick
+        // another. Anything else (no connection, say) does not block signing
+        // up; the claim is made again once the app is open.
+        if (error instanceof DirectoryError && error.code === 'username_taken') {
+          setRefused(username);
+          setSaving(false);
+          return;
+        }
+      }
+      setSaving(false);
+    }
     await storeProfile(profile);
     if (account) setAccount({ ...account, displayName: profile.fullName, username: profile.username });
     if (returning) {
@@ -139,18 +174,22 @@ export default function NameStep() {
             style={{ padding: 0 }}
           />
         </View>
-        {touched && usernameError ? (
+        {taken ? (
+          <Text className="mt-2 font-body text-note text-halt">{USERNAME_TAKEN}</Text>
+        ) : touched && usernameError ? (
           <Text className="mt-2 font-body text-note text-slate">{usernameError}</Text>
         ) : (
           <Text className="mt-2 font-body text-note text-slate">
-            Lowercase letters, numbers, dots and underscores.
+            {check === 'free'
+              ? 'That one is yours to take. People can pay you with it.'
+              : 'Lowercase letters, numbers, dots and underscores.'}
           </Text>
         )}
       </ScrollView>
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">
-          <Button label="Continue" disabled={!canContinue} onPress={() => void submit()} />
+          <Button label="Continue" busy={saving} disabled={!canContinue} onPress={() => void submit()} />
         </View>
       </View>
     </Screen>

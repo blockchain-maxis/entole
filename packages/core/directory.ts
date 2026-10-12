@@ -2,11 +2,12 @@ import type { Address } from 'viem';
 import { z } from 'zod';
 
 /**
- * The opt-in identity directory client — the server side lives in
+ * The identity directory client — the server side lives in
  * `apps/web/app/api/directory` (`apps/web/lib/server/directory.ts` owns the
- * storage). A person's payment code always works with no directory entry at
- * all; this only ever adds a name and, optionally, a phone-number payment
- * link on top of it. Never the address itself back out to a screen.
+ * storage). It is what makes a username one person's and nobody else's, and
+ * what lets someone be paid by `@username` or by phone number instead of by a
+ * long payment code. A payment code still works with no directory entry at
+ * all. Never the address itself back out to a screen.
  */
 
 // Matches `avatarToneSchema` in `schemas.ts` — kept separate since this
@@ -22,11 +23,15 @@ export const phoneHandleSchema = z.object({
 
 export type PhoneHandle = z.infer<typeof phoneHandleSchema>;
 
+/** The same grammar as `profileSchema` in `profile.ts`: 3 to 20 of a-z, 0-9, dot, underscore. */
+export const usernameHandleSchema = z.string().regex(/^[a-z0-9_.]{3,20}$/);
+
 const identityResultSchema = z.object({
   address: z.string(),
   name: z.string().min(1),
   initials: z.string().min(1).max(2),
   tone: toneSchema,
+  username: usernameHandleSchema.optional(),
 });
 
 export type DirectoryIdentity = z.infer<typeof identityResultSchema>;
@@ -41,6 +46,7 @@ export function buildClaimMessage(input: {
   address: Address;
   name: string;
   phone?: PhoneHandle;
+  username?: string;
   timestampSeconds: number;
 }): string {
   return [
@@ -48,6 +54,9 @@ export function buildClaimMessage(input: {
     `address: ${input.address.toLowerCase()}`,
     `name: ${input.name.trim()}`,
     `phone: ${input.phone ? `${input.phone.country}:${input.phone.number}` : 'none'}`,
+    // Only when one is claimed, so a claim from an app made before usernames
+    // were kept here still signs the text it always did.
+    ...(input.username ? [`username: ${input.username}`] : []),
     `timestamp: ${input.timestampSeconds}`,
   ].join('\n');
 }
@@ -61,6 +70,8 @@ export type DirectoryClaim = {
   initials: string;
   tone: 1 | 2 | 3;
   phone?: PhoneHandle;
+  /** Claims this username for the account. Refused if someone else holds it. */
+  username?: string;
 };
 
 const CODES: Record<string, string> = {
@@ -69,6 +80,7 @@ const CODES: Record<string, string> = {
   stale: 'That took too long. Try again.',
   invalid_signature: "We couldn't confirm that it was you. Try again.",
   phone_taken: 'That number is already linked to a different account.',
+  username_taken: 'That username is taken. Try another.',
   rate_limited: 'Too many tries. Wait a moment and try again.',
 };
 
@@ -116,6 +128,8 @@ export function createDirectoryClient(options: {
     /** `null` when that number hasn't linked an Entole account. */
     resolveByPhone: (phone: PhoneHandle) =>
       get(`country=${encodeURIComponent(phone.country)}&number=${encodeURIComponent(phone.number)}`),
+    /** `null` when nobody has that username. */
+    resolveByUsername: (username: string) => get(`username=${encodeURIComponent(username)}`),
 
     /** Publishes (or updates) this account's own directory entry. */
     async claim(input: DirectoryClaim): Promise<void> {
@@ -124,6 +138,7 @@ export function createDirectoryClient(options: {
         address: input.address,
         name: input.name,
         ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.username ? { username: input.username } : {}),
         timestampSeconds,
       });
       const signature = await options.sign(message);
@@ -139,6 +154,7 @@ export function createDirectoryClient(options: {
             initials: input.initials,
             tone: input.tone,
             ...(input.phone ? { phone: input.phone } : {}),
+            ...(input.username ? { username: input.username } : {}),
             timestampSeconds,
             signature,
           }),
@@ -159,3 +175,32 @@ export function createDirectoryClient(options: {
     },
   };
 }
+
+export type UsernameLookup =
+  | { state: 'free' }
+  | { state: 'taken'; identity: DirectoryIdentity }
+  /** The directory could not be asked. Not the same as free: nothing is promised. */
+  | { state: 'unknown' };
+
+/**
+ * Whether a username is already someone's. Needs no account, so a sign-up
+ * screen can ask before there is one. `base` is the origin that hosts the
+ * directory route: empty in the web app, the deployed origin on the phone.
+ */
+export async function lookupUsername(
+  base: string,
+  username: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<UsernameLookup> {
+  if (!usernameHandleSchema.safeParse(username).success) return { state: 'unknown' };
+  try {
+    const response = await fetchImpl(`${base.replace(/\/$/, '')}/api/directory?username=${encodeURIComponent(username)}`);
+    if (response.status === 404) return { state: 'free' };
+    if (!response.ok) return { state: 'unknown' };
+    const parsed = identityResultSchema.safeParse(await response.json());
+    return parsed.success ? { state: 'taken', identity: parsed.data } : { state: 'unknown' };
+  } catch {
+    return { state: 'unknown' };
+  }
+}
+

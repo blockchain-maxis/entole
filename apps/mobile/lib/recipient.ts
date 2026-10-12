@@ -3,6 +3,7 @@ import type { Address } from 'viem';
 import { entryFromMinor, EMPTY_ENTRY, type AmountEntry } from '@entole/core/amount-entry';
 import type { Backend } from '@entole/core/backend';
 import { parseCheckout } from '@entole/core/checkout-link';
+import { parseHandle, resolveHandle, type Handle } from '@entole/core/handle';
 import { kobo } from '@entole/core/money';
 import { oneOffId } from '@entole/core/one-off';
 import { encodePaymentCode } from '@entole/core/payment-code';
@@ -80,18 +81,31 @@ export async function resolveSendTarget(
   const direct = sendParamsFor(text, note, backend.source.resolveContactId);
   if (direct) return direct;
 
-  const phone = parsePhoneLink(text);
-  if (!phone) return null;
+  const handle = handleIn(text);
+  if (!handle) return null;
 
-  const identity = await backend.directory.resolveByPhone(phone).catch(() => null);
+  const identity = await resolveHandle(backend.directory, handle).catch(() => null);
   if (!identity) return 'unclaimed';
 
+  // Named by the directory, so the review reads "Tunde Bakare", not the end
+  // of a code.
   const code = encodePaymentCode(identity.address as Address);
-  const contactId = backend.source.resolveContactId(identity.address as Address) ?? oneOffId(code);
+  const contactId =
+    backend.source.resolveContactId(identity.address as Address) ?? oneOffId(code, identity.name);
   if (!contactId) return null;
 
   const chosenNote = cleanNote(note);
   return { contactId, ...(chosenNote ? { note: chosenNote } : {}) };
+}
+
+/**
+ * What typed text names when it is not a code or a checkout link: a number's
+ * payment link, a typed phone number, or a username. Never touches the
+ * network; `resolveSendTarget` asks the directory who it is.
+ */
+export function handleIn(text: string): Handle | null {
+  const linked = parsePhoneLink(text);
+  return linked ? { kind: 'phone', phone: linked } : parseHandle(text);
 }
 
 /** Starting keypad entry for an `amount` route param; empty when it is missing or does not fit. */
