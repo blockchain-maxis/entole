@@ -6,9 +6,11 @@ import { BackendProvider } from '@entole/core/backend';
 import { StoreProvider } from '@entole/core/store';
 
 import { ArrivalNotice } from '@/components/ArrivalNotice';
+import { AssistantTalkSheet } from '@/components/AssistantTalk';
 import { AuthGate } from '@/components/AuthGate';
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
+import { AssistantTalkProvider } from '@/lib/assistant-talk';
 import { useOnChainBackend } from '@/lib/onchain';
 import { isPublicPath } from '@/lib/public-routes';
 import { ThemeProvider } from '@/lib/theme';
@@ -41,9 +43,12 @@ function GatewayBoundary({ children }: { children: React.ReactNode }) {
     <BackendProvider value={backend}>
       <StoreProvider gateway={gateway}>
         <ArrivalNotice />
-        <UsernameClaimProvider>
-          <Gate>{children}</Gate>
-        </UsernameClaimProvider>
+        <AssistantTalkProvider>
+          <UsernameClaimProvider>
+            <Gate>{children}</Gate>
+          </UsernameClaimProvider>
+          <AssistantTalkSheet />
+        </AssistantTalkProvider>
       </StoreProvider>
     </BackendProvider>
   );

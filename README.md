@@ -27,7 +27,11 @@ runs on Monad's test network with test money; nothing in it is real money.
    "Pay 5000 to Ada for rent". You get ten seconds to stop it. Ask for more
    than the allowance has left and it is refused by the contract, not by the
    app.
-5. **Stop it.** The Assistant chip at the top of every page pauses it at once.
+5. **Talk to it.** With the assistant on, a microphone sits beside its chip at
+   the top of every page. Tap it and say, or type, "send 5,000 to" and a
+   username, or "what's my balance". It opens the screen and fills it in. It
+   cannot confirm: that is still your fingerprint.
+6. **Stop it.** The Assistant chip at the top of every page pauses it at once.
 
 Accounts have been made and used by hand on an Android phone and in a desktop
 browser. A device whose passkeys cannot do what an account needs is told so,

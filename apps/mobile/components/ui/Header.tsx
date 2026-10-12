@@ -5,6 +5,7 @@ import { Pressable, View } from 'react-native';
 import { useThemeColors } from '@/lib/theme';
 
 import { PauseButton } from './PauseButton';
+import { TalkButton } from './TalkButton';
 import { ProfileChip } from './ProfileChip';
 import { Text } from './Text';
 
@@ -57,7 +58,16 @@ export function Header({ title, leading = 'back', trailing, onLeadingPress, chil
         {children}
       </View>
 
-      <View className="ml-3 flex-none">{trailing === undefined ? <PauseButton /> : trailing}</View>
+      <View className="ml-3 flex-none flex-row items-center gap-2">
+        {trailing === undefined ? (
+          <>
+            <TalkButton />
+            <PauseButton />
+          </>
+        ) : (
+          trailing
+        )}
+      </View>
     </View>
   );
 }

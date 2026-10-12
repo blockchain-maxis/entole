@@ -71,7 +71,8 @@ export const TERMS: LegalDocument = {
         'The assistant can pay for you only inside an allowance you have written: who it may pay, how much each time, how often, and a limit.',
         'The limit is enforced by the payment network itself and not only by this app. A payment that would pass the limit is refused, whatever the assistant was asked to do.',
         'A payment the assistant is about to make waits for a short time first, and you can cancel it in that time. You can pause the assistant from the top of any screen, and revoke an allowance whenever you like.',
-        'The assistant can misread a message. The allowance, the wait and the pause are there for that. A payment it makes inside an allowance you wrote, and that you did not cancel, is a payment you authorised.',
+        'You can talk or type to the assistant and it will work the app for you: open a screen, pick the person, fill in the amount. It cannot confirm for you. Outside an allowance, nothing moves until you confirm it yourself with your own fingerprint, face or screen lock.',
+        'The assistant can misread or mishear you. The allowance, the wait and the pause are there for that, and so is the screen it leaves you on: check it before you confirm. A payment it makes inside an allowance you wrote, and that you did not cancel, is a payment you authorised.',
       ],
     },
     {
@@ -162,7 +163,8 @@ export const PRIVACY: LegalDocument = {
       body: [
         'Vercel hosts the app, and Upstash stores what is listed under “What we keep”.',
         'Telegram, if you connect the assistant to it, carries your messages to and from the assistant.',
-        'Alibaba Cloud provides the language model that reads a message sent to the assistant on Telegram when the app cannot read it by itself. It receives the words of that one message. It does not receive your name, your account or the people you have saved.',
+        'Alibaba Cloud provides the language model that reads what you say or type to the assistant, in the app or on Telegram, when the app cannot read it by itself. It receives your words, the name of the screen you are on and the last few things said. It does not receive your name, your account, your balance or the people you have saved.',
+        'If you speak to the assistant, your browser or phone turns the sound into words before Entole sees anything. In Chrome and on Android that is done by Google’s speech service. Entole receives the words and never the sound.',
         'When paying in by bank or card opens, that step is run by a payment partner on their own page. They collect what they need from you directly. We never see your card details or your bank login.',
         'The market data sources behind stock prices receive nothing about you.',
         'Some of these companies keep data outside Nigeria.',

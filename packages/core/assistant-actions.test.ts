@@ -1,0 +1,289 @@
+import { describe, expect, it } from 'vitest';
+
+import type { AllowanceView } from './allowance';
+import {
+  assistantReplySchema,
+  findSavedPayee,
+  parseSpokenAmount,
+  planPayment,
+  planReply,
+  readPlainRequest,
+  tellAbout,
+  type AssistantAccount,
+  type AssistantFacts,
+} from './assistant-actions';
+import { kobo } from './money';
+import { oneOffContact } from './one-off';
+import type { Contact } from './schemas';
+
+const ADA: Contact = { id: 'b-ada', name: 'Ada Eze', initials: 'AE', tone: 1 };
+const MUM: Contact = { id: 'b-mum', name: 'Mum', initials: 'M', tone: 2 };
+const ADA2: Contact = { id: 'b-ada2', name: 'Ada Obi', initials: 'AO', tone: 3 };
+
+const allowance = (overrides: Partial<AllowanceView> = {}): AllowanceView =>
+  ({
+    id: 'a-mum',
+    name: 'Mum',
+    recipientId: 'b-mum',
+    remainingMinor: 30_000_00,
+    limitMinor: 50_000_00,
+    spentMinor: 20_000_00,
+    remainingFraction: 0.6,
+    usedPercent: 40,
+    tone: 'ok',
+    paused: false,
+    perRunMinor: 50_000_00,
+    cadence: 'monthly',
+    resetsAt: '2026-11-01T00:00:00.000Z',
+    ...overrides,
+  }) as AllowanceView;
+
+const nobodyHome = { resolveByUsername: async () => null, resolveByPhone: async () => null };
+const TUNDE = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01';
+const directory = {
+  resolveByUsername: async (username: string) =>
+    username === 'tunde_b' ? { address: TUNDE, name: 'Tunde Bello', initials: 'TB', tone: 1 as const, username } : null,
+  resolveByPhone: async () => null,
+};
+
+const account = (overrides: Partial<AssistantAccount> = {}): AssistantAccount => ({
+  contacts: [ADA, MUM],
+  allowances: [],
+  canSpend: false,
+  paused: false,
+  ...overrides,
+});
+
+describe('an amount as a person says it', () => {
+  it.each([
+    ['5000', 5000],
+    ['5,000', 5000],
+    ['₦5,000', 5000],
+    ['5k', 5000],
+    ['2.5k', 2500],
+    ['1.5m', 1_500_000],
+    ['5 thousand', 5000],
+    ['5000 naira', 5000],
+    ['N2,500.50', 2500.5],
+  ])('%s is %d naira', (said, amount) => {
+    expect(parseSpokenAmount(said)).toBe(amount);
+  });
+
+  it.each(['', 'five', '0', '-5', 'abc', '5kk', '12 apples'])('%s is not an amount', (said) => {
+    expect(parseSpokenAmount(said)).toBeNull();
+  });
+});
+
+describe('the plain grammar reads what can only mean one thing', () => {
+  it.each([
+    ['Send 5,000 to Ada for rent', { do: 'pay', to: 'Ada', amount: 5000, note: 'rent' }],
+    ['pay 5k to @tunde_b', { do: 'pay', to: '@tunde_b', amount: 5000 }],
+    ['Pay Mum 2.5k for the generator.', { do: 'pay', to: 'Mum', amount: 2500, note: 'the generator' }],
+    ['please send ₦1,000 to 0803 123 4567', { do: 'pay', to: '0803 123 4567', amount: 1000 }],
+    ['pay Ada', { do: 'pay', to: 'Ada' }],
+    ['open receive', { do: 'open', screen: 'receive' }],
+    ['Go to my savings', { do: 'open', screen: 'savings' }],
+    ['show me my activity', { do: 'open', screen: 'activity' }],
+    ["What's my balance?", { do: 'tell', about: 'balance' }],
+    ['how much do I have', { do: 'tell', about: 'balance' }],
+    ['my last payments', { do: 'tell', about: 'recent' }],
+    ['request 20k', { do: 'request', amount: 20000 }],
+    ['save 10,000 in my savings', { do: 'save', amount: 10000 }],
+    ['withdraw 5000 from savings', { do: 'take-out', amount: 5000 }],
+    ['pause the assistant', { do: 'pause' }],
+    ['resume assistant', { do: 'resume' }],
+  ])('%s', (said, action) => {
+    expect(readPlainRequest(said)).toEqual({ actions: [action] });
+  });
+
+  it('five k is five thousand, never five naira', () => {
+    expect(readPlainRequest('pay 5k to Ada')!.actions[0]).toMatchObject({ amount: 5000 });
+  });
+
+  it.each([
+    '',
+    'hello there',
+    'send 5000 to ada and 3000 to tunde',
+    'open the pod bay doors',
+    'what is the weather',
+    'send money',
+  ])('stays quiet about "%s" rather than guess', (said) => {
+    expect(readPlainRequest(said)).toBeNull();
+  });
+
+  it('only ever answers in the fixed vocabulary', () => {
+    for (const said of ['Send 5,000 to Ada for rent', 'open receive', 'balance']) {
+      expect(assistantReplySchema.safeParse(readPlainRequest(said)).success).toBe(true);
+    }
+    expect(assistantReplySchema.safeParse({ actions: [{ do: 'confirm' }] }).success).toBe(false);
+    expect(assistantReplySchema.safeParse({ actions: [{ do: 'pay', to: 'Ada', amount: -5 }] }).success).toBe(false);
+  });
+});
+
+describe('who a spoken name is', () => {
+  it('finds one saved person by full name, first name or "my mum"', () => {
+    expect(findSavedPayee('ada eze', [ADA, MUM])).toEqual({ kind: 'saved', contact: ADA });
+    expect(findSavedPayee('Ada', [ADA, MUM])).toEqual({ kind: 'saved', contact: ADA });
+    expect(findSavedPayee('my mum', [ADA, MUM])).toEqual({ kind: 'saved', contact: MUM });
+  });
+
+  it('asks when two people answer to the name, and never picks one', () => {
+    expect(findSavedPayee('ada', [ADA, ADA2, MUM])).toEqual({ kind: 'several', names: ['Ada Eze', 'Ada Obi'] });
+  });
+
+  it('a username or a number that is nobody saved is one to look up', () => {
+    expect(findSavedPayee('@tunde_b', [ADA])).toEqual({ kind: 'look-up' });
+    expect(findSavedPayee('0803 123 4567', [ADA])).toEqual({ kind: 'look-up' });
+    expect(findSavedPayee('uncle from lagos', [ADA])).toEqual({ kind: 'nobody' });
+  });
+});
+
+describe('what paying someone means right now', () => {
+  const pay = { do: 'pay' as const, to: 'Mum', amount: 5000, note: 'rent' };
+
+  it('with no allowance, it gets Send ready and leaves the confirming to the person', async () => {
+    const steps = await planPayment(pay, account(), { directory: nobodyHome });
+    expect(steps[0]).toEqual({ kind: 'send', contactId: 'b-mum', amountMinor: 500_000, note: 'rent' });
+    expect(steps[1]).toEqual({ kind: 'say', text: 'Mum, ₦5,000. Check it, then confirm it yourself.' });
+    expect(steps.some((step) => step.kind === 'propose')).toBe(false);
+  });
+
+  it('inside an allowance it may spend, the payment is the assistant’s, with an undo window', async () => {
+    const steps = await planPayment(pay, account({ canSpend: true, allowances: [allowance()] }), {
+      directory: nobodyHome,
+      now: () => 1000,
+    });
+    expect(steps[0]).toMatchObject({
+      kind: 'propose',
+      proposal: { allowanceId: 'a-mum', contactId: 'b-mum', amountMinor: 500_000, note: 'rent', undoSeconds: 10 },
+    });
+    expect(steps[1]).toMatchObject({ kind: 'say' });
+  });
+
+  it.each([
+    ['the assistant has not been turned on to spend', { canSpend: false, allowances: [allowance()] }],
+    ['the assistant is paused', { canSpend: true, paused: true, allowances: [allowance()] }],
+    ['the allowance is paused', { canSpend: true, allowances: [allowance({ paused: true })] }],
+    ['it is more than the allowance has left', { canSpend: true, allowances: [allowance({ remainingMinor: kobo(100_00) })] }],
+    ['the allowance is for someone else', { canSpend: true, allowances: [allowance({ recipientId: 'b-ada' })] }],
+  ])('when %s, the person confirms it themselves', async (_why, overrides) => {
+    const steps = await planPayment(pay, account(overrides), { directory: nobodyHome });
+    expect(steps[0]).toMatchObject({ kind: 'send', contactId: 'b-mum' });
+  });
+
+  it('finds someone not saved by username, and names them as the directory does', async () => {
+    const steps = await planPayment({ do: 'pay', to: '@tunde_b', amount: 1000 }, account(), { directory });
+    expect(steps[0]).toMatchObject({ kind: 'send', amountMinor: 100_000 });
+    const contactId = (steps[0] as { contactId: string }).contactId;
+    expect(oneOffContact(contactId)?.name).toBe('Tunde Bello');
+    expect(steps[1]).toEqual({ kind: 'say', text: 'Tunde Bello, ₦1,000. Check it, then confirm it yourself.' });
+  });
+
+  it('uses the saved record when the person looked up is already saved', async () => {
+    const steps = await planPayment({ do: 'pay', to: '@tunde_b', amount: 1000 }, account(), {
+      directory,
+      resolveContactId: () => 'b-tunde',
+    });
+    expect(steps[0]).toMatchObject({ kind: 'send', contactId: 'b-tunde' });
+  });
+
+  it('says so, and does nothing, when it cannot tell who is meant', async () => {
+    expect(await planPayment({ do: 'pay', to: '@nobody', amount: 5 }, account(), { directory })).toEqual([
+      { kind: 'say', text: "I couldn't find @nobody on Entole. Check the username or number." },
+    ]);
+    expect(await planPayment({ do: 'pay', to: 'uncle from lagos', amount: 5 }, account(), { directory })).toEqual([
+      { kind: 'say', text: "I don't know who uncle from lagos is. Say their username or their phone number." },
+    ]);
+    expect(
+      await planPayment({ do: 'pay', to: 'ada', amount: 5 }, account({ contacts: [ADA, ADA2] }), { directory }),
+    ).toEqual([{ kind: 'say', text: 'You have saved Ada Eze and Ada Obi. Which one?' }]);
+  });
+
+  it('with no amount, it opens Send on the person and asks for the amount', async () => {
+    const steps = await planPayment({ do: 'pay', to: 'Mum' }, account(), { directory: nobodyHome });
+    expect(steps).toEqual([
+      { kind: 'send', contactId: 'b-mum' },
+      { kind: 'say', text: 'Here is Mum. Enter the amount, then confirm it yourself.' },
+    ]);
+  });
+});
+
+describe('figures are the app’s own, never the reader’s', () => {
+  const facts: AssistantFacts = {
+    balanceMinor: 1_250_072,
+    activity: [
+      { id: '1', contactId: 'b-ada', note: 'Rent', at: '2026-10-12T19:54:00.000Z', amountMinor: 250_000, direction: 'in', initiatedBy: 'you', state: 'settled' },
+      { id: '2', contactId: 'b-mum', note: 'Upkeep', at: '2026-10-11T09:00:00.000Z', amountMinor: 500_000, direction: 'out', initiatedBy: 'assistant', state: 'settled' },
+    ],
+    allowances: [allowance()],
+    savingsMinor: null,
+    username: 'that_guy',
+    contactName: (id) => (id === 'b-ada' ? 'Ada Eze' : id === 'b-mum' ? 'Mum' : undefined),
+  };
+  const now = new Date('2026-10-12T20:00:00.000Z');
+
+  it('says the balance, the username, savings and what the assistant may spend', () => {
+    expect(tellAbout('balance', facts)).toBe('You have ₦12,500.72.');
+    expect(tellAbout('username', facts)).toBe('Your username is @that_guy.');
+    expect(tellAbout('savings', facts)).toBe('There is nothing in savings yet.');
+    expect(tellAbout('allowances', facts)).toBe('Mum: ₦30,000 left of ₦50,000.');
+  });
+
+  it('says what moved, who with, and which were the assistant’s', () => {
+    const said = tellAbout('recent', facts, now);
+    expect(said).toContain('Ada Eze sent you ₦2,500');
+    expect(said).toContain('The assistant sent ₦5,000 to Mum');
+    expect(tellAbout('recent', { ...facts, activity: [] })).toBe('Nothing has moved in or out yet.');
+  });
+
+  it('a reply that asks for a fact is answered from the app, whatever the reader wrote', async () => {
+    const steps = await planReply(
+      { say: 'You have ₦9,999,999.', actions: [{ do: 'tell', about: 'balance' }] },
+      account(),
+      facts,
+      { directory: nobodyHome },
+    );
+    expect(steps).toEqual([{ kind: 'say', text: 'You have ₦12,500.72.' }]);
+  });
+
+  it('opens screens, and says the reader’s words only when the app has none of its own', async () => {
+    const steps = await planReply(
+      { say: 'Here is where you get paid.', actions: [{ do: 'open', screen: 'receive' }] },
+      account(),
+      facts,
+      { directory: nobodyHome },
+    );
+    expect(steps).toEqual([
+      { kind: 'say', text: 'Here is where you get paid.' },
+      { kind: 'open', screen: 'receive' },
+    ]);
+  });
+
+  it('says where it is taking you when the reader had nothing to say', async () => {
+    const steps = await planReply({ actions: [{ do: 'open', screen: 'add-money' }] }, account(), facts, {
+      directory: nobodyHome,
+    });
+    expect(steps).toEqual([
+      { kind: 'say', text: 'Opening Add money.' },
+      { kind: 'open', screen: 'add-money' },
+    ]);
+    const asking = await planReply({ actions: [{ do: 'request', amount: 2000 }] }, account(), facts, {
+      directory: nobodyHome,
+    });
+    expect(asking[0]).toEqual({ kind: 'say', text: 'Here is your link, asking for ₦2,000.' });
+  });
+
+  it('turns the rest into steps the app carries out', async () => {
+    const steps = await planReply(
+      { actions: [{ do: 'request', amount: 2000 }, { do: 'save', amount: 500 }, { do: 'pause' }] },
+      account(),
+      facts,
+      { directory: nobodyHome },
+    );
+    expect(steps.filter((step) => step.kind !== 'say')).toEqual([
+      { kind: 'request', amountMinor: 200_000 },
+      { kind: 'savings', mode: 'deposit', amountMinor: 50_000 },
+      { kind: 'pause', paused: true },
+    ]);
+  });
+});

@@ -133,6 +133,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/ActivityRow.tsx',
     'components/AllowanceCard.tsx',
     'components/AllowanceIntro.tsx',
+    // Talking to the assistant: its microphone, its sheet, what it says back.
+    'components/AssistantTalk.tsx',
     'components/Badge.tsx',
     'components/Countdown.tsx',
     // The logo: a blue ring, the brand's own and not the assistant's.
@@ -594,7 +596,7 @@ describe('receive shows the pay link, not a fixture', () => {
   const receive = stripComments(read(join(PAGES, 'receive/page.tsx')));
 
   it('builds the link from the username and the runtime origin, once the username is theirs', () => {
-    expect(receive).toMatch(/buildPayLink\(origin, \{ username \}\)/);
+    expect(receive).toMatch(/buildPayLink\(origin, \{ username, /);
     expect(receive).toMatch(/claim === 'held' \? profile\?\.username : undefined/);
     expect(receive).toMatch(/window\.location\.origin/);
   });
@@ -975,7 +977,7 @@ describe('a username is one person\'s, and it is how they are paid', () => {
 
   it('receive leads with the username and a link made from it, once the username is theirs', () => {
     expect(receive).toMatch(/const username = claim === 'held' \? profile\?\.username : undefined;/);
-    expect(receive).toMatch(/buildPayLink\(origin, \{ username \}\)/);
+    expect(receive).toMatch(/buildPayLink\(origin, \{ username, /);
     expect(receive).toMatch(/@\{username\}<\/p>/);
   });
 
@@ -1092,5 +1094,64 @@ describe('saving someone asks for a nickname and nothing else', () => {
     expect(save).toMatch(/\{known \? null : \(/);
     expect(save).toMatch(/id="save-nickname"/);
     expect(save).toMatch(/Optional/);
+  });
+});
+
+describe('the assistant works the app, and can never confirm for you', () => {
+  const talk = stripComments(read(join(ROOT, 'lib/assistant-talk.tsx')));
+  const sheet = stripComments(read(join(COMPONENTS, 'AssistantTalk.tsx')));
+  const control = stripComments(read(join(COMPONENTS, 'PauseControl.tsx')));
+  const route = stripComments(read(join(PAGES, 'api/assistant/turn/route.ts')));
+
+  it('what it does is move the person to a screen: it has no way to send, confirm or sign', () => {
+    // Every step ends in navigation, a proposal put on the undo screen, or the pause switch.
+    expect(talk).toMatch(/router\.push\(/);
+    expect(talk).toMatch(/backend\.proposals\.put\(step\.proposal\)/);
+    expect(talk).toMatch(/router\.push\('\/assistant\/action'\)/);
+    // Nothing here can move money or answer the prompt that guards it.
+    expect(talk).not.toMatch(/store\.send\(|runProposal|payBill|depositGrow|withdrawGrow|saveAllowance/);
+    expect(talk).not.toMatch(/confirmWithPasskey|confirmMovement|navigator\.credentials|signMessage|signTypedData/);
+    for (const source of [talk, sheet]) expect(source).not.toMatch(/\.address\b|0x[0-9a-fA-F]{6,}/);
+  });
+
+  it('a payment it gets ready stops at the amount screen, for the person to review and confirm', () => {
+    expect(talk).toMatch(/router\.push\(`\/transfer\/send\?\$\{query\.toString\(\)\}`\)/);
+    const send = stripComments(read(join(PAGES, 'transfer/send/page.tsx')));
+    expect(send).toMatch(/askedMinor=\{asked\.minor\}/);
+    // The amount arrives filled in; the review sheet is still opened by a press.
+    expect(send).toMatch(/onClick=\{\(\) => setReviewing\(true\)\}/);
+    expect(send).not.toMatch(/params\.get\('review'\)|setReviewing\(true\);\s*\}, \[\]/);
+  });
+
+  it('figures it speaks are the app’s own, planned on the device', () => {
+    expect(talk).toMatch(/planReply\(/);
+    expect(talk).toMatch(/balanceMinor: store\.balance,/);
+    expect(talk).toMatch(/backend\.brain\.read\(text, \{ screen: screenAt\(pathname\), history \}\)/);
+  });
+
+  it('the model is asked only by a signed-in account, and is sent no account data', () => {
+    expect(route).toMatch(/if \(!apiKey\) return json\(\{ error: 'not_configured' \}, 501\)/);
+    expect(route).toMatch(/verifyMessage\(\{/);
+    expect(route.indexOf("return json({ error: 'invalid_signature' }, 401)")).toBeLessThan(route.indexOf('readWithModel('));
+    expect(route).toMatch(/rateLimit\(request, 'assistant-turn'/);
+    expect(route).toMatch(/readWithModel\(\s*text,/);
+    expect(route).not.toMatch(/getRedis|getByAddress|getSponsor|listReceived|balance/);
+  });
+
+  it('the microphone is beside the assistant’s control, and stopping the assistant is still one click', () => {
+    expect(control).toMatch(/<TalkButton \/>\s*<PauseToggle paused=\{paused\} onToggle=\{\(\) => void setPaused\(!paused\)\} \/>/);
+    // Off means off: no microphone until the assistant has been turned on.
+    const off = control.slice(control.indexOf('if (!enabled)'), control.indexOf('return (\n    <div'));
+    expect(off).not.toMatch(/TalkButton/);
+    expect(sheet).toMatch(/aria-label="Talk to the assistant"/);
+  });
+
+  it('the sheet is a sheet, says what it will not do, and can be typed to where the browser cannot listen', () => {
+    expect(sheet).toMatch(/role="dialog"/);
+    expect(sheet).toMatch(/sheet-rise/);
+    expect(sheet).toMatch(/Anything that moves your money, you confirm yourself\./);
+    expect(sheet).toMatch(/\{hears \? \(/);
+    expect(sheet).toMatch(/id="talk-typed"/);
+    expect(sheet).not.toMatch(/animate-spin/);
   });
 });

@@ -70,6 +70,17 @@
     animation: scrim-fade 200ms ease-out both;
   }
 
+  /* The assistant's microphone while it is listening: a ring breathing out
+     from it, so there is no doubt that it hears. */
+  .talk-listening::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 2px solid rgb(var(--color-indigo));
+    animation: talk-listening 1400ms ease-out infinite;
+  }
+
   /* Bottom-anchored actions sit above the home indicator, not under it. */
   .safe-bottom {
     padding-bottom: calc(theme('spacing.4') + env(safe-area-inset-bottom));
@@ -140,6 +151,17 @@ html.theme-fade *::after {
   }
 }
 
+@keyframes talk-listening {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
 @keyframes scrim-fade {
   from {
     opacity: 0;
@@ -184,7 +206,8 @@ html.theme-fade *::after {
   .scrim-fade,
   .landing-rise,
   .landing-reveal,
-  .logo-ring {
+  .logo-ring,
+  .talk-listening::after {
     animation: none;
   }
 }

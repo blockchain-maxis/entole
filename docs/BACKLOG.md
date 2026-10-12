@@ -29,6 +29,21 @@ product: where it touches a screen, the screen says so plainly.
   the upgrade.
 - **The undo window is not enforced on-chain.** It is a countdown in the app
   before the assistant's run is submitted. Nothing in the contract delays it.
+- **The assistant needs a model key to understand free speech.** Without
+  `QWEN_API_KEY` it follows only the plain requests its grammar knows, and says
+  so. The model path is written and tested against the answer shapes, and has
+  not been run against the live model from this repo: there was no key to run
+  it with.
+- **The phone cannot listen or speak until its next build.** The talk sheet is
+  there and is typed to. `expo-speech-recognition` and `expo-speech` are loaded
+  behind a guard; the packages still have to be installed and the recognition
+  plugin added to `app.json` before that build (`docs/ARCHITECTURE.md`, "The
+  assistant you talk to").
+- **Turning the assistant on still costs a passkey prompt**, because one switch
+  both lets it talk and gives it its own key for allowances. Talking needs no
+  key. Splitting the two is the upgrade.
+- **Savings and bills open, but are not filled in, when asked for by voice.**
+  Send and Receive take the amount; those two screens do not yet.
 - **Records live on the device.** Beneficiaries, allowances, seats, invoices and
   the send ledger are per-device. A backend (or the Envio indexer for history)
   is the upgrade path; `RecordStore` in core is the seam. The assistant inbox,

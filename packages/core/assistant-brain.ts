@@ -1,0 +1,229 @@
+import type { Address } from 'viem';
+import { z } from 'zod';
+
+import {
+  ASSISTANT_SCREENS,
+  assistantReplySchema,
+  readPlainRequest,
+  type AssistantReply,
+  type AssistantScreen,
+} from './assistant-actions';
+
+/**
+ * Reading what someone said to the assistant.
+ *
+ * Two readers, tried in this order. The plain grammar (`readPlainRequest`)
+ * knows the sentences that can only mean one thing, at once, with no network.
+ * Everything else goes to a language model on the server
+ * (`apps/web/app/api/assistant/turn`), which holds the key.
+ *
+ * What the model is given: the words, the name of the screen the person is
+ * on, and the last few things said. Nothing about the account: no balance, no
+ * names, no history. What it may answer: the fixed vocabulary in
+ * `assistant-actions.ts`, checked before anything is done with it. It is a
+ * translator from speech to a short list of things the app knows how to do. It
+ * has no key, no account and no way to confirm anything.
+ */
+
+export const TURN_TEXT_MAX = 300;
+export const TURN_HISTORY_MAX = 6;
+/** A request signature older than this is refused. A staleness window, not a replay window. */
+export const TURN_MAX_AGE_SECONDS = 300;
+
+/** The exact text a turn is signed over: proof the request comes from a signed-in account, so the model is not open to anyone. */
+export function buildTurnMessage(input: { account: Address; timestampSeconds: number }): string {
+  return ['Entole assistant', `account: ${input.account.toLowerCase()}`, `timestamp: ${input.timestampSeconds}`].join('\n');
+}
+
+export const turnHistorySchema = z
+  .array(z.object({ from: z.enum(['you', 'assistant']), text: z.string().trim().min(1).max(TURN_TEXT_MAX) }))
+  .max(TURN_HISTORY_MAX);
+
+export type TurnHistory = z.infer<typeof turnHistorySchema>;
+
+export type TurnContext = {
+  /** Where in the app the person is, when it is one of the screens the assistant knows. */
+  screen?: AssistantScreen | undefined;
+  history?: TurnHistory | undefined;
+};
+
+// ---------------------------------------------------------------------------
+// The model, server side.
+// ---------------------------------------------------------------------------
+
+/** Words the product never uses with a person. A model that says one has its sentence dropped. */
+const NEVER_SAID = /\b(wallet|crypto\w*|blockchain|on-?chain|chain|gas|token|seed phrase|recovery phrase|private key|transaction hash|signature)\b/i;
+
+export const ASSISTANT_SYSTEM_PROMPT = [
+  'You are the assistant inside Entole, a money app used in Nigeria. People speak or type to you, and you work the app for them.',
+  'You never see their account and you never answer with figures of your own. You turn what they said into actions the app carries out, plus a few words to say.',
+  '',
+  'Reply with ONLY a JSON object: {"say": string, "actions": [ ... ]}. At most 3 actions.',
+  '"say" is one short plain sentence, 20 words at most, that will be spoken aloud. Use "" when the action speaks for itself.',
+  '',
+  'Actions, in exactly these shapes:',
+  `{"do":"open","screen":S} where S is one of: ${ASSISTANT_SCREENS.join(', ')}.`,
+  '{"do":"pay","to":WHO,"amount":NUMBER,"note":TEXT} gets a payment ready. WHO is who they named, as they said it: a name, an @username or a phone number. "amount" and "note" are optional.',
+  '{"do":"request","amount":NUMBER} when they want to be paid or to show their own link. "amount" is optional.',
+  '{"do":"save","amount":NUMBER} puts money into savings. {"do":"take-out","amount":NUMBER} takes it out. "amount" is optional.',
+  '{"do":"bill","kind":K} where K is electricity, airtime-data, cable-tv or internet. "kind" is optional.',
+  '{"do":"tell","about":A} where A is balance, recent, allowances, savings or username. Use this whenever they ask for a fact about their account; the app says the real figure.',
+  '{"do":"pause"} and {"do":"resume"} pause or resume the assistant itself.',
+  '',
+  'Rules:',
+  '- Amounts are naira, as plain numbers: "5k" is 5000, "two thousand five hundred" is 2500, "1.5m" is 1500000. If no amount was said, leave "amount" out. Never invent one.',
+  '- You cannot confirm, approve or send a payment. "pay" only gets it ready; the person confirms it themselves. Never say money has been sent.',
+  '- One payment at a time. If they ask for several, get the first ready and say you will do the next after it.',
+  '- People may speak Nigerian English or Pidgin: "abeg send Tunde 2k", "wetin be my balance".',
+  '- If you cannot tell what they want, or the app cannot do it, return no actions and ask one short question or say what you can do: send money, show how to get paid, open a screen, read out a balance.',
+  '- Never use these words: wallet, crypto, blockchain, chain, gas, token, signature. Say payment, account, fee, receipt.',
+].join('\n');
+
+export type AssistantModelConfig = {
+  apiKey: string;
+  model?: string | undefined;
+  /** An OpenAI-compatible `chat/completions` endpoint. Defaults to Alibaba DashScope's. */
+  apiUrl?: string | undefined;
+  fetch?: typeof fetch;
+};
+
+const DEFAULT_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+const DEFAULT_MODEL = 'qwen-plus';
+
+/** Tidies what a model said into something safe to speak, or nothing. */
+function cleanSay(value: string | undefined): string | undefined {
+  const text = value?.replace(/\s+/g, ' ').trim();
+  if (!text || NEVER_SAID.test(text)) return undefined;
+  return text.slice(0, 300);
+}
+
+/** Pulls the JSON object out of a model's answer, which sometimes arrives wrapped in a code fence. */
+function jsonIn(content: string): unknown {
+  const start = content.indexOf('{');
+  const end = content.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(content.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Asks the model what the person meant. `null` on any failure: no answer, an
+ * answer that is not JSON, or one outside the vocabulary. An action the model
+ * made up is not an action; the whole reply is dropped rather than half done.
+ */
+export async function readWithModel(
+  text: string,
+  config: AssistantModelConfig,
+  context: TurnContext = {},
+): Promise<AssistantReply | null> {
+  const said = text.replace(/\s+/g, ' ').trim().slice(0, TURN_TEXT_MAX);
+  if (!said) return null;
+
+  const messages = [
+    { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
+    ...(context.screen ? [{ role: 'system', content: `They are on this screen now: ${context.screen}.` }] : []),
+    ...(context.history ?? []).map((turn) => ({
+      role: turn.from === 'you' ? 'user' : 'assistant',
+      content: turn.text,
+    })),
+    { role: 'user', content: said },
+  ];
+
+  try {
+    const response = await (config.fetch ?? fetch)(config.apiUrl ?? DEFAULT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
+      body: JSON.stringify({
+        model: config.model ?? DEFAULT_MODEL,
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+        max_tokens: 300,
+        messages,
+      }),
+    });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    const content = (body as { choices?: { message?: { content?: unknown } }[] })?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') return null;
+
+    const parsed = assistantReplySchema.safeParse(jsonIn(content));
+    if (!parsed.success) return null;
+    const say = cleanSay(parsed.data.say);
+    return { actions: parsed.data.actions, ...(say ? { say } : {}) };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The client: grammar first, then the server.
+// ---------------------------------------------------------------------------
+
+export type Heard =
+  | { kind: 'reply'; reply: AssistantReply; by: 'grammar' | 'model' }
+  /** The model was asked and could make nothing of it. */
+  | { kind: 'not-understood' }
+  /** No model to ask: not configured, or out of reach. Only the plain grammar is working. */
+  | { kind: 'grammar-only' };
+
+export type AssistantBrain = {
+  read(text: string, context?: TurnContext): Promise<Heard>;
+};
+
+/** What to say when only the plain grammar is working and it did not know the sentence. */
+export const GRAMMAR_ONLY_HINT =
+  'Right now I can only follow simple requests. Try "send 5,000 to Ada", "open receive" or "what\'s my balance".';
+export const NOT_UNDERSTOOD = "I didn't get that. Try saying who to pay and how much, or which screen to open.";
+
+export function createAssistantBrain(options: {
+  baseUrl: string;
+  account: Address;
+  sign: (message: string) => Promise<`0x${string}`>;
+  fetch?: typeof fetch;
+}): AssistantBrain {
+  const fetchImpl = options.fetch ?? fetch;
+  const base = options.baseUrl.replace(/\/$/, '');
+
+  return {
+    async read(text, context = {}) {
+      const plain = readPlainRequest(text);
+      if (plain) return { kind: 'reply', reply: plain, by: 'grammar' };
+
+      const timestampSeconds = Math.floor(Date.now() / 1000);
+      let response: Response;
+      try {
+        const signature = await options.sign(buildTurnMessage({ account: options.account, timestampSeconds }));
+        response = await fetchImpl(`${base}/api/assistant/turn`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            account: options.account,
+            timestampSeconds,
+            signature,
+            text: text.slice(0, TURN_TEXT_MAX),
+            ...(context.screen ? { screen: context.screen } : {}),
+            ...(context.history?.length ? { history: context.history.slice(-TURN_HISTORY_MAX) } : {}),
+          }),
+        });
+      } catch {
+        return { kind: 'grammar-only' };
+      }
+      if (response.status === 501) return { kind: 'grammar-only' };
+      if (!response.ok) return { kind: 'not-understood' };
+      try {
+        const parsed = z.object({ reply: assistantReplySchema }).safeParse(await response.json());
+        if (!parsed.success) return { kind: 'not-understood' };
+        const { reply } = parsed.data;
+        return reply.actions.length === 0 && !reply.say ? { kind: 'not-understood' } : { kind: 'reply', reply, by: 'model' };
+      } catch {
+        return { kind: 'not-understood' };
+      }
+    },
+  };
+}
+
+/** The brain before anyone is signed in: it knows nothing and asks no one. */
+export const silentBrain: AssistantBrain = { read: async () => ({ kind: 'grammar-only' }) };

@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+import { AssistantLine } from './AssistantTalk';
 import { PauseControl } from './PauseControl';
 import { ProfileChip } from './ProfileChip';
 
@@ -24,8 +25,20 @@ export function BrandGlyph({ size = 22 }: { size?: number }) {
  * The pause control rides in every header, so every page gets one of these.
  * With no `title` (Home) the leading slot is the signed-in person's profile
  * chip, not the logo — the logo only appears before sign-in.
+ *
+ * Under it, for a moment after the assistant has taken the person somewhere,
+ * is what the assistant said. It is part of the page, not laid over it.
  */
 export function Header({ title, back }: { title?: string; back?: string }) {
+  return (
+    <>
+      <HeaderRow title={title} back={back} />
+      <AssistantLine />
+    </>
+  );
+}
+
+function HeaderRow({ title, back }: { title?: string | undefined; back?: string | undefined }) {
   return (
     <header className="flex flex-none items-center justify-between px-gutter pb-3.5 pt-4">
       <div className="flex min-w-0 flex-1 items-center gap-3.5">

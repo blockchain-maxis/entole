@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { useStore } from '@entole/core/store';
 
+import { TalkButton } from '@/components/AssistantTalk';
 import { useAssistant } from '@/lib/assistant';
 
 /**
@@ -18,6 +19,10 @@ import { useAssistant } from '@/lib/assistant';
  * Under 360px wide there is not room for both this and a person's name, so it
  * keeps its shield and its state and drops the word; the label read aloud is
  * unchanged.
+ *
+ * While the assistant is on, the microphone for talking to it sits beside this
+ * control: the same corner, on every page. It is a second control and never
+ * takes this one's place, so the way to stop the assistant is still one click.
  */
 export function PauseControl() {
   const { paused, setPaused } = useStore();
@@ -38,6 +43,15 @@ export function PauseControl() {
   }
 
   return (
+    <div className="flex flex-none items-center gap-2">
+      <TalkButton />
+      <PauseToggle paused={paused} onToggle={() => void setPaused(!paused)} />
+    </div>
+  );
+}
+
+function PauseToggle({ paused, onToggle }: { paused: boolean; onToggle: () => void }) {
+  return (
     <button
       type="button"
       aria-label={
@@ -45,7 +59,7 @@ export function PauseControl() {
           ? 'The assistant is paused. Resume it.'
           : 'The assistant is on. Pause it.'
       }
-      onClick={() => void setPaused(!paused)}
+      onClick={onToggle}
       className={`flex h-9 flex-none items-center gap-1.5 rounded-pill border px-3 font-strong text-note transition-colors ${
         paused
           ? 'border-halt bg-halt-wash text-halt hover:bg-halt-tint'

@@ -359,19 +359,25 @@ function ReceiptStep({ receiptId, link }: { receiptId: string; link: Checkout | 
 function AmountStep({
   recipientId,
   link,
+  askedMinor,
+  askedNote,
   onBack,
   onSettled,
 }: {
   recipientId: string;
   link: Checkout | null;
+  /** An amount and a note already known when the page opened: the assistant filled them in. */
+  askedMinor?: number | undefined;
+  askedNote?: string | undefined;
   onBack: () => void;
   onSettled: (receiptId: string) => void;
 }) {
   const store = useStore();
   const [entry, setEntry] = useState<AmountEntry>(() => {
-    const asked = link ? nairaAmountOf(link) : undefined;
+    const asked = link ? nairaAmountOf(link) : askedMinor;
     return asked ? entryFromMinor(kobo(asked)) : EMPTY_ENTRY;
   });
+  const defaultNote = noteFor(link) ?? askedNote;
   const [reviewing, setReviewing] = useState(false);
 
   const loading = store.status === 'loading';
@@ -472,7 +478,7 @@ function AmountStep({
           {...(recipient.caption ? { caption: recipient.caption } : {})}
           initials={recipient.initials}
           amountMinor={amount}
-          {...(noteFor(link) ? { defaultNote: noteFor(link)! } : {})}
+          {...(defaultNote ? { defaultNote } : {})}
           onDismiss={() => setReviewing(false)}
           onSettled={onSettled}
         />
@@ -498,9 +504,12 @@ function OpeningStep() {
 /**
  * Pay someone: by username, by number, with the link they shared, or a
  * beneficiary you saved. Everyone here is a person, never an address.
- * `?contact=` (a saved beneficiary) and `?to=` (a pay link, from its public
- * page) jump straight to the amount. A pay link names a username, so the
- * directory is asked who that is first.
+ * `?contact=` (a saved beneficiary, or someone the assistant has just found)
+ * and `?to=` (a pay link, from its public page) jump straight to the amount. A
+ * pay link names a username, so the directory is asked who that is first.
+ * `?amount=` (kobo) and `?note=` fill those in beside `?contact=`: that is the
+ * assistant getting a payment ready. It stops at the amount screen. Review and
+ * Confirm are still pressed by the person.
  */
 function SendFlow() {
   const params = useSearchParams();
@@ -513,6 +522,12 @@ function SendFlow() {
     if (known) return { id: known.id, link: known.checkout, sought: null };
     if (sought?.kind === 'handle') return { id: null, link: null, sought };
     return { id: params.get('contact'), link: null, sought: null };
+  });
+  const [asked] = useState(() => {
+    const amount = params.get('amount');
+    const minor = amount && /^\d{1,13}$/.test(amount) ? Number(amount) : undefined;
+    const note = params.get('note')?.replace(/\s+/g, ' ').trim().slice(0, 80) || undefined;
+    return { minor: minor && Number.isSafeInteger(minor) && minor > 0 ? minor : undefined, note };
   });
   const [recipientId, setRecipientId] = useState<string | null>(start.id);
   const [link, setLink] = useState<Checkout | null>(start.link);
@@ -554,6 +569,8 @@ function SendFlow() {
         <AmountStep
           recipientId={recipientId}
           link={link}
+          askedMinor={asked.minor}
+          askedNote={asked.note}
           onBack={() => {
             setRecipientId(null);
             setLink(null);
@@ -573,10 +590,16 @@ function SendFlow() {
   );
 }
 
+/** A different person or amount in the address is a different payment: start it afresh. */
+function SendFlowForAddress() {
+  const params = useSearchParams();
+  return <SendFlow key={params.toString()} />;
+}
+
 export default function SendPage() {
   return (
     <Suspense fallback={<PageLoader />}>
-      <SendFlow />
+      <SendFlowForAddress />
     </Suspense>
   );
 }

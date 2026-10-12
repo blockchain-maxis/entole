@@ -70,6 +70,14 @@ function ThemedStack() {
           }}
         />
         <Stack.Screen
+          name="talk"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
           name="edit-profile"
           options={{
             presentation: 'transparentModal',

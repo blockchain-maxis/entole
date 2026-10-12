@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Share, View } from 'react-native';
 
@@ -34,7 +34,12 @@ type Copied = 'link' | 'username' | null;
 export default function Receive() {
   const router = useRouter();
   const mine = usePayUsername();
-  const [amount, setAmount] = useState(0);
+  // `amount` (kobo) arrives with the screen when the assistant was asked to request it.
+  const params = useLocalSearchParams<{ amount?: string }>();
+  const [amount, setAmount] = useState(() => {
+    const asked = typeof params.amount === 'string' && /^\d{1,13}$/.test(params.amount) ? Number(params.amount) : 0;
+    return Number.isSafeInteger(asked) && asked > 0 ? asked : 0;
+  });
   const [requesting, setRequesting] = useState(false);
   const [copied, setCopied] = useState<Copied>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);

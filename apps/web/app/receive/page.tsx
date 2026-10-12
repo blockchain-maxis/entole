@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { buildPayLink } from '@entole/core/checkout-link';
+import { formatNaira, kobo } from '@entole/core/money';
 
 import { Header } from '@/components/Header';
+import { PageLoader } from '@/components/LogoLoader';
 import { QrCode } from '@/components/QrCode';
 import { Skeleton } from '@/components/Skeleton';
 import { useProfile } from '@/lib/profile';
@@ -47,7 +50,18 @@ type Copied = 'link' | 'username' | null;
  * no link.
  */
 export default function ReceivePage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Receive />
+    </Suspense>
+  );
+}
+
+function Receive() {
   const profile = useProfile();
+  // `?amount=` (kobo) puts an amount on the link: someone asked for that much.
+  const asked = useSearchParams().get('amount');
+  const amountMinor = asked && /^\d{1,13}$/.test(asked) && Number(asked) > 0 ? Number(asked) : undefined;
   const origin = useOrigin();
   const canShare = useCanShare();
 
@@ -59,7 +73,10 @@ export default function ReceivePage() {
   const claim = useUsernameClaim();
   const username = claim === 'held' ? profile?.username : undefined;
   // `/pay/@ada.eze`: the pay page looks the name up and shows who it is.
-  const link = origin && username ? buildPayLink(origin, { username }) : null;
+  const link =
+    origin && username
+      ? buildPayLink(origin, { username, ...(amountMinor ? { amountMinor, currency: 'NGN' } : {}) })
+      : null;
   // Someone else holds the name they chose, or they never chose one.
   const needsUsername = Boolean(profile) && (claim === 'taken' || !profile?.username);
 
@@ -102,6 +119,9 @@ export default function ReceivePage() {
               <p className="mt-1 max-w-full truncate font-body text-note text-slate">
                 {link.replace(/^https?:\/\//, '')}
               </p>
+              {amountMinor ? (
+                <p className="tabular mt-3 font-strong text-ui text-ink">Asking for {formatNaira(kobo(amountMinor))}</p>
+              ) : null}
             </>
           ) : needsUsername ? (
             <div className="w-full pt-2">

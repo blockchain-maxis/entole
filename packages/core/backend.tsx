@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 import type { AccountSource } from './account-snapshot';
 import { emptyProposalSlot, type ProposalSlot } from './assistant-ask';
+import { silentBrain, type AssistantBrain } from './assistant-brain';
 import type { AssistantInboxClient } from './assistant-inbox';
 import type { DirectoryClient } from './directory';
 import type { RelayClient } from './relay-client';
@@ -24,6 +25,9 @@ export type Backend = {
   /** Where a payment asked for in the app waits out its undo window. Put one
    * here, re-read the account, and it is the store's `proposal`. */
   proposals: ProposalSlot;
+  /** What reads a sentence said to the assistant into things the app can do.
+   * It has no key and no account; see `assistant-brain.ts`. */
+  brain: AssistantBrain;
   /** `PAY-XXXX-…` — how this account is named to others. Null until signed in. */
   paymentCode: string | null;
 };
@@ -34,6 +38,7 @@ const notSignedIn = () => Promise.reject(new Error('Not signed in yet'));
 export const pendingBackend: Backend = {
   paymentCode: null,
   proposals: emptyProposalSlot,
+  brain: silentBrain,
   source: {
     loadSnapshot: notSignedIn,
     resolveRecipient: () => {

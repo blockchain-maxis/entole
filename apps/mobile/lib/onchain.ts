@@ -4,6 +4,7 @@ import { createPublicClient, createWalletClient, http, type Address, type Chain,
 
 import { createAccountSource } from '@entole/core/account-snapshot';
 import { createProposalSlot } from '@entole/core/assistant-ask';
+import { createAssistantBrain } from '@entole/core/assistant-brain';
 import { createAssistantInboxClient } from '@entole/core/assistant-inbox';
 import { createDirectoryClient } from '@entole/core/directory';
 import { createRateProvider } from '@entole/core/fx';
@@ -241,12 +242,21 @@ export function useOnChainBackend(
       baseUrl: API_BASE,
       sign: (message) => owner.viemAccount.signMessage({ message }),
     });
+    // What reads a sentence said to the assistant. The plain grammar runs on
+    // the device; anything it does not know is read by a model on the server,
+    // which is told the words and nothing about the account.
+    const brain = createAssistantBrain({
+      baseUrl: API_BASE,
+      account: owner.viemAccount.address,
+      sign: (message) => owner.viemAccount.signMessage({ message }),
+    });
     const backend: Backend = {
       source,
       relay,
       directory,
       inbox,
       proposals,
+      brain,
       paymentCode: encodePaymentCode(owner.viemAccount.address),
     };
     return { gateway, backend };

@@ -22,6 +22,45 @@ Three layers, and only one of them is allowed to think:
 If a check can be bypassed by the app or backend behaving badly, it is not a
 check. Move it into the contract or drop the feature.
 
+### The assistant you talk to
+
+Since 12 October 2026 the assistant is someone you talk to (or type to) who
+works the app for you: it opens a screen, picks the person, fills in the
+amount, reads out a balance. It is optional. Off, there is no microphone
+anywhere and nothing else about the app changes.
+
+The trust model above is unchanged, and three things keep it so.
+
+- **A fixed vocabulary.** `packages/core/assistant-actions.ts` lists everything
+  the assistant can do: open a screen, get a payment ready, show how to be
+  paid, open savings or a bill, say a fact, pause or resume itself. Whatever
+  reads the sentence can only answer in those actions; anything else is thrown
+  away whole (`assistantReplySchema`), on the server and again on the device.
+  There is no action for confirming, and none can be invented.
+- **The reader never sees the account.** A plain grammar on the device
+  (`readPlainRequest`) reads the sentences that can only mean one thing. The
+  rest go to a language model through `/api/assistant/turn`
+  (`packages/core/assistant-brain.ts`), which is sent the words, the name of the
+  screen and the last few turns: no balance, no names, no history. When someone
+  asks what their balance is, the model answers "tell them the balance" and the
+  app says the figure from its own books (`tellAbout`). A spoken figure is
+  always the real one. Names are matched on the device (`findSavedPayee`).
+- **It cannot confirm.** What it does with a payment is navigate: Send opens
+  with the person and the amount filled in (`apps/web/lib/assistant-talk.tsx`,
+  `apps/mobile/lib/assistant-run.ts`). Review and Confirm are pressed by the
+  person, and confirming raises the fingerprint or passkey prompt inside the
+  gateway (`confirmMovement`), which no code can answer. Those two files hold
+  no way to send or sign, and a test in each app keeps it that way. The one
+  payment the assistant starts itself is inside an allowance that has enough
+  left: that becomes a proposal, waits out its undo window, and is held to its
+  limit by the contract, exactly as before.
+
+Listening and speaking are the browser's or the phone's own. Entole receives
+words, never sound. In the browser that is the Web Speech API
+(`apps/web/lib/voice.ts`); on the phone, `expo-speech-recognition` and
+`expo-speech`, loaded so that a build without them still runs and is typed to
+(`apps/mobile/lib/voice.ts`).
+
 ## Accounts and auth
 
 **Primary path: Mera** (`@category-labs/mera`, `packages/core/passkey.ts`).

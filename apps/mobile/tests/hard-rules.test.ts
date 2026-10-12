@@ -123,7 +123,10 @@ describe('the pause control is reachable from every screen header', () => {
   it('the shared header renders the pause control unless a screen opts out', () => {
     const header = read(join(ROOT, 'components/ui/Header.tsx'));
     expect(header).toMatch(/import \{ PauseButton \} from '\.\/PauseButton'/);
-    expect(header).toMatch(/trailing === undefined \? <PauseButton \/> : trailing/);
+    // The assistant's microphone sits beside it and never in its place.
+    expect(header).toMatch(
+      /trailing === undefined \? \(\s*<>\s*<TalkButton \/>\s*<PauseButton \/>\s*<\/>\s*\) : \(\s*trailing\s*\)/,
+    );
   });
 
   // A bare pause icon gave a new person no idea what they would be stopping.
@@ -324,6 +327,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'app/connections.tsx',
     'app/onboarding/index.tsx',
     'app/rules/[id].tsx',
+    // Talking to the assistant: its sheet, and what it says back.
+    'app/talk.tsx',
     'components/ui/ActivityRow.tsx',
     'components/ui/AllowanceCard.tsx',
     'components/ui/AllowanceIntro.tsx',
@@ -334,6 +339,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     // The logo again, drawing itself.
     'components/ui/LogoLoader.tsx',
     'components/ui/Meter.tsx',
+    // The assistant's microphone, beside its control in every header.
+    'components/ui/TalkButton.tsx',
     'components/ui/Toast.tsx',
   ];
 
@@ -511,7 +518,9 @@ describe('the header says who you are, not which app this is', () => {
   it('lets a long name truncate instead of pushing the assistant chip away', () => {
     expect(chip).toMatch(/min-w-0 flex-1/);
     expect(chip).toMatch(/numberOfLines=\{1\}/);
-    expect(header).toMatch(/<View className="ml-3 flex-none">/);
+    expect(header).toMatch(/<View className="ml-3 flex-none flex-row items-center gap-2">/);
+    // With the microphone beside it on a narrow phone, the chip keeps its shield and its state and drops the word.
+    expect(stripComments(read(join(ROOT, 'components/ui/PauseButton.tsx')))).toMatch(/const compact = enabled && width < 390;/);
   });
 
   it('never renders an address, or a slice of one, in the chip or on Me', () => {
@@ -1649,5 +1658,57 @@ describe('saving someone asks for a nickname and nothing else', () => {
     expect(add).toMatch(/\{known && !knownName \? \(\s*<Field\s+label="Name"/);
     // Where they live and their bank are not part of saving someone any more.
     expect(add).not.toMatch(/BeneficiaryForm|CountrySheet|Bank details/);
+  });
+});
+
+describe('the assistant works the app, and can never confirm for you', () => {
+  const run = stripComments(read(join(ROOT, 'lib/assistant-run.ts')));
+  const talk = stripComments(read(join(ROOT, 'app/talk.tsx')));
+  const button = stripComments(read(join(COMPONENTS, 'ui/TalkButton.tsx')));
+  const voice = stripComments(read(join(ROOT, 'lib/voice.ts')));
+
+  it('what it does is move the person to a screen: it has no way to send, confirm or sign', () => {
+    expect(run).toMatch(/router\.navigate\(href\)/);
+    expect(run).toMatch(/backend\.proposals\.put\(step\.proposal\)/);
+    expect(run).toMatch(/go\('\/assistant-action'\)/);
+    for (const source of [run, talk]) {
+      expect(source).not.toMatch(/store\.send\(|runProposal|payBill|depositGrow|withdrawGrow|saveAllowance/);
+      expect(source).not.toMatch(/confirmWithScreenLock|confirmMovement|LocalAuthentication|signMessage|signTypedData/);
+      expect(source).not.toMatch(/\.address\b|0x[0-9a-fA-F]{6,}/);
+    }
+  });
+
+  it('a payment it gets ready opens Send with the person and amount, and stops there', () => {
+    expect(run).toMatch(/pathname: '\/send',/);
+    expect(run).toMatch(/amount: String\(step\.amountMinor\)/);
+    // The review sheet on Send is still opened by the person.
+    const send = stripComments(read(join(ROOT, 'app/send/index.tsx')));
+    expect(send).not.toMatch(/params\.review/);
+  });
+
+  it('figures it speaks are the app’s own, planned on the device', () => {
+    expect(run).toMatch(/planReply\(/);
+    expect(run).toMatch(/balanceMinor: store\.balance,/);
+    expect(run).toMatch(/backend\.brain\.read\(text, \{ history \}\)/);
+  });
+
+  it('off means off: no microphone in the header, and no sheet', () => {
+    expect(button).toMatch(/if \(!enabled\) return null;/);
+    expect(button).toMatch(/accessibilityLabel="Talk to the assistant"/);
+    expect(talk).toMatch(/if \(!account \|\| !enabled\) return <Redirect href="\/" \/>;/);
+  });
+
+  it('it is a sheet, says what it will not do, and is typed to on a build that cannot listen', () => {
+    expect(talk).toMatch(/<Sheet onDismiss=\{close\}>/);
+    expect(talk).toMatch(/Anything that moves your money, you confirm yourself\./);
+    expect(talk).toMatch(/\{hears \? \(/);
+    expect(talk).toMatch(/accessibilityLabel="Type what you need"/);
+    expect(stripComments(read(join(ROOT, 'app/_layout.tsx')))).toMatch(/name="talk"\s+options=\{\{\s+presentation: 'transparentModal'/);
+  });
+
+  it('listening and speaking are loaded so that a build without them still runs', () => {
+    expect(voice).toMatch(/try \{[\s\S]*?require\('expo-speech-recognition'\)[\s\S]*?\} catch \{/);
+    expect(voice).toMatch(/try \{[\s\S]*?require\('expo-speech'\)[\s\S]*?\} catch \{/);
+    expect(voice).not.toMatch(/^import [^\n]*from 'expo-speech/m);
   });
 });
