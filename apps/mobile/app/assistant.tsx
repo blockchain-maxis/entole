@@ -73,7 +73,7 @@ export default function AssistantSettings() {
   }
 
   return (
-    <Screen>
+    <Screen keyboard>
       <Header title="Assistant" />
 
       <ScrollView

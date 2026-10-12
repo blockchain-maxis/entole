@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import {
   USERNAME_MAX,
@@ -34,6 +34,7 @@ import { markOnboarded, storeProfile } from '@/lib/session';
 export default function NameStep() {
   const router = useRouter();
   const returning = useLocalSearchParams<{ returning?: string }>().returning === '1';
+  const usernameField = useRef<TextInput>(null);
   const { account, setAccount } = useAccount();
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -69,7 +70,7 @@ export default function NameStep() {
   }
 
   return (
-    <Screen>
+    <Screen keyboard>
       <View className="flex-none flex-row items-center gap-3.5 px-gutter pt-2">
         <Pressable
           accessibilityRole="button"
@@ -82,7 +83,14 @@ export default function NameStep() {
         {returning ? null : <StepDots total={4} done={2} />}
       </View>
 
-      <View className="flex-1 px-7 pt-[34px]">
+      {/* Scrolls, so on a short phone with the keyboard up both fields can
+          still be reached; Continue stays pinned above the keyboard. */}
+      <ScrollView
+        className="flex-1"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 34, paddingBottom: 16 }}
+      >
         <Text className="font-display text-heading text-ink">{returning ? 'Welcome back' : 'Your details'}</Text>
         <Text className="mt-3 font-body text-ui text-slate">
           {returning
@@ -101,6 +109,8 @@ export default function NameStep() {
             autoCapitalize="words"
             autoComplete="name"
             returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => usernameField.current?.focus()}
             accessibilityLabel="Full name"
             className="font-strong text-prose text-ink"
             style={{ padding: 0 }}
@@ -114,6 +124,7 @@ export default function NameStep() {
         <View className="mt-2 flex-row items-center rounded-control border-[1.5px] border-line bg-card px-4 py-4">
           <Text className="font-strong text-prose text-slate">@</Text>
           <TextInput
+            ref={usernameField}
             value={username}
             onChangeText={onUsernameChange}
             placeholder="username"
@@ -135,7 +146,7 @@ export default function NameStep() {
             Lowercase letters, numbers, dots and underscores.
           </Text>
         )}
-      </View>
+      </ScrollView>
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">

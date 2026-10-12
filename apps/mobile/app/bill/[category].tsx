@@ -54,7 +54,7 @@ export default function BillReference() {
   }
 
   return (
-    <Screen>
+    <Screen keyboard>
       <Header title={info.label} trailing={<PauseButton />} />
 
       <View className="flex-1 px-gutter-lg pt-4">

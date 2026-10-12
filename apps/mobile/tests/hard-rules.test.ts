@@ -1375,3 +1375,25 @@ describe('a phone holding an account from an earlier address still starts', () =
     expect(lock).not.toMatch(/label="Start again on this phone"[^>]*onPress=\{[^}]*forgetEverything/);
   });
 });
+
+describe('the bottom of a screen, and the keyboard', () => {
+  const screen = stripComments(read(join(ROOT, 'components/ui/Screen.tsx')));
+
+  it('always leaves room under the last element, even on a phone that reports no inset', () => {
+    expect(screen).toMatch(/Math\.max\(insets\.bottom, BOTTOM_FLOOR\)/);
+    expect(Number(/BOTTOM_FLOOR = (\d+)/.exec(screen)?.[1])).toBeGreaterThanOrEqual(12);
+  });
+
+  it('a screen someone types on ends above the keyboard, so its button rides up with it', () => {
+    expect(screen).toMatch(/keyboard \? \(\s*<KeyboardAvoidingView behavior="padding"/);
+    for (const path of ['app/onboarding/name.tsx', 'app/bill/[category].tsx', 'app/assistant.tsx']) {
+      expect(stripComments(read(join(ROOT, path))), path).toMatch(/<Screen keyboard>/);
+    }
+  });
+
+  it('the name step can scroll, and Next moves on to the username', () => {
+    const name = stripComments(read(join(ROOT, 'app/onboarding/name.tsx')));
+    expect(name).toMatch(/<ScrollView[\s\S]*?keyboardShouldPersistTaps="handled"/);
+    expect(name).toMatch(/onSubmitEditing=\{\(\) => usernameField\.current\?\.focus\(\)\}/);
+  });
+});
