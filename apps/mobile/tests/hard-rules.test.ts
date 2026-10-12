@@ -264,11 +264,16 @@ describe('the one thing that turns is the Entole mark', () => {
   it('opens the app once per launch, over the app as it loads, and gets out of the way', () => {
     expect(stripComments(read(join(ROOT, 'app/_layout.tsx')))).toMatch(/<ToastHost \/>\s*<Intro \/>/);
     expect(intro).toMatch(/<LogoLoader size=\{84\} once/);
-    expect(intro).toMatch(/if \(gone\) return null;/);
-    // Pinned over the whole screen by a plain view; the animated one only fades.
-    expect(intro).toMatch(/<View style=\{styles\.over\}/);
-    expect(intro).toMatch(/over: \{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100 \}/);
-    expect(intro).not.toMatch(/<Animated\.View[^>]*absoluteFill/);
+    expect(intro).toMatch(/if \(stage === 'gone'\) return null;/);
+    // Pinned over the whole screen, and above the tab bar, by a plain view.
+    expect(intro).toMatch(/<View\s+style=\{styles\.over\}/);
+    expect(intro).toMatch(/over: \{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, elevation: 1000 \}/);
+    // Laid out by class names and moved by entering and exiting, as the sheets
+    // and toasts are. A list of styles ending in an animated one put the mark
+    // in a corner on Android, twice.
+    expect(intro).toMatch(/<Animated\.View className="flex-1 items-center justify-center bg-paper" exiting=\{FadeOut/);
+    expect(intro).not.toMatch(/useAnimatedStyle|absoluteFill/);
+    expect(intro).not.toMatch(/<Animated\.View[^>]*style=\{\[/);
     // It runs on a clock of its own and waits on nothing the app is doing.
     expect(intro).not.toMatch(/useStore|useAccount|fontsLoaded/);
   });

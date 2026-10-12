@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
-
-import { useThemeColors } from '@/lib/theme';
+import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
 
 import { LogoLoader, RING_DRAW_MS } from './LogoLoader';
 import { Text } from './Text';
@@ -24,48 +16,51 @@ const LEAVE_MS = 240;
  * anything: the app is loading behind it the whole time. It picks up exactly
  * where the splash image left off, on the same ground, so the two read as one.
  *
- * A plain view pins it over the whole screen, and the animated one inside only
- * fades. With both jobs on the animated view its position was dropped on
- * Android, and the mark turned up in line at the bottom of the screen.
+ * Built the way the sheets and toasts are, because that is what is known to
+ * hold on a phone: a plain view pins it over the whole screen, class names lay
+ * it out, and it comes and goes with entering and exiting animations. Twice it
+ * was laid out with a list of styles that ended in an animated one, and on
+ * Android the mark turned up in a corner instead of the middle.
  */
 export function Intro() {
-  const colors = useThemeColors();
   const reduce = useReducedMotion();
-  const [gone, setGone] = useState(false);
-  const name = useSharedValue(0);
-  const cover = useSharedValue(1);
+  const [stage, setStage] = useState<'showing' | 'leaving' | 'gone'>('showing');
+  const drawn = reduce ? 0 : RING_DRAW_MS;
 
   useEffect(() => {
-    const drawn = reduce ? 0 : RING_DRAW_MS;
-    name.value = withDelay(drawn - 120, withTiming(1, { duration: NAME_MS }));
     const leaveAt = drawn + NAME_MS + HOLD_MS;
-    cover.value = withDelay(leaveAt, withTiming(0, { duration: LEAVE_MS }));
-    const timer = setTimeout(() => setGone(true), leaveAt + LEAVE_MS + 40);
-    return () => clearTimeout(timer);
-  }, [cover, name, reduce]);
+    const leave = setTimeout(() => setStage('leaving'), leaveAt);
+    // The cover is taken out to fade; this view goes once the fade has run.
+    const remove = setTimeout(() => setStage('gone'), leaveAt + LEAVE_MS + 80);
+    return () => {
+      clearTimeout(leave);
+      clearTimeout(remove);
+    };
+  }, [drawn]);
 
-  const coverStyle = useAnimatedStyle(() => ({ opacity: cover.value }));
-  const nameStyle = useAnimatedStyle(() => ({
-    opacity: name.value,
-    transform: [{ translateY: (1 - name.value) * 8 }],
-  }));
-
-  if (gone) return null;
+  if (stage === 'gone') return null;
 
   return (
-    <View style={styles.over} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Animated.View style={[styles.cover, { backgroundColor: colors.paper }, coverStyle]}>
-        <LogoLoader size={84} once label="Entole" />
-        <Animated.View style={nameStyle}>
-          <Text className="mt-5 font-display text-heading text-ink">Entole</Text>
+    <View
+      style={styles.over}
+      pointerEvents={stage === 'leaving' ? 'none' : 'auto'}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      {stage === 'showing' ? (
+        <Animated.View className="flex-1 items-center justify-center bg-paper" exiting={FadeOut.duration(LEAVE_MS)}>
+          <LogoLoader size={84} once label="Entole" />
+          <Animated.View entering={FadeIn.delay(Math.max(0, drawn - 120)).duration(NAME_MS)}>
+            <Text className="mt-5 font-display text-heading text-ink">Entole</Text>
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Above the toasts (50) and everything else, edge to edge.
-  over: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100 },
-  cover: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // Edge to edge and above everything. Android draws a higher `elevation` over
+  // later siblings, so without it the floating tab bar shows through.
+  over: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1000, elevation: 1000 },
 });
