@@ -1341,3 +1341,33 @@ describe('the rest of the screens are written on paper too', () => {
     expect(hub).toMatch(/<SectionHeading title="Earn" \/>/);
   });
 });
+
+describe('a phone holding an account from an earlier address still starts', () => {
+  const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+  const entry = stripComments(read(join(ROOT, 'app/index.tsx')));
+  const lock = stripComments(read(join(ROOT, 'app/lock.tsx')));
+
+  it('a saved passkey is kept with the site it was made for', () => {
+    const store = /async function storeCredential[\s\S]*?\n}\n/.exec(session)?.[0] ?? '';
+    expect(store).toMatch(/setItemAsync\(CREDENTIAL_SITE_KEY, RP_ID\)/);
+  });
+
+  it('one made for another site is never asked for by name, and does not count as signed in', () => {
+    const load = /async function loadCredential[\s\S]*?\n}\n/.exec(session)?.[0] ?? '';
+    expect(load).toMatch(/credentialIsForThisSite\(\)/);
+    const has = /export async function hasStoredCredential[\s\S]*?\n}\n/.exec(session)?.[0] ?? '';
+    expect(has).toMatch(/credentialIsForThisSite\(\)/);
+  });
+
+  it('what is left of that account is cleared before the first screen is chosen', () => {
+    expect(entry).toMatch(/clearAccountFromAnotherSite\(\)\s*\.then\(\(\) => Promise\.all\(\[hasOnboarded\(\), hasStoredCredential\(\)\]\)\)/);
+    expect(session).toMatch(/deleteItemAsync\(CREDENTIAL_SITE_KEY\)/);
+  });
+
+  it('the lock screen has a way out after a failed unlock, and it asks first', () => {
+    expect(lock).toMatch(/label="Start again on this phone"[^>]*onPress=\{\(\) => setStartingAgain\(true\)\}/);
+    expect(lock).toMatch(/label="Start again" variant="danger-outline" onPress=\{\(\) => void startAgain\(\)\}/);
+    expect(lock).toMatch(/The account and its money are not touched/);
+    expect(lock).not.toMatch(/label="Start again on this phone"[^>]*onPress=\{[^}]*forgetEverything/);
+  });
+});

@@ -2,18 +2,21 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { hasOnboarded, hasStoredCredential } from '@/lib/session';
+import { clearAccountFromAnotherSite, hasOnboarded, hasStoredCredential } from '@/lib/session';
 
 /** Sends a returning person straight to their balance, everyone else to setup.
  * "Returning" needs a saved passkey as well as the onboarded flag: the lock
  * screen can only unlock a passkey that exists, so a phone with the flag and
- * no passkey would otherwise be stuck there for good. */
+ * no passkey would otherwise be stuck there for good. A passkey saved for an
+ * earlier address counts as none, and what is left of that account is cleared
+ * first, so the first screen is the first screen. */
 export default function Entry() {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {
     let live = true;
-    Promise.all([hasOnboarded(), hasStoredCredential()])
+    clearAccountFromAnotherSite()
+      .then(() => Promise.all([hasOnboarded(), hasStoredCredential()]))
       .then(([finished, hasPasskey]) => live && setOnboarded(finished && hasPasskey))
       .catch(() => live && setOnboarded(false));
     return () => {

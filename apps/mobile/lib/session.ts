@@ -36,6 +36,11 @@ const RP = { id: RP_ID, name: 'Entole' };
 const ONBOARDED_KEY = 'entole.onboarded';
 const SESSION_KEY = 'entole.session';
 const CREDENTIAL_KEY = 'entole.passkey.credential';
+/** The site the saved passkey was made for. A passkey belongs to one site:
+ * asked for under any other, the phone has nothing to offer and falls back to
+ * "use another device", with a code to scan. That is what a phone showed when
+ * it still held an account from before Entole moved to its own address. */
+const CREDENTIAL_SITE_KEY = 'entole.passkey.site';
 const DISPLAY_NAME_KEY = 'entole.display-name';
 
 const PROFILE_KEY = 'entole.profile';
@@ -82,11 +87,20 @@ export type SignInResult = { ok: true; account: SignedInAccount } | { ok: false;
 
 async function storeCredential(credential: PasskeyCredentialMetadata): Promise<void> {
   await SecureStore.setItemAsync(CREDENTIAL_KEY, JSON.stringify(credential));
+  await SecureStore.setItemAsync(CREDENTIAL_SITE_KEY, RP_ID);
+}
+
+/** Whether the saved passkey is one this build can ask the phone for. One
+ * saved under an earlier address is not, and neither is one saved before the
+ * site was recorded: it cannot be shown to belong here, and asking for it by
+ * name is what strands a person at the scan code. */
+async function credentialIsForThisSite(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(CREDENTIAL_SITE_KEY)) === RP_ID;
 }
 
 async function loadCredential(): Promise<PasskeyCredentialMetadata | undefined> {
   const raw = await SecureStore.getItemAsync(CREDENTIAL_KEY);
-  if (!raw) return undefined;
+  if (!raw || !(await credentialIsForThisSite())) return undefined;
   return JSON.parse(raw) as PasskeyCredentialMetadata;
 }
 
@@ -379,6 +393,7 @@ export async function forgetEverything(): Promise<void> {
   await Promise.all([
     SecureStore.deleteItemAsync(SESSION_KEY),
     SecureStore.deleteItemAsync(CREDENTIAL_KEY),
+    SecureStore.deleteItemAsync(CREDENTIAL_SITE_KEY),
     SecureStore.deleteItemAsync(ONBOARDED_KEY),
     SecureStore.deleteItemAsync(DISPLAY_NAME_KEY),
     SecureStore.deleteItemAsync(PROFILE_KEY),
@@ -388,8 +403,22 @@ export async function forgetEverything(): Promise<void> {
   ]);
 }
 
-/** Whether a passkey has ever been registered on this device — for the
- * Security section's "Manage passkey" status line. */
+/** Whether this phone holds a passkey it can unlock with: one saved here, for
+ * the site this build signs in to. Also the Security section's status line. */
 export async function hasStoredCredential(): Promise<boolean> {
-  return (await SecureStore.getItemAsync(CREDENTIAL_KEY)) !== null;
+  return (await SecureStore.getItemAsync(CREDENTIAL_KEY)) !== null && (await credentialIsForThisSite());
+}
+
+/**
+ * Forgets an account this phone can no longer open: one whose passkey was made
+ * for another address. Its name, its assistant setting and its "already set
+ * up" flag would otherwise be carried into the next account made here. Says
+ * whether anything was cleared. The account itself is untouched; it is only
+ * this phone that stops pointing at it.
+ */
+export async function clearAccountFromAnotherSite(): Promise<boolean> {
+  const stored = (await SecureStore.getItemAsync(CREDENTIAL_KEY)) !== null;
+  if (!stored || (await credentialIsForThisSite())) return false;
+  await forgetEverything();
+  return true;
 }

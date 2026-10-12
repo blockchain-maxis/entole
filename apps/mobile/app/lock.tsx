@@ -8,11 +8,15 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { lockScreen } from '@/lib/lock-state';
-import { hasStoredCredential, reauthenticate } from '@/lib/session';
+import { forgetEverything, hasStoredCredential, reauthenticate } from '@/lib/session';
 
 /**
  * A stale session re-prompts here rather than lapsing into a screen that
  * still looks signed in. Non-dismissible on purpose — there is no "not now."
+ *
+ * There is one way out, offered only after an unlock has failed: start again
+ * on this phone. Without it, a phone whose passkey is gone could never leave
+ * this screen. It asks first, and says what it does and does not do.
  */
 export default function Lock() {
   const router = useRouter();
@@ -22,6 +26,7 @@ export default function Lock() {
   // mount, so there is no synchronous frame where this should read false.
   const [checking, setChecking] = useState(true);
   const [attempts, setAttempts] = useState(0);
+  const [startingAgain, setStartingAgain] = useState(false);
 
   // Tells the tabs' session guard this screen is up, so it does not stack a
   // second one when the passkey sheet closes and the app returns to the front.
@@ -67,7 +72,13 @@ export default function Lock() {
   function retry() {
     setChecking(true);
     setReason(null);
+    setStartingAgain(false);
     setAttempts((n) => n + 1);
+  }
+
+  async function startAgain() {
+    await forgetEverything();
+    router.replace('/onboarding');
   }
 
   return (
@@ -84,11 +95,31 @@ export default function Lock() {
           Your session timed out. Nothing here moves until you do.
         </Text>
         {reason ? <Text className="mt-4 font-body text-ui text-halt">{reason}</Text> : null}
+        {startingAgain ? (
+          <Text className="mt-4 font-body text-ui text-slate">
+            This phone will forget the account it holds. The account and its money are not touched: sign back in
+            with its passkey from the first screen.
+          </Text>
+        ) : null}
       </View>
 
-      <View className="flex-none flex-row px-gutter-lg pb-2.5 pt-3">
-        <Button label={checking ? 'Checking' : 'Try again'} busy={checking} disabled={checking} onPress={retry} />
-      </View>
+      {startingAgain ? (
+        <View className="flex-none flex-row gap-3 px-gutter-lg pb-2.5 pt-3">
+          <Button label="Keep trying" variant="secondary" onPress={() => setStartingAgain(false)} />
+          <Button label="Start again" variant="danger-outline" onPress={() => void startAgain()} />
+        </View>
+      ) : (
+        <View className="flex-none px-gutter-lg pb-2.5 pt-3">
+          <View className="flex-row">
+            <Button label={checking ? 'Checking' : 'Try again'} busy={checking} disabled={checking} onPress={retry} />
+          </View>
+          {reason && !checking ? (
+            <View className="mt-2 flex-row">
+              <Button label="Start again on this phone" variant="quiet" onPress={() => setStartingAgain(true)} />
+            </View>
+          ) : null}
+        </View>
+      )}
     </Screen>
   );
 }
