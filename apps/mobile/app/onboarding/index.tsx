@@ -108,7 +108,15 @@ export default function Welcome() {
           />
         </View>
         <Text className="mt-3.5 text-center font-body text-note text-slate">
-          By continuing you agree to our terms and privacy notice.
+          By continuing you agree to our{' '}
+          <Text accessibilityRole="link" className="underline" onPress={() => router.push('/legal/terms')}>
+            terms
+          </Text>{' '}
+          and{' '}
+          <Text accessibilityRole="link" className="underline" onPress={() => router.push('/legal/privacy')}>
+            privacy notice
+          </Text>
+          .
         </Text>
       </View>
     </Screen>

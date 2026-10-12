@@ -93,8 +93,9 @@ describe('the pause control is reachable from every page header', () => {
   // account, so it renders `CheckoutHeader`, which draws the same pause control
   // whenever someone is signed in (asserted in "the public checkout page" below).
   // The page a bank transfer returns to (`/add-money/return`) is public for the
-  // same reason and carries the same header.
-  const PUBLIC_PAGES = [join('pay', ''), join('add-money', 'return', '')];
+  // same reason and carries the same header. So do the Terms and the Privacy
+  // notice (`LegalPage`), which have to be readable before an account exists.
+  const PUBLIC_PAGES = [join('pay', ''), join('add-money', 'return', ''), join('legal', '')];
   const isCheckout = (file: string) => PUBLIC_PAGES.some((prefix) => relative(PAGES, file).startsWith(prefix));
 
   it.each(pages.filter((file) => !isCheckout(file)))('%s renders the shared header', (file) => {
@@ -795,5 +796,39 @@ describe('a long form keeps its button in reach', () => {
     const action = /<div className="sticky[^"]*">\s*<button[\s\S]*?Send invoice/.exec(invoice)?.[0] ?? '';
     expect(action).toMatch(/sticky bottom-\[92px\]/);
     expect(action).toMatch(/bg-paper/);
+  });
+});
+
+describe('a name is not a spelling mistake', () => {
+  it.each([
+    ['components/AuthGate.tsx', 'id="full-name"'],
+    ['app/me/page.tsx', 'id="profile-full-name"'],
+    ['app/business/new-invoice/page.tsx', 'id="invoice-client"'],
+    ['components/SaveRecipient.tsx', 'placeholder="Their name"'],
+  ])('%s: the field for a name is not spell-checked', (path, anchor) => {
+    const source = read(join(ROOT, path));
+    const field = source.slice(source.lastIndexOf('<input', source.indexOf(anchor)), source.indexOf('/>', source.indexOf(anchor)));
+    expect(field).toContain(anchor);
+    expect(field).toMatch(/spellCheck=\{false\}/);
+  });
+});
+
+describe('the terms and the privacy notice', () => {
+  const page = stripComments(read(join(COMPONENTS, 'LegalPage.tsx')));
+
+  it('are the shared words, not a second copy', () => {
+    expect(stripComments(read(join(PAGES, 'legal/terms/page.tsx')))).toMatch(/<LegalPage document=\{TERMS\}/);
+    expect(stripComments(read(join(PAGES, 'legal/privacy/page.tsx')))).toMatch(/<LegalPage document=\{PRIVACY\}/);
+    expect(page).toMatch(/from '@entole\/core\/legal'/);
+    expect(page).not.toMatch(/placeholder/i);
+  });
+
+  it('can be read before signing up, and are offered where someone agrees to them', () => {
+    expect(stripComments(read(join(COMPONENTS, 'AuthGate.tsx')))).toMatch(/href="\/legal\/terms"[\s\S]*href="\/legal\/privacy"/);
+    expect(stripComments(read(join(COMPONENTS, 'Landing.tsx')))).toMatch(/href="\/legal\/terms"[\s\S]*href="\/legal\/privacy"/);
+  });
+
+  it('keep the pause control for anyone signed in', () => {
+    expect(page).toMatch(/<CheckoutHeader \/>/);
   });
 });

@@ -199,7 +199,11 @@ describe('links and copy', () => {
 });
 
 describe('public routes', () => {
-  it('exempts checkout pages, the page a bank transfer returns to, and nothing else', () => {
+  it('exempts checkout pages, the page a bank transfer returns to, the two legal pages, and nothing else', () => {
+    expect(isPublicPath('/legal/terms')).toBe(true);
+    expect(isPublicPath('/legal/privacy/')).toBe(true);
+    expect(isPublicPath('/legal')).toBe(false);
+    expect(isPublicPath('/legal/anything-else')).toBe(false);
     expect(isPublicPath(`/pay/${CODE}`)).toBe(true);
     expect(isPublicPath(`/pay/${CODE}/`)).toBe(true);
     expect(isPublicPath('/add-money/return')).toBe(true);

@@ -131,6 +131,7 @@ export default function MePage() {
             </label>
             <input
               id="profile-full-name"
+              spellCheck={false}
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
               autoComplete="name"

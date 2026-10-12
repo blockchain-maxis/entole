@@ -1,20 +1,15 @@
-import { ScrollView } from 'react-native';
+import { PRIVACY } from '@entole/core/legal';
 
 import { Header } from '@/components/ui/Header';
+import { LegalDocument } from '@/components/ui/LegalDocument';
 import { Screen } from '@/components/ui/Screen';
-import { Text } from '@/components/ui/Text';
 
-/** Placeholder — a real privacy notice needs legal review before ship. */
+/** The privacy notice, from `@entole/core/legal`. */
 export default function Privacy() {
   return (
     <Screen>
-      <Header title="Privacy" />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}>
-        <Text className="font-body text-ui text-slate">
-          Placeholder — Entole&apos;s privacy notice goes here once written and reviewed. Nothing
-          on this screen is a real legal document yet.
-        </Text>
-      </ScrollView>
+      <Header title={PRIVACY.title} />
+      <LegalDocument document={PRIVACY} />
     </Screen>
   );
 }

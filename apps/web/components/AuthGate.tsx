@@ -228,6 +228,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </label>
           <input
             id="full-name"
+            spellCheck={false}
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
             placeholder="Your full name"
@@ -306,8 +307,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         </button>
 
         {onboarded ? null : (
-          <p className="mt-3.5 text-center font-body text-note text-slate">
-            By continuing you agree to our terms and privacy notice.
+          <p className="mt-3.5 text-pretty text-center font-body text-note text-slate">
+            By continuing you agree to our{' '}
+            <a href="/legal/terms" target="_blank" rel="noopener" className="underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+              terms
+            </a>{' '}
+            and{' '}
+            <a href="/legal/privacy" target="_blank" rel="noopener" className="underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+              privacy notice
+            </a>
+            .
           </p>
         )}
       </div>

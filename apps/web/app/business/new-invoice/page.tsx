@@ -103,6 +103,7 @@ export default function NewInvoicePage() {
         </label>
         <input
           id="invoice-client"
+          spellCheck={false}
           value={clientName}
           onChange={(event) => setClientName(event.target.value)}
           placeholder="Client or business name"

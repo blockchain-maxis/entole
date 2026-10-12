@@ -195,3 +195,11 @@ service gives (see `packages/core/aurora-intents.ts`).
 - Fee treasury becomes a dedicated multisig, not the deployer.
 - An independent audit of `EntolePolicy`, `EntoleRouter` and `GrowthVault` before
   real money. The tests are thorough; they are not an audit.
+- Rewrite every sentence that says "test network" or "test money": the Terms
+  and the Privacy notice (`packages/core/legal.ts`: "What Entole is today",
+  "Savings and stocks", "The service as it is", "What is public"), the first
+  page (`apps/web/components/Landing.tsx`), and the line under each post image.
+  `apps/web/tests/legal-network.test.ts` fails the day `NEXT_PUBLIC_CHAIN_ID`
+  becomes 143 until they are. Asked for by the owner on 12 October 2026.
+- A lawyer reads the Terms and the Privacy notice before that day. They were
+  drafted from what the code does, not reviewed.

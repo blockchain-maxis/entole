@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, Clock, Fingerprint } from 'lucide-react';
+import Link from 'next/link';
 
 import { viewAllowance } from '@entole/core/allowance';
 import { ASK_UNDO_SECONDS } from '@entole/core/assistant-ask';
@@ -362,12 +363,17 @@ export function Landing({
             <BrandGlyph size={22} />
             <span className="font-display text-ui text-ink">Entole</span>
           </div>
-          <a
-            href="mailto:support@entole.pro"
-            className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink"
-          >
-            support@entole.pro
-          </a>
+          <nav aria-label="Legal and contact" className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Link href="/legal/terms" className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+              Terms
+            </Link>
+            <Link href="/legal/privacy" className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+              Privacy
+            </Link>
+            <a href="mailto:support@entole.pro" className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+              support@entole.pro
+            </a>
+          </nav>
         </div>
       </footer>
     </div>

@@ -95,6 +95,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
             setProblem(null);
           }}
           placeholder="Their name"
+          spellCheck={false}
           autoComplete="off"
           autoCapitalize="words"
           enterKeyHint="done"
