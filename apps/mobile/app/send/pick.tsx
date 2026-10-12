@@ -5,9 +5,9 @@ import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 
 import { useBackend } from '@entole/core/backend';
-import { parseCheckout } from '@entole/core/checkout-link';
 import { countryName } from '@entole/core/countries';
 import { formatNaira, kobo } from '@entole/core/money';
+import { readRecipient } from '@entole/core/recipient';
 import { useStore } from '@entole/core/store';
 
 import { Button } from '@/components/ui/Button';
@@ -16,22 +16,18 @@ import { Header } from '@/components/ui/Header';
 import { ContactRow, SectionHeading } from '@/components/ui/Rows';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { cleanNote, handleIn, resolveSendTarget, sendParamsFor } from '@/lib/recipient';
+import { cleanNote, resolveSendTarget, sendParamsFor } from '@/lib/recipient';
 import { useThemeColors } from '@/lib/theme';
 
-const BAD_CODE = "That code doesn't look right — check it and try again.";
+const NOT_SOMEONE = "That doesn't look like a username, a phone number or a pay link.";
 const NUMBER_NOT_LINKED = "That number isn't linked to an Entole account yet.";
 const NOBODY_BY_THAT_NAME = 'Nobody on Entole has that username.';
-/** A payment code is PAY plus 36 characters. Past that many, a code that still
- * does not read is wrong, and there is no point waiting for the field to blur. */
-const COMPLETE_CODE_LENGTH = 39;
 
 /**
- * Who to pay: their username or phone number, or the code or link they
- * shared. One field, one door — a typed name, a pasted link, a scanned QR and
- * a typed code are read the same way. People you
- * have saved appear underneath as a shortcut when there are any; there is
- * nothing to set up first.
+ * Who to pay: their username or phone number, or the link they shared. One
+ * field, one door — a typed name, a pasted link and a scanned square are read
+ * the same way. People you have saved appear underneath as a shortcut when
+ * there are any; there is nothing to set up first.
  *
  * A `note` param (from a screen that already knows what the payment is for)
  * travels through to the review sheet's note.
@@ -50,38 +46,38 @@ export default function PickRecipient() {
   const [resolving, setResolving] = useState(false);
   const [resolveProblem, setResolveProblem] = useState<string | null>(null);
 
-  const parsed = useMemo(() => parseCheckout(text), [text]);
-  // A username or a number: it names someone, and Continue asks who.
-  const handle = useMemo(() => (parsed ? null : handleIn(text)), [text, parsed]);
+  // A username, a number or a pay link: it names someone, and Continue asks who.
+  const sought = useMemo(() => readRecipient(text), [text]);
+  const handle = sought?.kind === 'handle' ? sought.handle : null;
+  // A link from before usernames says where it goes by itself.
   const target = useMemo(
     () => sendParamsFor(text, note, backend.source.resolveContactId),
     [text, note, backend],
   );
   const typed = text.trim().length > 0;
-  const looksComplete = text.replace(/[^0-9a-z]/gi, '').length >= COMPLETE_CODE_LENGTH;
-  const error =
-    typed && !parsed && !handle && (touched || looksComplete) ? (resolveProblem ?? BAD_CODE) : resolveProblem;
+  const error = typed && !sought && touched ? (resolveProblem ?? NOT_SOMEONE) : resolveProblem;
 
+  const request = sought?.kind === 'handle' ? sought.request : (sought?.checkout ?? null);
   const asked =
-    parsed?.amountMinor !== undefined && parsed.currency === 'NGN'
-      ? formatNaira(kobo(parsed.amountMinor))
+    request?.amountMinor !== undefined && request.currency === 'NGN'
+      ? formatNaira(kobo(request.amountMinor))
       : null;
-  const hint = parsed
-    ? asked
-      ? `That checks out. It asks for ${asked}.`
-      : 'That checks out.'
-    : handle
-      ? handle.kind === 'username'
-        ? `Continue checks who @${handle.username} is.`
-        : 'Continue checks whose number that is.'
-      : 'Their username or number is enough. A code or a link works too.';
+  const hint = handle
+    ? handle.kind === 'username'
+      ? `Continue checks who @${handle.username} is.${asked ? ` The link asks for ${asked}.` : ''}`
+      : 'Continue checks whose number that is.'
+    : sought
+      ? asked
+        ? `That checks out. It asks for ${asked}.`
+        : 'That checks out.'
+      : 'Their username or number is enough. A link they shared works too.';
 
   async function paste() {
     setPasteNote(null);
     setResolveProblem(null);
     const clip = (await Clipboard.getStringAsync()).trim();
     if (!clip) {
-      setPasteNote('There is nothing to paste. Copy their code or link first.');
+      setPasteNote('There is nothing to paste. Copy their username or link first.');
       return;
     }
     setText(clip);
@@ -101,7 +97,7 @@ export default function PickRecipient() {
     if (result === 'unclaimed') {
       return setResolveProblem(handle.kind === 'username' ? NOBODY_BY_THAT_NAME : NUMBER_NOT_LINKED);
     }
-    if (!result) return setResolveProblem(BAD_CODE);
+    if (!result) return setResolveProblem(NOT_SOMEONE);
     router.replace({ pathname: '/send', params: result });
   }
 
@@ -126,7 +122,7 @@ export default function PickRecipient() {
 
           <View className="mt-5">
             <Field
-              label="Username, number, code or link"
+              label="Username, number or link"
               value={text}
               onChangeText={(next) => {
                 setText(next.replace(/\s*\n\s*/g, ''));
@@ -143,7 +139,7 @@ export default function PickRecipient() {
               trailing={
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Paste their code or link"
+                  accessibilityLabel="Paste their username or link"
                   hitSlop={10}
                   onPress={() => void paste()}
                   className="ml-3 self-start"

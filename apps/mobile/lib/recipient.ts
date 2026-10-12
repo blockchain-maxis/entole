@@ -2,17 +2,16 @@ import type { Address } from 'viem';
 
 import { entryFromMinor, EMPTY_ENTRY, type AmountEntry } from '@entole/core/amount-entry';
 import type { Backend } from '@entole/core/backend';
-import { parseCheckout } from '@entole/core/checkout-link';
-import { parseHandle, resolveHandle, type Handle } from '@entole/core/handle';
+import type { Checkout } from '@entole/core/checkout-link';
+import type { Handle } from '@entole/core/handle';
 import { kobo } from '@entole/core/money';
 import { oneOffId } from '@entole/core/one-off';
-import { encodePaymentCode } from '@entole/core/payment-code';
-import { parsePhoneLink } from '@entole/core/phone-link';
+import { findRecipient, readRecipient } from '@entole/core/recipient';
 
 /**
- * How typed, pasted and scanned text becomes a send. One door: a checkout
- * link, a `/pay/…` path, a deep link and a bare payment code all read the same,
- * so pasting and scanning cannot drift apart.
+ * How typed, pasted and scanned text becomes a send. One door: a username, a
+ * phone number, a pay link, a scanned square and a link opened from another
+ * app all read the same (`readRecipient` in core), so they cannot drift apart.
  */
 
 export type SendParams = {
@@ -33,79 +32,108 @@ export function cleanNote(value: unknown): string | undefined {
 }
 
 /**
- * The route params for sending to whatever `text` names, or `null` when it does
- * not carry a valid code. A link's amount only pre-fills when it is in naira —
- * an amount in another currency is not guessed at. `note` from the caller wins
- * over a note inside the link.
+ * The route params for sending to someone who has been found. A link's amount
+ * only pre-fills when it is in naira — an amount in another currency is not
+ * guessed at. `note` from the caller wins over a note inside the link.
  *
- * `resolveContactId` checks the code's address against saved beneficiaries
- * first, so paying someone already saved shows their real name instead of
- * "Payment code · …" — the one-off id is only a fallback for a stranger.
+ * `resolveContactId` checks the account against saved beneficiaries first, so
+ * paying someone already saved shows them as you saved them; the one-off id,
+ * carrying the name the directory has, is for someone new.
+ */
+function paramsFor(
+  found: Checkout,
+  note?: string,
+  resolveContactId?: (address: Address) => string | undefined,
+): SendParams | null {
+  const contactId = resolveContactId?.(found.address) ?? oneOffId(found.code, found.payee);
+  if (!contactId) return null;
+
+  const chosenNote = cleanNote(note) ?? cleanNote(found.note);
+  return {
+    contactId,
+    ...(found.amountMinor !== undefined && found.currency === 'NGN' ? { amount: String(found.amountMinor) } : {}),
+    ...(chosenNote ? { note: chosenNote } : {}),
+  };
+}
+
+/**
+ * The route params for whatever `text` names, when that can be known without
+ * asking anyone: a link in the form made before usernames, which says where
+ * the money goes by itself. `null` for everything else, a username or a number
+ * included: `resolveSendTarget` asks the directory about those.
  */
 export function sendParamsFor(
   text: string,
   note?: string,
   resolveContactId?: (address: Address) => string | undefined,
 ): SendParams | null {
-  const parsed = parseCheckout(text);
-  if (!parsed) return null;
-  const contactId = resolveContactId?.(parsed.address) ?? oneOffId(parsed.code, parsed.payee);
-  if (!contactId) return null;
-
-  const chosenNote = cleanNote(note) ?? cleanNote(parsed.note);
-  return {
-    contactId,
-    ...(parsed.amountMinor !== undefined && parsed.currency === 'NGN'
-      ? { amount: String(parsed.amountMinor) }
-      : {}),
-    ...(chosenNote ? { note: chosenNote } : {}),
-  };
+  const sought = readRecipient(text);
+  return sought?.kind === 'known' ? paramsFor(sought.checkout, note, resolveContactId) : null;
 }
 
 /**
- * `sendParamsFor`, extended with the one thing it can't do on its own: a
- * phone-number payment link (`/ng/8012345678`) only resolves through a
- * network call, since the number itself carries no address — unlike a
- * payment code, which decodes locally. Tries the fast, offline path first;
- * only reaches for the network if `text` looks like a phone link at all.
+ * Who `text` names, as route params for the send screen. A username, a phone
+ * number and a pay link all need the directory, so this is the one every
+ * screen calls: the field, the scanner, paste, and a link opened from outside.
  *
- * `'unclaimed'` distinguishes "that's not a link this app understands" from
- * "that's a real-looking phone link, but no one has claimed it" — worth
- * telling apart in the UI.
+ * `'unclaimed'` distinguishes "that's not something this app understands"
+ * (`null`) from "that reads fine, but nobody has it" — worth telling apart in
+ * the UI.
  */
 export async function resolveSendTarget(
   text: string,
   note: string | undefined,
   backend: Pick<Backend, 'source' | 'directory'>,
 ): Promise<SendParams | null | 'unclaimed'> {
-  const direct = sendParamsFor(text, note, backend.source.resolveContactId);
-  if (direct) return direct;
+  const sought = readRecipient(text);
+  if (!sought) return null;
 
-  const handle = handleIn(text);
-  if (!handle) return null;
-
-  const identity = await resolveHandle(backend.directory, handle).catch(() => null);
-  if (!identity) return 'unclaimed';
-
-  // Named by the directory, so the review reads "Tunde Bakare", not the end
-  // of a code.
-  const code = encodePaymentCode(identity.address as Address);
-  const contactId =
-    backend.source.resolveContactId(identity.address as Address) ?? oneOffId(code, identity.name);
-  if (!contactId) return null;
-
-  const chosenNote = cleanNote(note);
-  return { contactId, ...(chosenNote ? { note: chosenNote } : {}) };
+  const found = await findRecipient(backend.directory, sought).catch(() => null);
+  if (!found) return 'unclaimed';
+  return paramsFor(found, note, backend.source.resolveContactId);
 }
 
 /**
- * What typed text names when it is not a code or a checkout link: a number's
- * payment link, a typed phone number, or a username. Never touches the
+ * The username or number in typed text, when it is one. Never touches the
  * network; `resolveSendTarget` asks the directory who it is.
  */
 export function handleIn(text: string): Handle | null {
-  const linked = parsePhoneLink(text);
-  return linked ? { kind: 'phone', phone: linked } : parseHandle(text);
+  const sought = readRecipient(text);
+  return sought?.kind === 'handle' ? sought.handle : null;
+}
+
+/** The fields a pay link can carry after its `?`, as the router hands them over. */
+const LINK_FIELDS = ['t', 'a', 'c', 'r', 'm', 'd', 'n'] as const;
+
+/**
+ * A pay link opened from outside the app (`entole://pay/@ada.eze?a=500000`),
+ * put back together from what the router made of it, so it goes through the
+ * same door as a link that was pasted or scanned. `null` when the route named
+ * nobody.
+ */
+export function payLinkFromRoute(params: Record<string, unknown>): string | null {
+  const raw = typeof params.code === 'string' ? params.code : '';
+  let who = raw;
+  try {
+    who = decodeURIComponent(raw);
+  } catch {
+    // Left as it came; it will simply not read as anyone.
+  }
+  who = who.trim();
+  if (!who || who.length > 80) return null;
+  // A username written without its "@" is still a username.
+  if (/^[a-z0-9_.]{3,20}$/i.test(who) && /[a-z]/i.test(who)) who = `@${who}`;
+
+  const query = LINK_FIELDS.flatMap((key) => {
+    const value = params[key];
+    return typeof value === 'string' && value ? [`${key}=${encodeURIComponent(value.slice(0, 400))}`] : [];
+  });
+  return `/pay/${who}${query.length ? `?${query.join('&')}` : ''}`;
+}
+
+/** A path the lock screen may carry someone on to once they are back in: a pay link, nothing else. */
+export function isPayPath(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 2000 && /^\/pay\/[^/]+(\?.*)?$/.test(value);
 }
 
 /** Starting keypad entry for an `amount` route param; empty when it is missing or does not fit. */

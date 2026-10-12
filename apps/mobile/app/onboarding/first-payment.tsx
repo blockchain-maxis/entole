@@ -68,8 +68,8 @@ export default function FirstPayment() {
         <Text className="font-display text-heading text-ink">Send your first payment</Text>
         <Text className="mt-3 font-body text-ui text-slate">
           {empty
-            ? 'Send money to someone with their code or the link they shared.'
-            : 'Choose who you are sending to, or use a code or link.'}
+            ? 'Send money to someone with their username, their number or the link they shared.'
+            : 'Choose who you are sending to, or use a username, a number or a link.'}
         </Text>
 
         <View className="mt-[22px] gap-2">
@@ -110,7 +110,7 @@ export default function FirstPayment() {
         <View className="gap-2.5">
           <View className="flex-row">
             <Button
-              label="Use a code or link"
+              label="Use a username or link"
               variant={empty ? 'primary' : 'secondary'}
               onPress={() => void finish({ to: 'pick' })}
             />

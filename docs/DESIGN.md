@@ -127,8 +127,8 @@ the pause control.
 **Skeletons, not spinners.** A list, a balance, a row: each loads as a skeleton
 in its own shape. The one exception is the Entole mark itself (see Motion).
 
-**People first.** Paying starts from the people already saved; a payment code
-is how someone new gets in. A person is a name and initials that can be read,
+**People first.** Paying starts from the people already saved; a username or a
+phone number is how someone new gets in. There is no code to show or to ask for. A person is a name and initials that can be read,
 and a photo when there is one. The address should be impossible to reach
 without deliberately hunting for it, and there is no reason to build that hunt.
 

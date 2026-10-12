@@ -5,8 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 
 import { useBackend } from '@entole/core/backend';
-import { decodePaymentCode } from '@entole/core/payment-code';
+import type { Checkout } from '@entole/core/checkout-link';
+import { formatHandle } from '@entole/core/handle';
+import { oneOffAddress } from '@entole/core/one-off';
+import { findRecipient, readRecipient } from '@entole/core/recipient';
 import { beneficiarySchema, type Beneficiary } from '@entole/core/records';
+import { suggestedNameFor } from '@entole/core/save-recipient';
 import { useStore } from '@entole/core/store';
 
 import { BeneficiaryForm } from '@/components/ui/BeneficiaryForm';
@@ -24,29 +28,37 @@ import {
   type BeneficiaryDraft,
 } from '@/lib/beneficiary-draft';
 
-const BAD_CODE = "That code doesn't look right — check it and try again.";
+const NOT_SOMEONE = "That doesn't look like a username or a phone number.";
 
 /**
- * Add someone by their payment code. The code is pasted or typed — there is no
- * camera step — and it is checked before anything else is asked. The address
- * inside it is held only long enough to save the record; nothing here renders
- * it.
+ * Add someone by their username or their phone number. It is typed or pasted,
+ * the directory says who it is, and their name is filled in to be kept or
+ * changed. Where their money goes is held only long enough to save the record;
+ * nothing here renders it.
  *
- * `next=send` carries the person straight on to paying the beneficiary they
- * just added; otherwise this goes back to where they came from.
+ * `recipient` is someone just paid, handed over from the send screen or a
+ * receipt: they are already known, so nothing is asked for but what to call
+ * them. `next=send` carries the person straight on to paying the beneficiary
+ * they just added; otherwise this goes back to where they came from.
  */
 export default function NewBeneficiary() {
   const router = useRouter();
   const store = useStore();
-  const { source, paymentCode } = useBackend();
+  const { source, directory } = useBackend();
   const { account } = useAccount();
-  const { next, code: presetCode } = useLocalSearchParams<{ next?: string; code?: string }>();
+  const { next, recipient } = useLocalSearchParams<{ next?: string; recipient?: string }>();
 
-  // `code` pre-fills the field when saving someone just paid by their code.
-  const [code, setCode] = useState(presetCode ?? '');
-  const [codeTouched, setCodeTouched] = useState(Boolean(presetCode));
+  // Someone just paid: who they are travels in the id, never as text on a screen.
+  const paid = useMemo(() => {
+    const address = recipient ? oneOffAddress(recipient) : null;
+    return address && recipient ? { address, name: suggestedNameFor(recipient) } : null;
+  }, [recipient]);
+
+  const [who, setWho] = useState('');
+  const [whoTouched, setWhoTouched] = useState(false);
   const [pasteNote, setPasteNote] = useState<string | null>(null);
-  const [draft, setDraft] = useState<BeneficiaryDraft>(EMPTY_DRAFT);
+  const [found, setFound] = useState<{ text: string; who: Checkout | 'nobody' } | null>(null);
+  const [draft, setDraft] = useState<BeneficiaryDraft>(() => ({ ...EMPTY_DRAFT, name: paid?.name ?? '' }));
   const [pickingCountry, setPickingCountry] = useState(false);
   const [existing, setExisting] = useState<Beneficiary[]>([]);
   const [saving, setSaving] = useState(false);
@@ -63,52 +75,83 @@ export default function NewBeneficiary() {
     };
   }, [source]);
 
-  const decoded = useMemo(() => (code.trim() ? decodePaymentCode(code) : null), [code]);
-  const own = useMemo(() => {
-    const mine = [paymentCode ? decodePaymentCode(paymentCode) : null, account?.owner.viemAccount.address ?? null];
-    return decoded !== null && mine.some((address) => address?.toLowerCase() === decoded.toLowerCase());
-  }, [account, decoded, paymentCode]);
+  // A username or a number names someone; the directory says who, a moment
+  // after typing stops.
+  const sought = useMemo(() => (paid ? null : readRecipient(who)), [paid, who]);
+  useEffect(() => {
+    if (!sought) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      void findRecipient(directory, sought)
+        .catch(() => null)
+        .then((person) => {
+          if (!live) return;
+          setFound({ text: who, who: person ?? 'nobody' });
+          // Their own name, to keep or change. Never over one already typed.
+          if (person?.payee) setDraft((current) => (current.name.trim() ? current : { ...current, name: person.payee! }));
+        });
+    }, 350);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [sought, who, directory]);
+
+  const looked = sought && found?.text === who ? found.who : null;
+  const person = looked && looked !== 'nobody' ? looked : null;
+  const address = paid?.address ?? person?.address ?? null;
+
+  const own = address !== null && account?.owner.viemAccount.address.toLowerCase() === address.toLowerCase();
   const duplicate = useMemo(
-    () => (decoded ? existing.find((entry) => entry.address.toLowerCase() === decoded.toLowerCase()) : undefined),
-    [decoded, existing],
+    () => (address ? existing.find((entry) => entry.address.toLowerCase() === address.toLowerCase()) : undefined),
+    [address, existing],
   );
 
   const problems = draftProblems(draft);
-  const codeError = !code.trim()
-    ? null
-    : own
-      ? "That's your own payment code. Add someone else."
-      : duplicate
-        ? `You already have ${duplicate.nickname ?? duplicate.name} as a beneficiary.`
-        : decoded === null && codeTouched
-          ? BAD_CODE
+  const typed = who.trim().length > 0;
+  const written = sought?.kind === 'handle' ? formatHandle(sought.handle) : 'that';
+  const whoError = own
+    ? "That's you. Add someone else."
+    : duplicate
+      ? `You already have ${duplicate.nickname ?? duplicate.name} as a beneficiary.`
+      : looked === 'nobody'
+        ? `Nobody on Entole has ${written} yet.`
+        : typed && !sought && whoTouched
+          ? NOT_SOMEONE
           : null;
-  const codeOk = decoded !== null && !own && !duplicate;
+  const whoOk = address !== null && !own && !duplicate;
+  const whoHint = person
+    ? `That is ${person.payee ?? 'someone on Entole'}.`
+    : sought
+      ? `Looking for ${written}.`
+      : 'Their username, like @ada.eze, or their phone number.';
 
-  const blocker = !codeOk
-    ? 'Enter their payment code to continue.'
+  const blocker = !whoOk
+    ? paid
+      ? whoError
+      : 'Enter their username or number to continue.'
     : (problems.name ?? problems.bankName ?? problems.accountNumber ?? null);
 
   async function paste() {
     setPasteNote(null);
     const text = (await Clipboard.getStringAsync()).trim();
     if (!text) {
-      setPasteNote('There is nothing to paste. Copy their payment code first.');
+      setPasteNote('There is nothing to paste. Copy their username or link first.');
       return;
     }
-    setCode(text);
-    setCodeTouched(true);
+    setWho(text);
+    setWhoTouched(true);
   }
 
   async function save() {
-    if (!codeOk || decoded === null || blocker || saving) return;
+    if (!whoOk || address === null || blocker || saving) return;
     setSaving(true);
     setProblem(null);
     try {
       // The list is read again here: it is the authority on duplicates, and
       // its length picks this person's avatar tone.
       const current = await source.listBeneficiaries();
-      const clash = current.find((entry) => entry.address.toLowerCase() === decoded.toLowerCase());
+      const clash = current.find((entry) => entry.address.toLowerCase() === address.toLowerCase());
       if (clash) {
         setExisting(current);
         return;
@@ -117,7 +160,7 @@ export default function NewBeneficiary() {
       const parsed = beneficiarySchema.safeParse({
         id: randomUUID(),
         ...toRecordFields(draft),
-        address: decoded,
+        address,
         tone: (current.length % 3) + 1,
         createdAt: new Date().toISOString(),
       });
@@ -150,37 +193,46 @@ export default function NewBeneficiary() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, gap: 22 }}
           >
-            <Text className="font-body text-ui text-slate">
-              Ask them for their payment code. They can share it from Receive in their app.
-            </Text>
+            {paid ? (
+              <Text className="font-body text-ui text-slate">
+                {paid.name
+                  ? `Save ${paid.name} and you can pay them again in a couple of taps.`
+                  : 'Save the person you just paid and you can pay them again in a couple of taps.'}
+              </Text>
+            ) : (
+              <>
+                <Text className="font-body text-ui text-slate">
+                  Ask them for their username. It is on Receive in their app. Their phone number works too.
+                </Text>
 
-            <Field
-              label="Payment code"
-              value={code}
-              onChangeText={(text) => {
-                setCode(text.replace(/\s*\n\s*/g, ' '));
-                setPasteNote(null);
-              }}
-              onBlur={() => setCodeTouched(true)}
-              placeholder="PAY-XXXX-XXXX-XXXX"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              multiline
-              editable={!saving}
-              error={codeError ?? pasteNote}
-              hint={codeOk ? 'That code checks out.' : 'Paste it or type it. Dashes and capitals do not matter.'}
-              trailing={
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Paste the payment code"
-                  hitSlop={10}
-                  onPress={() => void paste()}
-                  className="ml-3 self-start"
-                >
-                  <Text className="font-strong text-ui text-ink underline">Paste</Text>
-                </Pressable>
-              }
-            />
+                <Field
+                  label="Username or number"
+                  value={who}
+                  onChangeText={(text) => {
+                    setWho(text.replace(/\s*\n\s*/g, ' '));
+                    setPasteNote(null);
+                  }}
+                  onBlur={() => setWhoTouched(true)}
+                  placeholder="@username or 0803 123 4567"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!saving}
+                  error={whoError ?? pasteNote}
+                  hint={whoHint}
+                  trailing={
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Paste their username"
+                      hitSlop={10}
+                      onPress={() => void paste()}
+                      className="ml-3 self-start"
+                    >
+                      <Text className="font-strong text-ui text-ink underline">Paste</Text>
+                    </Pressable>
+                  }
+                />
+              </>
+            )}
 
             <BeneficiaryForm
               draft={draft}

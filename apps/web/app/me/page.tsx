@@ -173,7 +173,6 @@ function Me() {
               {profile.username ? (
                 <p className="mt-1 max-w-full truncate font-body text-ui text-slate">@{profile.username}</p>
               ) : null}
-              <p className="tabular mt-0.5 font-body text-note text-slate">{profile.code}</p>
             </>
           ) : null}
         </div>

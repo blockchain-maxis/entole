@@ -76,7 +76,7 @@ const CONTACTS = new Map([MUM, TUNDE].map((contact) => [contact.id, contact]));
 const WORKS_TODAY = [
   'Open an account with a name and your fingerprint',
   'Add test money and send it in seconds',
-  'Get paid with a link or a payment code',
+  'Get paid with your username or a link',
   'Give the assistant an allowance and ask it to pay',
   'Stop the assistant from the top of any screen',
 ];

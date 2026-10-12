@@ -2,24 +2,25 @@ import { phoneHandleSchema, usernameHandleSchema, type DirectoryIdentity, type P
 import { normalizeUsername } from './profile';
 
 /**
- * How a person names someone to pay without a payment code: a username or a
- * phone number. Reading one never touches the network, so it cannot say
- * whether anyone has claimed it; the directory answers that.
+ * How a person names someone to pay: a username or a phone number. Reading one
+ * never touches the network, so it cannot say whether anyone has claimed it;
+ * the directory answers that.
  */
 export type Handle = { kind: 'username'; username: string } | { kind: 'phone'; phone: PhoneHandle };
 
 /** A Nigerian mobile number in any of the ways it is written, down to its ten
- * digits: "0803 123 4567", "+234 803 123 4567", "2348031234567", "8031234567". */
-function nigerianNumber(text: string): string | null {
+ * digits: "0803 123 4567", "+234 803 123 4567", "+234 0803 123 4567",
+ * "2348031234567", "8031234567". `null` for anything that is not one. */
+export function normalizeNigerianNumber(text: string): string | null {
   const digits = text.replace(/[\s().-]/g, '');
-  const match = /^(?:\+?234|0)?([789][01]\d{8})$/.exec(digits);
+  const match = /^(?:\+?234)?0?([789][01]\d{8})$/.exec(digits);
   return match ? match[1]! : null;
 }
 
 /**
  * Reads typed text as a username ("@ada.eze", or "ada.eze" on its own) or a
- * phone number. `null` for anything else, including a payment code or a link,
- * which are read elsewhere and first.
+ * phone number. `null` for anything else. A pay link with an amount on it is
+ * read whole by `parsePayLink`; this only says whose it is.
  */
 export function parseHandle(input: string): Handle | null {
   const text = input.trim();
@@ -30,7 +31,7 @@ export function parseHandle(input: string): Handle | null {
   if (linked) return { kind: 'username', username: linked[1]!.toLowerCase() };
   if (text.length > 40) return null;
 
-  const number = nigerianNumber(text);
+  const number = normalizeNigerianNumber(text);
   if (number) {
     const phone = phoneHandleSchema.safeParse({ country: 'ng', number });
     return phone.success ? { kind: 'phone', phone: phone.data } : null;

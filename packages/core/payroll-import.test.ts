@@ -10,6 +10,7 @@ import {
   parsePayrollCsv,
   parsePayrollSheet,
   payrollTemplateCsv,
+  resolvePayrollImport,
 } from './payroll-import';
 
 const ADA = encodePaymentCode('0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01');
@@ -172,13 +173,13 @@ describe('payroll from CSV', () => {
     );
     expect(result.rows.map((row) => row.name)).toEqual(['Ada', 'Yusuf']);
     expect(result.problems.map((p) => p.message)).toEqual([
-      "Row 3: that code doesn't look right.",
+      "Row 3: that doesn't look like a username or a phone number.",
       'Row 4: add a name.',
       'Row 5: add an amount.',
       "Row 6: that amount doesn't look right.",
       'Row 7: the amount has to be more than zero.',
       'Row 8: amounts can have at most 2 decimal places.',
-      'Row 9: add a payment code.',
+      'Row 9: add a username or phone number.',
     ]);
     expect(result.problems.every((p) => p.kind === 'error')).toBe(true);
     expect(result.problems.map((p) => p.line)).toEqual([3, 4, 5, 6, 7, 8, 9]);
@@ -191,7 +192,7 @@ describe('payroll from CSV', () => {
       {
         line: 3,
         kind: 'warning',
-        message: 'Row 3: Ada O. has the same payment code as Ada on row 2, so this row was left out.',
+        message: 'Row 3: Ada O. is the same person as Ada on row 2, so this row was left out.',
       },
     ]);
     expect(errors(result)).toEqual([]);
@@ -208,7 +209,7 @@ describe('payroll from CSV', () => {
   it('says so when the headings are missing or incomplete', () => {
     expect(parsePayrollCsv(`Ada,${ADA},100`).problems[0]!.message).toMatch(/couldn't find the column headings/);
     expect(parsePayrollCsv('Name,Amount\nAda,100').problems[0]!.message).toBe(
-      'Row 1: there is no “Payment code” column.',
+      'Row 1: there is no “Username or number” column.',
     );
   });
 
@@ -220,11 +221,11 @@ describe('payroll from CSV', () => {
 
   it('the sample file is honest: importing it untouched pays nobody', () => {
     const csv = payrollTemplateCsv();
-    expect(csv.split('\n')[0]).toBe('Name,Payment code,Amount,Note');
+    expect(csv.split('\n')[0]).toBe('Name,Username or number,Amount,Note');
     const result = parsePayrollCsv(csv);
     expect(result.rows).toEqual([]);
     expect(errors(result).length).toBe(2);
-    expect(result.problems[0]!.message).toBe("Row 2: that code doesn't look right.");
+    expect(result.problems[0]!.message).toBe("Row 2: that doesn't look like a username or a phone number.");
   });
 });
 
@@ -294,5 +295,74 @@ describe('payroll from Excel', () => {
   it('parsePayrollBytes sends plain text to the CSV reader', () => {
     const bytes = new TextEncoder().encode(`﻿Name,Code,Amount\r\nAda,${ADA},"1,000"\r\n`);
     expect(parsePayrollBytes(bytes).rows).toEqual([{ line: 2, name: 'Ada', code: ADA, amountMinor: 100_000 }]);
+  });
+});
+
+describe('payroll by username or number', () => {
+  const ADA_ADDRESS = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01';
+  const TUNDE_ADDRESS = '0xc0d9BC33696d2F5676A1AcB1e39d03046405eE80';
+  const person = (address: string, name: string, username: string) => ({
+    address,
+    name,
+    initials: name.slice(0, 1),
+    tone: 1 as const,
+    username,
+  });
+  const directory = {
+    resolveByUsername: async (username: string) =>
+      username === 'ada.eze'
+        ? person(ADA_ADDRESS, 'Ada Eze', 'ada.eze')
+        : username === 'tunde_b'
+          ? person(TUNDE_ADDRESS, 'Tunde Bello', 'tunde_b')
+          : null,
+    resolveByPhone: async (phone: { country: string; number: string }) =>
+      phone.number === '9012365123' ? person(ADA_ADDRESS, 'Ada Eze', 'ada.eze') : null,
+  };
+
+  it('reads usernames and numbers without asking anyone, and leaves them to be looked up', () => {
+    const result = parsePayrollCsv('Name,Username or number,Amount\nAda,@ada.eze,"150,000"\nTunde,0803 123 4567,5000\n');
+    expect(result.problems).toEqual([]);
+    expect(result.rows).toEqual([]);
+    expect(result.pending).toEqual([
+      { line: 2, name: 'Ada', handle: { kind: 'username', username: 'ada.eze' }, amountMinor: 15_000_000 },
+      { line: 3, name: 'Tunde', handle: { kind: 'phone', phone: { country: 'ng', number: '8031234567' } }, amountMinor: 500_000 },
+    ]);
+  });
+
+  it.each(['Username', 'Entole username', 'Phone number', 'Handle', 'Mobile'])('knows the heading %s', (heading) => {
+    const result = parsePayrollCsv(`Name,${heading},Amount\nAda,@ada.eze,100`);
+    expect(result.problems).toEqual([]);
+    expect(result.pending).toHaveLength(1);
+  });
+
+  it('turns the people the directory has into rows that can be paid, and says who it could not find', async () => {
+    const read = parsePayrollCsv(
+      ['Name,Username or number,Amount,Note', 'Ada,@ada.eze,"150,000",September', 'Nobody,@not.here,100,', 'Tunde,tunde_b,5000,'].join('\n'),
+    );
+    const result = await resolvePayrollImport(read, directory);
+    expect(result.pending).toEqual([]);
+    expect(result.rows).toEqual([
+      { line: 2, name: 'Ada', code: ADA, handle: '@ada.eze', amountMinor: 15_000_000, note: 'September' },
+      { line: 4, name: 'Tunde', code: TUNDE, handle: '@tunde_b', amountMinor: 500_000 },
+    ]);
+    expect(result.problems).toEqual([
+      { line: 3, kind: 'error', message: "Row 3: we couldn't find @not.here on Entole." },
+    ]);
+    // Nothing a screen shows about a row is the account itself.
+    expect(result.rows.map((row) => row.handle).join(' ')).not.toMatch(/PAY-|0x/);
+  });
+
+  it('one person written two ways is paid once', async () => {
+    const read = parsePayrollCsv('Name,Username or number,Amount\nAda,@ada.eze,100\nAda E.,0901 236 5123,200\n');
+    const result = await resolvePayrollImport(read, directory);
+    expect(result.rows.map((row) => row.name)).toEqual(['Ada']);
+    expect(result.problems).toEqual([
+      { line: 3, kind: 'warning', message: 'Row 3: Ada E. is the same person as Ada on row 2, so this row was left out.' },
+    ]);
+  });
+
+  it('a file with nobody to look up comes back as it was', async () => {
+    const read = parsePayrollCsv('Name,Amount\nAda,100');
+    expect(await resolvePayrollImport(read, directory)).toBe(read);
   });
 });

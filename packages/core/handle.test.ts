@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatHandle, parseHandle, resolveHandle } from './handle';
+import { formatHandle, normalizeNigerianNumber, parseHandle, resolveHandle } from './handle';
 
 describe('reading a username or a phone number', () => {
   it.each([
@@ -56,5 +56,18 @@ describe('reading a username or a phone number', () => {
     await resolveHandle(directory, { kind: 'username', username: 'ada.eze' });
     await resolveHandle(directory, { kind: 'phone', phone: { country: 'ng', number: '8031234567' } });
     expect(asked).toEqual(['u:ada.eze', 'p:8031234567']);
+  });
+});
+
+describe('a Nigerian number, down to the ten digits it is kept as', () => {
+  it.each(['09012365123', '0901 236 5123', '9012365123', '+234 901 236 5123', '+234 0901 236 5123', '2349012365123', '(0901) 236-5123'])(
+    '%s',
+    (written) => {
+      expect(normalizeNigerianNumber(written)).toBe('9012365123');
+    },
+  );
+
+  it.each(['', '0901236512', '090123651234', '1234567890', '05012365123', 'ada'])('%s is not one', (written) => {
+    expect(normalizeNigerianNumber(written)).toBeNull();
   });
 });

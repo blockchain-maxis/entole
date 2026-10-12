@@ -61,7 +61,7 @@ export const TERMS: LegalDocument = {
       body: [
         'Before a payment goes, a review screen shows who it is for, how much, and the fee. Check it. Once you confirm, the payment is sent straight away and we cannot reverse it.',
         'A payment is shown as delivered only when it has been delivered. Until then it is pending.',
-        'Anyone who has your payment link or code can send you money. It does not let them take any.',
+        'Anyone who has your username, your phone number or your pay link can send you money. None of them lets anyone take any.',
         'Where a payment partner carries out part of a payment, such as paying in by bank or card or paying a bill, that part also follows the partner’s own terms, shown to you at that step.',
       ],
     },
@@ -143,7 +143,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'What we keep',
       body: [
-        'Your name, your initials and your username are published against your account number, so that people can find and pay you by username and see a name when they do. A username belongs to one person: the first to choose it. Anyone who has your username or your payment code can see that name.',
+        'Your name, your initials and your username are published against your account number, so that people can find and pay you by username and see a name when they do. A username belongs to one person: the first to choose it. Anyone who has your username or your pay link can see that name.',
         'If you give your phone number in the phone app, it is published the same way, so that you can be paid by number. Anyone who has your number can see your name.',
         'If you connect the assistant to a messaging app, we keep the link between that chat and your account, the names and account numbers of the people you have saved, the allowance it may use, and the payments it has proposed.',
         'Like every website, the service records the usual technical details of each request, such as an IP address, the kind of browser and the time. We use them to keep the service running and to stop abuse.',

@@ -16,7 +16,7 @@ import { plainMessage, sendBounds } from './send';
 export type RunLine = {
   id: string;
   name: string;
-  /** `PAY-XXXX-…` */
+  /** Their account, in the form records keep it. Never put on a screen. */
   code: string;
   amountMinor: number;
 };

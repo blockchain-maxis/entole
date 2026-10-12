@@ -10,7 +10,6 @@ import {
   checkoutFromRequest,
   checkoutTitle,
   cleanText,
-  codeLabel,
   dueState,
   formatCheckoutAmount,
   minorToMajorString,
@@ -171,8 +170,19 @@ describe('links and copy', () => {
     expect(inner).toBe(buildCheckoutLink('https://x.test', checkout)!.slice('https://x.test'.length));
   });
 
-  it('labels a code by its last group only', () => {
-    expect(codeLabel(checkout)).toBe(CODE.split('-').slice(-1)[0]);
+  it('hands a checkout that has a username on by that username, never by the code', () => {
+    const named = { ...checkout, username: 'ada.sons' };
+    const link = appLinkFor(named);
+    expect(link.startsWith('entole://pay/@ada.sons?')).toBe(true);
+    expect(link).toContain('t=invoice');
+    expect(link).toContain('a=25000000');
+    expect(link).not.toContain('PAY-');
+    // The name is the directory's to give, so the link does not carry one.
+    expect(link).not.toContain('n=');
+
+    const inner = decodeURIComponent(browserSendPathFor(named).slice('/transfer/send?to='.length));
+    expect(inner.startsWith('/pay/@ada.sons?')).toBe(true);
+    expect(inner).not.toContain('PAY-');
   });
 
   it('titles a pay link and an invoice', () => {

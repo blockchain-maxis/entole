@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   buildClaimMessage,
+  canonicalPhone,
   CLAIM_MAX_AGE_SECONDS,
   phoneHandleSchema,
   usernameHandleSchema,
@@ -22,7 +23,7 @@ import {
 /**
  * The identity directory: publishes a name, a username and, optionally, a
  * phone number for an address. Reads are open — the whole point is that
- * anyone holding a username, a number or a payment code can resolve who it is.
+ * anyone holding a username or a number can resolve who it is.
  * Writes require a signature proving control of the address. A username or a
  * phone number belongs to the first address that claims it, and only that
  * address can ever change or release it: that is what makes a username one
@@ -89,9 +90,11 @@ export async function GET(request: Request) {
   }
 
   if (country && number) {
-    const phone = phoneHandleSchema.safeParse({ country, number });
-    if (!phone.success) return json({ error: 'bad_request' }, 400);
-    const owner = await getPhoneOwner(phone.data.country, phone.data.number);
+    const asked = phoneHandleSchema.safeParse({ country, number });
+    if (!asked.success) return json({ error: 'bad_request' }, 400);
+    // However it was written, with the leading zero or the country code.
+    const phone = canonicalPhone(asked.data);
+    const owner = await getPhoneOwner(phone.country, phone.number);
     if (!owner) return json({ error: 'not_found' }, 404);
     const record = await getByAddress(owner);
     if (!record) return json({ error: 'not_found' }, 404);
@@ -113,7 +116,8 @@ export async function POST(request: Request) {
 
   const parsed = claimSchema.safeParse(await readJson(request));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
-  const { address: claimAddress, name, initials, tone, phone, username, timestampSeconds, signature } = parsed.data;
+  const { address: claimAddress, name, initials, tone, username, timestampSeconds, signature } = parsed.data;
+  const sentPhone = parsed.data.phone;
 
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestampSeconds) > CLAIM_MAX_AGE_SECONDS) return json({ error: 'stale' }, 422);
@@ -124,12 +128,18 @@ export async function POST(request: Request) {
   const message = buildClaimMessage({
     address: claimAddress,
     name,
-    ...(phone ? { phone } : {}),
+    ...(sentPhone ? { phone: sentPhone } : {}),
     ...(username ? { username } : {}),
     timestampSeconds,
   });
   const valid = await verifyMessage({ address: claimAddress, message, signature }).catch(() => false);
   if (!valid) return json({ error: 'invalid_signature' }, 401);
+
+  // The signature is checked over the number as it was written. It is kept,
+  // and looked up, in one form: no leading zero, no country code. So
+  // "0901 236 5123" and "901 236 5123" are the same number to everyone.
+  const phone = sentPhone ? canonicalPhone(sentPhone) : undefined;
+  if (phone && !phoneHandleSchema.safeParse(phone).success) return json({ error: 'bad_request' }, 400);
 
   if (phone) {
     const existingOwner = await getPhoneOwner(phone.country, phone.number);

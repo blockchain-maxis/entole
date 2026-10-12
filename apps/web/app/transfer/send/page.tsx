@@ -3,7 +3,6 @@
 import { ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import type { Address } from 'viem';
 
 import {
   EMPTY_ENTRY,
@@ -13,14 +12,14 @@ import {
   type AmountEntry,
 } from '@entole/core/amount-entry';
 import { useBackend } from '@entole/core/backend';
-import { parseCheckout, type Checkout } from '@entole/core/checkout-link';
+import type { Checkout } from '@entole/core/checkout-link';
 import { timeWithSeconds } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
-import { formatHandle, parseHandle, resolveHandle } from '@entole/core/handle';
+import { formatHandle } from '@entole/core/handle';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { isOneOffId, oneOffId } from '@entole/core/one-off';
-import { encodePaymentCode } from '@entole/core/payment-code';
 import { initialsFor } from '@entole/core/profile';
+import { findRecipient, readRecipient, type Sought } from '@entole/core/recipient';
 import type { Contact } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
@@ -35,10 +34,10 @@ import { ActivityRowSkeleton, Skeleton } from '@/components/Skeleton';
 import { nairaAmountOf } from '@/lib/checkout';
 import { checkSendAmount, rateLine } from '@/lib/send';
 
-const BAD_CODE = "That code doesn't look right — check it and try again.";
+const NOT_SOMEONE = "That doesn't look like a username, a phone number or a pay link.";
 
 /** Who the recipient is, as a screen names them. A person you saved, or — for a
- * one-off — the name on the link they gave you, else the end of their code. */
+ * one-off — the name the directory has for their username or number. */
 type Recipient = { id: string; name: string; caption?: string; initials: string; tone: 1 | 2 | 3 };
 
 function recipientFor(contact: Contact | undefined, link: Checkout | null): Recipient | null {
@@ -62,64 +61,60 @@ function noteFor(link: Checkout | null): string | undefined {
 
 type Read = { checkout: Checkout; id: string };
 
-/** What a link or code names, read once — `null` if it isn't one. */
-function readRecipient(text: string): Read | null {
-  const checkout = text.trim() ? parseCheckout(text) : null;
+/** A person the send flow can carry: who they are, and the id their payment goes by. */
+function readFor(checkout: Checkout | null): Read | null {
   const id = checkout ? oneOffId(checkout.code, checkout.payee) : null;
   return checkout && id ? { checkout, id } : null;
 }
 
 function PickStep({
+  initialText,
   onPick,
 }: {
+  /** What a link that named nobody was asking for, so the field can say so. */
+  initialText: string;
   onPick: (choice: { id: string; link: Checkout | null }) => void;
 }) {
   const store = useStore();
-  const [text, setText] = useState('');
-  const [touched, setTouched] = useState(false);
+  const [text, setText] = useState(initialText);
+  const [touched, setTouched] = useState(Boolean(initialText));
   const [pasteNote, setPasteNote] = useState<string | null>(null);
 
   const backend = useBackend();
-  const direct = useMemo(() => readRecipient(text), [text]);
-  // Not a code or a link: a username or a phone number, which the directory
-  // turns into a person a moment after typing stops.
-  const handle = useMemo(() => (direct ? null : parseHandle(text)), [text, direct]);
+  // A username, a number or a pay link. The directory turns it into a person a
+  // moment after typing stops.
+  const sought = useMemo(() => readRecipient(text), [text]);
+  const direct = useMemo(() => (sought?.kind === 'known' ? readFor(sought.checkout) : null), [sought]);
+  const handle = sought?.kind === 'handle' ? sought.handle : null;
   const [found, setFound] = useState<{ text: string; who: Read | 'nobody' } | null>(null);
 
   useEffect(() => {
-    if (!handle) return;
+    if (sought?.kind !== 'handle') return;
     let live = true;
     const timer = setTimeout(() => {
-      void resolveHandle(backend.directory, handle)
+      void findRecipient(backend.directory, sought)
         .catch(() => null)
-        .then((identity) => {
-          if (!live) return;
-          const code = identity ? encodePaymentCode(identity.address as Address) : null;
-          const id = identity && code ? oneOffId(code, identity.name) : null;
-          setFound(
-            identity && code && id
-              ? { text, who: { checkout: { code, address: identity.address as Address, kind: 'pay', payee: identity.name }, id } }
-              : { text, who: 'nobody' },
-          );
+        .then((checkout) => {
+          if (live) setFound({ text, who: readFor(checkout) ?? 'nobody' });
         });
     }, 350);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [handle, text, backend]);
+  }, [sought, text, backend]);
 
   const looked = handle && found?.text === text ? found.who : null;
   const read = direct ?? (looked && looked !== 'nobody' ? looked : null);
   const nobody = looked === 'nobody' && handle ? `Nobody on Entole has ${formatHandle(handle)} yet.` : null;
-  const error = nobody ?? (text.trim() && !read && !handle && touched ? BAD_CODE : null);
+  const error = nobody ?? (text.trim() && !read && !handle && touched ? NOT_SOMEONE : null);
 
   async function paste() {
     setPasteNote(null);
     try {
       const pasted = (await navigator.clipboard.readText()).trim();
       if (!pasted) {
-        setPasteNote('There is nothing to paste. Copy their payment code or link first.');
+        setPasteNote('There is nothing to paste. Copy their username or link first.');
         return;
       }
       setText(pasted);
@@ -134,11 +129,11 @@ function PickStep({
       <div className="flex-1 px-gutter pb-6">
         <h2 className="pt-2 font-display text-heading text-ink">Who are you paying?</h2>
         <p className="mt-2 text-pretty font-body text-ui text-slate">
-          Their username or phone number is enough. A payment code or link works too.
+          Their username or phone number is enough. A link they shared works too.
         </p>
 
         <label htmlFor="recipient" className="mt-6 block font-strong text-note text-slate">
-          Username, number, code or link
+          Username, number or link
         </label>
         <div
           className={`mt-2 flex items-center rounded-control border-[1.5px] bg-card px-4 focus-within:border-ink ${
@@ -179,7 +174,7 @@ function PickStep({
               ? `That checks out.${read.checkout.payee ? ` You are paying ${read.checkout.payee}.` : ''}`
               : handle
                 ? `Looking for ${formatHandle(handle)}.`
-                : 'Type who it is for. Dashes and capitals in a code do not matter.'}
+                : 'Type who it is for, or paste the link they sent you.'}
           </p>
         )}
 
@@ -486,22 +481,66 @@ function AmountStep({
   );
 }
 
+/** A pay link is being looked up: the page it leads to is not known yet. */
+function OpeningStep() {
+  return (
+    <div aria-label="Finding who this is for" className="flex-1 px-gutter pt-2">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 flex-none rounded-pill" />
+        <Skeleton className="h-5 w-36" />
+      </div>
+      <Skeleton className="mt-9 h-3 w-16" />
+      <Skeleton className="mt-3 h-12 w-48" />
+    </div>
+  );
+}
+
 /**
- * Pay someone: a payment code or link, or a beneficiary you saved. Everyone
- * here is a person, never an address. `?contact=` (a saved beneficiary) and
- * `?to=` (a checkout link, from its public page) jump straight to the amount.
+ * Pay someone: by username, by number, with the link they shared, or a
+ * beneficiary you saved. Everyone here is a person, never an address.
+ * `?contact=` (a saved beneficiary) and `?to=` (a pay link, from its public
+ * page) jump straight to the amount. A pay link names a username, so the
+ * directory is asked who that is first.
  */
 function SendFlow() {
   const params = useSearchParams();
+  const backend = useBackend();
 
   const [start] = useState(() => {
     const to = params.get('to');
-    const read = to ? readRecipient(to) : null;
-    return read ? { id: read.id, link: read.checkout } : { id: params.get('contact'), link: null };
+    const sought = to ? readRecipient(to) : null;
+    const known = sought?.kind === 'known' ? readFor(sought.checkout) : null;
+    if (known) return { id: known.id, link: known.checkout, sought: null };
+    if (sought?.kind === 'handle') return { id: null, link: null, sought };
+    return { id: params.get('contact'), link: null, sought: null };
   });
   const [recipientId, setRecipientId] = useState<string | null>(start.id);
   const [link, setLink] = useState<Checkout | null>(start.link);
   const [receiptId, setReceiptId] = useState<string | null>(null);
+  const [opening, setOpening] = useState<Extract<Sought, { kind: 'handle' }> | null>(start.sought);
+  const [unfound, setUnfound] = useState('');
+
+  useEffect(() => {
+    if (!opening) return;
+    let live = true;
+    void findRecipient(backend.directory, opening)
+      .catch(() => null)
+      .then((checkout) => {
+        if (!live) return;
+        const read = readFor(checkout);
+        if (read) {
+          setRecipientId(read.id);
+          setLink(read.checkout);
+        } else {
+          // Nobody holds it: the field says so, with what the link asked for in it.
+          setUnfound(formatHandle(opening.handle));
+        }
+        setOpening(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [opening, backend]);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
@@ -509,6 +548,8 @@ function SendFlow() {
 
       {receiptId ? (
         <ReceiptStep receiptId={receiptId} link={link} />
+      ) : opening ? (
+        <OpeningStep />
       ) : recipientId ? (
         <AmountStep
           recipientId={recipientId}
@@ -521,6 +562,7 @@ function SendFlow() {
         />
       ) : (
         <PickStep
+          initialText={unfound}
           onPick={(choice) => {
             setRecipientId(choice.id);
             setLink(choice.link);

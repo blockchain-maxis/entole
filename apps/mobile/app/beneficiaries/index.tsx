@@ -80,7 +80,7 @@ export default function Beneficiaries() {
         <View className="flex-1 justify-center px-gutter-lg pb-16">
           <Text className="font-display text-subhead text-ink">No beneficiaries yet</Text>
           <Text className="mt-2 font-body text-ui text-slate">
-            Add someone with their payment code, and you can send them money in a few taps.
+            Add someone by their username or number, and you can send them money in a few taps.
           </Text>
         </View>
       ) : (

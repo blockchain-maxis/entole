@@ -84,7 +84,8 @@ functions (`createOwnerAccount`, `signInToOwnerAccount`,
 
 ## Names people are paid by
 
-A person is paid by their username, their phone number, or a payment code.
+A person is paid by their username or their phone number. Nothing else is
+shown, typed or shared: there is no code to copy.
 
 - **A username is one person's.** The directory (`apps/web/app/api/directory`,
   storage in `apps/web/lib/server/directory.ts`, client in
@@ -97,12 +98,30 @@ A person is paid by their username, their phone number, or a payment code.
   what decides. An account made before this claims its username the next time
   the app is opened; if someone else got there first, the person is told and
   chooses another.
-- **Paying by name.** `packages/core/handle.ts` reads `@username`, a Nigerian
-  phone number in any of its spellings, or a pay link made from a username
-  (`/pay/@name`), and the directory says who it is. The address it returns is
-  used to pay and is never shown.
-- **The payment code still works with no directory at all.** It is long because
-  it carries the whole account. It is the fallback, not the first thing shown.
+- **Paying by name.** `packages/core/recipient.ts` is the one door: typed text,
+  a pasted link, a scanned square and a link opened from another app all go
+  through `readRecipient`, which reads `@username`, a Nigerian phone number in
+  any of its spellings, or a pay link, and `findRecipient`, which asks the
+  directory who it is. The name shown is always the directory's, never one a
+  link carried. The address it returns is used to pay and is never shown.
+- **The pay link is the username.** `https://entole.pro/pay/@name`, with
+  whatever it asks for after it (an amount, an invoice reference, a note, a due
+  date). Receive, the QR and every invoice are built with `buildPayLink`. A link
+  is only made once the directory has said the username is this account's.
+  `entole://pay/@name` opens the same link in the phone app, at
+  `apps/mobile/app/pay/[code].tsx`, which unlocks first when it has to.
+- **A phone number is kept one way.** `canonicalPhone` drops the leading zero
+  and the country code, in the app before a claim is signed and again in the
+  route before anything is stored or looked up, so "0901 236 5123" and
+  "+234 901 236 5123" are one number.
+- **There used to be a payment code.** `PAY-XXXX-…` carried the whole account
+  and was what people shared before usernames. It was removed from every
+  screen and every link on 12 October 2026. `packages/core/payment-code.ts`
+  remains as the form records keep an account in (staff, the id of someone
+  paid without being saved), and a link in the old form is still read so that
+  one somebody already has keeps opening. Nothing makes one any more, and a
+  test in each app (`nobody is ever shown, or asked for, a code to be paid`)
+  keeps it that way.
 
 ## Allowances
 

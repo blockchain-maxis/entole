@@ -7,6 +7,7 @@ import { formatNaira, kobo } from '@entole/core/money';
 import {
   parsePayrollBytes,
   payrollTemplateCsv,
+  resolvePayrollImport,
   type PayrollImport,
   type PayrollRow,
 } from '@entole/core/payroll-import';
@@ -58,8 +59,8 @@ type Phase =
   | { kind: 'unavailable' }
   | { kind: 'failed'; message: string };
 
-/** Rows from the file into the roster: a person already there (same code) is
- * updated in place, anyone else is added. */
+/** Rows from the file into the roster: a person already there (the same
+ * account) is updated in place, anyone else is added. */
 function mergeRows(rows: PayrollRow[], roster: Staff[], now: Date): { people: Staff[]; added: number; updated: number } {
   const byCode = new Map(roster.map((person) => [person.code, person]));
   let added = 0;
@@ -72,6 +73,7 @@ function mergeRows(rows: PayrollRow[], roster: Staff[], now: Date): { people: St
       id: current?.id ?? `st-${now.getTime()}-${index}`,
       name: row.name,
       code: row.code,
+      ...((row.handle ?? current?.handle) ? { handle: (row.handle ?? current?.handle)! } : {}),
       payAmountMinor: row.amountMinor,
       cadence: current?.cadence ?? null,
       ...((row.note ?? current?.note) ? { note: (row.note ?? current?.note)! } : {}),
@@ -83,14 +85,15 @@ function mergeRows(rows: PayrollRow[], roster: Staff[], now: Date): { people: St
 
 /**
  * Bring a team in from a spreadsheet. Pick a .csv, .xlsx or .xls with a Name,
- * a Payment code (or their link) and an Amount for each person; the file is
- * read on this phone and shown back to you, row by row, before anything is
- * saved. Rows that can't be used say why. Nothing is paid here.
+ * a Username or number and an Amount for each person; the file is read on this
+ * phone, each username or number is looked up to find who it is, and it is all
+ * shown back to you, row by row, before anything is saved. Rows that can't be
+ * used say why. Nothing is paid here.
  */
 export default function ImportPayroll() {
   const router = useRouter();
   const colors = useThemeColors();
-  const { source } = useBackend();
+  const { source, directory } = useBackend();
   const team = useStaff();
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [sampleNote, setSampleNote] = useState<string | null>(null);
@@ -111,7 +114,9 @@ export default function ImportPayroll() {
       if (!file) return;
       setPhase({ kind: 'reading', fileName: file.name });
       const bytes = await readFileBytes(file.uri);
-      setPhase({ kind: 'review', fileName: file.name, result: parsePayrollBytes(bytes) });
+      // Read here; then the directory is asked who each username or number is.
+      const result = await resolvePayrollImport(parsePayrollBytes(bytes), directory);
+      setPhase({ kind: 'review', fileName: file.name, result });
     } catch (error) {
       setPhase({ kind: 'failed', message: plainMessage(error, "We couldn't open that file. Try another one.") });
     }
@@ -259,12 +264,13 @@ export default function ImportPayroll() {
             </Text>
             <View className="mt-4 border-b border-hairline py-4">
               <ColumnLine name="Name" note="who you are paying" />
-              <ColumnLine name="Payment code" note="their code, or the link they shared" />
+              <ColumnLine name="Username or number" note="their Entole username, or their phone number" />
               <ColumnLine name="Amount" note="in naira, like 150,000" />
               <ColumnLine name="Note" note="optional, like September salary" last />
             </View>
             <Text className="mt-3 px-1 font-body text-note text-slate">
-              The file is read on this phone. You review every row before anything is saved.
+              The file is read on this phone. Each username or number in it is looked up to find who it is,
+              and you review every row before anything is saved.
             </Text>
 
             <View className="mt-7 gap-2.5">

@@ -1,11 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { entryDisplay, entryToMinor, pressKey, type AmountEntry, EMPTY_ENTRY } from '@entole/core/amount-entry';
 import { useBackend } from '@entole/core/backend';
-import { buildCheckoutLink } from '@entole/core/checkout-link';
+import { buildPayLink } from '@entole/core/checkout-link';
 import { formatRate } from '@entole/core/fx';
 import { localDay, nextInvoiceReference } from '@entole/core/invoices';
 import { useStore } from '@entole/core/store';
@@ -13,6 +14,7 @@ import { useStore } from '@entole/core/store';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
 import { useAccount } from '@/lib/account';
+import { useUsernameClaim } from '@/lib/username-claim';
 
 const DUE_IN_DAYS = 14;
 
@@ -30,8 +32,13 @@ const HOLD_PRESETS: { label: string; marginPercent: number }[] = [
 export default function NewInvoicePage() {
   const router = useRouter();
   const store = useStore();
-  const { paymentCode, inbox } = useBackend();
+  const { inbox } = useBackend();
   const { account } = useAccount();
+  // An invoice is a pay link, and a pay link is made from a username the
+  // directory has said is this person's.
+  const claim = useUsernameClaim();
+  const username = claim === 'held' ? account?.username : undefined;
+  const needsUsername = Boolean(account) && (claim === 'taken' || !account?.username);
 
   const [clientName, setClientName] = useState('');
   const [note, setNote] = useState('');
@@ -41,7 +48,7 @@ export default function NewInvoicePage() {
   const [presetIndex, setPresetIndex] = useState(0);
 
   const amount = entryToMinor(entry);
-  const ready = clientName.trim().length > 0 && note.trim().length > 0 && amount > 0;
+  const ready = clientName.trim().length > 0 && note.trim().length > 0 && amount > 0 && Boolean(username);
 
   /** The rate the held invoice releases at or below, from the chosen preset. */
   function maxKoboPerDollar(): number {
@@ -55,16 +62,14 @@ export default function NewInvoicePage() {
     try {
       const dueAt = new Date(Date.now() + DUE_IN_DAYS * 86_400_000).toISOString();
       const reference = nextInvoiceReference(store.invoices);
-      const payee = account?.displayName.trim() ?? '';
       // The link is what makes an invoice real: it opens the invoice-style
       // checkout page, so it is built before anything is saved.
-      const link = paymentCode
-        ? buildCheckoutLink(window.location.origin, {
-            code: paymentCode,
+      const link = username
+        ? buildPayLink(window.location.origin, {
+            username,
             kind: 'invoice',
             amountMinor: amount,
             currency: 'NGN',
-            ...(payee ? { payee } : {}),
             reference,
             note: note.trim(),
             dueAt: localDay(dueAt),
@@ -182,6 +187,19 @@ export default function NewInvoicePage() {
             instead of waiting under it at the end of the page. On a short
             screen it would sit on top of the keypad, so there it stays in
             line, at the end. */}
+        {needsUsername ? (
+          <p className="mt-4 text-pretty font-body text-note text-slate">
+            An invoice is sent as your pay link, and that is made from your username.{' '}
+            <Link
+              href="/me?edit=1"
+              className="font-strong text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink"
+            >
+              Choose a username
+            </Link>{' '}
+            first.
+          </p>
+        ) : null}
+
         <div className="sticky bottom-[92px] z-10 mt-4 bg-paper pb-1 pt-3 lg:bottom-6 [@media(max-height:719px)]:static">
           <button
             type="button"

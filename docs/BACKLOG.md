@@ -51,7 +51,7 @@ product: where it touches a screen, the screen says so plainly.
   - Every passkey is saved under the same label, "Entole account", so someone
     holding several cannot tell them apart when asked to pick one.
 - **In the browser a person is saved from a receipt, and that is all.** After
-  paying someone by their payment code, the receipt offers to save them under
+  paying someone by their username or number, the receipt offers to save them under
   a name (added 11 October 2026); until then the browser could not save anyone,
   so no allowance could be set there and the assistant had nobody to pay. There
   is still no page in the browser to rename or remove a saved person, or to add

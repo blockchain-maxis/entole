@@ -27,7 +27,7 @@ type Action = { label: string; caption: string; icon: LucideIcon; href: Href; st
  */
 const SOMEONE_NEW: Action = {
   label: 'Someone new',
-  caption: 'With their code, number or link',
+  caption: 'With their username, number or link',
   icon: Plus,
   href: '/send/pick',
   strong: true,

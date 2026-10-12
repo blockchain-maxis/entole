@@ -1,10 +1,9 @@
-import { keccak256, toHex } from 'viem';
 import { z } from 'zod';
 
 /**
  * Who a person is inside Entole, as other people and their own screens see
- * them: a full name, a username, and a short code. None of it is an address —
- * the code below is a one-way hash, never the address or any slice of it.
+ * them: a full name and a username. Neither is an address, and nothing here
+ * is made from one.
  */
 
 export const FULL_NAME_MIN = 2;
@@ -17,8 +16,8 @@ const USERNAME_PATTERN = /^[a-z0-9_.]+$/;
 /**
  * Validates *format only*. That a username is one person's is the directory's
  * job (`directory.ts`: the first account to claim it holds it), and a screen
- * asks it with `useUsernameCheck`. The code below (`entoleCode`) is a second
- * handle, derived from the account, that needs no directory at all.
+ * asks it with `useUsernameCheck`. The username is the one handle a person
+ * has: there is no second one derived from the account.
  */
 export const profileSchema = z.object({
   fullName: z.string().trim().min(FULL_NAME_MIN).max(FULL_NAME_MAX),
@@ -70,24 +69,4 @@ export function initialsFor(fullName: string): string {
   const first = parts[0]!.charAt(0);
   const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : '';
   return (first + last).toUpperCase();
-}
-
-// Crockford base32: no I, L, O or U, so a code read aloud or copied by hand is
-// not misread.
-const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-/**
- * A short, human-friendly, deterministic code for an account, e.g.
- * `ENT-7K3Q-92XA`. It is 40 bits of a domain-separated keccak hash of the
- * address, so it identifies the account without ever revealing the address (or
- * any part of it) — screens show this instead of an address.
- */
-export function entoleCode(address: string): string {
-  const digest = keccak256(toHex(`entole.code.v1:${address.trim().toLowerCase()}`));
-  const bits = BigInt(`0x${digest.slice(2, 12)}`); // first 5 bytes = 40 bits = 8 characters
-  let code = '';
-  for (let i = 0; i < 8; i += 1) {
-    code += CROCKFORD[Number((bits >> BigInt(35 - 5 * i)) & 31n)];
-  }
-  return `ENT-${code.slice(0, 4)}-${code.slice(4)}`;
 }

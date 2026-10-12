@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildClaimMessage, lookupUsername } from './directory';
+import { buildClaimMessage, canonicalPhone, createDirectoryClient, lookupUsername } from './directory';
 
 const ADDRESS = '0x1111111111111111111111111111111111111111' as const;
 
@@ -76,5 +76,45 @@ describe('asking whether a username is someone\'s', () => {
     const counting = (async () => ((asked += 1), new Response(null, { status: 404 }))) as unknown as typeof fetch;
     await expect(lookupUsername('', 'No Spaces', counting)).resolves.toEqual({ state: 'unknown' });
     expect(asked).toBe(0);
+  });
+});
+
+describe('a phone number is kept one way, however it is written', () => {
+  it.each([
+    ['09012365123', '9012365123'],
+    ['9012365123', '9012365123'],
+    ['2349012365123', '9012365123'],
+    ['23409012365123', '9012365123'],
+    ['008031234567', '8031234567'],
+  ])('ng %s is %s', (written, kept) => {
+    expect(canonicalPhone({ country: 'ng', number: written })).toEqual({ country: 'ng', number: kept });
+  });
+
+  it('lower-cases the country and leaves another country\u2019s digits alone apart from the leading zero', () => {
+    expect(canonicalPhone({ country: 'GH', number: '0241234567' })).toEqual({ country: 'gh', number: '241234567' });
+    expect(canonicalPhone({ country: 'gb', number: '2347000000000' })).toEqual({ country: 'gb', number: '2347000000000' });
+  });
+
+  it('the app signs and sends the kept form, so a number typed with its zero is the same number', async () => {
+    const calls: { url: string; body?: string }[] = [];
+    const signed: string[] = [];
+    const client = createDirectoryClient({
+      baseUrl: 'https://entole.test',
+      sign: async (message) => {
+        signed.push(message);
+        return '0xabc';
+      },
+      fetch: (async (url: string, init?: { body?: string }) => {
+        calls.push({ url, ...(init?.body ? { body: init.body } : {}) });
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+
+    await client.claim({ address: ADDRESS, name: 'Ada', initials: 'A', tone: 1, phone: { country: 'ng', number: '09012365123' } });
+    expect(signed[0]).toContain('phone: ng:9012365123');
+    expect(JSON.parse(calls[0]!.body!).phone).toEqual({ country: 'ng', number: '9012365123' });
+
+    await client.resolveByPhone({ country: 'ng', number: '09012365123' });
+    expect(calls[1]!.url).toBe('https://entole.test/api/directory?country=ng&number=9012365123');
   });
 });

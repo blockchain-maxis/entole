@@ -135,7 +135,7 @@ export default function Business() {
     },
     supplier: {
       label: 'Pay a supplier',
-      hint: 'Send money to anyone with their code',
+      hint: 'Send money to anyone by username or number',
       Icon: Truck,
       href: '/send/pick?note=Supplier%20payment',
     },
@@ -234,7 +234,7 @@ export default function Business() {
           ) : team.staff.length === 0 ? (
             <EmptyCard
               title="No one on your team yet"
-              body="Add the people you pay with their payment code, or bring them in from a spreadsheet."
+              body="Add the people you pay by username or number, or bring them in from a spreadsheet."
             >
               <Button
                 label="Add a person"

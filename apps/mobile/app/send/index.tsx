@@ -7,7 +7,7 @@ import { countryName } from '@entole/core/countries';
 import { entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
-import { isOneOffId, oneOffAddress, oneOffCode } from '@entole/core/one-off';
+import { isOneOffId, oneOffAddress } from '@entole/core/one-off';
 import type { Contact } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
@@ -44,9 +44,9 @@ export default function Send() {
 
   const loading = store.status === 'loading';
   const rawContact = params.contactId ? store.contact(params.contactId) : undefined;
-  // A code saved as a beneficiary *while already on this screen* (via the
-  // "Save" link below) should show that name right away — not just next time
-  // the same code is pasted or scanned.
+  // Someone saved as a beneficiary *while already on this screen* (via the
+  // "Save" link below) should show under that name right away — not just next
+  // time they are looked up.
   const savedContactId =
     rawContact && isOneOffId(rawContact.id)
       ? (() => {
@@ -55,8 +55,8 @@ export default function Send() {
         })()
       : undefined;
 
-  // No saved beneficiary for this address: check the opt-in directory before
-  // falling back to the anonymous "Payment code" label. Async, so it lands a
+  // No saved beneficiary for this address: check the directory before falling
+  // back to the unnamed "Entole account" label. Async, so it lands a
   // moment after the anonymous state first renders — never blocks the screen.
   // Keyed by the id it resolved for, so a stale result from a previous
   // recipient is never shown for this one — reset happens by comparison at
@@ -137,12 +137,12 @@ export default function Send() {
                   <>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Save this payment code as a beneficiary"
+                      accessibilityLabel="Save them as a beneficiary"
                       hitSlop={10}
                       onPress={() =>
                         router.push({
                           pathname: '/beneficiaries/new',
-                          params: { code: oneOffCode(contact.id) ?? '', next: 'send' },
+                          params: { recipient: contact.id, next: 'send' },
                         })
                       }
                     >

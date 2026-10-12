@@ -1,9 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { useBackend } from '@entole/core/backend';
-import { buildCheckoutLink } from '@entole/core/checkout-link';
+import { buildPayLink } from '@entole/core/checkout-link';
 
 import { Header } from '@/components/Header';
 import { QrCode } from '@/components/QrCode';
@@ -32,20 +32,21 @@ function useCanShare(): boolean {
   );
 }
 
-type Copied = 'link' | 'code' | 'username' | null;
+type Copied = 'link' | 'username' | null;
 
 /**
  * The far end of the corridor. Whoever pays has no app, no account and no
  * reason to get one — so everything they need is in the link: a checkout page
- * that opens in any browser, named for this account and nothing else.
+ * that opens in any browser, named for this person and nothing else.
  *
- * Someone who does have Entole needs less: the username, or the phone number.
- * Once the username is this person's in the directory, the link is built from
- * it too, short enough to say aloud. The long code stays underneath as the way
- * that works with nothing looked up.
+ * The link is the person's username, short enough to say aloud, and someone
+ * who has Entole needs only the username itself or the phone number. There is
+ * nothing longer than that to copy, anywhere. The link exists once the
+ * directory has said the username is theirs; until then the page says what it
+ * is waiting for, because a link that might lead to someone else is worse than
+ * no link.
  */
 export default function ReceivePage() {
-  const { paymentCode } = useBackend();
   const profile = useProfile();
   const origin = useOrigin();
   const canShare = useCanShare();
@@ -57,16 +58,10 @@ export default function ReceivePage() {
 
   const claim = useUsernameClaim();
   const username = claim === 'held' ? profile?.username : undefined;
-  const codeLink =
-    origin && paymentCode
-      ? buildCheckoutLink(origin, {
-          code: paymentCode,
-          kind: 'pay',
-          ...(profile?.fullName ? { payee: profile.fullName } : {}),
-        })
-      : null;
-  // `/pay/@ada.eze`: the pay page looks the name up and shows the same checkout.
-  const link = origin && username ? `${origin}/pay/@${username}` : codeLink;
+  // `/pay/@ada.eze`: the pay page looks the name up and shows who it is.
+  const link = origin && username ? buildPayLink(origin, { username }) : null;
+  // Someone else holds the name they chose, or they never chose one.
+  const needsUsername = Boolean(profile) && (claim === 'taken' || !profile?.username);
 
   async function copy(what: Exclude<Copied, null>, text: string) {
     setProblem(null);
@@ -103,27 +98,36 @@ export default function ReceivePage() {
               <div className="w-full max-w-[220px] rounded-card bg-white p-2.5 shadow-raised">
                 <QrCode value={link} label="QR code for your payment link" />
               </div>
-              {username ? (
-                <>
-                  <p className="mt-5 font-display text-heading text-ink">@{username}</p>
-                  <p className="mt-1 max-w-full truncate font-body text-note text-slate">
-                    {link.replace(/^https?:\/\//, '')}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="mt-5 font-display text-subhead text-ink">Your payment link</p>
-                  <p className="mt-1 max-w-full truncate font-body text-note text-slate">
-                    {link.replace(/^https?:\/\//, '')}
-                  </p>
-                </>
-              )}
+              <p className="mt-5 font-display text-heading text-ink">@{username}</p>
+              <p className="mt-1 max-w-full truncate font-body text-note text-slate">
+                {link.replace(/^https?:\/\//, '')}
+              </p>
             </>
+          ) : needsUsername ? (
+            <div className="w-full pt-2">
+              <h2 className="font-display text-subhead text-ink">Choose a username to get paid</h2>
+              <p className="mt-2 text-pretty font-body text-ui text-slate">
+                {claim === 'taken'
+                  ? 'Someone else already has the username you chose. Pick another and your link is ready straight away.'
+                  : 'Your username is how people pay you, and it is what your link is made from.'}
+              </p>
+              <Link
+                href="/me?edit=1"
+                className="mt-5 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
+              >
+                Choose a username
+              </Link>
+            </div>
           ) : (
             <div aria-label="Preparing your payment link" className="flex w-full flex-col items-center">
               <Skeleton className="h-[220px] w-[220px] rounded-card" />
               <Skeleton className="mt-5 h-5 w-40" />
               <Skeleton className="mt-2 h-3 w-48" />
+              {profile?.username ? (
+                <p className="mt-4 text-pretty text-center font-body text-note text-slate">
+                  Confirming @{profile.username} is yours. Your link shows here as soon as it is.
+                </p>
+              ) : null}
             </div>
           )}
         </div>
@@ -132,7 +136,7 @@ export default function ReceivePage() {
           {username ? (
             <p className="mb-3 text-pretty font-body text-ui text-slate">
               Someone with Entole can pay you with <span className="font-strong text-ink">@{username}</span>, or with
-              your phone number. Nothing longer to copy.
+              your phone number.
             </p>
           ) : null}
           <p className="font-strong text-ui text-ink">They don&apos;t need the app</p>
@@ -170,24 +174,21 @@ export default function ReceivePage() {
           </button>
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-3 border-t border-hairline pt-4">
-          <div className="min-w-0">
-            <p className="font-body text-ui text-slate">Payment code, for when nothing can be looked up</p>
-            {paymentCode ? (
-              <p className="tabular mt-0.5 truncate font-strong text-ui text-ink">{paymentCode}</p>
-            ) : (
-              <Skeleton className="mt-1.5 h-4 w-44" />
-            )}
+        {username ? (
+          <div className="mt-6 flex items-center justify-between gap-3 border-t border-hairline pt-4">
+            <div className="min-w-0">
+              <p className="font-body text-ui text-slate">Your username</p>
+              <p className="mt-0.5 truncate font-strong text-ui text-ink">@{username}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void copy('username', `@${username}`)}
+              className="flex-none font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink"
+            >
+              {copied === 'username' ? 'Copied' : 'Copy username'}
+            </button>
           </div>
-          <button
-            type="button"
-            disabled={!paymentCode}
-            onClick={() => paymentCode && void copy('code', paymentCode)}
-            className="flex-none font-strong text-ui text-ink underline decoration-mist underline-offset-4 hover:decoration-ink transition-colors disabled:opacity-60"
-          >
-            {copied === 'code' ? 'Copied' : 'Copy code'}
-          </button>
-        </div>
+        ) : null}
       </div>
     </main>
   );

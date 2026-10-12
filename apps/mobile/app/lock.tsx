@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { lockScreen } from '@/lib/lock-state';
+import { isPayPath } from '@/lib/recipient';
 import { forgetEverything, hasStoredCredential, reauthenticate } from '@/lib/session';
 
 /**
@@ -17,10 +18,15 @@ import { forgetEverything, hasStoredCredential, reauthenticate } from '@/lib/ses
  * There is one way out, offered only after an unlock has failed: start again
  * on this phone. Without it, a phone whose passkey is gone could never leave
  * this screen. It asks first, and says what it does and does not do.
+ *
+ * `next` is a pay link someone opened from outside the app before they were
+ * signed in here: once they are back in, they go on to it. Nothing but a pay
+ * link is ever followed.
  */
 export default function Lock() {
   const router = useRouter();
   const { setAccount } = useAccount();
+  const { next } = useLocalSearchParams<{ next?: string }>();
   const [reason, setReason] = useState<string | null>(null);
   // Starts true: the effect below always begins checking immediately on
   // mount, so there is no synchronous frame where this should read false.
@@ -52,7 +58,7 @@ export default function Lock() {
       if (cancelled) return;
       if (result.ok) {
         setAccount(result.account);
-        router.replace('/(tabs)');
+        router.replace(isPayPath(next) ? (next as Href) : '/(tabs)');
       } else {
         setReason(result.reason);
       }

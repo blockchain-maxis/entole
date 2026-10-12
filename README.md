@@ -17,9 +17,10 @@ runs on Monad's test network with test money; nothing in it is real money.
    or screen lock. That is all of it: no email, no password, nothing to write
    down.
 2. **Add money.** Add money, then "Add test money". It arrives in seconds.
-3. **Pay someone.** Receive gives every account a payment code and a link.
-   Send takes one: paste it, enter an amount, send, and watch it settle. To
-   have someone to pay, make a second account in another browser or on another
+3. **Pay someone.** Send takes a username: type `@theirname`, enter an amount,
+   confirm with your fingerprint, and watch it settle. Receive shows your own
+   username and a link made from it, `entole.pro/pay/@yourname`. To have
+   someone to pay, make a second account in another browser or on another
    device. On the receipt, save them under a name.
 4. **Let the assistant pay, inside a limit.** Me, then Assistant, and turn it
    on. Set an allowance for the person you saved, then ask in a sentence:

@@ -85,7 +85,7 @@ export default function Payroll() {
           <View className="px-1 pt-1">
             <Text className="font-display text-subhead text-ink">Add the people you pay</Text>
             <Text className="mt-2 font-body text-ui text-slate">
-              Put each person in once, with their payment code. Then paying everyone is one screen, and you
+              Put each person in once, by username or number. Then paying everyone is one screen, and you
               see the total and the fees before anything moves.
             </Text>
           </View>
@@ -141,7 +141,7 @@ export default function Payroll() {
         <View className="gap-2.5">
           <AddRow
             label="Add someone by hand"
-            hint="A name and their payment code"
+            hint="A name and their username or number"
             Icon={UserPlus}
             onPress={() => router.push('/business/payroll/add')}
           />

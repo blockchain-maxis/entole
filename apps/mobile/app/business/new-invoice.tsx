@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
 
 import { useBackend } from '@entole/core/backend';
-import { buildCheckoutLink } from '@entole/core/checkout-link';
+import { buildPayLink } from '@entole/core/checkout-link';
 import { formatRate } from '@entole/core/fx';
 import { dueInDays, localDay, nextInvoiceReference } from '@entole/core/invoices';
 import { kobo } from '@entole/core/money';
@@ -18,8 +18,8 @@ import { Field } from '@/components/ui/Field';
 import { Header } from '@/components/ui/Header';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { useAccount } from '@/lib/account';
 import { CHECKOUT_BASE } from '@/lib/onchain';
+import { usePayUsername } from '@/lib/pay-username';
 import { plainMessage } from '@/lib/send';
 import { useThemeColors } from '@/lib/theme';
 
@@ -45,8 +45,8 @@ export default function NewInvoice() {
   const router = useRouter();
   const store = useStore();
   const colors = useThemeColors();
-  const { paymentCode, inbox } = useBackend();
-  const { account } = useAccount();
+  const { inbox } = useBackend();
+  const mine = usePayUsername();
 
   const [clientName, setClientName] = useState('');
   const [note, setNote] = useState('');
@@ -73,21 +73,26 @@ export default function NewInvoice() {
     if (!ready || saving) return;
     setProblem(null);
 
-    const payee = account?.displayName.trim() ?? '';
-    const link = paymentCode
-      ? buildCheckoutLink(CHECKOUT_BASE, {
-          code: paymentCode,
-          kind: 'invoice',
-          amountMinor: amount,
-          currency: 'NGN',
-          ...(payee ? { payee } : {}),
-          reference,
-          note: note.trim(),
-          dueAt: localDay(dueAt),
-        })
-      : null;
+    // An invoice is a pay link, and a pay link is made from a username the
+    // directory has said is this person's.
+    const link =
+      mine.state === 'held'
+        ? buildPayLink(CHECKOUT_BASE, {
+            username: mine.username,
+            kind: 'invoice',
+            amountMinor: amount,
+            currency: 'NGN',
+            reference,
+            note: note.trim(),
+            dueAt: localDay(dueAt),
+          })
+        : null;
     if (!link) {
-      setProblem("Your payment link isn't ready yet. Wait a moment and try again.");
+      setProblem(
+        mine.state === 'checking'
+          ? "Your pay link isn't ready yet. Wait a moment and try again."
+          : 'An invoice is sent as your pay link, which is made from your username. Confirm your username on Receive first.',
+      );
       return;
     }
 

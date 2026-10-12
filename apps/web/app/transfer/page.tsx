@@ -42,7 +42,7 @@ export default function PayPage() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-strong text-ui text-ink">Someone new</span>
-                <span className="block font-body text-note text-slate">With their payment code or link</span>
+                <span className="block font-body text-note text-slate">With their username, number or link</span>
               </span>
               <ChevronRight size={18} strokeWidth={1.5} aria-hidden className="flex-none text-mist" />
             </Link>

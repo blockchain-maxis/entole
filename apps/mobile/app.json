@@ -47,7 +47,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Entole uses the camera to scan a payment code."
+          "cameraPermission": "Entole uses the camera to scan the square on someone’s Receive screen."
         }
       ],
       "expo-document-picker",

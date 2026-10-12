@@ -1,54 +1,54 @@
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Share, View } from 'react-native';
 
-import { useBackend } from '@entole/core/backend';
-import { buildCheckoutLink } from '@entole/core/checkout-link';
+import { buildPayLink } from '@entole/core/checkout-link';
 import { formatNaira, kobo } from '@entole/core/money';
 
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
-import { PaymentCode, PaymentCodeText } from '@/components/ui/PaymentCode';
+import { PaymentCode } from '@/components/ui/PaymentCode';
 import { RequestAmountSheet } from '@/components/ui/RequestAmountSheet';
 import { LinkRow, SectionHeading } from '@/components/ui/Rows';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import { useAccount } from '@/lib/account';
 import { CHECKOUT_BASE } from '@/lib/onchain';
+import { usePayUsername } from '@/lib/pay-username';
 
-type Copied = 'link' | 'code' | 'username' | null;
+type Copied = 'link' | 'username' | null;
 
 /**
- * How someone pays you. Someone with Entole needs only your username or your
- * phone number, so the username comes first. For anyone else there is one
- * link: it opens in any browser, so a payer without the app can pay from it,
- * and the QR is the same link, for someone standing next to you. Your plain
- * code sits underneath as the way that works with nothing looked up.
- * An amount can be put on the link. Nothing here is invented, and no address is
- * ever shown — the link names you by your payment code and your name.
+ * How someone pays you: by your username. Someone with Entole needs only
+ * that, or your phone number. For anyone else there is one link, made from the
+ * same username: it opens in any browser, so a payer without the app can pay
+ * from it, and the QR is the same link, for someone standing next to you.
+ * There is nothing longer than a username to copy, anywhere.
+ *
+ * An amount can be put on the link. Nothing here is invented, and no address
+ * is ever shown. The link exists once the directory has said the username is
+ * yours; until then the screen says what it is waiting for.
  */
 export default function Receive() {
-  const { paymentCode } = useBackend();
-  const { account } = useAccount();
+  const router = useRouter();
+  const mine = usePayUsername();
   const [amount, setAmount] = useState(0);
   const [requesting, setRequesting] = useState(false);
   const [copied, setCopied] = useState<Copied>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const payee = account?.displayName.trim() ?? '';
+  const username = mine.state === 'held' ? mine.username : null;
   const link = useMemo(
     () =>
-      paymentCode
-        ? buildCheckoutLink(CHECKOUT_BASE, {
-            code: paymentCode,
-            kind: 'pay',
+      username
+        ? buildPayLink(CHECKOUT_BASE, {
+            username,
             ...(amount > 0 ? { amountMinor: amount, currency: 'NGN' } : {}),
-            ...(payee ? { payee } : {}),
           })
         : null,
-    [paymentCode, amount, payee],
+    [username, amount],
   );
 
   useEffect(
@@ -76,88 +76,90 @@ export default function Receive() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 }}
         >
-          <View className="items-center rounded-card bg-card px-gutter py-7 shadow-raised">
-            {link ? (
-              <>
-                <PaymentCode value={link} />
-                <Text
-                  selectable
-                  numberOfLines={2}
-                  ellipsizeMode="middle"
-                  className="mt-5 text-center font-body text-note text-slate"
-                >
-                  {link}
-                </Text>
-                {amount > 0 ? (
-                  <Text tabular className="mt-3 font-strong text-ui text-ink">
-                    Asking for {formatNaira(kobo(amount))}
-                  </Text>
-                ) : null}
-              </>
-            ) : (
-              <View className="items-center">
-                <Skeleton className="h-[232px] w-[232px] rounded-card" />
-                <Skeleton className="mt-5 h-4 w-56 rounded-md" />
-              </View>
-            )}
-          </View>
-
-          <Text className="mt-5 px-1 font-body text-ui text-slate">
-            {paymentCode
-              ? 'Anyone you send this link to can open it and pay you, even without Entole.'
-              : 'Your link shows up here once you are signed in.'}
-          </Text>
-
-          {account?.username ? (
-            <View className="mt-6">
-              <SectionHeading
-                title="Your username"
-                action={copied === 'username' ? 'Copied' : 'Copy'}
-                onActionPress={() => void copy('username', `@${account.username}`)}
-              />
-              <View className="items-center border-y border-hairline py-5">
-                <Text selectable className="font-display text-heading text-ink">
-                  @{account.username}
-                </Text>
-              </View>
-              <Text className="mt-2.5 px-1 font-body text-note text-slate">
-                Anyone with Entole can pay you with this, or with your phone number. Nothing longer to copy.
+          {mine.state === 'unconfirmed' ? (
+            <View className="pt-2">
+              <Text className="font-display text-subhead text-ink">
+                {mine.username ? 'Your username isn’t confirmed yet' : 'Choose a username to get paid'}
               </Text>
-            </View>
-          ) : null}
-
-          <View className="mt-5">
-            <LinkRow
-              label="Request an amount"
-              value={amount > 0 ? formatNaira(kobo(amount)) : 'Optional'}
-              onPress={() => setRequesting(true)}
-            />
-          </View>
-
-          <View className="mt-8">
-            <SectionHeading
-              title="Your code"
-              {...(paymentCode
-                ? {
-                    action: copied === 'code' ? 'Copied' : 'Copy',
-                    onActionPress: () => void copy('code', paymentCode),
-                  }
-                : {})}
-            />
-            <View className="items-center border-y border-hairline py-5">
-              {paymentCode ? (
-                <PaymentCodeText code={paymentCode} />
-              ) : (
-                <View className="items-center">
-                  <Skeleton className="h-6 w-52 rounded-md" />
-                  <Skeleton className="mt-2 h-6 w-52 rounded-md" />
+              <Text className="mt-2 font-body text-ui text-slate">
+                {mine.username
+                  ? `Your link is made from @${mine.username}. We couldn’t confirm it is yours just now. Check your connection and try again, or choose another username.`
+                  : 'Your username is how people pay you, and it is what your link is made from.'}
+              </Text>
+              <View className="mt-5 gap-2.5">
+                {mine.username ? (
+                  <View className="flex-row">
+                    <Button label="Try again" onPress={mine.retry} />
+                  </View>
+                ) : null}
+                <View className="flex-row">
+                  <Button
+                    label={mine.username ? 'Change username' : 'Choose a username'}
+                    variant={mine.username ? 'secondary' : 'primary'}
+                    onPress={() => router.push('/edit-profile')}
+                  />
                 </View>
-              )}
+              </View>
             </View>
-            <Text className="mt-2.5 px-1 font-body text-note text-slate">
-              The long way: it works even when nothing can be looked up.
-            </Text>
-          </View>
+          ) : (
+            <>
+              <View className="items-center rounded-card bg-card px-gutter py-7 shadow-raised">
+                {link && username ? (
+                  <>
+                    <PaymentCode value={link} />
+                    <Text selectable className="mt-5 text-center font-display text-heading text-ink">
+                      @{username}
+                    </Text>
+                    <Text
+                      selectable
+                      numberOfLines={1}
+                      ellipsizeMode="middle"
+                      className="mt-1 text-center font-body text-note text-slate"
+                    >
+                      {link.replace(/^https?:\/\//, '')}
+                    </Text>
+                    {amount > 0 ? (
+                      <Text tabular className="mt-3 font-strong text-ui text-ink">
+                        Asking for {formatNaira(kobo(amount))}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <View className="items-center">
+                    <Skeleton className="h-[232px] w-[232px] rounded-card" />
+                    <Skeleton className="mt-5 h-6 w-40 rounded-md" />
+                    <Skeleton className="mt-2 h-4 w-56 rounded-md" />
+                  </View>
+                )}
+              </View>
+
+              <Text className="mt-5 px-1 font-body text-ui text-slate">
+                Anyone with Entole can pay you with your username, or with your phone number. Anyone else can open
+                your link and pay you, even without the app.
+              </Text>
+
+              <View className="mt-5">
+                <LinkRow
+                  label="Request an amount"
+                  value={amount > 0 ? formatNaira(kobo(amount)) : 'Optional'}
+                  onPress={() => setRequesting(true)}
+                />
+              </View>
+
+              {username ? (
+                <View className="mt-6">
+                  <SectionHeading
+                    title="Your username"
+                    action={copied === 'username' ? 'Copied' : 'Copy'}
+                    onActionPress={() => void copy('username', `@${username}`)}
+                  />
+                  <Text className="px-1 font-body text-note text-slate">
+                    Say it or send it. It is all someone with Entole needs to pay you.
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          )}
         </ScrollView>
 
         <ActionBar>

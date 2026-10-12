@@ -11,7 +11,7 @@ import { Header } from '@/components/ui/Header';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import { cleanNote, sendParamsFor } from '@/lib/recipient';
+import { cleanNote, resolveSendTarget } from '@/lib/recipient';
 
 type CameraModule = typeof import('expo-camera');
 
@@ -28,8 +28,9 @@ try {
   Camera = null;
 }
 
-const NOT_A_CODE = "That doesn't look like an Entole code.";
-const NOTHING_TO_PASTE = 'There is nothing to paste. Copy their code or link first.';
+const NOT_A_PAY_LINK = "That isn't an Entole pay link.";
+const NOBODY_HAS_IT = 'Nobody on Entole has that username or number yet.';
+const NOTHING_TO_PASTE = 'There is nothing to paste. Copy their username or link first.';
 
 /** Something in the camera view failing at render time falls back, too. */
 class CameraBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
@@ -44,7 +45,7 @@ class CameraBoundary extends Component<{ fallback: ReactNode; children: ReactNod
   }
 }
 
-/** Reads the clipboard and, if it holds a code or link, goes on to the amount. */
+/** Reads the clipboard and, if it holds a username or a pay link, goes on to the amount. */
 function usePasteToSend(note: string | undefined) {
   const router = useRouter();
   const backend = useBackend();
@@ -57,9 +58,9 @@ function usePasteToSend(note: string | undefined) {
       setProblem(NOTHING_TO_PASTE);
       return;
     }
-    const target = sendParamsFor(clip, note, backend.source.resolveContactId);
-    if (!target) {
-      setProblem(NOT_A_CODE);
+    const target = await resolveSendTarget(clip, note, backend);
+    if (!target || target === 'unclaimed') {
+      setProblem(target === 'unclaimed' ? NOBODY_HAS_IT : NOT_A_PAY_LINK);
       return;
     }
     router.replace({ pathname: '/send', params: target });
@@ -85,7 +86,7 @@ function Unavailable({ note }: { note: string | undefined }) {
     <>
       <Notice
         title="Scanning needs the updated app"
-        body="This version of Entole can’t use the camera yet. Paste their code or link instead."
+        body="This version of Entole can’t use the camera yet. Paste their username or link instead."
         problem={problem}
       />
       <ActionBar>
@@ -105,16 +106,18 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
   const locked = useRef(false);
 
   function onScanned({ data }: { data: string }) {
-    // The camera reports the same code many times a second; act on the first.
+    // The camera reports the same square many times a second; act on the first.
     if (locked.current) return;
     locked.current = true;
-    const target = sendParamsFor(data, note, backend.source.resolveContactId);
-    if (!target) {
-      setProblem(NOT_A_CODE);
-      return;
-    }
     void Haptics.selectionAsync();
-    router.replace({ pathname: '/send', params: target });
+    // The square holds a pay link, which names a username: the directory says whose.
+    void resolveSendTarget(data, note, backend).then((target) => {
+      if (!target || target === 'unclaimed') {
+        setProblem(target === 'unclaimed' ? NOBODY_HAS_IT : NOT_A_PAY_LINK);
+        return;
+      }
+      router.replace({ pathname: '/send', params: target });
+    });
   }
 
   function tryAgain() {
@@ -138,8 +141,8 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
           title={blocked ? 'The camera is off for Entole' : 'Scan their QR code'}
           body={
             blocked
-              ? 'Turn the camera on for Entole in Settings to scan a code. Or paste their code instead.'
-              : 'Entole uses the camera to scan a payment code.'
+              ? 'Turn the camera on for Entole in Settings to scan. Or paste their username or link instead.'
+              : 'Entole uses the camera to scan the square on someone’s Receive screen.'
           }
           problem={pasteProblem}
         />
@@ -185,14 +188,14 @@ function Scanner({ camera, note }: { camera: CameraModule; note: string | undefi
   );
 }
 
-/** Scan someone's QR code to pay them — the same door as pasting a code or link. */
+/** Scan someone's QR code to pay them — the same door as pasting their link. */
 export default function ScanRecipient() {
   const params = useLocalSearchParams<{ note?: string }>();
   const note = cleanNote(params.note);
 
   return (
     <Screen>
-      <Header title="Scan a code" />
+      <Header title="Scan to pay" />
       {Camera ? (
         <CameraBoundary fallback={<Unavailable note={note} />}>
           <Scanner camera={Camera} note={note} />

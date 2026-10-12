@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { useBackend } from '@entole/core/backend';
 import { DirectoryError } from '@entole/core/directory';
+import { normalizeNigerianNumber } from '@entole/core/handle';
 import { initialsFor } from '@entole/core/profile';
 
 import { Button } from '@/components/ui/Button';
@@ -13,13 +14,21 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 
-const MAX_DIGITS = 10;
+/** A Nigerian number is ten digits, or eleven written the way people say it,
+ * with the zero in front. Both are taken; the zero is dropped before the
+ * number is kept, so nobody has to know to leave it off. */
+function maxDigits(digits: string): number {
+  return digits.startsWith('0') ? 11 : 10;
+}
 
-/** Grouped the way a Nigerian number is read aloud: 803 412 9977. */
+/** Grouped the way a Nigerian number is read aloud: 0803 412 9977, or 803 412 9977. */
 function groupNumber(digits: string): string {
-  const parts = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 10)].filter(Boolean);
+  const lead = digits.startsWith('0') ? 4 : 3;
+  const parts = [digits.slice(0, lead), digits.slice(lead, lead + 3), digits.slice(lead + 3, lead + 7)].filter(Boolean);
   return parts.join(' ');
 }
+
+const NOT_A_NUMBER = "That doesn't look like a Nigerian mobile number. Check it and try again.";
 
 export default function PhoneStep() {
   const router = useRouter();
@@ -29,14 +38,19 @@ export default function PhoneStep() {
   const [claiming, setClaiming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
+  // The ten digits the number is kept as, whichever way it was typed.
+  const number = normalizeNigerianNumber(digits);
+  const complete = digits.length >= maxDigits(digits);
+
   function press(key: string) {
+    setProblem(null);
     if (key === '⌫') return setDigits((current) => current.slice(0, -1));
     if (key === '.') return;
-    setDigits((current) => (current.length >= MAX_DIGITS ? current : current + key));
+    setDigits((current) => (current.length >= maxDigits(current) ? current : current + key));
   }
 
   async function submit() {
-    if (digits.length < MAX_DIGITS || claiming || !account) return;
+    if (!number || claiming || !account) return;
     setClaiming(true);
     setProblem(null);
     try {
@@ -45,7 +59,7 @@ export default function PhoneStep() {
         name: account.displayName,
         initials: initialsFor(account.displayName),
         tone: 1,
-        phone: { country: 'ng', number: digits },
+        phone: { country: 'ng', number },
       });
       router.push('/onboarding/first-payment');
     } catch (error) {
@@ -72,7 +86,7 @@ export default function PhoneStep() {
       <View className="flex-1 px-7 pt-[34px]">
         <Text className="font-display text-heading text-ink">Confirm your number</Text>
         <Text className="mt-3 font-body text-ui text-slate">
-          This is how friends and family find you — they can pay you by number instead of a long code.
+          This is how friends and family find you. They can pay you with just your number.
         </Text>
 
         <View className="mt-7 flex-row gap-2.5">
@@ -92,7 +106,9 @@ export default function PhoneStep() {
         <Text className="mt-4 font-body text-note text-slate">
           Only your name and your number are made findable — nothing else about your account.
         </Text>
-        {problem ? <Text className="mt-3 font-body text-note text-halt">{problem}</Text> : null}
+        {problem || (complete && !number) ? (
+          <Text className="mt-3 font-body text-note text-halt">{problem ?? NOT_A_NUMBER}</Text>
+        ) : null}
       </View>
 
       <View className="flex-none px-3.5 pb-2.5">
@@ -101,7 +117,7 @@ export default function PhoneStep() {
           <Button
             label={claiming ? 'Confirming…' : 'Confirm'}
             busy={claiming}
-            disabled={digits.length < MAX_DIGITS || claiming}
+            disabled={!number || claiming}
             onPress={() => void submit()}
           />
         </View>

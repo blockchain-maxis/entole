@@ -1,16 +1,15 @@
 import { getAddress, hexToBytes, isAddress, keccak256, bytesToHex, type Address } from 'viem';
 
 /**
- * The code someone shares so they can be paid: `PAY-XXXX-XXXX-…`.
+ * How records keep an account: `PAY-XXXX-XXXX-…`.
  *
- * It is how an account is named to another person *without an address ever
- * appearing in the UI* — an address is inside the code, but the code is opaque
- * text (Crockford base32: no I, L, O or U, so it survives being read aloud and
- * retyped). The last two bytes are a checksum, so a mistyped code is refused
- * instead of quietly paying a stranger.
- *
- * This is different from `entoleCode` in `profile.ts`, which is a one-way label
- * for showing who someone is. This one is reversible, because it has to be.
+ * It began as the thing a person shared to be paid. People are paid by
+ * username or phone number now, and nothing puts this on a screen or in a
+ * link any more. It stays as the form an account is stored in: in a saved
+ * staff record, in the id of someone paid without being saved, and in the path
+ * of links made before usernames, which still have to open. An address is
+ * inside it, in Crockford base32, and the last two bytes are a checksum, so a
+ * damaged one is refused instead of quietly paying a stranger.
  */
 
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';

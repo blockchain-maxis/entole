@@ -541,16 +541,17 @@ describe('the public checkout page', () => {
     expect(header).toMatch(/<PauseControl\s*\/>/);
   });
 
-  it('never prints an address — only the last group of the code, as a label', () => {
+  it('never prints an address, or any part of the code that stands for one', () => {
     for (const file of checkoutFiles) {
       const source = stripComments(read(file));
       expect(source, relative(ROOT, file)).not.toMatch(/\{[^}]*\.address\b[^}]*\}/);
       expect(source, relative(ROOT, file)).not.toMatch(/0x[0-9a-fA-F]{6,}/);
     }
     const checkout = stripComments(read(join(COMPONENTS, 'Checkout.tsx')));
-    // The address reaches the page only through the on-ramp URL and the code label.
-    expect(checkout).toMatch(/codeLabel\(checkout\)/);
-    expect(checkout).not.toMatch(/\{checkout\.code\}/);
+    // The address reaches the page only through the on-ramp URL. The person is
+    // named by the name and the username the directory has for them.
+    expect(checkout).toMatch(/@\$\{checkout\.username\}/);
+    expect(checkout).not.toMatch(/checkout\.code\b|codeLabel|Payment code/);
   });
 
   it('imports no fixtures', () => {
@@ -589,13 +590,22 @@ describe('the bank-and-card option is honest about whether it exists', () => {
   });
 });
 
-describe('receive shows the checkout link, not a fixture', () => {
+describe('receive shows the pay link, not a fixture', () => {
   const receive = stripComments(read(join(PAGES, 'receive/page.tsx')));
 
-  it('builds the link from the payment code and the runtime origin', () => {
-    expect(receive).toMatch(/buildCheckoutLink\(origin/);
-    expect(receive).toMatch(/useBackend\(\)/);
+  it('builds the link from the username and the runtime origin, once the username is theirs', () => {
+    expect(receive).toMatch(/buildPayLink\(origin, \{ username \}\)/);
+    expect(receive).toMatch(/claim === 'held' \? profile\?\.username : undefined/);
     expect(receive).toMatch(/window\.location\.origin/);
+  });
+
+  it('shows no code, long or short, and has none to copy', () => {
+    expect(receive).not.toMatch(/\bpaymentCode\b|buildCheckoutLink|Copy code|Payment code/);
+  });
+
+  it('says what to do when there is no username to make a link from', () => {
+    expect(receive).toMatch(/Choose a username to get paid/);
+    expect(receive).toMatch(/href="\/me\?edit=1"/);
   });
 
   it('shares with the Web Share API when there is one, and confirms a copy', () => {
@@ -603,7 +613,7 @@ describe('receive shows the checkout link, not a fixture', () => {
     expect(receive).toMatch(/'Copied'/);
   });
 
-  it('renders a QR of the link and skeletons while the code loads', () => {
+  it('renders a QR of the link and skeletons while it is not known yet', () => {
     expect(receive).toMatch(/<QrCode value=\{link\}/);
     expect(receive).toMatch(/<Skeleton/);
   });
@@ -613,12 +623,19 @@ describe('receive shows the checkout link, not a fixture', () => {
   });
 });
 
-describe('sending pays a code or link, and never asks for an address', () => {
+describe('sending pays a username, a number or a link, and never asks for an address', () => {
   const send = stripComments(read(join(PAGES, 'transfer/send/page.tsx')));
 
-  it('validates the recipient with the same parser the link uses', () => {
-    expect(send).toMatch(/parseCheckout\(/);
+  it('reads the recipient through the one door every screen uses, and asks the directory who it is', () => {
+    expect(send).toMatch(/readRecipient\(/);
+    expect(send).toMatch(/findRecipient\(backend\.directory, /);
     expect(send).toMatch(/oneOffId\(/);
+    expect(send).not.toMatch(/parseCheckout\(|encodePaymentCode/);
+  });
+
+  it('a pay link opened from its public page is looked up before the amount is asked', () => {
+    expect(send).toMatch(/<OpeningStep \/>/);
+    expect(send).toMatch(/params\.get\('to'\)/);
   });
 
   it('enters the amount on the keypad and confirms through a quote', () => {
@@ -950,14 +967,15 @@ describe('a username is one person\'s, and it is how they are paid', () => {
 
   it('the send field takes a username or a number, and names the person from the directory', () => {
     expect(send).toMatch(/placeholder="@username or 0803 123 4567"/);
-    expect(send).toMatch(/resolveHandle\(backend\.directory, handle\)/);
-    expect(send).toMatch(/payee: identity\.name/);
+    expect(send).toMatch(/findRecipient\(backend\.directory, sought\)/);
+    // The name comes from the directory, inside `findRecipient`; the page never takes one from the text.
+    expect(read(join(ROOT, '../../packages/core/recipient.ts'))).toMatch(/payee: identity\.name/);
     expect(send).toMatch(/Nobody on Entole has \$\{formatHandle\(handle\)\} yet\./);
   });
 
   it('receive leads with the username and a link made from it, once the username is theirs', () => {
     expect(receive).toMatch(/const username = claim === 'held' \? profile\?\.username : undefined;/);
-    expect(receive).toMatch(/`\$\{origin\}\/pay\/@\$\{username\}`/);
+    expect(receive).toMatch(/buildPayLink\(origin, \{ username \}\)/);
     expect(receive).toMatch(/@\{username\}<\/p>/);
   });
 
@@ -996,5 +1014,24 @@ describe('a payment the network refuses says so', () => {
     const order = ['allowance.revoked', 'accountPaused', 'allowance.expiresAt', 'allowance.perRunMax', 'allowance.periodCap'].map((part) => why.indexOf(part));
     expect(order.every((at) => at > -1)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+});
+
+describe('nobody is ever shown, or asked for, a code to be paid', () => {
+  // People are paid by username or phone number. The long code an account is
+  // kept as is storage: it never reaches a label, a field, a link or a share.
+  it.each(sourceFiles.map((file) => [relative(ROOT, file), file] as const))('%s', (_name, file) => {
+    const copy = userFacingCopy(read(file)).join('\n');
+    expect(copy).not.toMatch(/\bpay(?:ment)? code\b|\bPAY-|\b(?:their|your|her|his) code\b|\bcode or (?:a )?link\b/i);
+    const source = stripComments(read(file));
+    expect(source).not.toMatch(/buildCheckoutLink|PaymentCodeText|entoleCode|profile\.code\b|\{paymentCode\}|oneOffCode/);
+  });
+
+  it('the pay page hands a payment on by username', () => {
+    const page = stripComments(read(join(PAGES, 'pay/[code]/page.tsx')));
+    expect(page).toMatch(/username: handle\.username/);
+    expect(page).toMatch(/username: known\.username/);
+    const lib = stripComments(read(join(ROOT, 'lib/checkout.ts')));
+    expect(lib).not.toMatch(/codeLabel/);
   });
 });

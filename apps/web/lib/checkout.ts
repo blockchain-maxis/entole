@@ -30,8 +30,8 @@ export type QueryInput = Record<string, string | string[] | undefined>;
 
 /**
  * Rebuilds the checkout from what the router hands the page. Returns `null`
- * for anything that does not carry a valid payment code — the caller shows a
- * calm "this link isn't valid" page and echoes nothing back.
+ * for anything that does not name an account — the caller shows a calm "this
+ * link isn't valid" page and echoes nothing back.
  */
 export function checkoutFromRequest(code: string, query: QueryInput = {}): Checkout | null {
   if (!code || code.length > MAX_CODE_LENGTH) return null;
@@ -195,13 +195,13 @@ export function dueState(dueAt: string | undefined, now: Date = new Date()): Due
 
 const PLACEHOLDER_ORIGIN = 'https://entole.invalid';
 
-/** `/pay/PAY-…?…` — the checkout rebuilt from what was parsed, never echoed. */
+/** `/pay/@ada.eze?…` — the checkout rebuilt from what was read, never echoed. */
 export function checkoutPath(checkout: Checkout): string {
   const link = buildCheckoutLink(PLACEHOLDER_ORIGIN, checkout);
   return link ? link.slice(PLACEHOLDER_ORIGIN.length) : `/pay/${checkout.code}`;
 }
 
-/** `entole://pay/PAY-…?…` — opens the phone app on this payment. */
+/** `entole://pay/@ada.eze?…` — opens the phone app on this payment. */
 export function appLinkFor(checkout: Checkout): string {
   return `entole:/${checkoutPath(checkout)}`;
 }
@@ -209,11 +209,6 @@ export function appLinkFor(checkout: Checkout): string {
 /** The same payment, continued in the web app (`/transfer/send`). */
 export function browserSendPathFor(checkout: Checkout): string {
   return `/transfer/send?to=${encodeURIComponent(checkoutPath(checkout))}`;
-}
-
-/** The last group of the code — a label, never enough to be anything else. */
-export function codeLabel(checkout: Checkout): string {
-  return checkout.code.split('-').slice(-1)[0] ?? checkout.code;
 }
 
 /** Who is being paid, as the page names them. */

@@ -106,14 +106,18 @@ export function beneficiaryAddress(beneficiary: Beneficiary): Address {
   return getAddress(beneficiary.address);
 }
 
-/** Someone the business pays regularly. Just a person and their payment code —
- * no address, no role, no permission. `payAmountMinor` and `cadence` are only
- * what the owner wants pre-filled when running payroll; nothing pays on its own. */
+/** Someone the business pays regularly. Just a person and where their pay
+ * goes — no role, no permission. `payAmountMinor` and `cadence` are only what
+ * the owner wants pre-filled when running payroll; nothing pays on its own. */
 export const staffSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  /** Canonical `PAY-XXXX-…`. Validated, so a mistyped code never reaches a payment. */
+  /** Their account, in the form records keep it (`PAY-XXXX-…`). Validated, so a
+   * bad one never reaches a payment. Never put on a screen. */
   code: z.string().refine((value) => decodePaymentCode(value) !== null, 'not a payment code'),
+  /** The username or number they were added by, as a person writes it
+   * ("@ada.eze", "0803 123 4567"). This is what a screen shows for them. */
+  handle: z.string().min(1).max(40).optional(),
   payAmountMinor: z.number().int().positive().optional(),
   cadence: z.enum(['weekly', 'monthly']).nullable(),
   note: z.string().min(1).optional(),

@@ -33,7 +33,6 @@ export function ProfileChip() {
     );
   }
 
-  const handle = [profile.username ? `@${profile.username}` : null, profile.code].filter(Boolean).join(' · ');
 
   return (
     <Link
@@ -44,7 +43,9 @@ export function ProfileChip() {
       <Avatar initials={profile.initials} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-strong text-ui text-ink">{profile.fullName}</span>
-        <span className="block truncate font-body text-note text-slate">{handle}</span>
+        {profile.username ? (
+          <span className="block truncate font-body text-note text-slate">@{profile.username}</span>
+        ) : null}
       </span>
     </Link>
   );

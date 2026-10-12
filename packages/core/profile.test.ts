@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  entoleCode,
   initialsFor,
   normalizeUsername,
   profileSchema,
@@ -9,32 +8,6 @@ import {
   validateFullName,
   validateUsername,
 } from './profile';
-
-const ADDRESS = '0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7';
-
-describe('entoleCode', () => {
-  it('has the ENT-XXXX-XXXX shape in Crockford base32', () => {
-    expect(entoleCode(ADDRESS)).toMatch(/^ENT-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
-  });
-
-  it('is deterministic and ignores the address casing', () => {
-    expect(entoleCode(ADDRESS)).toBe(entoleCode(ADDRESS));
-    expect(entoleCode(ADDRESS)).toBe(entoleCode(ADDRESS.toLowerCase()));
-  });
-
-  it('differs for different accounts, and changes when one digit changes', () => {
-    const other = `${ADDRESS.slice(0, -1)}8`;
-    expect(entoleCode(other)).not.toBe(entoleCode(ADDRESS));
-  });
-
-  it('never contains the address or a slice of it', () => {
-    const code = entoleCode(ADDRESS).replace(/-/g, '');
-    const hex = ADDRESS.slice(2).toUpperCase();
-    expect(hex.includes(code)).toBe(false);
-    expect(code.includes(hex.slice(0, 4))).toBe(false);
-    expect(code.includes(hex.slice(-4))).toBe(false);
-  });
-});
 
 describe('initialsFor', () => {
   it('takes the first and last initial', () => {

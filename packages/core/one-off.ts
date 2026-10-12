@@ -5,19 +5,20 @@ import { initialsFor } from './profile';
 import type { Contact } from './schemas';
 
 /**
- * Paying a payment code without saving the person first.
+ * Paying someone without saving them first.
  *
  * A saved beneficiary is a record with an id. A one-off recipient has no record
- * — its id *is* the payment code, `code:PAY-XXXX-…` — so the send flow, the
- * receipt and the activity list can all name them without anything being
- * stored. The screens see a `Contact` built from the code, never an address.
+ * — its id carries where the money goes, `code:PAY-XXXX-…`, the form records
+ * keep an account in — so the send flow, the receipt and the activity list can
+ * all name them without anything being stored. The screens see a `Contact`
+ * built from it, never an address and never the code.
  *
- * A payment link may also name the person being paid (the `payee` on a
- * checkout). When it does, that name rides inside the id as a second segment,
+ * The id also carries who the person is: the name the directory has for the
+ * username or number they were found by. It rides as a second segment,
  * `code:PAY-XXXX-…#<name>`, so it shows on the send screen, the review sheet,
  * the receipt and the activity feed without a display-name field on any record.
- * The name is only ever a label; where the money lands still comes from the
- * code alone.
+ * The name is only ever a label; where the money lands comes from the first
+ * segment alone.
  */
 export const ONE_OFF_PREFIX = 'code:';
 
@@ -49,9 +50,9 @@ function parts(id: string): { code: string; name?: string } {
 }
 
 /**
- * The recipient id for a payment code, or `null` if the code isn't valid. A
- * `name` (the payee on a payment link) is carried alongside the code so the
- * person shows by name everywhere; it never affects where the money goes.
+ * The recipient id for an account, or `null` if it isn't a valid one. A `name`
+ * is carried alongside so the person shows by name everywhere; it never
+ * affects where the money goes.
  */
 export function oneOffId(paymentCode: string, name?: string): string | null {
   const address = decodePaymentCode(paymentCode);
@@ -70,27 +71,29 @@ export function oneOffAddress(id: string): Address | null {
   return isOneOffId(id) ? decodePaymentCode(parts(id).code) : null;
 }
 
-/** The payment code inside a one-off id, for pre-filling "save as beneficiary". */
+/** The account inside a one-off id, in the form records keep it. Not for a screen. */
 export function oneOffCode(id: string): string | null {
   const address = oneOffAddress(id);
   return address ? encodePaymentCode(address) : null;
 }
 
-/** The name a payment link gave a one-off recipient, when it gave one. */
+/** The name a one-off recipient was found under, when there is one. */
 export function oneOffName(id: string): string | undefined {
   return isOneOffId(id) ? parts(id).name : undefined;
 }
 
+/** What someone is called when nothing gave them a name. */
+export const UNNAMED_RECIPIENT = 'Entole account';
+
 /**
- * How a one-off recipient is shown: the name on their payment link when it
- * carried one, otherwise the end of their code — never an address.
+ * How a one-off recipient is shown: by name. Someone found by username or
+ * number always has one. A link in the old form may not, and then they are
+ * simply an Entole account: never an address, never a code.
  */
 export function oneOffContact(id: string): Contact | undefined {
   if (!isOneOffId(id)) return undefined;
-  const code = oneOffCode(id);
-  if (!code) return undefined;
+  if (!oneOffAddress(id)) return undefined;
   const { name } = parts(id);
   if (name) return { id, name, initials: initialsFor(name), tone: 3 };
-  const tail = code.split('-').slice(-1)[0] ?? code.slice(-4);
-  return { id, name: `Payment code · ${tail}`, initials: 'PC', tone: 3 };
+  return { id, name: UNNAMED_RECIPIENT, initials: 'E', tone: 3 };
 }

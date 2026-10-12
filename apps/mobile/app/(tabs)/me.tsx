@@ -117,9 +117,6 @@ export default function Me() {
                   @{profile.username}
                 </Text>
               ) : null}
-              <Text tabular className="mt-0.5 font-body text-note text-slate">
-                {profile.code}
-              </Text>
             </>
           ) : (
             <RowSkeleton />

@@ -151,8 +151,9 @@ export default function RunPayroll() {
       lines: targets,
       // The only thing that moves money: the ordinary send, one person at a time.
       send: async (line) => {
-        const contactId = oneOffId(line.code);
-        if (!contactId) throw new Error("That payment code doesn't look right.");
+        // Named, so the payment reads as theirs in activity and on its receipt.
+        const contactId = oneOffId(line.code, line.name);
+        if (!contactId) throw new Error("We couldn't find where to pay them. Remove them and add them again.");
         const receipt = await store.send({ contactId, amountMinor: line.amountMinor, note: 'Payroll', batch });
         return { id: receipt.id, feeMinor: receipt.feeMinor };
       },

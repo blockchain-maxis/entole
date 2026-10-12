@@ -9,7 +9,7 @@ import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { countryName } from '@entole/core/countries';
 import { timeWithSeconds } from '@entole/core/format';
-import { isOneOffId, oneOffCode } from '@entole/core/one-off';
+import { isOneOffId } from '@entole/core/one-off';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
@@ -99,7 +99,7 @@ export default function Receipt() {
             accessibilityRole="button"
             hitSlop={10}
             onPress={() =>
-              router.push({ pathname: '/beneficiaries/new', params: { code: oneOffCode(receipt.contactId) ?? '' } })
+              router.push({ pathname: '/beneficiaries/new', params: { recipient: receipt.contactId } })
             }
             className="mt-6 self-start"
           >

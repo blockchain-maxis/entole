@@ -4,8 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Share, View } from 'react-native';
 
-import { useBackend } from '@entole/core/backend';
-import { buildCheckoutLink } from '@entole/core/checkout-link';
+import { buildPayLink, parsePayLink } from '@entole/core/checkout-link';
 import { dueDateLabel, INVOICE_STATUS_LABEL, invoiceDisplayStatus, localDay } from '@entole/core/invoices';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
@@ -20,6 +19,7 @@ import { StatusChip } from '@/components/ui/StatusChip';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { CHECKOUT_BASE } from '@/lib/onchain';
+import { usePayUsername } from '@/lib/pay-username';
 import { plainMessage } from '@/lib/send';
 
 const TONE = { sent: 'neutral', paid: 'settled', overdue: 'halt', draft: 'neutral', held: 'caution' } as const;
@@ -33,8 +33,9 @@ const TONE = { sent: 'neutral', paid: 'settled', overdue: 'halt', draft: 'neutra
 export default function InvoiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const store = useStore();
-  const { paymentCode } = useBackend();
+  const mine = usePayUsername();
   const { account } = useAccount();
+  const payee = account?.displayName.trim() ?? '';
   const invoice = store.invoice(String(id));
 
   const [copied, setCopied] = useState(false);
@@ -50,24 +51,25 @@ export default function InvoiceDetail() {
     [],
   );
 
-  // The link that was saved with the invoice is the one that was shared, so it
-  // stays as it was. Only an invoice saved without one gets it built here.
-  const payee = account?.displayName.trim() ?? '';
+  // The link saved with the invoice is the one that was shared, so it stays as
+  // it was. An invoice saved before pay links were usernames has one in the
+  // old, long form: that still opens for whoever has it, but what is shown and
+  // shared from here is the same invoice by username.
+  const username = mine.state === 'held' ? mine.username : null;
   const link = useMemo(() => {
     if (!invoice) return null;
-    if (invoice.link) return invoice.link;
-    if (!paymentCode) return null;
-    return buildCheckoutLink(CHECKOUT_BASE, {
-      code: paymentCode,
+    if (invoice.link && parsePayLink(invoice.link)) return invoice.link;
+    if (!username) return null;
+    return buildPayLink(CHECKOUT_BASE, {
+      username,
       kind: 'invoice',
       amountMinor: invoice.amountMinor,
       currency: 'NGN',
-      ...(payee ? { payee } : {}),
       ...(invoice.reference ? { reference: invoice.reference } : {}),
       note: invoice.note,
       dueAt: localDay(invoice.dueAt),
     });
-  }, [invoice, paymentCode, payee]);
+  }, [invoice, username]);
 
   async function copy() {
     if (!link) return;

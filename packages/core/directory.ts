@@ -5,9 +5,8 @@ import { z } from 'zod';
  * The identity directory client — the server side lives in
  * `apps/web/app/api/directory` (`apps/web/lib/server/directory.ts` owns the
  * storage). It is what makes a username one person's and nobody else's, and
- * what lets someone be paid by `@username` or by phone number instead of by a
- * long payment code. A payment code still works with no directory entry at
- * all. Never the address itself back out to a screen.
+ * what lets someone be paid by `@username` or by phone number. Never the
+ * address itself back out to a screen.
  */
 
 // Matches `avatarToneSchema` in `schemas.ts` — kept separate since this
@@ -17,11 +16,28 @@ const toneSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 export const phoneHandleSchema = z.object({
   /** ISO 3166-1 alpha-2, lowercase — `ng` for Nigeria. */
   country: z.string().length(2),
-  /** Digits only, no leading zero or country code — as `groupNumber` collects it. */
+  /** Digits only. Kept without a leading zero or country code: see `canonicalPhone`. */
   number: z.string().regex(/^\d{6,14}$/),
 });
 
 export type PhoneHandle = z.infer<typeof phoneHandleSchema>;
+
+/**
+ * A number the way the directory keeps it: no leading zero and no country
+ * code, so "0901 236 5123", "901 236 5123" and "+234 901 236 5123" are one
+ * number. People write the zero; nobody should have to know to leave it off.
+ * Both ends run this, the app before it signs and the route before it stores
+ * or looks anything up.
+ */
+export function canonicalPhone(phone: PhoneHandle): PhoneHandle {
+  const country = phone.country.toLowerCase();
+  let number = phone.number.replace(/^0+/, '');
+  // "+234 901…", and "+234 0901…" as people also write it.
+  if (country === 'ng' && number.length >= 13 && number.startsWith('234')) {
+    number = number.slice(3).replace(/^0+/, '');
+  }
+  return { country, number };
+}
 
 /** The same grammar as `profileSchema` in `profile.ts`: 3 to 20 of a-z, 0-9, dot, underscore. */
 export const usernameHandleSchema = z.string().regex(/^[a-z0-9_.]{3,20}$/);
@@ -126,13 +142,17 @@ export function createDirectoryClient(options: {
     /** `null` when that address has no directory entry — always a valid, quiet state. */
     resolveByAddress: (address: Address) => get(`address=${encodeURIComponent(address)}`),
     /** `null` when that number hasn't linked an Entole account. */
-    resolveByPhone: (phone: PhoneHandle) =>
-      get(`country=${encodeURIComponent(phone.country)}&number=${encodeURIComponent(phone.number)}`),
+    resolveByPhone: (given: PhoneHandle) => {
+      const phone = canonicalPhone(given);
+      return get(`country=${encodeURIComponent(phone.country)}&number=${encodeURIComponent(phone.number)}`);
+    },
     /** `null` when nobody has that username. */
     resolveByUsername: (username: string) => get(`username=${encodeURIComponent(username)}`),
 
     /** Publishes (or updates) this account's own directory entry. */
-    async claim(input: DirectoryClaim): Promise<void> {
+    async claim(given: DirectoryClaim): Promise<void> {
+      // Canonical before it is signed, so what is signed is what is stored.
+      const input: DirectoryClaim = given.phone ? { ...given, phone: canonicalPhone(given.phone) } : given;
       const timestampSeconds = Math.floor(Date.now() / 1000);
       const message = buildClaimMessage({
         address: input.address,

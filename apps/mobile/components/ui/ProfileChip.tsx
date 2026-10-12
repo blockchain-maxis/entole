@@ -34,8 +34,6 @@ export function ProfileChip() {
     );
   }
 
-  const handle = [profile.username ? `@${profile.username}` : null, profile.code].filter(Boolean).join(' · ');
-
   return (
     <Pressable
       accessibilityRole="button"
@@ -48,9 +46,11 @@ export function ProfileChip() {
         <Text numberOfLines={1} className="font-strong text-ui text-ink">
           {profile.fullName}
         </Text>
-        <Text numberOfLines={1} className="font-body text-note text-slate">
-          {handle}
-        </Text>
+        {profile.username ? (
+          <Text numberOfLines={1} className="font-body text-note text-slate">
+            @{profile.username}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );

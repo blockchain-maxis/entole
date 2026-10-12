@@ -142,7 +142,7 @@ function NewRule() {
         <div className="flex-1 px-gutter pb-28 pt-2">
           <h2 className="font-display text-heading text-ink">Save someone first</h2>
           <p className="mt-2.5 text-pretty font-body text-prose text-slate">
-            An allowance is for one person you have saved. Pay them once with their payment code, then save them
+            An allowance is for one person you have saved. Pay them once by username or number, then save them
             from the receipt.
           </p>
           <Link

@@ -33,10 +33,11 @@ describe('one-off recipient', () => {
     expect(oneOffAddress('b-mom')).toBeNull();
   });
 
-  it('is shown by the end of its code, never an address', () => {
+  it('is shown as an account when nothing names it: never an address, never a code', () => {
     const contact = oneOffContact(`code:${code}`)!;
-    expect(contact.name).toMatch(/^Payment code · [0-9A-Z]{1,4}$/);
-    expect(JSON.stringify(contact)).not.toMatch(/0x/i);
+    expect(contact.name).toBe('Entole account');
+    expect(contact.name).not.toMatch(/PAY|code/i);
+    expect(JSON.stringify({ ...contact, id: '' })).not.toMatch(/0x|PAY-/i);
   });
 
   it('carries a link-supplied payee name and shows it', () => {
@@ -57,10 +58,10 @@ describe('one-off recipient', () => {
     expect(oneOffContact(id)!.name).toBe('Corner Shop #2');
   });
 
-  it('falls back to the code tail when no name is given', () => {
+  it('is an account, nothing more, when no name is given', () => {
     const id = oneOffId(code, '   ')!;
     expect(id).toBe(`code:${code}`);
-    expect(oneOffContact(id)!.name).toMatch(/^Payment code · /);
+    expect(oneOffContact(id)!.name).toBe('Entole account');
   });
 
   it('is payable through the account source without being saved', async () => {

@@ -63,7 +63,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
           {done.already ? `You already saved them as ${done.name}` : `${done.name} is saved`}
         </p>
         <p className="mt-1 text-pretty font-body text-note text-slate">
-          You can pay them again without their code, or let the assistant pay them inside an allowance.
+          You can pay them again in two taps, or let the assistant pay them inside an allowance.
         </p>
         <Link
           href={`/rules/new?for=${encodeURIComponent(done.id)}`}
@@ -84,7 +84,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
         Save them for next time
       </label>
       <p id="save-help" className="mt-1 text-pretty font-body text-note text-slate">
-        Give them a name and you can pay them again without their code.
+        Give them a name and you can pay them again in two taps.
       </p>
       <div className="mt-3 flex gap-2.5">
         <input

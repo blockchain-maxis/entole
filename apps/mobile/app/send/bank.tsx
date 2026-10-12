@@ -33,7 +33,7 @@ export default function SendToBank() {
         <View className="mt-7">
           <Text className="font-display text-subhead text-ink">What you can do now</Text>
           <Text className="mt-2 font-body text-ui text-slate">
-            Send to someone’s Entole code or link instead. It settles in seconds.
+            Send to someone’s Entole username or number instead. It settles in seconds.
           </Text>
           <Text className="mt-4 font-body text-ui text-slate">
             If you know their bank details, you can save them on their beneficiary now. They’ll be used
@@ -44,7 +44,7 @@ export default function SendToBank() {
 
       <ActionBar>
         <Button label="Manage beneficiaries" variant="secondary" onPress={() => router.push('/beneficiaries')} />
-        <Button label="Send with a code" onPress={() => router.push('/send/pick')} />
+        <Button label="Send by username" onPress={() => router.push('/send/pick')} />
       </ActionBar>
     </Screen>
   );

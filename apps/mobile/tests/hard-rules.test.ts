@@ -519,8 +519,8 @@ describe('the header says who you are, not which app this is', () => {
       expect(source).not.toMatch(/\.address\b|shortAddress|truncateAddress|formatAddress|slice\(0,\s*6\)/);
       expect(source).not.toMatch(/entoleCode/);
     }
-    // The code is derived in one place, from the address, and only the code leaves it.
-    expect(profileHook).toMatch(/entoleCode\(account\.owner\.address\)/);
+    // A person has one handle, their username. Nothing is derived from the address to stand in for it.
+    expect(profileHook).not.toMatch(/entoleCode|\.address\b/);
   });
 
   it('greets by the device clock, with no emoji and no made-up or shortened name', () => {
@@ -646,18 +646,25 @@ describe('Home, Add money and Receive show the account, never a fixture', () => 
     expect(addMoney).toMatch(/https:\/\/www\.exchangerate-api\.com/);
   });
 
-  // Receive became a checkout link (QR of the link, the plain code underneath);
-  // the older assertions that it shows only the bare code were replaced with these.
-  it('Receive shows the real checkout link as a QR, and the real code as text', () => {
-    expect(receive).toMatch(/useBackend\(\)/);
-    expect(receive).toMatch(/paymentCode/);
+  // Receive is the person's username: the pay link made from it, as a QR, and
+  // the username itself. The long code that used to sit underneath is gone.
+  it('Receive shows the pay link made from the username as a QR, and never a code', () => {
+    expect(receive).toMatch(/usePayUsername\(\)/);
+    expect(receive).toMatch(/buildPayLink\(CHECKOUT_BASE/);
     expect(receive).toMatch(/<PaymentCode value=\{link\}/);
-    expect(receive).toMatch(/<PaymentCodeText code=\{paymentCode\}/);
-    expect(receive).toMatch(/Your code/);
+    expect(receive).toMatch(/Your username/);
+    expect(receive).not.toMatch(/\bpaymentCode\b|PaymentCodeText|buildCheckoutLink|Your code/);
+    expect(paymentCode).not.toMatch(/PaymentCodeText/);
     expect(receive).not.toMatch(/store\.request|useStore/);
   });
 
-  it('Receive copes with no code yet by showing a skeleton and a disabled Copy link', () => {
+  it('Receive waits for the directory to say the username is theirs, and says so when it has not', () => {
+    expect(receive).toMatch(/mine\.state === 'held'/);
+    expect(receive).toMatch(/mine\.state === 'unconfirmed'/);
+    expect(receive).toMatch(/label="Try again"/);
+  });
+
+  it('Receive copes with no link yet by showing a skeleton and a disabled Copy link', () => {
     expect(receive).toMatch(/<Skeleton/);
     expect(receive).toMatch(/disabled=\{!link\}/);
   });
@@ -747,7 +754,7 @@ describe('beneficiaries, and a send that shows only what is real', () => {
     ]);
   });
 
-  it('adding a beneficiary decodes a payment code and never renders an address', () => {
+  it('adding a beneficiary asks for a username or number and never renders an address', () => {
     for (const path of beneficiaryScreens) {
       const source = stripComments(read(join(ROOT, path)));
       // The address may travel in the record; it may not reach a screen.
@@ -755,12 +762,16 @@ describe('beneficiaries, and a send that shows only what is real', () => {
       expect(source, path).not.toMatch(/shortAddress|truncateAddress|formatAddress|slice\(0,\s*6\)/);
     }
     const add = stripComments(read(join(ROOT, 'app/beneficiaries/new.tsx')));
-    expect(add).toMatch(/decodePaymentCode\(/);
+    expect(add).toMatch(/readRecipient\(/);
+    expect(add).toMatch(/findRecipient\(directory, sought\)/);
+    expect(add).not.toMatch(/decodePaymentCode|PAY-/);
     expect(add).toMatch(/source\.saveBeneficiary\(/);
     expect(add).toMatch(/store\.refresh\(\)/);
-    expect(add).toMatch(/That code doesn't look right — check it and try again/);
-    expect(add).toMatch(/your own payment code/);
+    expect(add).toMatch(/That doesn't look like a username or a phone number/);
+    expect(add).toMatch(/That's you\. Add someone else\./);
     expect(add).toMatch(/already have/);
+    // Someone just paid is handed over by id, so nothing of them is typed or shown.
+    expect(add).toMatch(/oneOffAddress\(recipient\)/);
     expect(add).not.toMatch(/CameraView|expo-camera|BarcodeScanner/);
   });
 
@@ -807,10 +818,11 @@ describe('sending works without a saved beneficiary', () => {
     expect(receipt).toMatch(/Save as a beneficiary/);
   });
 
-  it('the recipient step is one code-or-link field, read through parseCheckout, with Paste and Scan', () => {
+  it('the recipient step is one field for a username, a number or a link, with Paste and Scan', () => {
     expect(pick).toMatch(/Who are you sending to\?/);
-    expect(pick).toMatch(/parseCheckout\(/);
-    expect(pick).toMatch(/That code doesn't look right — check it and try again\./);
+    expect(pick).toMatch(/readRecipient\(text\)/);
+    expect(pick).not.toMatch(/parseCheckout\(/);
+    expect(pick).toMatch(/That doesn't look like a username, a phone number or a pay link\./);
     expect(pick).toMatch(/Clipboard\.getStringAsync\(\)/);
     expect(pick).toMatch(/>Paste</);
     expect(pick).toMatch(/pathname: '\/send\/scan'/);
@@ -999,7 +1011,7 @@ describe('stocks are shown only as the market has them', () => {
   });
 });
 
-describe('sending is one simple step: a code or a link, scanned or pasted', () => {
+describe('sending is one simple step: a username, a number or a link, typed, scanned or pasted', () => {
   const scan = stripComments(read(join(ROOT, 'app/send/scan.tsx')));
   const bank = stripComments(read(join(ROOT, 'app/send/bank.tsx')));
   const send = stripComments(read(join(ROOT, 'app/send/index.tsx')));
@@ -1023,9 +1035,10 @@ describe('sending is one simple step: a code or a link, scanned or pasted', () =
   });
 
   it('the recipient step passes a link’s amount and any note through to the amount screen and the review sheet', () => {
-    expect(recipient).toMatch(/parseCheckout\(/);
+    expect(recipient).toMatch(/readRecipient\(/);
+    expect(recipient).toMatch(/findRecipient\(backend\.directory, sought\)/);
     expect(recipient).toMatch(/oneOffId\(/);
-    expect(recipient).toMatch(/parsed\.currency === 'NGN'/);
+    expect(recipient).toMatch(/found\.currency === 'NGN'/);
     expect(send).toMatch(/entryFromParam\(params\.amount\)/);
     expect(send).toMatch(/cleanNote\(params\.note\)/);
     expect(send).toMatch(/defaultNote/);
@@ -1044,12 +1057,14 @@ describe('sending is one simple step: a code or a link, scanned or pasted', () =
 
   it('the scanner reads QR codes only, asks plainly, and copes with a refusal', () => {
     expect(scan).toMatch(/barcodeTypes: \['qr'\]/);
-    expect(scan).toMatch(/Entole uses the camera to scan a payment code\./);
+    expect(scan).toMatch(/Entole uses the camera to scan the square on someone’s Receive screen\./);
     expect(scan).toMatch(/Linking\.openSettings\(\)/);
-    expect(scan).toMatch(/That doesn't look like an Entole code\./);
+    expect(scan).toMatch(/That isn't an Entole pay link\./);
     expect(scan).toMatch(/label="Try again"/);
-    // A scan goes to the same door as a paste.
-    expect(scan).toMatch(/sendParamsFor\(/);
+    // A scan goes to the same door as a paste, and that door asks the
+    // directory: a pay link names a username, which says nothing by itself.
+    expect(scan.match(/resolveSendTarget\(/g)?.length).toBe(2);
+    expect(scan).not.toMatch(/sendParamsFor\(/);
     expect(scan).toMatch(/pathname: '\/send'/);
   });
 
@@ -1077,12 +1092,13 @@ describe('Receive is a checkout link', () => {
   const sheet = stripComments(read(join(COMPONENTS, 'ui/RequestAmountSheet.tsx')));
   const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
 
-  it('builds the link with buildCheckoutLink from the app’s own origin', () => {
+  it('builds the link with buildPayLink, from the username and the app’s own origin', () => {
     expect(onchain).toMatch(/export const CHECKOUT_BASE = API_BASE/);
-    expect(receive).toMatch(/buildCheckoutLink\(CHECKOUT_BASE,/);
-    expect(receive).toMatch(/kind: 'pay'/);
+    expect(receive).toMatch(/buildPayLink\(CHECKOUT_BASE,/);
+    expect(receive).toMatch(/\busername,/);
     expect(receive).toMatch(/currency: 'NGN'/);
-    expect(receive).toMatch(/payee/);
+    // The name on the pay page is the directory's to give, so the link carries none.
+    expect(receive).not.toMatch(/\bpayee\b/);
   });
 
   it('has Copy link and Share link, and shares through the platform sheet', () => {
@@ -1209,14 +1225,16 @@ describe('invoices carry a real checkout link', () => {
   const create = stripComments(read(join(ROOT, 'app/business/new-invoice.tsx')));
   const detail = stripComments(read(join(ROOT, 'app/business/invoice/[id].tsx')));
 
-  it('the new-invoice screen builds an invoice checkout link from the payment code, amount and reference', () => {
-    expect(create).toMatch(/buildCheckoutLink\(CHECKOUT_BASE/);
+  it('the new-invoice screen builds an invoice pay link from the username, amount and reference', () => {
+    expect(create).toMatch(/buildPayLink\(CHECKOUT_BASE/);
     expect(create).toMatch(/kind: 'invoice'/);
     expect(create).toMatch(/currency: 'NGN'/);
-    for (const field of ['amountMinor', 'payee', 'reference', 'note', 'dueAt']) {
+    for (const field of ['amountMinor', 'reference', 'note', 'dueAt']) {
       expect(create).toMatch(new RegExp(`\\b${field}\\b`));
     }
-    expect(create).toMatch(/code: paymentCode/);
+    expect(create).toMatch(/username: mine\.username/);
+    expect(create).not.toMatch(/\bpaymentCode\b|buildCheckoutLink/);
+    expect(detail).not.toMatch(/\bpaymentCode\b|buildCheckoutLink/);
     expect(create).toMatch(/store\.createInvoice\(/);
     // A link that could not be built is a message, never an invented one.
     expect(create).toMatch(/isn't ready yet/);
@@ -1299,7 +1317,8 @@ describe('a payroll run pays one person at a time and never shows a state early'
 
   it('sends each payment through store.send to a one-off recipient, with the note Payroll', () => {
     expect(run).toMatch(/store\.send\(\{ contactId, amountMinor: line\.amountMinor, note: 'Payroll', batch \}\)/);
-    expect(run).toMatch(/oneOffId\(line\.code\)/);
+    // Named, so the payment reads as theirs in activity and on its receipt.
+    expect(run).toMatch(/oneOffId\(line\.code, line\.name\)/);
     expect(run).toMatch(/runPayroll\(/);
   });
 
@@ -1502,14 +1521,17 @@ describe('a username is one person\'s, and it is how they are paid', () => {
 
   it('the send field takes a username or a number, and names the person from the directory', () => {
     expect(pick).toMatch(/placeholder="@username or 0803 123 4567"/);
-    expect(pick).toMatch(/handleIn\(text\)/);
-    expect(recipient).toMatch(/resolveHandle\(backend\.directory, handle\)/);
-    expect(recipient).toMatch(/oneOffId\(code, identity\.name\)/);
+    expect(pick).toMatch(/readRecipient\(text\)/);
+    expect(recipient).toMatch(/findRecipient\(backend\.directory, sought\)/);
+    // The id carries the name the directory has, so every screen after this names the person.
+    expect(recipient).toMatch(/oneOffId\(found\.code, found\.payee\)/);
+    expect(read(join(ROOT, '../../packages/core/recipient.ts'))).toMatch(/payee: identity\.name/);
   });
 
-  it('receive shows the username before the long code', () => {
+  it('receive shows the username, and there is no long code under it', () => {
     expect(receive).toMatch(/title="Your username"/);
-    expect(receive.indexOf('title="Your username"')).toBeLessThan(receive.indexOf('title="Your code"'));
+    expect(receive).toMatch(/@\{username\}/);
+    expect(receive).not.toMatch(/title="Your code"/);
   });
 });
 
@@ -1560,5 +1582,37 @@ describe('someone who has not signed up cannot reach the assistant', () => {
 
   it('the assistant screen sends them to the start', () => {
     expect(stripComments(read(join(ROOT, 'app/assistant.tsx')))).toMatch(/if \(!account\) return <Redirect href="\/" \/>;/);
+  });
+});
+
+describe('nobody is ever shown, or asked for, a code to be paid', () => {
+  // People are paid by username or phone number. The long code an account is
+  // kept as is storage: it never reaches a label, a field, a link or a share.
+  it.each(sourceFiles.map((file) => [relative(ROOT, file), file] as const))('%s', (_name, file) => {
+    const copy = userFacingCopy(read(file)).join('\n');
+    expect(copy).not.toMatch(/\bpay(?:ment)? code\b|\bPAY-|\b(?:their|your|her|his) code\b|\bcode or (?:a )?link\b/i);
+    const source = stripComments(read(file));
+    expect(source).not.toMatch(/buildCheckoutLink|PaymentCodeText|entoleCode|profile\.code\b|\{paymentCode\}|oneOffCode/);
+  });
+
+  it('a pay link opened from outside the app has a screen to land on', () => {
+    const route = stripComments(read(join(ROOT, 'app/pay/[code].tsx')));
+    expect(route).toMatch(/payLinkFromRoute\(params\)/);
+    expect(route).toMatch(/resolveSendTarget\(link, undefined, backend\)/);
+    expect(route).toMatch(/pathname: '\/send'/);
+    // Opened cold, the person unlocks first and is brought back to the link.
+    expect(route).toMatch(/pathname: '\/lock', params: link \? \{ next: link \} : \{\}/);
+    expect(stripComments(read(join(ROOT, 'app/lock.tsx')))).toMatch(/isPayPath\(next\)/);
+    expect(route).toMatch(/<Header /);
+    expect(route).toMatch(/Nothing was sent\./);
+  });
+
+  it('the phone number field takes the number the way people write it, zero and all', () => {
+    const phone = stripComments(read(join(ROOT, 'app/onboarding/phone.tsx')));
+    expect(phone).toMatch(/normalizeNigerianNumber\(digits\)/);
+    expect(phone).toMatch(/digits\.startsWith\('0'\) \? 11 : 10/);
+    expect(phone).toMatch(/phone: \{ country: 'ng', number \}/);
+    expect(phone).not.toMatch(/MAX_DIGITS/);
+    expect(phone).toMatch(/<Keypad/);
   });
 });

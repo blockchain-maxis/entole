@@ -11,11 +11,11 @@ import { onrampUrlFor } from '@/lib/onramp';
 import { getByAddress, getUsernameOwner } from '@/lib/server/directory';
 
 /**
- * The public checkout page: what a shared payment link opens, in any browser,
- * with no account. It is rebuilt from the request every time — the link is the
- * whole record, nothing is stored — and every field goes through
- * `parseCheckout` before it is used. `searchParams` makes it dynamic, which is
- * also what lets "overdue" be worked out at request time.
+ * The public checkout page: what a shared pay link opens, in any browser, with
+ * no account. It is rebuilt from the request every time — what the link asks
+ * for is in the link, nothing is stored — and every field is read and cleaned
+ * before it is used. `searchParams` makes it dynamic, which is also what lets
+ * "overdue" be worked out at request time.
  */
 type Props = {
   params: Promise<{ code: string }>;
@@ -23,14 +23,21 @@ type Props = {
 };
 
 /**
- * The checkout a link names. Usually the code in the path says it all. A link
- * made from a username (`/pay/@ada.eze`) is looked up in the directory instead
- * and becomes the same checkout, under the name its owner gave. A username
- * nobody holds is an invalid link like any other.
+ * The checkout a link names. A pay link is a username (`/pay/@ada.eze`): the
+ * directory says whose it is, and the page shows them under the name its owner
+ * gave. A username nobody holds is an invalid link like any other.
+ *
+ * A link made before usernames names the account in the path instead. It
+ * still opens. When that account has since taken a username, the page uses it,
+ * so whatever is handed on from here is the short form.
  */
 async function checkoutFor(code: string, query: QueryInput): Promise<Checkout | null> {
   const direct = checkoutFromRequest(code, query);
-  if (direct) return direct;
+  if (direct) {
+    const { address } = direct;
+    const known = await getByAddress(address).catch(() => null);
+    return known?.username ? { ...direct, payee: known.name, username: known.username } : direct;
+  }
 
   let text = code;
   try {
@@ -45,7 +52,8 @@ async function checkoutFor(code: string, query: QueryInput): Promise<Checkout | 
   const owner = await getUsernameOwner(handle.username);
   const record = owner ? await getByAddress(owner) : null;
   if (!record) return null;
-  return checkoutFromRequest(encodePaymentCode(record.address), { ...query, n: record.name });
+  const checkout = checkoutFromRequest(encodePaymentCode(record.address), { ...query, n: record.name });
+  return checkout ? { ...checkout, username: handle.username } : null;
 }
 
 // A payment link is for one person. It has no business in a search index.

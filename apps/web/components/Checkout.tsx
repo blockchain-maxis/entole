@@ -8,7 +8,6 @@ import { initialsFor } from '@entole/core/profile';
 import {
   appLinkFor,
   browserSendPathFor,
-  codeLabel,
   dueState,
   formatCheckoutAmount,
   payeeName,
@@ -41,8 +40,13 @@ function Notice({ children }: { children: React.ReactNode }) {
   return <p className="mt-8 text-pretty font-body text-note text-slate">{children}</p>;
 }
 
-/** What the link's author wrote is theirs, not ours — the page says so. */
+/** What the link's author wrote is theirs, not ours — the page says so. The
+ * name is the one its owner gave the directory, found by the username in the
+ * link; an amount and a note are whatever the link says. */
 const AUTHORED_BY_SENDER =
+  'The amount and note on this page were written by whoever made the link. Only pay someone you know.';
+/** A link in the old form carries its own name, so that is the author's too. */
+const AUTHORED_ENTIRELY =
   'The name and note on this page were written by whoever made the link. Only pay someone you know.';
 
 // ---------------------------------------------------------------------------
@@ -225,7 +229,7 @@ export function PaymentOptions({ checkout, onrampUrl }: { checkout: Checkout; on
       )}
 
       <Notice>
-        {AUTHORED_BY_SENDER} Payment code ending {codeLabel(checkout)}.
+        {checkout.username ? `You are paying @${checkout.username}. ${AUTHORED_BY_SENDER}` : AUTHORED_ENTIRELY}
       </Notice>
     </section>
   );
