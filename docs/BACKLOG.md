@@ -70,10 +70,19 @@ product: where it touches a screen, the screen says so plainly.
   it changes the record from held to sent; no money moves. Releasing it
   automatically needs the server store (Upstash) and a registered Chainlink
   workflow, and neither is set up.
-- **Nothing notices an invoice being paid.** The money arrives in the balance;
-  the business marks the invoice paid by hand. Money coming in is not recorded
-  as activity at all, for invoices or for ordinary receiving, until the indexer
-  runs.
+- **Nothing notices an invoice being paid.** The money arrives in the balance
+  and, since 12 October 2026, in activity with who sent it; the business still
+  marks the invoice paid by hand, because nothing ties a payment that arrived
+  to the invoice it was for.
+- **Money that arrives is told in the app, not outside it.** A payment shows in
+  the receiver's activity and a banner says so while the app or the page is
+  open (see "Money that arrives" in `docs/ARCHITECTURE.md`). There is no alert
+  when the app is closed: that needs a notifications module in a new phone
+  build, push credentials for Android, and a push handler for the browser.
+- **A payment made outside the apps is not listed.** The record is made when
+  the sender's app reports a payment it settled. Money that arrives some other
+  way (the test faucet, a transfer from another app) raises the balance and is
+  not in activity.
 - **Tax reserve is display only.** `settleInvoice` returns no reserve; nothing
   creates one in the live app. The invoice CSV export covers the bookkeeping.
 - **Bill payment has no automatic refund.** The person's payment settles before

@@ -51,6 +51,10 @@ type Store = {
    * "not available yet" state from this, not from a failed call. */
   stocksAvailable: boolean;
   proposal: Proposal | null;
+  /** Payments that have arrived and not been said yet, newest first. A screen
+   * says them once and then calls `clearArrivals`. They are in `activity` too. */
+  arrivals: Activity[];
+  clearArrivals(): void;
   request: Snapshot['request'] | null;
   contact(id: string): Contact | undefined;
   allowance(id: string): AllowanceView | undefined;
@@ -102,7 +106,19 @@ export function StoreProvider({
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [receipts, setReceipts] = useState<Record<string, Receipt>>({});
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [arrivals, setArrivals] = useState<Activity[]>([]);
   const [quotedAt, setQuotedAt] = useState(() => new Date().toISOString());
+
+  /** What a load found that had not been seen before: held until a screen has said it. */
+  const noteArrivals = useCallback((next: Snapshot) => {
+    const fresh = next.arrived ?? [];
+    if (fresh.length === 0) return;
+    setArrivals((current) => {
+      const have = new Set(current.map((entry) => entry.id));
+      return [...fresh.filter((entry) => !have.has(entry.id)), ...current];
+    });
+  }, []);
+  const clearArrivals = useCallback(() => setArrivals((current) => (current.length === 0 ? current : [])), []);
 
   useEffect(() => {
     let live = true;
@@ -113,6 +129,7 @@ export function StoreProvider({
         setSnapshot(next);
         setQuotedAt(new Date().toISOString());
         setProposal(next.proposal);
+        noteArrivals(next);
         setStatus('ready');
       })
       .catch(() => {
@@ -121,17 +138,18 @@ export function StoreProvider({
     return () => {
       live = false;
     };
-  }, [gateway]);
+  }, [gateway, noteArrivals]);
 
   const refresh = useCallback(async () => {
     const next = await gateway.loadSnapshot();
     setSnapshot(next);
     setQuotedAt(new Date().toISOString());
     setProposal(next.proposal);
+    noteArrivals(next);
     // A re-read that succeeds after a failed first load is what "Retry" means:
     // without this the store stayed 'failed' with a good snapshot behind it.
     setStatus('ready');
-  }, [gateway]);
+  }, [gateway, noteArrivals]);
 
   const quoteSend = useCallback((amountMinor: number) => gateway.quoteSend(amountMinor), [gateway]);
 
@@ -395,8 +413,10 @@ export function StoreProvider({
       stockPositions: snapshot?.stockPositions ?? [],
       stocksAvailable: gateway.stocksAvailable,
       proposal,
+      arrivals,
+      clearArrivals,
       request: snapshot?.request ?? null,
-      // A one-off payment code has no saved record; it is named by its code.
+      // Someone paid without being saved has no record; they are named by their id.
       contact: (id) => contacts.find((c) => c.id === id) ?? oneOffContact(id),
       allowance: (id) => allowances.find((a) => a.id === id),
       seat: (id) => seats.find((s) => s.id === id),
@@ -426,8 +446,10 @@ export function StoreProvider({
       sellStock,
     };
   }, [
+    arrivals,
     buyStock,
     cancelProposal,
+    clearArrivals,
     createInvoice,
     createProcurementRequest,
     depositGrow,

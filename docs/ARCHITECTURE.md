@@ -174,6 +174,38 @@ Do not pretend it is solved.
 Envio HyperIndex for activity feeds and allowance history. Do not read history
 directly from RPC in the app.
 
+### Money that arrives
+
+A send is written to the sender's own device. For the person receiving it
+there was, until 12 October 2026, nothing but a balance that went up. The test
+network only answers a log query 100 blocks back, well under a minute, so the
+app could not go and look for itself even if the rule above allowed it.
+
+So the two ends meet on the server (`/api/payments`, `lib/server/payments.ts`,
+client in `packages/core/payments-feed.ts`):
+
+- When a payment settles, the sender's app reports which one, signed by the
+  sender's account, with the note they wrote and the naira figure they typed.
+- The server does not take the report's word for anything that happened. It
+  reads that payment's own record from the network (`readSettledPayment`): that
+  it settled, who paid, who was paid, how much arrived, when. Only the note and
+  the naira figure come from the sender, and the naira figure is kept only when
+  it agrees with the amount that moved, at a rate close to the server's own
+  (`settledNaira`). Otherwise the server works the figure out.
+- It keeps the record for the person paid. Their app collects what is new each
+  time it reads the account, signed by their account, writes each one into the
+  device's own activity (`records.activity.merge`), and says once that it came
+  (`Snapshot.arrived`, `ArrivalAnnouncer` on the phone, `ArrivalNotice` in the
+  browser).
+
+An entry, once on the device, is the device's and never changes. The sender is
+named as the receiver saved them, or else as the directory names them. Never
+by address.
+
+This is display, not enforcement: no check depends on it, and a server that
+kept nothing would cost a receiver an entry in a list, never money. When the
+indexer runs, what it knows is added to the same list (`loadActivity`).
+
 ## Optional integrations, in priority order
 
 Add only if the core is done. Each is a self-contained bounty claim.

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { BackendProvider } from '@entole/core/backend';
 import { StoreProvider } from '@entole/core/store';
 
+import { ArrivalNotice } from '@/components/ArrivalNotice';
 import { AuthGate } from '@/components/AuthGate';
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
@@ -39,6 +40,7 @@ function GatewayBoundary({ children }: { children: React.ReactNode }) {
   return (
     <BackendProvider value={backend}>
       <StoreProvider gateway={gateway}>
+        <ArrivalNotice />
         <UsernameClaimProvider>
           <Gate>{children}</Gate>
         </UsernameClaimProvider>

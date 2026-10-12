@@ -19,6 +19,7 @@ import { fetchIndexedActivity } from './indexed-activity';
 import { nextInvoiceReference } from './invoices';
 import { cents, kobo } from './money';
 import type { ConfirmMovement, Movement } from './movement';
+import { activityFromReceived, activityIdFor, paymentReference, type PaymentsFeed } from './payments-feed';
 import type { Records } from './records';
 import type { RelayClient, RelayPayment } from './relay-client';
 import {
@@ -27,6 +28,7 @@ import {
   receiptSchema,
   seatSchema,
   snapshotSchema,
+  type Activity,
   type Allowance,
   type Cadence,
   type GrowPosition,
@@ -561,10 +563,15 @@ export type OnChainGatewayConfig = {
    * docs/ARCHITECTURE.md's "do not read history directly from RPC" rule,
    * satisfied for real once the indexer is up. */
   indexerUrl?: string;
-  /** The reverse of `resolveRecipient` — an indexed on-chain event only
-   * carries an address, never the contact id a screen renders. Required
-   * whenever `indexerUrl` is set. */
+  /** The reverse of `resolveRecipient` — a payment read from the network
+   * only carries an address, never the contact id a screen renders. Required
+   * whenever `indexerUrl` is set, and what lets a payment that arrives from
+   * someone already saved show under the name they were saved as. */
   resolveContactId?: (address: Address) => string | undefined;
+  /** Where a settled payment is reported so the person it was sent to sees it,
+   * and where this account collects what has arrived for it. Without it a
+   * payment still settles; the receiver's balance rises and nothing more. */
+  payments?: PaymentsFeed;
   /** Drops the account's pending assistant proposal from its server inbox
    * once it has been run or cancelled, so the next snapshot read does not
    * surface it again. Unset when no inbox is configured — cancelling is then
@@ -744,27 +751,69 @@ async function growthPositionAfterChange(
   });
 }
 
-/** Indexed history when `indexerUrl` is configured and reachable; the
- * off-chain snapshot's activity otherwise — the one pre-existing fallback
- * path, never a second fabricated source. A failed/unreachable indexer
- * degrades to that fallback rather than failing the whole snapshot load. */
+const newestFirst = (a: Activity, b: Activity) => Date.parse(b.at) - Date.parse(a.at);
+
+/** A payment that arrived this recently is worth saying so out loud. Anything
+ * older is history being caught up on, on a new device say, and is only listed. */
+const ARRIVAL_IS_NEWS_MS = 15 * 60_000;
+
+/**
+ * Collects what has arrived for this account since the device last looked,
+ * and writes it into the device's own activity, so an entry, once seen, is
+ * there for good and never changes. Returns only the entries that were new.
+ *
+ * The amount is the naira figure the server stood behind when the payment
+ * settled. Where it had none, it is worked out here, once, at today's rate.
+ */
+async function takeInArrivals(config: ResolvedConfig, known: Activity[]): Promise<Activity[]> {
+  if (!config.payments || !config.records) return [];
+  const received = await config.payments.list().catch(() => []);
+  if (received.length === 0) return [];
+
+  const have = new Set(known.map((entry) => entry.id));
+  const entries = received.flatMap((payment) => {
+    if (have.has(activityIdFor(payment.hash))) return [];
+    const entry = activityFromReceived(payment, {
+      savedContactId: config.resolveContactId?.(payment.from as Address),
+      fallbackMinor: fromTokenMinor(BigInt(payment.amountToken), config),
+    });
+    return entry ? [entry] : [];
+  });
+  return config.records.activity.merge(entries).catch(() => []);
+}
+
+/**
+ * The account's activity: what this device sent, and what arrived for it.
+ * With `indexerUrl` configured and reachable, what the indexer has is added
+ * to that, never put in its place: the indexer knows only the assistant's
+ * payments, so replacing the list would drop every ordinary send. A failed or
+ * unreachable indexer leaves the list as it was rather than failing the load.
+ */
 async function loadActivity(
   config: ResolvedConfig,
   base: Snapshot,
   allowances: Allowance[],
-): Promise<Snapshot['activity']> {
-  if (!config.indexerUrl || !config.resolveContactId) return base.activity;
+): Promise<{ activity: Snapshot['activity']; arrived: Activity[] }> {
+  const fresh = await takeInArrivals(config, base.activity);
+  const own = fresh.length > 0 ? [...fresh, ...base.activity].sort(newestFirst) : base.activity;
+  const now = Date.now();
+  const arrived = fresh.filter((entry) => now - Date.parse(entry.at) < ARRIVAL_IS_NEWS_MS);
+
+  if (!config.indexerUrl || !config.resolveContactId) return { activity: own, arrived };
 
   try {
-    return await fetchIndexedActivity({
+    const indexed = await fetchIndexedActivity({
       indexerUrl: config.indexerUrl,
       resolveContactId: config.resolveContactId,
       knownAllowances: allowances,
       tokenDecimals: config.tokenDecimals,
       rate: config.rate,
     });
+    const have = new Set(own.map((entry) => entry.id));
+    const extra = indexed.filter((entry) => !have.has(entry.id));
+    return { activity: extra.length > 0 ? [...own, ...extra].sort(newestFirst) : own, arrived };
   } catch {
-    return base.activity;
+    return { activity: own, arrived };
   }
 }
 
@@ -1101,7 +1150,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
           })
         : base.growPosition;
 
-      const activity = await loadActivity(config, base, allowances);
+      const { activity, arrived } = await loadActivity(config, base, allowances);
 
       // Real holdings when a broker is configured; the (empty) off-chain
       // default otherwise. A failed broker request degrades to that default
@@ -1123,6 +1172,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
         },
         allowances,
         activity,
+        ...(arrived.length > 0 ? { arrived } : {}),
         growPosition,
         stockPositions,
       });
@@ -1180,7 +1230,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
 
       const receipt = receiptSchema.parse({
         id: `rc-${settledReceipt.transactionHash}`,
-        reference: settledReceipt.transactionHash.slice(2, 14).toUpperCase(),
+        reference: paymentReference(settledReceipt.transactionHash),
         contactId: input.contactId,
         amountMinor: input.amountMinor,
         feeMinor,
@@ -1203,6 +1253,19 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
           initiatedBy: allowanceId ? 'assistant' : 'you',
           state: 'settled',
           ...(allowanceId ? { allowanceId } : {}),
+        })
+        .catch(() => undefined);
+
+      // Tell the server it settled, so the person it was sent to sees it in
+      // their activity and is told it arrived. Not waited on: the payment is
+      // done whether or not this gets through, and the receipt should not
+      // wait for it.
+      void config.payments
+        ?.record({
+          hash: settledReceipt.transactionHash,
+          ...(input.note ? { note: input.note } : {}),
+          amountMinor: input.amountMinor,
+          koboPerDollar: config.rate.koboPerDollar,
         })
         .catch(() => undefined);
 

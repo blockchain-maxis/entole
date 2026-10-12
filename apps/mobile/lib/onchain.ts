@@ -16,6 +16,7 @@ import { encodePaymentCode } from '@entole/core/payment-code';
 import { createRecords } from '@entole/core/records';
 import { createEnsureGas, createRelayClient } from '@entole/core/relay-client';
 import { describeMovement, MovementNotConfirmedError, type ConfirmMovement } from '@entole/core/movement';
+import { createPaymentsFeedClient } from '@entole/core/payments-feed';
 
 import type { SignedInAccount } from './account';
 import { deviceRecordStore } from './records-store';
@@ -158,6 +159,15 @@ export function useOnChainBackend(
       account: owner.viemAccount.address,
       sign: (message) => owner.viemAccount.signMessage({ message }),
     });
+    // Money that arrives. A payment this account sends is reported once it has
+    // settled, so the person it went to sees it; what has arrived for this
+    // account is collected the same way. Signed like the inbox, and like it an
+    // unconfigured or down server just means nothing new.
+    const payments = createPaymentsFeedClient({
+      baseUrl: API_BASE,
+      account: owner.viemAccount.address,
+      sign: (message) => owner.viemAccount.signMessage({ message }),
+    });
     // A payment asked for in the app waits on the device; one that came in
     // through a linked chat waits in the server inbox. Either is the proposal.
     const proposals = createProposalSlot();
@@ -223,7 +233,9 @@ export function useOnChainBackend(
         const { contacts } = await source.loadSnapshot();
         await inbox.sync(contacts, allowanceId);
       },
-      ...(INDEXER_URL ? { indexerUrl: INDEXER_URL, resolveContactId: source.resolveContactId } : {}),
+      payments,
+      resolveContactId: source.resolveContactId,
+      ...(INDEXER_URL ? { indexerUrl: INDEXER_URL } : {}),
     });
     const directory = createDirectoryClient({
       baseUrl: API_BASE,

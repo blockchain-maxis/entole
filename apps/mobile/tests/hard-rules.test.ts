@@ -1616,3 +1616,38 @@ describe('nobody is ever shown, or asked for, a code to be paid', () => {
     expect(phone).toMatch(/<Keypad/);
   });
 });
+
+describe('money that arrives is listed and said', () => {
+  const announcer = stripComments(read(join(COMPONENTS, 'ui/ArrivalAnnouncer.tsx')));
+  const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
+  const layout = stripComments(read(join(ROOT, 'app/_layout.tsx')));
+
+  it('the gateway reports sends and collects arrivals', () => {
+    expect(onchain).toMatch(/createPaymentsFeedClient\(\{/);
+    expect(onchain).toMatch(/baseUrl: API_BASE,/);
+    expect(onchain).toMatch(/\n\s+payments,\n\s+resolveContactId: source\.resolveContactId,/);
+  });
+
+  it('an arrival is said once, in the one banner, with who and how much', () => {
+    expect(announcer).toMatch(/sent you \$\{formatNaira\(kobo\(latest\.amountMinor\)\)\}/);
+    expect(announcer).toMatch(/show\(/);
+    expect(announcer).toMatch(/clearArrivals\(\);/);
+    expect(announcer).toMatch(/return null;/);
+    expect(announcer).not.toMatch(/\.address\b|0x/);
+    expect(layout).toMatch(/<ArrivalAnnouncer \/>\s*<ToastHost \/>/);
+  });
+});
+
+describe('saving someone asks for a nickname and nothing else', () => {
+  const add = stripComments(read(join(ROOT, 'app/beneficiaries/new.tsx')));
+
+  it('shows the name the directory gave instead of asking for it', () => {
+    expect(add).toMatch(/const knownName = \(paid\?\.name \|\| person\?\.payee \|\| ''\)\.trim\(\);/);
+    expect(add).toMatch(/\{knownName\}/);
+    expect(add).toMatch(/label="Nickname"\s+optional/);
+    // A name is only asked for when nothing named them.
+    expect(add).toMatch(/\{known && !knownName \? \(\s*<Field\s+label="Name"/);
+    // Where they live and their bank are not part of saving someone any more.
+    expect(add).not.toMatch(/BeneficiaryForm|CountrySheet|Bank details/);
+  });
+});

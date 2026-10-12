@@ -172,6 +172,24 @@ export function createRecords(store: RecordStore, owner: Address) {
         const next = [entry, ...current.filter((item) => item.id !== entry.id)].slice(0, ACTIVITY_LIMIT);
         await write('activity', next);
       },
+      /**
+       * Takes in entries that were not made on this device: payments that
+       * arrived. They may be older than what is already here, so the list is
+       * put back in order of when things happened, newest first. An entry
+       * already kept is left exactly as it is. Returns the ones that were new.
+       */
+      async merge(entries: Activity[]): Promise<Activity[]> {
+        if (entries.length === 0) return [];
+        const current = await readList(chunked, key('activity'), activitySchema);
+        const have = new Set(current.map((item) => item.id));
+        const fresh = entries.filter((entry, index) => !have.has(entry.id) && entries.findIndex((e) => e.id === entry.id) === index);
+        if (fresh.length === 0) return [];
+        const next = [...fresh, ...current]
+          .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+          .slice(0, ACTIVITY_LIMIT);
+        await write('activity', next);
+        return fresh;
+      },
     },
     allowances: {
       list: () => readList(chunked, key('allowances'), allowanceSchema),

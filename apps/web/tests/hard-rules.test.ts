@@ -1035,3 +1035,62 @@ describe('nobody is ever shown, or asked for, a code to be paid', () => {
     expect(lib).not.toMatch(/codeLabel/);
   });
 });
+
+describe('money that arrives is listed and said', () => {
+  const route = stripComments(read(join(PAGES, 'api/payments/route.ts')));
+  const notice = stripComments(read(join(COMPONENTS, 'ArrivalNotice.tsx')));
+  const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
+
+  it('the server keeps what the network says happened, not what it was told', () => {
+    // The request is signed by the account, and names the payment it is about.
+    expect(route).toMatch(/verifyMessage\(\{ address: account, message, signature \}\)/);
+    expect(route).toMatch(/if \(!valid\) return json\(\{ error: 'invalid_signature' \}, 401\)/);
+    // Then the payment is read back from the network before anything is kept.
+    const read = route.indexOf('getTransactionReceipt(');
+    const settled = route.indexOf("receipt.status !== 'success'");
+    const parsed = route.indexOf('readSettledPayment(receipt.logs');
+    const kept = route.indexOf('recordReceived(');
+    expect(read).toBeGreaterThan(-1);
+    expect(read).toBeLessThan(settled);
+    expect(settled).toBeLessThan(parsed);
+    expect(parsed).toBeLessThan(kept);
+    // Who was paid and how much come from that reading; the request has no say.
+    expect(route).toMatch(/to: paid\.recipient/);
+    expect(route).toMatch(/amountToken: paid\.amountToken\.toString\(\)/);
+    expect(route).not.toMatch(/parsed\.data\.(recipient|to|amountToken)/);
+  });
+
+  it('a list of what arrived is given only to the account it arrived for', () => {
+    expect(route.indexOf("if (!valid) return json")).toBeLessThan(route.indexOf('listReceived(account)'));
+    expect(route).toMatch(/listReceived\(account\)/);
+  });
+
+  it('the gateway reports sends and collects arrivals', () => {
+    expect(onchain).toMatch(/createPaymentsFeedClient\(\{/);
+    expect(onchain).toMatch(/\n\s+payments,\n\s+resolveContactId: source\.resolveContactId,/);
+  });
+
+  it('the page reads again on its own, and says an arrival once, with who and how much', () => {
+    expect(notice).toMatch(/setInterval\(read, LIVE_INTERVAL_MS\)/);
+    expect(notice).toMatch(/addEventListener\('visibilitychange', read\)/);
+    expect(notice).toMatch(/sent you \$\{formatNaira\(kobo\(latest\.amountMinor\)\)\}/);
+    expect(notice).toMatch(/setTimeout\(clearArrivals, VISIBLE_MS\)/);
+    expect(notice).toMatch(/role="status"/);
+    expect(notice).toMatch(/href="\/activity"/);
+    // A name, never an address.
+    expect(notice).not.toMatch(/\.address\b|0x/);
+    expect(stripComments(read(join(ROOT, 'app/providers.tsx')))).toMatch(/<ArrivalNotice \/>/);
+  });
+});
+
+describe('saving someone asks for a nickname and nothing else', () => {
+  const save = stripComments(read(join(COMPONENTS, 'SaveRecipient.tsx')));
+
+  it('shows the name they were found under instead of asking for it', () => {
+    expect(save).toMatch(/const known = suggestedNameFor\(recipientId\);/);
+    expect(save).toMatch(/known \? `Save \$\{known\}`/);
+    expect(save).toMatch(/\{known \? null : \(/);
+    expect(save).toMatch(/id="save-nickname"/);
+    expect(save).toMatch(/Optional/);
+  });
+});

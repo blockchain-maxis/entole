@@ -21,6 +21,7 @@ import { DISPLAY_FONTS } from '@/lib/fonts';
 import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
 import { ToastProvider } from '@/lib/toast';
+import { ArrivalAnnouncer } from '@/components/ui/ArrivalAnnouncer';
 import { Intro } from '@/components/ui/Intro';
 import { ToastHost } from '@/components/ui/Toast';
 
@@ -89,6 +90,7 @@ function ThemedStack() {
           options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
         />
       </Stack>
+      <ArrivalAnnouncer />
       <ToastHost />
       <Intro />
     </>

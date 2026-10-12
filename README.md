@@ -153,8 +153,10 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   needs is a real registered CRE workflow watching an FX feed to POST to it,
   and a `CHAINLINK_CRE_WEBHOOK_SECRET`; unset, the route returns 501.
 - **Envio and Nansen** — written behind interfaces (`indexer/`,
-  `/api/nansen`), neither connected to a live account yet. Until the indexer
-  runs, money coming in changes the balance and is not listed as activity.
+  `/api/nansen`), neither connected to a live account yet. Money that arrives
+  from another Entole account is listed in activity without the indexer: the
+  server checks each settled payment against the network and keeps it for the
+  person it was sent to.
 - **Aurora Intents** — money in from USDT on Tron and USDC on Solana. The
   server side is written against the live service
   (`packages/core/aurora-intents.ts`, `/api/aurora/deposit`); no screen offers

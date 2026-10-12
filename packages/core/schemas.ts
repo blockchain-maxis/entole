@@ -236,6 +236,9 @@ export const snapshotSchema = z.object({
   request: paymentRequestSchema.nullable(),
   /** Null unless the assistant has actually proposed something. */
   proposal: proposalSchema.nullable(),
+  /** Payments that arrived and were seen for the first time on this load, so
+   * the app can say so once. They are in `activity` too. */
+  arrived: z.array(activitySchema).optional(),
 });
 
 export type Contact = z.infer<typeof contactSchema>;

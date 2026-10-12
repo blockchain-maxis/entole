@@ -4,6 +4,7 @@ import type { Address, PublicClient, WalletClient } from 'viem';
 import { DEMO_RATE } from './fx';
 import { describeMovement, MovementNotConfirmedError } from './movement';
 import { demoGateway } from './gateway';
+import { oneOffContact } from './one-off';
 import {
   AssistantNotEnabledError,
   SavingsBusyError,
@@ -12,6 +13,7 @@ import {
   describeRevert,
   whyRefused,
 } from './onchain-gateway';
+import type { PaymentsFeed, ReceivedPayment } from './payments-feed';
 import { createRecords } from './records';
 
 /**
@@ -714,5 +716,161 @@ describe('the person confirms before their own money moves', () => {
       { kind: 'take-out', amountMinor: 1_000_00 },
     ]);
     expect(owner.writeContract).not.toHaveBeenCalled();
+  });
+});
+
+describe('money that arrives', () => {
+  const SENDER = `0x${'33'.repeat(20)}` as Address;
+  const IN_HASH = `0x${'ef'.repeat(32)}`;
+
+  function memoryRecords() {
+    const data = new Map<string, string>();
+    return createRecords(
+      {
+        get: async (key) => data.get(key) ?? null,
+        set: async (key, value) => void data.set(key, value),
+        remove: async (key) => void data.delete(key),
+      },
+      ADDRESS,
+    );
+  }
+
+  function received(overrides: Partial<ReceivedPayment> = {}): ReceivedPayment {
+    return {
+      hash: IN_HASH,
+      from: SENDER,
+      fromName: 'Ada Eze',
+      amountToken: '3160000',
+      amountMinor: 500_000,
+      at: new Date().toISOString(),
+      note: 'For rent',
+      ...overrides,
+    };
+  }
+
+  function feed(list: ReceivedPayment[]): PaymentsFeed & { record: ReturnType<typeof vi.fn>; list: ReturnType<typeof vi.fn> } {
+    return { record: vi.fn().mockResolvedValue(true), list: vi.fn().mockResolvedValue(list) };
+  }
+
+  /** A gateway whose account reads cleanly from the chain: not paused, nothing held. */
+  function arrive(extra: Parameters<typeof build>[0]) {
+    const built = build(extra);
+    (built.publicClient.readContract as ReturnType<typeof vi.fn>).mockImplementation(
+      async (call: { functionName: string }) => (/paused/i.test(call.functionName) ? false : 0n),
+    );
+    return built;
+  }
+
+  /** The account's own records with nothing sent yet, and no demo activity in the way. */
+  function quiet(records: ReturnType<typeof memoryRecords>) {
+    return async () => ({ ...(await demoGateway.loadSnapshot()), allowances: [], activity: await records.activity.list() });
+  }
+
+  it('shows in the receiver’s activity, from the person who sent it, with their note', async () => {
+    const records = memoryRecords();
+    const { gateway } = arrive({ records, payments: feed([received()]), loadOffChainSnapshot: quiet(records) });
+
+    const snapshot = await gateway.loadSnapshot();
+    expect(snapshot.activity).toHaveLength(1);
+    const [entry] = snapshot.activity;
+    expect(entry).toMatchObject({
+      id: `rc-${IN_HASH}`,
+      direction: 'in',
+      amountMinor: 500_000,
+      note: 'For rent',
+      state: 'settled',
+      initiatedBy: 'you',
+    });
+    // Named as the directory named them, never by address.
+    expect(oneOffContact(entry!.contactId)?.name).toBe('Ada Eze');
+    expect(JSON.stringify(oneOffContact(entry!.contactId)?.name)).not.toMatch(/0x/);
+  });
+
+  it('is said once: the load that first sees it, and never again', async () => {
+    const records = memoryRecords();
+    const { gateway } = arrive({ records, payments: feed([received()]), loadOffChainSnapshot: quiet(records) });
+
+    const first = await gateway.loadSnapshot();
+    expect(first.arrived?.map((entry) => entry.id)).toEqual([`rc-${IN_HASH}`]);
+
+    const second = await gateway.loadSnapshot();
+    expect(second.arrived).toBeUndefined();
+    // Still listed, and still the same entry.
+    expect(second.activity).toEqual(first.activity);
+  });
+
+  it('is kept on the device, so it stays when the server has nothing to say', async () => {
+    const records = memoryRecords();
+    const payments = feed([received()]);
+    const { gateway } = arrive({ records, payments, loadOffChainSnapshot: quiet(records) });
+    await gateway.loadSnapshot();
+
+    payments.list.mockRejectedValue(new Error('offline'));
+    expect((await gateway.loadSnapshot()).activity).toHaveLength(1);
+    expect(await records.activity.list()).toHaveLength(1);
+  });
+
+  it('an old payment being caught up on is listed but not announced', async () => {
+    const records = memoryRecords();
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const { gateway } = arrive({ records, payments: feed([received({ at: lastWeek })]), loadOffChainSnapshot: quiet(records) });
+
+    const snapshot = await gateway.loadSnapshot();
+    expect(snapshot.activity).toHaveLength(1);
+    expect(snapshot.arrived).toBeUndefined();
+  });
+
+  it('shows someone already saved under the name they were saved as', async () => {
+    const records = memoryRecords();
+    const { gateway } = arrive({
+      records,
+      payments: feed([received()]),
+      loadOffChainSnapshot: quiet(records),
+      resolveContactId: (address) => (address.toLowerCase() === SENDER.toLowerCase() ? 'b-mum' : undefined),
+    });
+    expect((await gateway.loadSnapshot()).activity[0]!.contactId).toBe('b-mum');
+  });
+
+  it('works the amount out itself when the server could not put a naira figure on it', async () => {
+    const records = memoryRecords();
+    const { amountMinor: _none, ...bare } = received();
+    const { gateway } = arrive({ records, payments: feed([bare]), loadOffChainSnapshot: quiet(records) });
+    // 3.16 dollars at the test rate of 1,580 naira.
+    expect((await gateway.loadSnapshot()).activity[0]!.amountMinor).toBe(499_280);
+  });
+
+  it('a send is reported once it has settled, with the note and what was typed', async () => {
+    const payments = feed([]);
+    const { gateway } = arrive({ payments });
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 500_000, note: 'For rent' });
+    expect(payments.record).toHaveBeenCalledWith({
+      hash: HASH,
+      note: 'For rent',
+      amountMinor: 500_000,
+      koboPerDollar: DEMO_RATE.koboPerDollar,
+    });
+  });
+
+  it('a send still completes when the report cannot be made', async () => {
+    const payments = feed([]);
+    payments.record.mockRejectedValue(new Error('offline'));
+    const { gateway } = arrive({ payments });
+    await expect(gateway.submitPayment({ contactId: 'c', amountMinor: 500_000 })).resolves.toMatchObject({
+      amountMinor: 500_000,
+    });
+  });
+
+  it('a payment the device sent is not taken for one that arrived', async () => {
+    const records = memoryRecords();
+    const payments = feed([]);
+    const { gateway } = arrive({ records, payments, loadOffChainSnapshot: quiet(records) });
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 500_000 });
+
+    // The server hands the same payment back, as it would to someone who paid themselves.
+    payments.list.mockResolvedValue([received({ hash: HASH })]);
+    const snapshot = await gateway.loadSnapshot();
+    expect(snapshot.activity).toHaveLength(1);
+    expect(snapshot.activity[0]!.direction).toBe('out');
+    expect(snapshot.arrived).toBeUndefined();
   });
 });

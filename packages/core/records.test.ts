@@ -225,3 +225,36 @@ describe('staff and invoices', () => {
     expect(await createRecords(store, OTHER).invoices.list()).toEqual([]);
   });
 });
+
+describe('activity takes in payments that arrived', () => {
+  const at = (id: string, when: string): Activity => ({ ...activity(id), at: when, direction: 'in', note: 'Received' });
+
+  it('puts them where they belong in time, newest first, and says which were new', async () => {
+    const records = createRecords(memoryStore(), OWNER);
+    await records.activity.add({ ...activity('sent-1'), at: '2026-10-10T10:00:00.000Z' });
+
+    const fresh = await records.activity.merge([
+      at('in-old', '2026-10-01T09:00:00.000Z'),
+      at('in-new', '2026-10-12T16:00:00.000Z'),
+    ]);
+    expect(fresh.map((entry) => entry.id)).toEqual(['in-old', 'in-new']);
+    expect((await records.activity.list()).map((entry) => entry.id)).toEqual(['in-new', 'sent-1', 'in-old']);
+  });
+
+  it('leaves an entry it already has exactly as it is', async () => {
+    const records = createRecords(memoryStore(), OWNER);
+    await records.activity.merge([at('in-1', '2026-10-12T16:00:00.000Z')]);
+
+    const again = await records.activity.merge([{ ...at('in-1', '2026-10-12T16:00:00.000Z'), amountMinor: 999 }]);
+    expect(again).toEqual([]);
+    expect((await records.activity.list())[0]!.amountMinor).toBe(100_000);
+  });
+
+  it('takes one of two that are the same, and nothing from an empty hand', async () => {
+    const records = createRecords(memoryStore(), OWNER);
+    expect(await records.activity.merge([])).toEqual([]);
+    const fresh = await records.activity.merge([at('in-1', '2026-10-12T16:00:00.000Z'), at('in-1', '2026-10-12T16:00:00.000Z')]);
+    expect(fresh).toHaveLength(1);
+    expect(await records.activity.list()).toHaveLength(1);
+  });
+});

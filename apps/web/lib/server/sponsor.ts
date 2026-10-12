@@ -38,6 +38,21 @@ const chain: Chain = {
   rpcUrls: { default: { http: [RPC_URL] } },
 };
 
+/** The settlement asset's decimals: Agora AUSD has six. */
+export const TOKEN_DECIMALS = 6;
+
+let reader: ReturnType<typeof createPublicClient> | undefined;
+
+/**
+ * A client that only reads the network. It needs no key, so a route that only
+ * has to check what happened (did this payment settle, and who was it for) can
+ * use it whether or not a sponsor is configured.
+ */
+export function getChainReader() {
+  reader ??= createPublicClient({ chain, transport: http(RPC_URL) });
+  return reader;
+}
+
 function build(key: Hex) {
   const account = privateKeyToAccount(key);
   const transport = http(RPC_URL);

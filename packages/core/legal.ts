@@ -145,6 +145,7 @@ export const PRIVACY: LegalDocument = {
       body: [
         'Your name, your initials and your username are published against your account number, so that people can find and pay you by username and see a name when they do. A username belongs to one person: the first to choose it. Anyone who has your username or your pay link can see that name.',
         'If you give your phone number in the phone app, it is published the same way, so that you can be paid by number. Anyone who has your number can see your name.',
+        'When you pay someone, your app tells us which payment it was and the note you wrote. We check that payment against the public record and keep it for the person you paid: your name, the amount, when it arrived and your note. That is how it shows in their activity and how they are told it came. When someone pays you, the same is kept for you. We keep the most recent 200 for each person.',
         'If you connect the assistant to a messaging app, we keep the link between that chat and your account, the names and account numbers of the people you have saved, the allowance it may use, and the payments it has proposed.',
         'Like every website, the service records the usual technical details of each request, such as an IP address, the kind of browser and the time. We use them to keep the service running and to stop abuse.',
       ],
@@ -171,7 +172,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'How long',
       body: [
         'What is on your device stays until you clear it there.',
-        'A published name, username or number, or a connected chat, stays until you ask us to remove it. Changing your username releases the old one for someone else to take.',
+        'A published name, username or number, a connected chat, or a record of a payment that arrived for you, stays until you ask us to remove it. Changing your username releases the old one for someone else to take.',
         'The public payment record cannot be removed by anyone.',
       ],
     },
