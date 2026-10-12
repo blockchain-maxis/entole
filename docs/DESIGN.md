@@ -143,6 +143,14 @@ never shows a figure. An empty list says what would fill it and offers to.
 
 **Nothing that cannot be undone happens on one tap.** It asks first, in place.
 
+**A field has a label, a section has a heading.** The display face names
+sections and screens. What sits above an input, a picker or a set of choices is
+a label: `font-strong text-note text-slate`. A form whose every field shouts
+in the display face has no hierarchy left.
+
+**One raised surface a screen.** Savings on Grow, the scan code on Receive, the
+invoice on a pay page. Everything else on that screen is ruled rows on paper.
+
 ## Words
 
 One word for each thing, everywhere a person reads.
@@ -166,6 +174,9 @@ One word for each thing, everywhere a person reads.
 | `send`, `send/pick` / `/transfer/send` | Beneficiaries first, keypad, review sheet |
 | `send/receipt` / the receipt step | One receipt for every kind of payment, the amount as the figure |
 | `receive` / `/receive` | Link and scan code, no app needed |
+| `add-money` / `/add-money` | The balance as a line on paper, then the ways to add |
+| `(tabs)/grow` / `/grow` | Savings raised; your money, stocks and earning as ruled sections |
+| `(tabs)/business` / `/business` | Services as ruled rows, then invoices |
 | `pause` | Stopping the assistant |
 | `onboarding` / the account gate | The first screen: what Entole is, one button |
 | the public pay page, `/pay/[code]` | For someone who is not a user: who, how much, the way that works first |
@@ -177,8 +188,13 @@ change in `settled` when up and `halt` when down, one line chart in the same two
 colours. The Buy button sits at the bottom, in `press` with a "Coming soon"
 chip, and cannot be pressed.
 
-The browser at desktop width gets top navigation and a two-column page from
-1024px; the tab bar is for narrower windows.
+**Wide windows.** From 1024px the five places run along the top of the browser
+window, with the mark beside them; the floating tab bar is for narrower windows
+only (`BottomNav`, and the room `AuthGate` leaves above each page). Home sets
+the account (balance, actions, allowances) beside its activity. Every other
+signed-in page stays one readable column, centred: a form does not get better
+by being wider. The pause control stays in each page's own header at every
+width.
 
 No image exports exist in `design/`. Screens are built to this document.
 

@@ -1320,3 +1320,24 @@ describe('a payroll run pays one person at a time and never shows a state early'
     expect(run).not.toMatch(/\bTextInput\b/);
   });
 });
+
+describe('the rest of the screens are written on paper too', () => {
+  it('every amount that stands alone is in the display face', () => {
+    const amount = stripComments(read(join(COMPONENTS, 'ui/Amount.tsx')));
+    expect(amount).not.toMatch(/font-(strong|heavy)/);
+  });
+
+  it.each(['app/add-money.tsx', 'app/receive.tsx', 'app/(tabs)/grow.tsx', 'components/ui/HoldingRow.tsx'])(
+    '%s rules its rows and draws no bordered box',
+    (path) => {
+      expect(stripComments(read(join(ROOT, path)))).not.toMatch(/border border-line bg-card/);
+    },
+  );
+
+  it('Grow keeps one raised surface and names the rest with section headings', () => {
+    const hub = stripComments(read(join(ROOT, 'app/(tabs)/grow.tsx')));
+    expect(hub).toMatch(/<SectionHeading title="Your money" \/>/);
+    expect(hub).toMatch(/<SectionHeading title="Stocks" \/>/);
+    expect(hub).toMatch(/<SectionHeading title="Earn" \/>/);
+  });
+});

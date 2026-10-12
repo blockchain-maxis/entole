@@ -46,8 +46,8 @@ export function Amount({ value, size = 'hero' }: { value: Naira; size?: keyof ty
 
   return (
     <span className="flex items-start gap-0.5">
-      <span className={`mt-1 font-strong text-ink ${symbol}`}>₦</span>
-      <span className={`tabular font-strong text-ink ${digits}`}>{formatNairaDigits(value)}</span>
+      <span className={`mt-1 font-display text-ink ${symbol}`}>₦</span>
+      <span className={`tabular font-display text-ink ${digits}`}>{formatNairaDigits(value)}</span>
     </span>
   );
 }

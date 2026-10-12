@@ -18,7 +18,7 @@ export function HoldingRow({ position, onPress }: { position: StockPosition; onP
       accessibilityRole="button"
       accessibilityLabel={`${position.companyName}, ${formatShares(position.quantityScaled)} shares`}
       onPress={onPress}
-      className="flex-row items-center justify-between rounded-control border border-line bg-card px-4 py-3.5 active:border-mist"
+      className="flex-row items-center justify-between border-b border-hairline py-3.5 active:bg-press"
     >
       <View className="min-w-0 flex-1 pr-3">
         <Text numberOfLines={1} className="font-strong text-ui text-ink">

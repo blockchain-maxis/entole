@@ -79,7 +79,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (account && !stale) {
     return (
       <>
-        {children}
+        {/* From 1024px the navigation runs along the top; the page starts under it. */}
+        <div className="lg:pt-[68px] lg:[&>main]:min-h-[calc(100dvh-68px)]">{children}</div>
         <BottomNav />
       </>
     );

@@ -85,7 +85,7 @@ export default function Stocks() {
             ) : store.stockPositions.length === 0 ? (
               <Text className="px-1 font-body text-ui text-slate">You don&apos;t hold any shares yet.</Text>
             ) : (
-              <View className="gap-2">
+              <View>
                 {store.stockPositions.map((position) => (
                   <HoldingRow
                     key={position.symbol}

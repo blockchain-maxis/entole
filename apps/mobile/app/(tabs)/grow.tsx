@@ -12,6 +12,7 @@ import { Header } from '@/components/ui/Header';
 import { HoldingRow } from '@/components/ui/HoldingRow';
 import { LoadFailed } from '@/components/ui/LoadFailed';
 import { PauseButton } from '@/components/ui/PauseButton';
+import { DetailRow, SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { SplitBar } from '@/components/ui/SplitBar';
@@ -24,7 +25,8 @@ import { useThemeColors } from '@/lib/theme';
 const HOLDINGS_SHOWN = 3;
 
 /**
- * The Grow hub. Three cards, each honest about what it is today:
+ * The Grow hub. Savings is the one raised surface; the rest is ruled sections
+ * on the page. Each is honest about what it is today:
  *
  * - Savings is real: money set aside in the person's own account, read back
  *   from where it is held. It does not earn interest, and nothing here says
@@ -79,14 +81,14 @@ export default function Grow() {
                 <Skeleton className="h-[54px] flex-1 rounded-control" />
               </View>
             </View>
-            <View className="rounded-card border border-line bg-card p-4">
-              <Skeleton className="h-4 w-28 rounded-md" />
-              <Skeleton className="mt-3.5 h-4 w-full rounded-md" />
-              <Skeleton className="mt-3.5 h-4 w-full rounded-md" />
+            <View className="pt-7">
+              <Skeleton className="h-5 w-28 rounded-md" />
+              <Skeleton className="mt-5 h-4 w-full rounded-md" />
+              <Skeleton className="mt-5 h-4 w-full rounded-md" />
             </View>
-            <View className="rounded-card border border-line bg-card p-4">
-              <Skeleton className="h-4 w-20 rounded-md" />
-              <Skeleton className="mt-3.5 h-4 w-full rounded-md" />
+            <View className="pt-7">
+              <Skeleton className="h-5 w-20 rounded-md" />
+              <Skeleton className="mt-5 h-4 w-full rounded-md" />
             </View>
           </View>
         ) : failed ? (
@@ -95,15 +97,15 @@ export default function Grow() {
             body="Your balances couldn't be read just now. Nothing has changed. Check your connection and try again."
           />
         ) : (
-          <View className="gap-3">
+          <View>
             {savings ? (
               <View className="rounded-card bg-card p-6 shadow-raised">
                 <Text className="font-strong text-note text-slate">Savings</Text>
                 <View className="mt-3">
                   <Amount value={kobo(saved)} size="large" />
                 </View>
-                <Text tabular className="mt-2 font-body text-ui text-slate">
-                  ≈ {formatDollars(toDollars(kobo(saved), store.rate))}
+                <Text tabular className="mt-2 font-body text-note text-slate">
+                  about {formatDollars(toDollars(kobo(saved), store.rate))}
                 </Text>
                 {earning ? (
                   <View className="mt-3">
@@ -147,20 +149,10 @@ export default function Grow() {
             )}
 
             {savings ? (
-              <View className="rounded-card border border-line bg-card p-4">
-                <Text className="font-display text-subhead text-ink">Your money</Text>
-                <View className="mt-3 flex-row items-baseline justify-between">
-                  <Text className="font-body text-ui text-slate">You can spend</Text>
-                  <Text tabular className="font-strong text-ui text-ink">
-                    {formatNaira(kobo(spendable))}
-                  </Text>
-                </View>
-                <View className="mt-2.5 flex-row items-baseline justify-between">
-                  <Text className="font-body text-ui text-slate">In savings</Text>
-                  <Text tabular className="font-strong text-ui text-ink">
-                    {formatNaira(kobo(saved))}
-                  </Text>
-                </View>
+              <View>
+                <SectionHeading title="Your money" />
+                <DetailRow label="You can spend" value={formatNaira(kobo(spendable))} />
+                <DetailRow label="In savings" value={formatNaira(kobo(saved))} />
                 {share !== null ? (
                   <View className="mt-4">
                     <SplitBar share={share} label={savedShareLabel(share)} />
@@ -171,17 +163,11 @@ export default function Grow() {
             ) : null}
 
             {store.stocksAvailable ? (
-              <View className="rounded-card border border-line bg-card p-4">
-                <View className="flex-row items-baseline justify-between">
-                  <Text className="font-display text-subhead text-ink">Stocks</Text>
-                  {holdings.length > 0 ? (
-                    <Text tabular className="font-strong text-ui text-ink">
-                      {formatNaira(kobo(holdingsValue))}
-                    </Text>
-                  ) : null}
-                </View>
+              <View>
+                <SectionHeading title="Stocks" />
                 {holdings.length > 0 ? (
-                  <View className="mt-3 gap-2">
+                  <View>
+                    <DetailRow label="Worth today" value={formatNaira(kobo(holdingsValue))} />
                     {holdings.slice(0, HOLDINGS_SHOWN).map((position) => (
                       <HoldingRow
                         key={position.symbol}
@@ -193,7 +179,7 @@ export default function Grow() {
                     ))}
                   </View>
                 ) : (
-                  <Text className="mt-2 font-body text-note text-slate">You don&apos;t hold any shares yet.</Text>
+                  <Text className="font-body text-ui text-slate">You don&apos;t hold any shares yet.</Text>
                 )}
                 <View className="mt-4 flex-row">
                   <Button
@@ -204,9 +190,9 @@ export default function Grow() {
                 </View>
               </View>
             ) : (
-              <View className="rounded-card border border-line bg-card p-4">
-                <Text className="font-display text-subhead text-ink">Stocks</Text>
-                <Text className="mt-2 font-body text-note text-slate">
+              <View>
+                <SectionHeading title="Stocks" />
+                <Text className="font-body text-ui text-slate">
                   See the companies and funds you will be able to buy, with live prices. Buying opens soon.
                 </Text>
                 <View className="mt-4 flex-row">
@@ -215,9 +201,9 @@ export default function Grow() {
               </View>
             )}
 
-            <View className="rounded-card border border-line bg-card p-4">
-              <Text className="font-display text-subhead text-ink">Earn</Text>
-              <Text className="mt-2 font-body text-note text-slate">
+            <View>
+              <SectionHeading title="Earn" />
+              <Text className="font-body text-ui text-slate">
                 Interest on savings is planned for when Entole goes live. Nothing earns interest today.
               </Text>
             </View>

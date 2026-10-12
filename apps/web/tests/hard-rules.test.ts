@@ -456,7 +456,7 @@ describe('no screen leaves a person stuck or misled', () => {
   });
 
   it('a failed load never shows a balance of nothing', () => {
-    const failed = /\) : failed \? \([\s\S]*?\n        \) : \(/.exec(home)?.[0] ?? '';
+    const failed = /\) : failed \? \([\s\S]*?\n\s*\) : \(/.exec(home)?.[0] ?? '';
     expect(failed).toMatch(/We couldn&apos;t load your account/);
     expect(failed).not.toMatch(/<Amount|<Figure|store\.balance/);
   });
@@ -729,5 +729,71 @@ describe('stocks are shown only as the market has them', () => {
       expect(source).toMatch(/Nothing has changed/);
       expect(source).toMatch(/Try again/);
     }
+  });
+});
+
+describe('the rest of the screens are written on paper too', () => {
+  const pages = walk(PAGES).filter((file) => file.endsWith('.tsx'));
+
+  it('a field is named by a label, never by a section heading', () => {
+    for (const file of pages) {
+      const source = stripComments(read(file));
+      expect(source, file).not.toMatch(/font-display text-subhead[^"]*">[^<]*<\/(p|h2)>\s*<(input|select|textarea)\b/);
+    }
+  });
+
+  it('every amount that stands alone is in the display face', () => {
+    const amount = stripComments(read(join(COMPONENTS, 'Amount.tsx')));
+    expect(amount).not.toMatch(/font-(strong|heavy)/);
+  });
+
+  it.each(['add-money/page.tsx', 'receive/page.tsx', 'grow/page.tsx', 'business/page.tsx'])(
+    '%s rules its rows and draws no bordered box',
+    (path) => {
+      expect(stripComments(read(join(PAGES, path)))).not.toMatch(/rounded-card border border-line bg-card/);
+    },
+  );
+
+  it('section names are in the display face on Business and Me', () => {
+    expect(stripComments(read(join(PAGES, 'business/page.tsx')))).toMatch(/<h2 className="[^"]*font-display text-subhead text-ink">Services</);
+    expect(stripComments(read(join(PAGES, 'me/page.tsx')))).toMatch(/<h2 className="[^"]*font-display text-subhead text-ink">\{children\}/);
+  });
+});
+
+describe('a wide window is not a phone drawn on a desktop', () => {
+  const nav = stripComments(read(join(COMPONENTS, 'BottomNav.tsx')));
+  const gate = stripComments(read(join(COMPONENTS, 'AuthGate.tsx')));
+  const home = stripComments(read(join(PAGES, 'page.tsx')));
+
+  it('from 1024px the five places run along the top, with the mark beside them', () => {
+    expect(nav).toMatch(/lg:top-0/);
+    expect(nav).toMatch(/lg:bottom-auto/);
+    expect(nav).toMatch(/<BrandGlyph/);
+  });
+
+  it('every page starts under that bar, by the same height', () => {
+    const bar = /lg:h-\[(\d+)px\]/.exec(nav)?.[1];
+    expect(bar).toBeDefined();
+    expect(gate).toContain(`lg:pt-[${bar}px]`);
+    expect(gate).toContain(`min-h-[calc(100dvh-${bar}px)]`);
+  });
+
+  it('home sets the account beside its activity instead of one narrow column', () => {
+    expect(home).toMatch(/lg:max-w-\[\d+px\]/);
+    expect(home).toMatch(/lg:grid lg:grid-cols-/);
+  });
+
+  it('the pause control is still in the page header, not only in the bar', () => {
+    expect(nav).not.toMatch(/PauseControl/);
+    expect(stripComments(read(join(COMPONENTS, 'Header.tsx')))).toMatch(/<PauseControl \/>/);
+  });
+});
+
+describe('a long form keeps its button in reach', () => {
+  it('the new invoice button rides above the tab bar, not under it', () => {
+    const invoice = stripComments(read(join(PAGES, 'business/new-invoice/page.tsx')));
+    const action = /<div className="sticky[^"]*">\s*<button[\s\S]*?Send invoice/.exec(invoice)?.[0] ?? '';
+    expect(action).toMatch(/sticky bottom-\[92px\]/);
+    expect(action).toMatch(/bg-paper/);
   });
 });

@@ -32,16 +32,16 @@ export default function GrowHubPage() {
         {loading || !savings ? (
           <BalanceSkeleton />
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col">
             <Link href="/grow/savings" aria-label="Savings" className="block rounded-card bg-card p-5 shadow-raised">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Sprout size={20} strokeWidth={1.5} className="text-settled" />
-                  <span className="font-heavy text-ui text-ink">Savings</span>
+                  <span className="font-strong text-ui text-ink">Savings</span>
                 </div>
                 <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />
               </div>
-              <p className="tabular mt-4 font-heavy text-subhead text-ink">{formatNaira(kobo(savings.balanceMinor))}</p>
+              <p className="tabular mt-4 font-display text-figure-sm text-ink">{formatNaira(kobo(savings.balanceMinor))}</p>
               <p className="mt-1 font-body text-note text-slate">
                 {!earning
                   ? "Money set aside, separate from what you spend. It doesn't earn interest yet."
@@ -51,17 +51,21 @@ export default function GrowHubPage() {
               </p>
             </Link>
 
-            <Link href="/grow/stocks" aria-label="Stocks" className="block rounded-card border border-line bg-card p-5">
+            <Link
+              href="/grow/stocks"
+              aria-label="Stocks"
+              className="mt-4 block border-b border-hairline px-1 py-5 transition-colors hover:bg-press"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <TrendingUp size={20} strokeWidth={1.5} className="text-ink" />
-                  <span className="font-heavy text-ui text-ink">Stocks</span>
+                  <span className="font-strong text-ui text-ink">Stocks</span>
                 </div>
                 <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />
               </div>
               {store.stocksAvailable ? (
                 <>
-                  <p className="tabular mt-4 font-heavy text-subhead text-ink">{formatNaira(kobo(holdingsValue))}</p>
+                  <p className="tabular mt-3 font-display text-subhead text-ink">{formatNaira(kobo(holdingsValue))}</p>
                   <p className="mt-1 font-body text-note text-slate">
                     {store.stockPositions.length > 0
                       ? `${store.stockPositions.length} ${store.stockPositions.length === 1 ? 'holding' : 'holdings'}`
@@ -69,7 +73,7 @@ export default function GrowHubPage() {
                   </p>
                 </>
               ) : (
-                <p className="mt-3 text-pretty font-body text-note text-slate">
+                <p className="mt-2 text-pretty font-body text-note text-slate">
                   See the companies and funds you will be able to buy, with live prices. Buying opens soon.
                 </p>
               )}

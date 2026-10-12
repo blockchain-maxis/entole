@@ -62,7 +62,7 @@ export default function NewSeatPage() {
       <Header title="New seat" />
 
       <div className="flex-1 px-gutter pb-28">
-        <p className="font-display text-subhead text-ink">What they can do</p>
+        <p className="font-strong text-note text-slate">What they can do</p>
         <div className="mt-2.5 flex flex-col gap-2">
           {ROLES.map((option) => (
             <button
@@ -83,8 +83,11 @@ export default function NewSeatPage() {
           ))}
         </div>
 
-        <p className="mt-5 font-display text-subhead text-ink">Who it goes to</p>
+        <label htmlFor="seat-person" className="mt-5 block font-strong text-note text-slate">
+          Who it goes to
+        </label>
         <select
+          id="seat-person"
           value={contactId}
           onChange={(event) => setContactId(event.target.value)}
           className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-ui text-ink"
@@ -98,7 +101,7 @@ export default function NewSeatPage() {
 
         {spends ? (
           <>
-            <p className="mt-5 font-display text-subhead text-ink">How often</p>
+            <p className="mt-5 font-strong text-note text-slate">How often</p>
             <div className="mt-2.5 flex gap-2">
               {CADENCES.map((option) => (
                 <button

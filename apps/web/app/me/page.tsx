@@ -287,7 +287,7 @@ export default function MePage() {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="pb-3 pt-7 font-strong text-prose text-ink">{children}</p>;
+  return <h2 className="pb-3 pt-8 font-display text-subhead text-ink">{children}</h2>;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

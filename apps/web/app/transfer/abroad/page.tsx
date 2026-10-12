@@ -31,7 +31,7 @@ export default function SendAbroadPage() {
           </div>
         ) : selected ? (
           <>
-            <p className="pb-3 font-display text-subhead text-ink">Send to</p>
+            <p className="pb-3 font-strong text-note text-slate">Send to</p>
             <div className="flex flex-wrap gap-2 pb-6">
               {corridors.map((corridor) => {
                 const active = corridor.id === selected.id;

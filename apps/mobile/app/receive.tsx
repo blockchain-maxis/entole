@@ -124,7 +124,7 @@ export default function Receive() {
                   }
                 : {})}
             />
-            <View className="items-center rounded-card border border-line bg-card px-gutter py-5">
+            <View className="items-center border-y border-hairline py-5">
               {paymentCode ? (
                 <PaymentCodeText code={paymentCode} />
               ) : (

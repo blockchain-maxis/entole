@@ -72,12 +72,12 @@ export function Amount({
   return (
     <View className="flex-row items-baseline gap-0.5">
       <Text
-        className={`font-strong ${symbol} text-ink`}
+        className={`font-display ${symbol} text-ink`}
         style={{ transform: [{ translateY: lift }] }}
       >
         ₦
       </Text>
-      <Text tabular className={`font-strong ${digits} text-ink`}>
+      <Text tabular className={`font-display ${digits} text-ink`}>
         {formatNairaDigits(value)}
       </Text>
       {caret ? <View className="ml-1 h-11 w-0.5 rounded-sm bg-ink" /> : null}

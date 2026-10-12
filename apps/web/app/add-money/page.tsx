@@ -191,13 +191,13 @@ function AddMoney() {
 
       <div className="flex-1 px-gutter">
         {ready ? (
-          <section className="rounded-card bg-card p-6 shadow-raised">
+          <section className="border-b border-hairline pb-5 pt-1">
             <p className="font-strong text-note text-slate">Your balance</p>
-            <div className="mt-2.5">
-              <Amount value={store.balance} size="large" />
+            <div className="mt-1.5">
+              <Amount value={store.balance} size="small" />
             </div>
-            <p className="tabular mt-3 font-body text-ui text-slate">
-              ≈ {formatDollars(toDollars(store.balance, store.rate))}
+            <p className="tabular mt-1.5 font-body text-note text-slate">
+              about {formatDollars(toDollars(store.balance, store.rate))}
             </p>
           </section>
         ) : store.status === 'failed' ? (
@@ -243,7 +243,7 @@ function AddMoney() {
         ) : null}
 
         {!REAL_MONEY && phase.kind === 'idle' ? (
-          <p className="mt-6 px-1 font-body text-ui text-slate">
+          <p className="mt-6 text-pretty font-display-plain text-prose text-ink">
             Add test money to try Entole. It&apos;s not real money.
           </p>
         ) : null}
@@ -272,7 +272,7 @@ function AddMoney() {
           ) : null}
 
           {phase.kind === 'done' ? (
-            <div className="rounded-card border border-line bg-settled-wash px-4 py-4">
+            <div className="rounded-control bg-settled-wash px-4 py-4">
               <p className="tabular font-strong text-ui text-settled">{formatNaira(kobo(phase.addedMinor))} added</p>
               <p className="mt-1 font-body text-note text-slate">It&apos;s in your balance now.</p>
             </div>
@@ -292,7 +292,7 @@ function AddMoney() {
           ) : null}
 
           {phase.kind === 'failed' ? (
-            <div role="alert" className="rounded-card border border-line bg-halt-wash px-4 py-4">
+            <div role="alert" className="rounded-control bg-halt-wash px-4 py-4">
               <p className="font-strong text-ui text-halt">{phase.message}</p>
             </div>
           ) : null}

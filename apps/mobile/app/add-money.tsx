@@ -263,21 +263,21 @@ export default function AddMoney() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20 }}
         >
-          <View className="rounded-card bg-card p-6 shadow-raised">
+          <View className="border-b border-hairline pb-5 pt-1">
             <Text className="font-strong text-note text-slate">Your balance</Text>
             {ready ? (
               <>
-                <View className="mt-2.5">
-                  <Amount value={store.balance} size="large" />
+                <View className="mt-1.5">
+                  <Amount value={store.balance} size="small" />
                 </View>
-                <Text tabular className="mt-3 font-body text-ui text-slate">
-                  ≈ {formatDollars(toDollars(store.balance, store.rate))}
+                <Text tabular className="mt-1.5 font-body text-note text-slate">
+                  about {formatDollars(toDollars(store.balance, store.rate))}
                 </Text>
               </>
             ) : (
               <>
-                <Skeleton className="mt-3 h-[48px] w-56 rounded-control" />
-                <Skeleton className="mt-3.5 h-4 w-24 rounded-md" />
+                <Skeleton className="mt-2.5 h-[40px] w-48 rounded-control" />
+                <Skeleton className="mt-2.5 h-3.5 w-24 rounded-md" />
               </>
             )}
           </View>
@@ -311,7 +311,7 @@ export default function AddMoney() {
           ) : null}
 
           {!REAL_MONEY ? (
-            <Text className="mt-6 px-1 font-body text-ui text-slate">
+            <Text className="mt-6 font-display-plain text-prose text-ink">
               Add test money to try Entole. It’s not real money.
             </Text>
           ) : null}
@@ -340,7 +340,7 @@ export default function AddMoney() {
             ) : null}
 
             {phase.kind === 'done' ? (
-              <View className="rounded-card border border-line bg-settled-wash px-4 py-4">
+              <View className="rounded-control bg-settled-wash px-4 py-4">
                 <Text tabular className="font-strong text-ui text-settled">
                   {formatNaira(kobo(phase.addedMinor))} added
                 </Text>
@@ -366,7 +366,7 @@ export default function AddMoney() {
             ) : null}
 
             {phase.kind === 'failed' && phase.code !== 'not_configured' ? (
-              <View accessibilityRole="alert" className="rounded-card border border-line bg-halt-wash px-4 py-4">
+              <View accessibilityRole="alert" className="rounded-control bg-halt-wash px-4 py-4">
                 <Text className="font-strong text-ui text-halt">{phase.message}</Text>
               </View>
             ) : null}

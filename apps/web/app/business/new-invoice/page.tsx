@@ -98,24 +98,30 @@ export default function NewInvoicePage() {
       <Header title="New invoice" />
 
       <div className="flex-1 px-gutter pb-28">
-        <p className="font-display text-subhead text-ink">Bill to</p>
+        <label htmlFor="invoice-client" className="block font-strong text-note text-slate">
+          Bill to
+        </label>
         <input
+          id="invoice-client"
           value={clientName}
           onChange={(event) => setClientName(event.target.value)}
           placeholder="Client or business name"
           className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-ui text-ink placeholder:text-mist"
         />
 
-        <p className="mt-5 font-display text-subhead text-ink">For</p>
+        <label htmlFor="invoice-note" className="mt-5 block font-strong text-note text-slate">
+          For
+        </label>
         <input
+          id="invoice-note"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="What this invoice is for"
           className="mt-2.5 w-full rounded-control border border-line bg-card px-4 py-3.5 font-body text-ui text-ink placeholder:text-mist"
         />
 
-        <p className="mt-6 font-display text-subhead text-ink">Amount</p>
-        <p className="tabular mt-2.5 font-strong text-subhead text-ink">₦{entryDisplay(entry)}</p>
+        <p className="mt-6 font-strong text-note text-slate">Amount</p>
+        <p className="tabular mt-1 font-display text-figure-sm text-ink">₦{entryDisplay(entry)}</p>
         <p className="mt-1.5 font-body text-note text-slate">Due in {DUE_IN_DAYS} days</p>
 
         <div className="mt-4">
@@ -124,7 +130,7 @@ export default function NewInvoicePage() {
 
         <div className="mt-6 flex items-center justify-between">
           <div className="min-w-0 pr-3">
-            <p className="font-display text-subhead text-ink">Hold for a better rate</p>
+            <p className="font-strong text-ui text-ink">Hold for a better rate</p>
             <p className="mt-1 font-body text-note text-slate">
               Release only when the exchange rate is right, so a swing between now and payment does
               not eat into what you receive.
@@ -171,14 +177,18 @@ export default function NewInvoicePage() {
           </div>
         ) : null}
 
-        <button
-          type="button"
-          disabled={!ready || saving}
-          onClick={() => void save()}
-          className="mt-4 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
-        >
-          {saving ? 'Sending' : 'Send invoice'}
-        </button>
+        {/* The form is taller than a phone. The button rides above the tab bar
+            instead of waiting under it at the end of the page. */}
+        <div className="sticky bottom-[92px] z-10 mt-4 bg-paper pb-1 pt-3 lg:bottom-6">
+          <button
+            type="button"
+            disabled={!ready || saving}
+            onClick={() => void save()}
+            className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+          >
+            {saving ? 'Sending' : 'Send invoice'}
+          </button>
+        </div>
       </div>
     </main>
   );

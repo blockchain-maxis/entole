@@ -87,13 +87,13 @@ export default function ReceivePage() {
       <Header title="Receive" />
 
       <div className="flex-1 px-gutter pb-28 pt-1">
-        <div className="flex flex-col items-center rounded-card border border-line bg-card px-gutter pb-5 pt-6">
+        <div className="flex flex-col items-center pb-1 pt-4">
           {link ? (
             <>
-              <div className="w-full max-w-[220px] rounded-card bg-white p-2.5">
+              <div className="w-full max-w-[220px] rounded-card bg-white p-2.5 shadow-raised">
                 <QrCode value={link} label="QR code for your payment link" />
               </div>
-              <p className="mt-4 font-strong text-ui text-ink">Your payment link</p>
+              <p className="mt-5 font-display text-subhead text-ink">Your payment link</p>
               <p className="mt-1 max-w-full truncate font-body text-note text-slate">
                 {link.replace(/^https?:\/\//, '')}
               </p>
@@ -101,15 +101,15 @@ export default function ReceivePage() {
           ) : (
             <div aria-label="Preparing your payment link" className="flex w-full flex-col items-center">
               <Skeleton className="h-[220px] w-[220px] rounded-card" />
-              <Skeleton className="mt-4 h-4 w-32" />
+              <Skeleton className="mt-5 h-5 w-40" />
               <Skeleton className="mt-2 h-3 w-48" />
             </div>
           )}
         </div>
 
-        <div className="mt-3.5 rounded-card border border-line bg-card px-[18px] py-4">
+        <div className="mt-5 border-t border-hairline pt-4">
           <p className="font-strong text-ui text-ink">They don&apos;t need the app</p>
-          <p className="mt-1.5 text-pretty font-body text-note text-slate">
+          <p className="mt-1 text-pretty font-body text-note text-slate">
             {bankAndCard
               ? 'Anyone can open this link and pay you from their bank or card. No account, no download, no sign-up.'
               : 'Anyone can open this link. People with the Entole app pay you in seconds. Bank and card payments for everyone else are opening soon.'}

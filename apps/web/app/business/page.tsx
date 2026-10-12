@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Truck, type LucideIcon } from 'lucide-react';
+import { ChevronRight, FileText, Truck, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -10,6 +10,7 @@ import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
+import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
 import { AllowanceCardSkeleton, RowSkeleton } from '@/components/Skeleton';
 
@@ -73,29 +74,32 @@ export default function BusinessPage() {
           </div>
         ) : (
           <>
-            <p className="pb-3 pt-[10px] font-strong text-prose text-ink">Services</p>
-            <div className="mb-7 grid grid-cols-2 gap-3">
+            <h2 className="pb-3 pt-[10px] font-display text-subhead text-ink">Services</h2>
+            <div className="mb-4 border-t border-hairline">
               {SERVICES.map(({ label, hint, Icon, href }) => (
                 <Link
                   key={label}
                   href={href}
-                  className="rounded-card border border-line bg-card p-4 transition-colors hover:border-mist"
+                  className="flex items-center gap-3.5 border-b border-hairline py-3.5 transition-colors hover:bg-press"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-control bg-press text-ink">
+                  <span className="flex h-10 w-10 flex-none items-center justify-center rounded-control bg-press text-ink">
                     <Icon size={20} strokeWidth={1.5} />
                   </span>
-                  <p className="mt-3 font-strong text-ui text-ink">{label}</p>
-                  <p className="mt-0.5 font-body text-note text-slate">{hint}</p>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-strong text-ui text-ink">{label}</span>
+                    <span className="mt-0.5 block font-body text-note text-slate">{hint}</span>
+                  </span>
+                  <ChevronRight size={18} strokeWidth={1.5} className="flex-none text-mist" />
                 </Link>
               ))}
             </div>
 
             {store.taxReserves.length > 0 ? (
-              <div className="mb-7 rounded-card bg-card p-5 shadow-raised">
+              <div className="mb-3 mt-6 rounded-card bg-card p-5 shadow-raised">
                 <span className="rounded-control bg-press px-2 py-1 font-heavy text-micro uppercase text-slate">
                   Tax reserve
                 </span>
-                <p className="tabular mt-3 font-strong text-subhead text-ink">
+                <p className="tabular mt-3 font-display text-figure-sm text-ink">
                   {formatNaira(kobo(store.taxReserves[0]!.balanceMinor))}
                 </p>
                 <p className="mt-1.5 font-body text-note text-slate">
@@ -104,15 +108,18 @@ export default function BusinessPage() {
               </div>
             ) : null}
 
-            <div className="flex items-baseline justify-between pb-3 pt-[10px]">
-              <p className="font-strong text-prose text-ink">Invoices</p>
+            <div className="flex items-baseline justify-between pb-3 pt-8">
+              <h2 className="font-display text-subhead text-ink">Invoices</h2>
               <Link href="/business/new-invoice" className="font-strong text-ui text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
                 New
               </Link>
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col">
               {store.invoices.length === 0 ? (
-                <p className="font-body text-note text-slate">No invoices yet.</p>
+                <EmptyState
+                  body="No invoices yet. Send one and it is listed here, with what is owed and when it was paid."
+                  action={{ label: 'Send an invoice', href: '/business/new-invoice' }}
+                />
               ) : (
                 store.invoices.map((invoice) => (
                   <div key={invoice.id} className="border-b border-hairline py-3.5">

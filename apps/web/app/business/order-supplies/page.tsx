@@ -70,15 +70,18 @@ export default function OrderSuppliesPage() {
           ship the order.
         </p>
 
-        <p className="mt-6 font-display text-subhead text-ink">Supplier</p>
+        <label htmlFor="order-supplier" className="mt-6 block font-strong text-note text-slate">
+          Supplier
+        </label>
         <input
+          id="order-supplier"
           value={supplierName}
           onChange={(event) => setSupplierName(event.target.value)}
           placeholder="Who you are ordering from"
           className={`mt-2.5 ${FIELD}`}
         />
 
-        <p className="mt-6 font-display text-subhead text-ink">Items</p>
+        <p className="mt-6 font-strong text-note text-slate">Items</p>
         <div className="mt-2.5 flex flex-col gap-2.5">
           {rows.map((row) => (
             <div key={row.key} className="flex items-center gap-2.5">
@@ -119,8 +122,11 @@ export default function OrderSuppliesPage() {
           Add another item
         </button>
 
-        <p className="mt-6 font-display text-subhead text-ink">Note</p>
+        <label htmlFor="order-note" className="mt-6 block font-strong text-note text-slate">
+          Note
+        </label>
         <input
+          id="order-note"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="Anything the supplier should know (optional)"
