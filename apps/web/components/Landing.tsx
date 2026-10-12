@@ -100,11 +100,11 @@ const PRIMARY =
 function ProductPreview() {
   return (
     <figure className="relative mx-auto w-full max-w-[440px]">
-      <div className="overflow-hidden rounded-sheet bg-press px-6 pt-8 sm:px-12 sm:pt-10">
+      <div className="overflow-hidden rounded-sheet bg-press px-4 pt-8 min-[400px]:px-6 sm:px-12 sm:pt-10">
         <div
           aria-hidden
           inert
-          className="mx-auto h-[540px] max-w-[340px] overflow-hidden rounded-t-sheet border-x border-t border-line bg-paper px-5 pt-5 shadow-floating"
+          className="mx-auto h-[540px] max-w-[340px] overflow-hidden rounded-t-sheet border-x border-t border-line bg-paper px-5 pt-5 shadow-floating max-[399px]:[zoom:0.75]"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -192,16 +192,16 @@ export function Landing({
           type="button"
           disabled={busy}
           onClick={onSignIn}
-          className="font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink disabled:opacity-60"
+          className="text-right font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink disabled:opacity-60 max-[359px]:text-note"
         >
           I already have an account
         </button>
       </header>
 
       <main>
-        <section className="mx-auto grid w-full max-w-[1180px] items-center gap-12 px-gutter pb-16 pt-8 lg:min-h-[min(calc(100dvh-68px),780px)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14 lg:px-10 lg:pb-16 lg:pt-2">
-          <div className="landing-rise">
-            <h1 className="font-display text-figure-sm text-ink sm:text-figure-md lg:text-figure xl:text-poster">
+        <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 items-center gap-12 px-gutter pb-16 pt-8 lg:min-h-[min(calc(100dvh-68px),780px)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14 lg:px-10 lg:pb-16 lg:pt-2">
+          <div className="landing-rise min-w-0">
+            <h1 className="text-pretty font-display text-figure-sm text-ink sm:text-figure-md lg:text-figure xl:text-poster">
               <span className="lg:block lg:whitespace-nowrap">Money that moves </span>
               <span className="lg:block lg:whitespace-nowrap">like a message</span>
             </h1>
@@ -220,7 +220,7 @@ export function Landing({
             ) : null}
           </div>
 
-          <div className="landing-rise [animation-delay:120ms]">
+          <div className="landing-rise min-w-0 [animation-delay:120ms]">
             <ProductPreview />
           </div>
         </section>
@@ -230,7 +230,7 @@ export function Landing({
             What Entole does
           </h2>
 
-          <div className="mt-10 grid gap-4 lg:grid-cols-12">
+          <div className="mt-10 grid grid-cols-1 gap-4 lg:grid-cols-12">
             <article className="landing-reveal flex flex-col justify-between gap-10 rounded-card bg-card p-7 shadow-raised lg:col-span-7 lg:p-9">
               <div>
                 <h3 className="font-display text-subhead text-ink">Sent, and delivered while you watch</h3>
@@ -315,7 +315,7 @@ export function Landing({
           </div>
         </section>
 
-        <section className="mx-auto grid w-full max-w-[1180px] gap-12 px-gutter py-16 lg:grid-cols-2 lg:gap-16 lg:px-10 lg:py-24">
+        <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 gap-12 px-gutter py-16 lg:grid-cols-2 lg:gap-16 lg:px-10 lg:py-24">
           <div className="landing-reveal">
             <h2 className="font-display text-heading text-ink">What works today</h2>
             <ul className="mt-6 space-y-3.5">

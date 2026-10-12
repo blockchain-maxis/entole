@@ -8,7 +8,9 @@ const VARIANTS = {
 const SIZES = {
   regular: 'h-14 text-prose',
   /** For a row of several, where three full-height buttons read as blocks. */
-  compact: 'h-12 text-ui',
+  // Three of these share a row on Home. On a 320px phone equal thirds leave
+  // "Add money" no margin, so there each takes the width its own word needs.
+  compact: 'h-12 px-2 text-ui max-[359px]:basis-auto',
 } as const;
 
 /**

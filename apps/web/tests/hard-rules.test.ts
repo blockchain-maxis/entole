@@ -832,3 +832,37 @@ describe('the terms and the privacy notice', () => {
     expect(page).toMatch(/<CheckoutHeader \/>/);
   });
 });
+
+describe('nothing is wider than a small phone', () => {
+  const files = [...walk(PAGES), ...walk(COMPONENTS)].filter((file) => file.endsWith('.tsx'));
+
+  // A bare `grid` sizes its one column to the widest thing inside it. On a
+  // 360px phone that pushed the whole first page off the side of the screen.
+  it('a grid that gains columns on a wide screen names its single column on a narrow one', () => {
+    const loose: string[] = [];
+    for (const file of files) {
+      for (const match of read(file).matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+        const names = (match[1] ?? match[2] ?? '').split(/\s+/);
+        const responsive = names.some((name) => /^(sm|md|lg|xl):grid-cols-/.test(name));
+        if (names.includes('grid') && responsive && !names.some((name) => name.startsWith('grid-cols-'))) {
+          loose.push(relative(ROOT, file));
+        }
+      }
+    }
+    expect(loose).toEqual([]);
+  });
+
+  it('the first page scales its example phone on a narrow screen, and its header link stays one label', () => {
+    const landing = stripComments(read(join(COMPONENTS, 'Landing.tsx')));
+    expect(landing).toMatch(/max-\[399px\]:\[zoom:0\.75\]/);
+    // Smaller, not reworded: the way back in has one name everywhere.
+    expect(landing).toMatch(/max-\[359px\]:text-note"\s*>\s*I already have an account/);
+  });
+
+  it('the pause control keeps its state, and stays in the header, when there is no room for the word', () => {
+    const control = stripComments(read(join(COMPONENTS, 'PauseControl.tsx')));
+    expect(control).toMatch(/<span className="min-\[360px\]:hidden">Off<\/span>/);
+    expect(control).toMatch(/aria-label="The assistant is off\./);
+    expect(control.match(/aria-label/g)?.length).toBe(2);
+  });
+});

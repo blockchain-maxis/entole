@@ -14,6 +14,10 @@ import { useAssistant } from '@/lib/assistant';
  * It says what it controls and what state that is in. The assistant is a
  * setting the person turns on, so a new person sees "Assistant · Off" and the
  * chip leads to the page that explains it and offers to turn it on.
+ *
+ * Under 360px wide there is not room for both this and a person's name, so it
+ * keeps its shield and its state and drops the word; the label read aloud is
+ * unchanged.
  */
 export function PauseControl() {
   const { paused, setPaused } = useStore();
@@ -27,7 +31,8 @@ export function PauseControl() {
         className="flex h-9 flex-none items-center gap-1.5 rounded-pill border border-line bg-card px-3 font-strong text-note text-slate transition-colors hover:border-mist"
       >
         <ShieldOff size={15} strokeWidth={1.75} aria-hidden />
-        Assistant · Off
+        <span className="max-[359px]:hidden">Assistant · Off</span>
+        <span className="min-[360px]:hidden">Off</span>
       </Link>
     );
   }
@@ -52,7 +57,8 @@ export function PauseControl() {
       ) : (
         <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
       )}
-      {paused ? 'Assistant · Paused' : 'Assistant · On'}
+      <span className="max-[359px]:hidden">{paused ? 'Assistant · Paused' : 'Assistant · On'}</span>
+      <span className="min-[360px]:hidden">{paused ? 'Paused' : 'On'}</span>
     </button>
   );
 }

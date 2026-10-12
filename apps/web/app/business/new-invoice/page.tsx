@@ -179,8 +179,10 @@ export default function NewInvoicePage() {
         ) : null}
 
         {/* The form is taller than a phone. The button rides above the tab bar
-            instead of waiting under it at the end of the page. */}
-        <div className="sticky bottom-[92px] z-10 mt-4 bg-paper pb-1 pt-3 lg:bottom-6">
+            instead of waiting under it at the end of the page. On a short
+            screen it would sit on top of the keypad, so there it stays in
+            line, at the end. */}
+        <div className="sticky bottom-[92px] z-10 mt-4 bg-paper pb-1 pt-3 lg:bottom-6 [@media(max-height:719px)]:static">
           <button
             type="button"
             disabled={!ready || saving}
