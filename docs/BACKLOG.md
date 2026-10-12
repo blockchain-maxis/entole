@@ -198,7 +198,7 @@ service gives (see `packages/core/aurora-intents.ts`).
 - Rewrite every sentence that says "test network" or "test money": the Terms
   and the Privacy notice (`packages/core/legal.ts`: "What Entole is today",
   "Savings and stocks", "The service as it is", "What is public"), the first
-  page (`apps/web/components/Landing.tsx`), and the line under each post image.
+  page (`apps/web/components/Landing.tsx`).
   `apps/web/tests/legal-network.test.ts` fails the day `NEXT_PUBLIC_CHAIN_ID`
   becomes 143 until they are. Asked for by the owner on 12 October 2026.
 - A lawyer reads the Terms and the Privacy notice before that day. They were
