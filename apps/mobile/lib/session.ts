@@ -109,29 +109,41 @@ async function loadCredential(): Promise<PasskeyCredentialMetadata | undefined> 
 export type Confirmation = { ok: true } | { ok: false; reason: string };
 
 /**
- * Asks for the phone's own fingerprint, face or screen lock before the person
- * moves their money, with what is about to happen as the prompt's title.
+ * Asks for the phone's own fingerprint, face or screen lock (a PIN, a pattern
+ * or a password, on a phone with no biometrics) before the person moves their
+ * money, with what is about to happen as the prompt's title.
  *
  * It is a check that whoever holds the phone is its owner. The key that signs
  * is already in memory from signing in, so this is a gate in the app, not a
  * second authorisation by the payment network. Cancelling it moves nothing.
  */
-export async function confirmWithBiometric(what: string): Promise<Confirmation> {
+export async function confirmWithScreenLock(what: string): Promise<Confirmation> {
   const deviceProblem = await checkDeviceCanAuthenticate();
   if (deviceProblem) return { ok: false, reason: deviceProblem };
   try {
-    const result = await LocalAuthentication.authenticateAsync({ promptMessage: what, cancelLabel: 'Cancel' });
+    // `disableDeviceFallback: false` is what lets a PIN, pattern or password
+    // answer when there is no fingerprint or face to ask for.
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: what,
+      cancelLabel: 'Cancel',
+      disableDeviceFallback: false,
+    });
     return result.success ? { ok: true } : { ok: false, reason: 'Not confirmed. Nothing was moved.' };
   } catch {
     return { ok: false, reason: 'Not confirmed. Nothing was moved.' };
   }
 }
 
+/**
+ * Whether this phone can confirm it is its owner. Any screen lock will do: a
+ * PIN, a pattern or a password is as good an answer as a fingerprint or a face,
+ * and many phones have no fingerprint reader at all, or none set up. Asking for
+ * biometrics shut every one of those people out at the first screen.
+ */
 async function checkDeviceCanAuthenticate(): Promise<string | undefined> {
-  const supported = await LocalAuthentication.hasHardwareAsync();
-  const enrolled = await LocalAuthentication.isEnrolledAsync();
-  if (!supported || !enrolled) {
-    return 'Set up a screen lock, fingerprint or face unlock on this phone first.';
+  const level = await LocalAuthentication.getEnrolledLevelAsync();
+  if (level === LocalAuthentication.SecurityLevel.NONE) {
+    return 'Set up a screen lock on this phone first: a PIN, a pattern, a fingerprint or a face.';
   }
   return undefined;
 }

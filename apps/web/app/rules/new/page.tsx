@@ -22,6 +22,7 @@ import { Keypad } from '@/components/Keypad';
 import { PageLoader } from '@/components/LogoLoader';
 import { Sentence, type SentencePart } from '@/components/Sentence';
 import { Skeleton } from '@/components/Skeleton';
+import { plainMessage } from '@/lib/send';
 
 const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
 
@@ -125,8 +126,9 @@ function NewRule() {
         cadence,
       });
       router.push('/');
-    } catch {
-      setProblem("We couldn't create that allowance. Nothing has changed. Try again.");
+    } catch (error) {
+      // "Not confirmed" is a reason a person can act on; a raw failure is not.
+      setProblem(plainMessage(error, "We couldn't create that allowance. Nothing has changed. Try again."));
     } finally {
       setSaving(false);
     }

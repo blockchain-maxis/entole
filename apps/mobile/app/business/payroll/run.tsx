@@ -139,6 +139,13 @@ export default function RunPayroll() {
     });
     setStoppedForBalance(false);
     setPhase('running');
+    // The whole run is confirmed once, with the phone's own screen lock, for the
+    // people and the total about to be paid. A retry is a new run and asks again.
+    const batch = {
+      id: `payroll-${Date.now()}`,
+      totalMinor: targets.reduce((sum, line) => sum + line.amountMinor, 0),
+      count: targets.length,
+    };
 
     const outcome = await runPayroll({
       lines: targets,
@@ -146,7 +153,7 @@ export default function RunPayroll() {
       send: async (line) => {
         const contactId = oneOffId(line.code);
         if (!contactId) throw new Error("That payment code doesn't look right.");
-        const receipt = await store.send({ contactId, amountMinor: line.amountMinor, note: 'Payroll' });
+        const receipt = await store.send({ contactId, amountMinor: line.amountMinor, note: 'Payroll', batch });
         return { id: receipt.id, feeMinor: receipt.feeMinor };
       },
       onState: (id, state) => setStates((current) => ({ ...current, [id]: state })),

@@ -453,7 +453,10 @@ describe('no screen leaves a person stuck or misled', () => {
   it('says why an allowance cannot be created yet, and when saving one fails', () => {
     expect(rule).toMatch(/Enter how much each payment is\./);
     expect(rule).toMatch(/The limit has to cover at least one payment\./);
-    expect(/async function save\(\)[\s\S]*?\n  }\n/.exec(rule)?.[0]).toMatch(/catch \{/);
+    // And says why, when the reason is one a person can act on ("Not confirmed").
+    expect(/async function save\(\)[\s\S]*?\n  }\n/.exec(rule)?.[0]).toMatch(
+      /catch \(error\) \{\s*setProblem\(plainMessage\(error, "We couldn't create that allowance\./,
+    );
   });
 
   it('a failed load never shows a balance of nothing', () => {
@@ -867,22 +870,36 @@ describe('nothing is wider than a small phone', () => {
   });
 });
 
-describe('moving money into or out of savings is confirmed with the passkey', () => {
-  const savings = stripComments(read(join(PAGES, 'grow/savings/page.tsx')));
+describe('every movement of the person\'s own money is confirmed with the passkey', () => {
+  const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
   const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+  const gateway = stripComments(read(join(ROOT, '../../packages/core/onchain-gateway.ts')));
 
-  it('asks before anything is sent, and a cancelled prompt moves nothing', () => {
-    const submit = /async function submit\(\)[\s\S]*?\n  }\n/.exec(savings)?.[0] ?? '';
-    expect(submit).toMatch(/await confirmWithPasskey\(\)/);
-    expect(submit.indexOf('confirmWithPasskey()')).toBeLessThan(submit.indexOf('store.depositGrow('));
-    expect(submit.indexOf('confirmWithPasskey()')).toBeLessThan(submit.indexOf('store.withdrawGrow('));
-    expect(submit).toMatch(/if \(!confirmed\.ok\) \{\s*setProblem\(confirmed\.reason\);\s*setBusy\(false\);\s*return;/);
+  it('the gateway is given the browser\'s passkey prompt', () => {
+    expect(onchain).toMatch(/const confirmed = await confirmWithPasskey\(\);\s*if \(!confirmed\.ok\) throw new MovementNotConfirmedError\(confirmed\.reason\);/);
+    expect(onchain).toMatch(/createOnChainGateway\(\{\s*publicClient,\s*ownerWalletClient,\s*confirmMovement,/);
   });
 
   it('the browser is asked to verify the person, for this site, with the saved passkey', () => {
     expect(session).toMatch(/userVerification: 'required'/);
     expect(session).toMatch(/rpId: RP_ID/);
     expect(session).toMatch(/allowCredentials: \[\{ type: 'public-key' as const, id: base64UrlToBytes\(credential\.credentialId\) \}\]/);
+  });
+
+  it('a send, a bill, savings either way and a new allowance all pass through it; the assistant\'s run does not', () => {
+    for (const kind of ['send', 'send-many', 'bill', 'save', 'take-out', 'allowance']) {
+      expect(gateway, kind).toMatch(new RegExp(`await confirm\\(\\{ kind: '${kind}'`));
+    }
+    const submit = /async submitPayment\(input: SendInput\)[\s\S]*?await refreshRate\(\);/.exec(gateway)?.[0] ?? '';
+    expect(submit).toMatch(/if \(!input\.allowanceId\) \{/);
+    const assistant = /async function executeAsAssistant[\s\S]*?\n  }\n/.exec(gateway)?.[0] ?? '';
+    expect(assistant).not.toMatch(/confirm\(/);
+  });
+
+  it('a screen does not ask a second time: the gateway is the one place', () => {
+    for (const file of [...walk(PAGES), ...walk(COMPONENTS)].filter((path) => path.endsWith('.tsx'))) {
+      expect(stripComments(read(file)), file).not.toMatch(/confirmWithPasskey\(/);
+    }
   });
 });
 
@@ -958,5 +975,26 @@ describe('an unanswered username claim is tried again', () => {
     expect(claim).toMatch(/document\.addEventListener\('visibilitychange', onVisible\)/);
     expect(claim).toMatch(/!record \|\| answered\) return;/);
     expect(claim).toMatch(/\[address, username, displayName, record, backend, answered, returned\]/);
+  });
+});
+
+describe('a payment the network refuses says so', () => {
+  const action = stripComments(read(join(PAGES, 'assistant/action/page.tsx')));
+  const gateway = stripComments(read(join(ROOT, '../../packages/core/onchain-gateway.ts')));
+
+  it('the undo window stops counting, says it was not sent, and offers a way out', () => {
+    expect(action).toMatch(/running=\{!stopped && !sending && !problem\}/);
+    expect(action).toMatch(/'Not sent\. Nothing was taken\.'/);
+    expect(action).toMatch(/\{problem \? 'Close' : 'Cancel this payment'\}/);
+  });
+
+  it('the reason comes from the network\'s own record, in the order the contract checks', () => {
+    expect(gateway).toMatch(/if \(refused === true\) throw new Error\(await refusalReason\(id, amountToken\)\);/);
+    const whole = /export function whyRefused[\s\S]*?\n}\n/.exec(gateway)?.[0] ?? '';
+    // The body only: the parameter list names these too, in another order.
+    const why = whole.slice(whole.indexOf('): string {'));
+    const order = ['allowance.revoked', 'accountPaused', 'allowance.expiresAt', 'allowance.perRunMax', 'allowance.periodCap'].map((part) => why.indexOf(part));
+    expect(order.every((at) => at > -1)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });

@@ -28,7 +28,10 @@ export type ParsedIntent =
 
 const PAY_VERB = /^(pay|send)\b/i;
 const AMOUNT = /(?:₦|ngn)?\s*([\d,]+(?:\.\d{1,2})?)/i;
-const TO_CLAUSE = /\bto\s+([a-z][a-z\s]*?)(?=\s+\b(?:for|note:)\b|$)/i;
+// Whatever follows "to", up to "for", "note:" or the end. A name is not only
+// letters: Mary-Jane, O'Brien, José and "Mum 2" are all people someone saved,
+// and a pattern of a-z alone answered "say who it goes to" for every one.
+const TO_CLAUSE = /\bto\s+(\S.*?)(?=\s+(?:for\b|note:)|$)/i;
 const NOTE_CLAUSE = /\b(?:for|note:)\s+(.+)$/i;
 
 export function parseTelegramMessage(

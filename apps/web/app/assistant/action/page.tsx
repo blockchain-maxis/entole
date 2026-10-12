@@ -166,11 +166,13 @@ function ProposalPanel({
       ) : null}
 
       <div className="mt-6 flex items-center gap-3.5">
-        <Countdown seconds={proposal.undoSeconds} running={!stopped && !sending} onElapsed={onRun} />
+        <Countdown seconds={proposal.undoSeconds} running={!stopped && !sending && !problem} onElapsed={onRun} />
         <p className="flex-1 text-pretty font-body text-ui text-slate">
           {sending
             ? 'Sending. This updates when the payment has been delivered.'
-            : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
+            : problem
+              ? 'Not sent. Nothing was taken.'
+              : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
         </p>
       </div>
 
@@ -187,7 +189,7 @@ function ProposalPanel({
           onClick={onStop}
           className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
         >
-          Cancel this payment
+          {problem ? 'Close' : 'Cancel this payment'}
         </button>
         <button
           type="button"
@@ -195,7 +197,7 @@ function ProposalPanel({
           onClick={onRun}
           className="mt-1 flex h-12 w-full items-center justify-center rounded-control font-strong text-ui text-slate transition-colors hover:bg-press hover:text-ink disabled:opacity-60"
         >
-          Send it now
+          {problem ? 'Try again' : 'Send it now'}
         </button>
       </div>
     </section>

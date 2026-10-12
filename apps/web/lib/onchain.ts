@@ -13,9 +13,11 @@ import type { EntoleKeyAccount } from '@entole/core/passkey';
 import { encodePaymentCode } from '@entole/core/payment-code';
 import { createRecords } from '@entole/core/records';
 import { createEnsureGas, createRelayClient } from '@entole/core/relay-client';
+import { MovementNotConfirmedError, type ConfirmMovement } from '@entole/core/movement';
 
 import type { SignedInAccount } from './account';
 import { deviceRecordStore } from './records-store';
+import { confirmWithPasskey } from './session';
 
 const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS ??
   '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e') as Address;
@@ -44,6 +46,12 @@ const SAVINGS_RATE_PROVIDER = process.env.NEXT_PUBLIC_ENTOLE_SAVINGS_RATE_PROVID
   : undefined;
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://testnet-rpc.monad.xyz';
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ? Number(process.env.NEXT_PUBLIC_CHAIN_ID) : 10143;
+
+/** Before the person's own money moves, the browser asks for their passkey. */
+const confirmMovement: ConfirmMovement = async () => {
+  const confirmed = await confirmWithPasskey();
+  if (!confirmed.ok) throw new MovementNotConfirmedError(confirmed.reason);
+};
 /** Empty until `indexer/` is actually running — see indexer/README.md. */
 const INDEXER_URL = process.env.NEXT_PUBLIC_INDEXER_URL || undefined;
 /** `MockERC20` ("eUSD") decimals — see contracts/README.md. Update when
@@ -159,6 +167,7 @@ export function useOnChainBackend(
     const gateway = createOnChainGateway({
       publicClient,
       ownerWalletClient,
+      confirmMovement,
       ...(enabled && address ? { delegateAddress: address, getDelegateWalletClient } : {}),
       policyAddress: CONTRACT_ADDRESS,
       tokenAddress: TOKEN_ADDRESS,

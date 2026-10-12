@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Gauge, Hand, ShieldCheck, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -10,6 +10,7 @@ import { Field } from '@/components/ui/Field';
 import { Header } from '@/components/ui/Header';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
 import { useThemeColors } from '@/lib/theme';
 import { ASK_UNDO_SECONDS, proposeFromRequest } from '@entole/core/assistant-ask';
@@ -45,6 +46,7 @@ export default function AssistantSettings() {
   const colors = useThemeColors();
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const { account } = useAccount();
 
   async function turnOn() {
     setWorking(true);
@@ -71,6 +73,10 @@ export default function AssistantSettings() {
       setWorking(false);
     }
   }
+
+  // The assistant belongs to an account. With nobody signed in there is
+  // nothing to turn on, so this screen sends them to the start instead.
+  if (!account) return <Redirect href="/" />;
 
   return (
     <Screen keyboard>

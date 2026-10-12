@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Address, PublicClient, WalletClient } from 'viem';
 
 import { DEMO_RATE } from './fx';
+import { describeMovement, MovementNotConfirmedError } from './movement';
 import { demoGateway } from './gateway';
 import {
   AssistantNotEnabledError,
   SavingsBusyError,
+  allowanceFigures,
   createOnChainGateway,
   describeRevert,
+  whyRefused,
 } from './onchain-gateway';
 import { createRecords } from './records';
 
@@ -556,5 +559,160 @@ describe('a held invoice, checked against the business’s own records', () => {
     await expect(gateway.requestConditionalRelease('inv-not-mine', at(100_000))).rejects.toThrow(
       /couldn't find that invoice/,
     );
+  });
+});
+
+describe('an allowance reads back as the limit that was written', () => {
+  // N1,330.17 to the dollar, the rate on the day this was found: N2,000 is
+  // $1.50 to the cent, and $1.50 back through the rate is N1,995.26.
+  const fromToken = (amount: bigint) => Math.round((Number(amount) / 10_000) * 133_017 / 100);
+  const cap = 1_500_000n; // $1.50 with six decimals
+
+  it('shows the written limit, not the one that came back through dollars', () => {
+    expect(fromToken(cap)).toBe(1_995_26);
+    expect(allowanceFigures(2_000_00, cap, 0n, fromToken)).toEqual({ limitMinor: 2_000_00, spentMinor: 0 });
+  });
+
+  it('all of it used reads as nothing left, and half reads as half', () => {
+    expect(allowanceFigures(2_000_00, cap, cap, fromToken)).toEqual({ limitMinor: 2_000_00, spentMinor: 2_000_00 });
+    expect(allowanceFigures(2_000_00, cap, 750_000n, fromToken)).toEqual({ limitMinor: 2_000_00, spentMinor: 1_000_00 });
+  });
+
+  it('never shows more used than the limit', () => {
+    expect(allowanceFigures(2_000_00, cap, 1_600_000n, fromToken).spentMinor).toBe(2_000_00);
+  });
+
+  it('falls back to the network when the device holds no written figure', () => {
+    expect(allowanceFigures(0, cap, 750_000n, fromToken)).toEqual({ limitMinor: 1_995_26, spentMinor: 997_63 });
+  });
+});
+
+describe('a refused payment says which rule held', () => {
+  const NOW = 1_800_000_000n;
+  const allowance = {
+    perRunMax: 2_000_000n,
+    periodCap: 5_000_000n,
+    periodSeconds: 2_592_000n,
+    periodStart: NOW - 1_000n,
+    spentInPeriod: 4_000_000n,
+    expiresAt: NOW + 10_000_000n,
+    revoked: false,
+  };
+
+  it('over what is left for the period', () => {
+    expect(whyRefused(allowance, false, 1_500_000n, NOW)).toBe("That's more than the assistant has left to spend.");
+  });
+
+  it('over what one payment may be, before the period is even looked at', () => {
+    expect(whyRefused(allowance, false, 2_500_000n, NOW)).toBe("That's more than the assistant can spend in one payment.");
+  });
+
+  it('paused, whatever the amount', () => {
+    expect(whyRefused(allowance, true, 1n, NOW)).toBe('The assistant is paused. Resume it to continue.');
+  });
+
+  it('turned off comes before everything else, as it does in the contract', () => {
+    expect(whyRefused({ ...allowance, revoked: true }, true, 9_000_000n, NOW)).toBe('That allowance has been turned off.');
+  });
+
+  it('expired', () => {
+    expect(whyRefused({ ...allowance, expiresAt: NOW - 1n }, false, 1n, NOW)).toBe('That allowance has expired.');
+  });
+
+  it('a period that has rolled over starts again from nothing spent', () => {
+    const rolled = { ...allowance, periodStart: NOW - 3_000_000n };
+    // 4m was spent last period; 1.5m fits a fresh 5m.
+    expect(whyRefused(rolled, false, 1_500_000n, NOW)).toBe('That payment is outside what the assistant can do right now.');
+  });
+});
+
+
+describe('describing a movement for the confirmation prompt', () => {
+  it('says what is about to happen, in naira', () => {
+    expect(describeMovement({ kind: 'send', amountMinor: 2_500_00 })).toBe('Send ₦2,500');
+    expect(describeMovement({ kind: 'send-many', totalMinor: 150_000_00, count: 3 })).toBe('Pay 3 people ₦150,000');
+    expect(describeMovement({ kind: 'send-many', totalMinor: 50_000_00, count: 1 })).toBe('Pay 1 person ₦50,000');
+    expect(describeMovement({ kind: 'bill', amountMinor: 3_000_00 })).toBe('Pay a bill of ₦3,000');
+    expect(describeMovement({ kind: 'save', amountMinor: 5_000_00 })).toBe('Add ₦5,000 to savings');
+    expect(describeMovement({ kind: 'take-out', amountMinor: 5_000_00 })).toBe('Take ₦5,000 out of savings');
+    expect(describeMovement({ kind: 'allowance', limitMinor: 100_000_00 })).toBe('Let the assistant spend up to ₦100,000');
+  });
+
+  it('a refusal carries words fit to show', () => {
+    expect(new MovementNotConfirmedError().message).toBe('Not confirmed. Nothing was moved.');
+    expect(new MovementNotConfirmedError('Set up a screen lock first.').name).toBe('MovementNotConfirmedError');
+  });
+});
+
+describe('the person confirms before their own money moves', () => {
+  const refuse = () => vi.fn().mockRejectedValue(new MovementNotConfirmedError());
+
+  it('a send asks first, saying how much, and a refusal signs and sends nothing', async () => {
+    const confirmMovement = refuse();
+    const { gateway, owner } = build({ confirmMovement });
+
+    await expect(gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00 })).rejects.toThrow(
+      'Not confirmed. Nothing was moved.',
+    );
+    expect(confirmMovement).toHaveBeenCalledWith({ kind: 'send', amountMinor: 1_000_00 });
+    expect(owner.writeContract).not.toHaveBeenCalled();
+    expect(owner.signTypedData).not.toHaveBeenCalled();
+  });
+
+  it('a confirmed send goes through', async () => {
+    const confirmMovement = vi.fn().mockResolvedValue(undefined);
+    const { gateway, owner } = build({ confirmMovement });
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00 });
+    expect(confirmMovement).toHaveBeenCalledTimes(1);
+    expect(owner.writeContract).toHaveBeenCalledTimes(1);
+  });
+
+  it('the assistant\'s run does not ask: the allowance is its limit', async () => {
+    const confirmMovement = refuse();
+    const delegate = walletClient();
+    const { gateway } = build({
+      confirmMovement,
+      delegateAddress: ASSISTANT,
+      getDelegateWalletClient: vi.fn().mockResolvedValue(delegate.client),
+      ensureGas: vi.fn().mockResolvedValue(undefined),
+    });
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00, allowanceId: 'a-1' });
+    expect(confirmMovement).not.toHaveBeenCalled();
+    expect(delegate.writeContract).toHaveBeenCalledTimes(1);
+  });
+
+  it('a run of payments is confirmed once, for the people and the total', async () => {
+    const confirmMovement = vi.fn().mockResolvedValue(undefined);
+    const { gateway, owner } = build({ confirmMovement });
+    const batch = { id: 'payroll-1', totalMinor: 3_000_00, count: 3 };
+    for (let n = 0; n < 3; n += 1) await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00, batch });
+
+    expect(confirmMovement).toHaveBeenCalledTimes(1);
+    expect(confirmMovement).toHaveBeenCalledWith({ kind: 'send-many', totalMinor: 3_000_00, count: 3 });
+    expect(owner.writeContract).toHaveBeenCalledTimes(3);
+
+    // A new run asks again.
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00, batch: { ...batch, id: 'payroll-2' } });
+    expect(confirmMovement).toHaveBeenCalledTimes(2);
+  });
+
+  it('a new allowance asks, with its limit, before anything is approved', async () => {
+    const confirmMovement = refuse();
+    const { gateway, owner } = build({ confirmMovement, delegateAddress: ASSISTANT });
+    await expect(gateway.saveAllowance(draft)).rejects.toThrow('Not confirmed. Nothing was moved.');
+    expect(confirmMovement).toHaveBeenCalledWith({ kind: 'allowance', limitMinor: 5_000_00 });
+    expect(owner.writeContract).not.toHaveBeenCalled();
+  });
+
+  it('savings ask on the way in and on the way out', async () => {
+    const confirmMovement = refuse();
+    const { gateway, owner } = build({ confirmMovement, growthVaultAddress: ADDRESS });
+    await expect(gateway.depositGrow(2_000_00)).rejects.toThrow('Not confirmed. Nothing was moved.');
+    await expect(gateway.withdrawGrow(1_000_00)).rejects.toThrow('Not confirmed. Nothing was moved.');
+    expect(confirmMovement.mock.calls.map(([movement]) => movement)).toEqual([
+      { kind: 'save', amountMinor: 2_000_00 },
+      { kind: 'take-out', amountMinor: 1_000_00 },
+    ]);
+    expect(owner.writeContract).not.toHaveBeenCalled();
   });
 });

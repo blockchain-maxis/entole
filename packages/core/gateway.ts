@@ -137,6 +137,10 @@ export type SendInput = {
   amountMinor: number;
   note?: string;
   allowanceId?: string;
+  /** Set on each payment of a run the person confirms once, as when paying a
+   * list of people: the first asks for the whole run, the rest go through on
+   * that answer. */
+  batch?: { id: string; totalMinor: number; count: number };
 };
 
 export type AllowanceDraft = {

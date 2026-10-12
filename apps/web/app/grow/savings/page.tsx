@@ -11,7 +11,6 @@ import { Amount } from '@/components/Amount';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
 import { BalanceSkeleton } from '@/components/Skeleton';
-import { confirmWithPasskey } from '@/lib/session';
 
 type Mode = 'view' | 'deposit' | 'withdraw';
 
@@ -54,22 +53,19 @@ export default function SavingsPage() {
     }
     setBusy(true);
     setProblem(null);
-    // Moving money into or out of savings is confirmed with the passkey.
-    // Cancelled, nothing is sent.
-    const confirmed = await confirmWithPasskey();
-    if (!confirmed.ok) {
-      setProblem(confirmed.reason);
-      setBusy(false);
-      return;
-    }
     try {
+      // The gateway asks for the passkey before it moves anything. Cancelled,
+      // it rejects and nothing is sent.
       if (mode === 'deposit') await store.depositGrow(amount);
       else if (mode === 'withdraw') await store.withdrawGrow(amount);
       setMode('view');
       setEntry(EMPTY_ENTRY);
     } catch (error) {
       // A refusal written for people (savings busy, for one) is shown as it is.
-      const said = error instanceof Error && error.name === 'SavingsBusyError' ? error.message : null;
+      const said =
+        error instanceof Error && (error.name === 'SavingsBusyError' || error.name === 'MovementNotConfirmedError')
+          ? error.message
+          : null;
       setProblem(said ?? 'That did not go through. Nothing changed.');
     } finally {
       setBusy(false);

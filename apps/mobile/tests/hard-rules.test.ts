@@ -157,7 +157,9 @@ describe('the allowance builder cannot be left doing nothing', () => {
   });
 
   it('says so when saving fails', () => {
-    expect(/async function save\(\)[\s\S]*?\n  }\n/.exec(builder)?.[0]).toMatch(/catch \{/);
+    const save = /async function save\(\)[\s\S]*?\n  }\n/.exec(builder)?.[0] ?? '';
+    // And says why, when the reason is one a person can act on ("Not confirmed").
+    expect(save).toMatch(/catch \(error\) \{\s*setProblem\(plainMessage\(error, "We couldn't save that allowance\./);
   });
 
   it('the person in the sentence is shown by their initials, not an empty disc', () => {
@@ -217,7 +219,7 @@ describe('an allowance reads as its sentence, and is not revoked on one tap', ()
   it('the undo window names the assistant, and stopping it is the strong button', () => {
     expect(action).toMatch(/The assistant is about to send/);
     expect(action).not.toMatch(/Entole (is sending|sent)/);
-    expect(action).toMatch(/<Button label="Cancel this payment" disabled=\{sending\}/);
+    expect(action).toMatch(/<Button label=\{problem \? 'Close' : 'Cancel this payment'\} disabled=\{sending\}/);
     expect(action).toMatch(/<Figure value=\{amount\} \/>/);
   });
 });
@@ -1296,7 +1298,7 @@ describe('a payroll run pays one person at a time and never shows a state early'
   const runner = stripComments(read(join(ROOT, 'lib/payroll-run.ts')));
 
   it('sends each payment through store.send to a one-off recipient, with the note Payroll', () => {
-    expect(run).toMatch(/store\.send\(\{ contactId, amountMinor: line\.amountMinor, note: 'Payroll' \}\)/);
+    expect(run).toMatch(/store\.send\(\{ contactId, amountMinor: line\.amountMinor, note: 'Payroll', batch \}\)/);
     expect(run).toMatch(/oneOffId\(line\.code\)/);
     expect(run).toMatch(/runPayroll\(/);
   });
@@ -1409,23 +1411,30 @@ describe('the bottom of a screen, and the keyboard', () => {
   });
 });
 
-describe('moving money into or out of savings is confirmed with a fingerprint', () => {
-  const sheet = stripComments(read(join(ROOT, 'components/ui/SavingsSheet.tsx')));
+describe('every movement of the person\'s own money is confirmed with a fingerprint', () => {
+  const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
   const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+  const sheet = stripComments(read(join(ROOT, 'components/ui/SavingsSheet.tsx')));
 
-  it('asks before anything is sent, and says what is about to happen', () => {
-    const confirm = /async function confirm\(\)[\s\S]*?\n  }\n/.exec(sheet)?.[0] ?? '';
-    expect(confirm).toMatch(/await confirmWithBiometric\(/);
-    expect(confirm.indexOf('confirmWithBiometric(')).toBeLessThan(confirm.indexOf('store.depositGrow('));
-    expect(confirm.indexOf('confirmWithBiometric(')).toBeLessThan(confirm.indexOf('store.withdrawGrow('));
-    expect(confirm).toMatch(/to savings`[\s\S]*out of savings`/);
-  });
-
-  it('a prompt that is cancelled moves nothing and goes back to the review', () => {
-    const confirm = /async function confirm\(\)[\s\S]*?\n  }\n/.exec(sheet)?.[0] ?? '';
-    expect(confirm).toMatch(/if \(!confirmed\.ok\) \{\s*setPhase\('review'\);\s*setProblem\(confirmed\.reason\);\s*return;/);
+  it('the gateway is given the phone\'s own prompt, titled with what is about to happen', () => {
+    expect(onchain).toMatch(/confirmWithScreenLock\(describeMovement\(movement\)\)/);
+    expect(onchain).toMatch(/if \(!confirmed\.ok\) throw new MovementNotConfirmedError\(confirmed\.reason\);/);
+    expect(onchain).toMatch(/createOnChainGateway\(\{\s*publicClient,\s*ownerWalletClient,\s*confirmMovement,/);
     expect(session).toMatch(/LocalAuthentication\.authenticateAsync\(/);
     expect(session).toMatch(/Not confirmed\. Nothing was moved\./);
+  });
+
+  it('a screen does not ask a second time: the gateway is the one place', () => {
+    expect(sheet).not.toMatch(/confirmWithScreenLock/);
+    for (const file of sourceFiles.filter((path) => /\/(app|components)\//.test(path))) {
+      expect(stripComments(read(file)), rel(file)).not.toMatch(/confirmWithScreenLock\(/);
+    }
+  });
+
+  it('a payroll run is confirmed once, for the people and the total', () => {
+    const run = stripComments(read(join(ROOT, 'app/business/payroll/run.tsx')));
+    expect(run).toMatch(/totalMinor: targets\.reduce\(/);
+    expect(run).toMatch(/note: 'Payroll', batch \}/);
   });
 });
 
@@ -1513,5 +1522,43 @@ describe('an unanswered username claim is tried again', () => {
     // A refusal is an answer: it does not reopen the sheet on every return.
     expect(claim).toMatch(/refused = true;/);
     expect(claim).toMatch(/if \(trying \|\| refused/);
+  });
+});
+
+describe('a payment the network refuses says so', () => {
+  const action = stripComments(read(join(ROOT, 'app/assistant-action.tsx')));
+
+  it('the reason is shown, not swallowed, and the countdown does not start again', () => {
+    expect(action).toMatch(/catch \(error\) \{\s*setSending\(false\);\s*setProblem\(plainMessage\(error,/);
+    expect(action).toMatch(/accessibilityRole="alert"/);
+    expect(action).toMatch(/running=\{!stopped && !sending && !problem\}/);
+    expect(action).toMatch(/'Not sent\. Nothing was taken\.'/);
+  });
+});
+
+describe('a phone with a screen lock and no fingerprint can use the app', () => {
+  const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+  const check = /async function checkDeviceCanAuthenticate[\s\S]*?\n}\n/.exec(session)?.[0] ?? '';
+
+  it('any screen lock is enough: only a phone with none is turned away', () => {
+    expect(check).toMatch(/getEnrolledLevelAsync\(\)/);
+    expect(check).toMatch(/SecurityLevel\.NONE/);
+    // Biometric hardware and enrolment are not conditions any more.
+    expect(check).not.toMatch(/hasHardwareAsync|isEnrolledAsync/);
+    expect(check).toMatch(/a PIN, a pattern, a fingerprint or a face/);
+  });
+
+  it('confirming a movement lets a PIN, pattern or password answer', () => {
+    expect(session).toMatch(/disableDeviceFallback: false/);
+  });
+});
+
+describe('someone who has not signed up cannot reach the assistant', () => {
+  it.each(['app/legal/terms.tsx', 'app/legal/privacy.tsx'])('%s leaves the control out for them, and keeps it for anyone signed in', (path) => {
+    expect(stripComments(read(join(ROOT, path)))).toMatch(/trailing=\{account \? undefined : null\}/);
+  });
+
+  it('the assistant screen sends them to the start', () => {
+    expect(stripComments(read(join(ROOT, 'app/assistant.tsx')))).toMatch(/if \(!account\) return <Redirect href="\/" \/>;/);
   });
 });

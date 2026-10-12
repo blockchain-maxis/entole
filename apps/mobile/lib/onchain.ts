@@ -15,9 +15,11 @@ import type { EntoleKeyAccount } from '@entole/core/passkey';
 import { encodePaymentCode } from '@entole/core/payment-code';
 import { createRecords } from '@entole/core/records';
 import { createEnsureGas, createRelayClient } from '@entole/core/relay-client';
+import { describeMovement, MovementNotConfirmedError, type ConfirmMovement } from '@entole/core/movement';
 
 import type { SignedInAccount } from './account';
 import { deviceRecordStore } from './records-store';
+import { confirmWithScreenLock } from './session';
 
 type ExtraConfig = {
   contractAddress?: string;
@@ -48,6 +50,13 @@ const TOKEN_ADDRESS = (extra.tokenAddress ?? '0xa9012a055bd4e0eDfF8Ce09f960291C0
  * `depositGrow`/`withdrawGrow` fail loudly instead of pretending to settle. */
 const ROUTER_ADDRESS = extra.routerAddress ? (extra.routerAddress as Address) : undefined;
 export const API_BASE = extra.apiBase ?? 'https://entole.pro';
+
+/** Before the person's own money moves, the phone asks for its fingerprint,
+ * face or screen lock, and says what is about to happen. */
+const confirmMovement: ConfirmMovement = async (movement) => {
+  const confirmed = await confirmWithScreenLock(describeMovement(movement));
+  if (!confirmed.ok) throw new MovementNotConfirmedError(confirmed.reason);
+};
 /** Where a checkout link points: the same origin as the sponsor server, whose
  * `/pay/<code>` page is what opens for a payer who does not have the app. */
 export const CHECKOUT_BASE = API_BASE;
@@ -184,6 +193,7 @@ export function useOnChainBackend(
     const gateway = createOnChainGateway({
       publicClient,
       ownerWalletClient,
+      confirmMovement,
       ...(enabled && address ? { delegateAddress: address, getDelegateWalletClient } : {}),
       policyAddress: CONTRACT_ADDRESS,
       tokenAddress: TOKEN_ADDRESS,

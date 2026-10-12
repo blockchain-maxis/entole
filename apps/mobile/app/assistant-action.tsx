@@ -15,6 +15,7 @@ import { toDollars } from '@entole/core/fx';
 import { formatDollars, formatNaira, kobo, remaining } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 import { useToast } from '@/lib/toast';
+import { plainMessage } from '@/lib/send';
 
 /**
  * Delegation with an undo window, never a confirmation dialog. Confirming every
@@ -30,6 +31,7 @@ export default function AssistantAction() {
   const { show } = useToast();
   const proposal = store.proposal;
   const [sending, setSending] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   const [stopped, setStopped] = useState(false);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
@@ -54,13 +56,19 @@ export default function AssistantAction() {
   async function run() {
     if (sending || stopped) return;
     setSending(true);
+    setProblem(null);
     try {
       const receipt = await store.runProposal();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       show(`The assistant sent ${contact?.name ?? 'a payment'}`, 'assistant');
       router.replace({ pathname: '/send/receipt', params: { receiptId: receipt.id } });
-    } catch {
+    } catch (error) {
+      // The network refused it, or it could not be reached. Either way nothing
+      // was sent, and the person is told which: a refusal is the point of an
+      // allowance, and it used to pass here without a word.
       setSending(false);
+      setProblem(plainMessage(error, "That payment didn't go through. Nothing was taken."));
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
   }
 
@@ -114,19 +122,27 @@ export default function AssistantAction() {
       <View className="mt-5 flex-row items-center gap-3.5">
         <Countdown
           seconds={proposal.undoSeconds}
-          running={!stopped && !sending}
+          running={!stopped && !sending && !problem}
           onElapsed={() => void run()}
         />
         <Text className="flex-1 font-body text-ui text-slate">
           {sending
             ? 'Sending now.'
-            : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
+            : problem
+              ? 'Not sent. Nothing was taken.'
+              : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
         </Text>
       </View>
 
+      {problem ? (
+        <Text accessibilityRole="alert" className="mt-4 font-body text-ui text-halt">
+          {problem}
+        </Text>
+      ) : null}
+
       {/* The one strong button is yours, in ink: stopping it. */}
       <View className="mt-6 flex-row">
-        <Button label="Cancel this payment" disabled={sending} onPress={() => void stop()} />
+        <Button label={problem ? 'Close' : 'Cancel this payment'} disabled={sending} onPress={() => void stop()} />
       </View>
 
       <Pressable
@@ -135,7 +151,7 @@ export default function AssistantAction() {
         onPress={() => void run()}
         className="items-center py-3.5 active:opacity-60"
       >
-        <Text className="font-strong text-ui text-slate">Send it now</Text>
+        <Text className="font-strong text-ui text-slate">{problem ? 'Try again' : 'Send it now'}</Text>
       </Pressable>
     </Sheet>
   );

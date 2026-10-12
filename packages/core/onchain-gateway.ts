@@ -18,6 +18,7 @@ import { evaluateReleaseCondition } from './chainlink-cre';
 import { fetchIndexedActivity } from './indexed-activity';
 import { nextInvoiceReference } from './invoices';
 import { cents, kobo } from './money';
+import type { ConfirmMovement, Movement } from './movement';
 import type { Records } from './records';
 import type { RelayClient, RelayPayment } from './relay-client';
 import {
@@ -268,16 +269,58 @@ const EXECUTE_WINDOW_SECONDS = 300;
  * the policy covers that whole horizon (one period for an on-request cap). */
 const ALLOWANCE_PERIODS = 24n;
 
+const REFUSED = {
+  overOnePayment: "That's more than the assistant can spend in one payment.",
+  overWhatIsLeft: "That's more than the assistant has left to spend.",
+  paused: 'The assistant is paused. Resume it to continue.',
+  turnedOff: 'That allowance has been turned off.',
+  expired: 'That allowance has expired.',
+  unknown: 'That payment is outside what the assistant can do right now.',
+} as const;
+
 /** Plain copy for what the contract can refuse. Never the raw error. */
 const REVERT_MESSAGES: [RegExp, string][] = [
-  [/OverPerRunMax/i, "That's more than the assistant can spend in one payment."],
-  [/OverPeriodCap/i, "That's more than the assistant has left to spend."],
-  [/AccountPaused/i, 'Payments are paused. Resume them to continue.'],
-  [/AlreadyRevoked/i, 'That allowance has been turned off.'],
-  [/Expired|SignatureExpired/i, 'That allowance has expired.'],
+  [/OverPerRunMax/i, REFUSED.overOnePayment],
+  [/OverPeriodCap/i, REFUSED.overWhatIsLeft],
+  [/AccountPaused/i, REFUSED.paused],
+  [/AlreadyRevoked/i, REFUSED.turnedOff],
+  [/Expired|SignatureExpired/i, REFUSED.expired],
   [/RecipientNotAllowed/i, "The assistant can't pay that person."],
   [/TransferFailed|insufficient|balance/i, "You don't have enough for this payment."],
 ];
+
+/**
+ * Why the network would refuse the assistant a payment, in plain words.
+ *
+ * The contract's own check (`wouldExceed`) only answers yes or no. This reads
+ * the same record the contract reads and walks it in the order the contract
+ * does, so the person is told which rule held: the allowance was turned off,
+ * the assistant is paused, the payment is over what one payment may be, or
+ * over what is left for the period. It explains a refusal; it never makes one.
+ */
+export function whyRefused(
+  allowance: {
+    perRunMax: bigint;
+    periodCap: bigint;
+    periodSeconds: bigint;
+    periodStart: bigint;
+    spentInPeriod: bigint;
+    expiresAt: bigint;
+    revoked: boolean;
+  },
+  accountPaused: boolean,
+  amountToken: bigint,
+  nowSeconds: bigint,
+): string {
+  if (allowance.revoked) return REFUSED.turnedOff;
+  if (accountPaused) return REFUSED.paused;
+  if (nowSeconds > allowance.expiresAt) return REFUSED.expired;
+  if (amountToken > allowance.perRunMax) return REFUSED.overOnePayment;
+  // A period that has rolled over starts again from nothing spent.
+  const spent = nowSeconds >= allowance.periodStart + allowance.periodSeconds ? 0n : allowance.spentInPeriod;
+  if (spent + amountToken > allowance.periodCap) return REFUSED.overWhatIsLeft;
+  return REFUSED.unknown;
+}
 
 /** A refusal in plain words; anything unrecognised stays generic. */
 export function describeRevert(error: unknown): Error {
@@ -532,6 +575,14 @@ export type OnChainGatewayConfig = {
    * assistant may charge. Best-effort: a failure
    * here never fails the change that already settled. */
   onAllowanceChanged?: (allowanceId: string | null) => Promise<void>;
+  /**
+   * Asked before the person moves their own money: a send, a bill, money into
+   * or out of savings, a new allowance. The phone answers with its fingerprint
+   * prompt, the browser with the passkey. It is called here, in the one place
+   * every movement passes through, so no screen can move money without it.
+   * The assistant's runs do not come this way: see `movement.ts`.
+   */
+  confirmMovement?: ConfirmMovement;
   cadenceSeconds?: Record<Cadence, bigint>;
 };
 
@@ -559,6 +610,33 @@ function requireFilled(order: OrderResult): void {
       `Your order was received but hasn't filled yet (${order.status}). It will show under Holdings once the market fills it.`,
     );
   }
+}
+
+/**
+ * An allowance's limit and what has been used of it, in naira, as a screen
+ * shows them.
+ *
+ * The network holds the limit in dollars, to the cent. Read back through the
+ * rate, a limit written as N2,000 comes out as N1,995.26, and moves again
+ * whenever the rate does. So the limit shown is the one the person wrote, and
+ * what has been used is the same share of it as it is of the limit the network
+ * holds: half used there reads half used here, all of it reads nothing left.
+ * What the network will actually allow is still decided there, in dollars.
+ *
+ * With no written figure (the device does not hold this allowance's record)
+ * both figures come from the network, through the rate.
+ */
+export function allowanceFigures(
+  writtenLimitMinor: number,
+  periodCap: bigint,
+  spentInPeriod: bigint,
+  fromToken: (amount: bigint) => number,
+): { limitMinor: number; spentMinor: number } {
+  if (writtenLimitMinor <= 0 || periodCap <= 0n) {
+    return { limitMinor: fromToken(periodCap) || writtenLimitMinor, spentMinor: fromToken(spentInPeriod) };
+  }
+  const share = Math.min(1, Number(spentInPeriod) / Number(periodCap));
+  return { limitMinor: writtenLimitMinor, spentMinor: Math.round(writtenLimitMinor * share) };
 }
 
 function toTokenMinor(amountMinorNaira: number, config: ResolvedConfig): bigint {
@@ -816,6 +894,15 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     return { hash, feeMinor };
   }
 
+  /** The run of payments the person last confirmed as one. */
+  let confirmedBatch: string | null = null;
+
+  /** Asks the person before their own money moves. With no way to ask (a test,
+   * a script), nothing is asked: the apps always provide one. */
+  async function confirm(movement: Movement): Promise<void> {
+    await config.confirmMovement?.(movement);
+  }
+
   /** Makes sure the policy may draw what an allowance can spend. Added to what
    * is already approved, because every allowance shares one approval. */
   async function approveForAllowance(neededToken: bigint): Promise<void> {
@@ -840,6 +927,33 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     await config.onAllowanceChanged?.(allowanceId).catch(() => undefined);
   }
 
+  /** Which rule the network would refuse a run under, read from its own record. */
+  async function refusalReason(id: Hex, amountToken: bigint): Promise<string> {
+    try {
+      const [owner, , , perRunMax, periodCap, periodSeconds, periodStart, spentInPeriod, expiresAt, revoked] =
+        await config.publicClient.readContract({
+          address: config.policyAddress,
+          abi: ENTOLE_POLICY_ABI,
+          functionName: 'allowances',
+          args: [id],
+        });
+      const accountPaused = await config.publicClient.readContract({
+        address: config.policyAddress,
+        abi: ENTOLE_POLICY_ABI,
+        functionName: 'paused',
+        args: [owner],
+      });
+      return whyRefused(
+        { perRunMax, periodCap, periodSeconds, periodStart, spentInPeriod, expiresAt, revoked },
+        accountPaused === true,
+        amountToken,
+        BigInt(Math.floor(Date.now() / 1000)),
+      );
+    } catch {
+      return REFUSED.unknown;
+    }
+  }
+
   /** The assistant spends inside an allowance. The assistant's key only signs;
    * the sponsor pays the network fee. Falls back to the key paying for itself
    * (topped up first) when the sponsor route is not there. */
@@ -854,7 +968,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       functionName: 'wouldExceed',
       args: [id, recipient, amountToken],
     });
-    if (refused === true) throw new Error("That payment is outside what the assistant can do right now.");
+    if (refused === true) throw new Error(await refusalReason(id, amountToken));
 
     if (config.relay?.submitExecute) {
       try {
@@ -961,9 +1075,10 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
             args: [id],
           });
           const [, , , , periodCap, , , spentInPeriod, , revoked] = onchain;
-          const spentMinor = fromTokenMinor(spentInPeriod, config);
-          const limitMinor = fromTokenMinor(periodCap, config);
-          return { ...a, spentMinor, limitMinor: limitMinor || a.limitMinor, paused: revoked || a.paused };
+          const { limitMinor, spentMinor } = allowanceFigures(a.limitMinor, periodCap, spentInPeriod, (amount) =>
+            fromTokenMinor(amount, config),
+          );
+          return { ...a, spentMinor, limitMinor, paused: revoked || a.paused };
         }),
       );
 
@@ -1019,6 +1134,18 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     },
 
     async submitPayment(input: SendInput): Promise<Receipt> {
+      // The person's own send is confirmed first. The assistant's run is not:
+      // the allowance is its limit and the undo window is the person's check.
+      if (!input.allowanceId) {
+        if (input.batch) {
+          if (confirmedBatch !== input.batch.id) {
+            await confirm({ kind: 'send-many', totalMinor: input.batch.totalMinor, count: input.batch.count });
+            confirmedBatch = input.batch.id;
+          }
+        } else {
+          await confirm({ kind: 'send', amountMinor: input.amountMinor });
+        }
+      }
       await refreshRate();
       const recipient = config.resolveRecipient(input.contactId);
       const sentAt = new Date();
@@ -1097,6 +1224,8 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
 
     async saveAllowance(draft: AllowanceDraft): Promise<Allowance> {
       if (!delegateAddress) throw new AssistantNotEnabledError();
+      // An allowance is permission to move money later, so it is confirmed like a movement.
+      await confirm({ kind: 'allowance', limitMinor: draft.limitMinor });
       const appId = draft.id ?? `a-${Date.now()}`;
       const id = toChainAllowanceId(appId);
       const recipient = config.resolveRecipient(draft.recipientId);
@@ -1176,6 +1305,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       if (!submit || !config.billsRecipient || !config.routerAddress) {
         throw new Error("Paying bills isn't available yet.");
       }
+      await confirm({ kind: 'bill', amountMinor: input.amountMinor });
       await refreshRate();
       // One signature moves the money to the bills account. The server pays the
       // biller only after that payment has settled, and answers only after the
@@ -1186,6 +1316,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     },
 
     async depositGrow(amountMinor: number) {
+      await confirm({ kind: 'save', amountMinor });
       if (config.savingsVault) {
         const vault = config.savingsVault;
         const saver = ownerAddress();
@@ -1270,6 +1401,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     },
 
     async withdrawGrow(amountMinor: number) {
+      await confirm({ kind: 'take-out', amountMinor });
       if (config.savingsVault) {
         const vault = config.savingsVault;
         const saver = ownerAddress();

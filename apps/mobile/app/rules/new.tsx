@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Sentence, type SentencePart } from '@/components/ui/Sentence';
 import { SheetGrabber } from '@/components/ui/Sheet';
 import { Text } from '@/components/ui/Text';
+import { plainMessage } from '@/lib/send';
 import { cadenceDetail, cadenceWords } from '@entole/core/allowance';
 import { entryDisplay, entryFromMinor, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import { formatNaira, kobo, naira, type Naira } from '@entole/core/money';
@@ -78,8 +79,9 @@ export default function RuleBuilder() {
         cadence,
       });
       router.back();
-    } catch {
-      setProblem("We couldn't save that allowance. Nothing has changed. Try again.");
+    } catch (error) {
+      // "Not confirmed" is a reason a person can act on; a raw failure is not.
+      setProblem(plainMessage(error, "We couldn't save that allowance. Nothing has changed. Try again."));
     } finally {
       setSaving(false);
     }

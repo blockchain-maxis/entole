@@ -160,3 +160,32 @@ describe('parseTelegramMessageWithAssistant', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('a name is not only letters', () => {
+  const PEOPLE: Contact[] = [
+    contactSchema.parse({ id: 'c-mj', name: 'Mary-Jane Obi', initials: 'MO', tone: 1 }),
+    contactSchema.parse({ id: 'c-ob', name: "Ng'ethe O'Brien", initials: 'NO', tone: 2 }),
+    contactSchema.parse({ id: 'c-jo', name: 'José Nwosu', initials: 'JN', tone: 3 }),
+    contactSchema.parse({ id: 'c-m2', name: 'Mum 2', initials: 'M2', tone: 1 }),
+  ];
+
+  it.each([
+    ['Pay 2000 to Mary-Jane Obi', 'c-mj'],
+    ['Pay 2000 to Mary-Jane for rent', 'c-mj'],
+    ["Send 500 to Ng'ethe O'Brien", 'c-ob'],
+    ['Pay 1,500 to José', 'c-jo'],
+    ['Pay 300 to Mum 2 for airtime', 'c-m2'],
+  ])('%s reaches the person it names', (message, contactId) => {
+    const result = parseTelegramMessage(message, PEOPLE);
+    expect(result).toMatchObject({ ok: true, contactId });
+  });
+
+  it('still stops at "for", so the reason does not become part of the name', () => {
+    const result = parseTelegramMessage('Pay 300 to Mum 2 for airtime', PEOPLE);
+    expect(result).toMatchObject({ ok: true, note: 'airtime' });
+  });
+
+  it('still asks who, when nobody is named', () => {
+    expect(parseTelegramMessage('Pay 300', PEOPLE)).toEqual({ ok: false, reason: 'Say who it goes to — e.g. "to Mom".' });
+  });
+});
