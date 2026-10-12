@@ -85,8 +85,13 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
         // Plain View slot + object-style Pressable. A function `style` on
         // Pressable (for pressed opacity) is dropped by NativeWind's wrapper,
         // which left every tab at content width, packed to the left.
+        //
+        // The slot is the capsule: it carries the radius and clips to it, so
+        // the active ground and the ripple are both cut to a round shape by
+        // their parent. Rounding each of them separately still drew square
+        // corners on Android.
         return (
-          <View key={route.key} style={{ flex: 1 }}>
+          <View key={route.key} style={{ flex: 1, borderRadius: TAB_PILL_RADIUS, overflow: 'hidden' }}>
             <TabBarIcon icon={tab.icon} label={tab.label} focused={focused} />
             <Pressable
               accessibilityRole="tab"
@@ -94,9 +99,7 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
               accessibilityState={{ selected: focused }}
               onPress={onPress}
               android_ripple={{ color: colors.line, borderless: false }}
-              // The ripple is drawn to the view's bounds; without a matching
-              // radius and a clip it fills a square over the round highlight.
-              style={[StyleSheet.absoluteFill, { borderRadius: TAB_PILL_RADIUS, overflow: 'hidden' }]}
+              style={styles.press}
             />
           </View>
         );
@@ -104,3 +107,9 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // Over the whole slot. One plain object, not a list: this wrapper has
+  // dropped styles handed to it in other shapes before.
+  press: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+});

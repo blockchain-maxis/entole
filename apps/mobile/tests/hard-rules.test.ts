@@ -1118,6 +1118,12 @@ describe('the bottom bar’s active tab is a capsule, and its ripple is clipped 
     expect(bar).toMatch(/borderRadius: TAB_PILL_RADIUS,\s*overflow: 'hidden'/);
     expect(bar).toMatch(/android_ripple=\{\{[^}]*borderless: false/);
   });
+
+  it('the slot itself is the capsule, so its ground and its ripple are both clipped by their parent', () => {
+    expect(bar).toMatch(/<View key=\{route\.key\} style=\{\{ flex: 1, borderRadius: TAB_PILL_RADIUS, overflow: 'hidden' \}\}>/);
+    expect(bar).toMatch(/style=\{styles\.press\}/);
+    expect(bar).not.toMatch(/<Pressable[\s\S]*?style=\{\[/);
+  });
 });
 
 describe('Me is ordered Profile, Account, Preferences, Security, Support, Legal', () => {
