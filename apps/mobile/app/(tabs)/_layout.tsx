@@ -57,10 +57,14 @@ function useSessionGuard() {
 }
 
 /**
- * Claims the signed-in person's username in the directory, once. It runs for
- * every account, including ones made before usernames were kept anywhere but
- * the phone: the first of two people who chose the same name to open the app
- * holds it, and the other is taken straight to choose another.
+ * Claims the signed-in person's username in the directory. It runs for every
+ * account, including ones made before usernames were kept anywhere but the
+ * phone: the first of two people who chose the same name to open the app holds
+ * it, and the other is taken straight to choose another.
+ *
+ * It tries again every time the app comes to the front, until the directory
+ * has said yes or no. Trying once at start-up left a name unclaimed, and so
+ * free for someone else to take, whenever that one try could not get through.
  */
 function useUsernameClaim() {
   const router = useRouter();
@@ -73,9 +77,15 @@ function useUsernameClaim() {
   useEffect(() => {
     if (!address || !username || !displayName) return;
     let live = true;
-    void (async () => {
-      if (await usernameClaimRecorded(address, username)) return;
+    let trying = false;
+    /** Refused once is refused: do not keep reopening the sheet over them. */
+    let refused = false;
+
+    async function attempt() {
+      if (trying || refused || !address || !username || !displayName) return;
+      trying = true;
       try {
+        if (await usernameClaimRecorded(address, username)) return;
         await backend.directory.claim({
           address,
           name: displayName,
@@ -86,12 +96,23 @@ function useUsernameClaim() {
         await recordUsernameClaim(address, username);
       } catch (error) {
         if (live && error instanceof DirectoryError && error.code === 'username_taken') {
+          refused = true;
           router.push({ pathname: '/edit-profile', params: { taken: '1' } });
         }
+        // Anything else (no connection, a server that is mid-update) is left
+        // for the next time the app comes to the front.
+      } finally {
+        trying = false;
       }
-    })();
+    }
+
+    void attempt();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void attempt();
+    });
     return () => {
       live = false;
+      subscription.remove();
     };
   }, [address, username, displayName, backend, router]);
 }

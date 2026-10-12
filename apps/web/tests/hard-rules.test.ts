@@ -951,3 +951,12 @@ describe('a username is one person\'s, and it is how they are paid', () => {
     expect(pay).toMatch(/checkoutFromRequest\(encodePaymentCode\(record\.address\), \{ \.\.\.query, n: record\.name \}\)/);
   });
 });
+
+describe('an unanswered username claim is tried again', () => {
+  it('each time the page comes back into view, until the directory has said yes or no', () => {
+    const claim = stripComments(read(join(ROOT, 'lib/username-claim.tsx')));
+    expect(claim).toMatch(/document\.addEventListener\('visibilitychange', onVisible\)/);
+    expect(claim).toMatch(/!record \|\| answered\) return;/);
+    expect(claim).toMatch(/\[address, username, displayName, record, backend, answered, returned\]/);
+  });
+});

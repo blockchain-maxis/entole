@@ -1503,3 +1503,15 @@ describe('a username is one person\'s, and it is how they are paid', () => {
     expect(receive.indexOf('title="Your username"')).toBeLessThan(receive.indexOf('title="Your code"'));
   });
 });
+
+describe('an unanswered username claim is tried again', () => {
+  it('each time the app comes to the front, until the directory has said yes or no', () => {
+    const tabs = stripComments(read(join(ROOT, 'app/(tabs)/_layout.tsx')));
+    const claim = /function useUsernameClaim\(\)[\s\S]*?\n}\n/.exec(tabs)?.[0] ?? '';
+    expect(claim).toMatch(/AppState\.addEventListener\('change', \(state\) => \{\s*if \(state === 'active'\) void attempt\(\);/);
+    expect(claim).toMatch(/if \(await usernameClaimRecorded\(address, username\)\) return;/);
+    // A refusal is an answer: it does not reopen the sheet on every return.
+    expect(claim).toMatch(/refused = true;/);
+    expect(claim).toMatch(/if \(trying \|\| refused/);
+  });
+});
