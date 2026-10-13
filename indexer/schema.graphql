@@ -27,6 +27,25 @@ type Execution @entity {
   txHash: String!
 }
 
+# One row per payment that settled, whichever door it went through: an
+# ordinary send through the router, or one the assistant made inside an
+# allowance. This is what a person's history is read from. `from` and `to` are
+# accounts, lower-case, and are what the app asks by; the app turns them into
+# people and never shows them.
+type Payment @entity {
+  id: ID! # `${txHash}-${logIndex}`
+  from: String! @index
+  to: String! @index
+  # What the person paid received, in the settlement asset's base units.
+  amount: BigInt!
+  # What the payer was charged on top. Zero for a payment inside an allowance.
+  fee: BigInt!
+  timestamp: BigInt! @index
+  txHash: String!
+  # True when the assistant made it, inside an allowance.
+  byAssistant: Boolean!
+}
+
 type PauseChange @entity {
   id: ID! # `${txHash}-${logIndex}`
   owner: String!

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "codegen": "envio codegen",
+    "check": "tsc --noEmit",
+    "test:handlers": "vitest run",
     "dev": "envio dev",
     "start": "envio start"
   },

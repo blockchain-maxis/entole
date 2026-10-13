@@ -874,3 +874,132 @@ describe('money that arrives', () => {
     expect(snapshot.arrived).toBeUndefined();
   });
 });
+
+describe('history from the index', () => {
+  const ADA = `0x${'33'.repeat(20)}` as Address;
+  const TUNDE = `0x${'44'.repeat(20)}` as Address;
+  const SENT = `0x${'a1'.repeat(32)}`;
+  const GOT = `0x${'b2'.repeat(32)}`;
+
+  function memoryRecords() {
+    const data = new Map<string, string>();
+    return createRecords(
+      {
+        get: async (key) => data.get(key) ?? null,
+        set: async (key, value) => void data.set(key, value),
+        remove: async (key) => void data.delete(key),
+      },
+      ADDRESS,
+    );
+  }
+
+  const row = (overrides: Record<string, unknown>) => ({
+    id: 'x-0',
+    from: ADDRESS,
+    to: ADA,
+    amount: '3160000',
+    timestamp: String(Math.floor(Date.now() / 1000) - 86_400 * 3),
+    txHash: SENT,
+    byAssistant: false,
+    ...overrides,
+  });
+
+  /** A gateway on a clean chain, reading history from an index that answers with `rows`. */
+  function withIndex(rows: unknown[] | 'down', extra: Parameters<typeof build>[0] = {}) {
+    const records = memoryRecords();
+    const asked = vi.fn(async () =>
+      rows === 'down' ? new Response('', { status: 503 }) : new Response(JSON.stringify({ data: { Payment: rows } })),
+    );
+    vi.stubGlobal('fetch', asked);
+    const built = build({
+      records,
+      indexerUrl: 'https://index.test/v1/graphql',
+      loadOffChainSnapshot: async () => ({
+        ...(await demoGateway.loadSnapshot()),
+        allowances: [],
+        activity: await records.activity.list(),
+      }),
+      ...extra,
+    });
+    (built.publicClient.readContract as ReturnType<typeof vi.fn>).mockImplementation(
+      async (call: { functionName: string }) => (/paused/i.test(call.functionName) ? false : 0n),
+    );
+    return { ...built, records, asked };
+  }
+
+  it('a new phone gets the account’s payments, in and out, with people named', async () => {
+    const { gateway, records } = withIndex(
+      [row({}), row({ id: 'y-0', from: TUNDE, to: ADDRESS, txHash: GOT, amount: '1000000' })],
+      { nameOf: async (address) => (address.toLowerCase() === TUNDE.toLowerCase() ? 'Tunde Bello' : 'Ada Eze') },
+    );
+    const { activity } = await gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+
+    expect(activity.map((entry) => [entry.id, entry.direction, entry.note])).toEqual([
+      [`rc-${SENT}`, 'out', 'Sent'],
+      [`rc-${GOT}`, 'in', 'Received'],
+    ]);
+    expect(activity.map((entry) => oneOffContact(entry.contactId)?.name)).toEqual(['Ada Eze', 'Tunde Bello']);
+    // Written to the device, so it is there for good.
+    expect(await records.activity.list()).toHaveLength(2);
+  });
+
+  it('a payment the device already has is not listed twice, and keeps what the device knew', async () => {
+    const { gateway, records } = withIndex([row({ txHash: HASH })]);
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 500_000, note: 'For rent' });
+    const { activity } = await gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({ id: `rc-${HASH}`, note: 'For rent', amountMinor: 500_000 });
+    expect(await records.activity.list()).toHaveLength(1);
+  });
+
+  it('what the server kept wins over the index: it has the note and the figure that was typed', async () => {
+    const payments = {
+      record: vi.fn().mockResolvedValue(true),
+      list: vi.fn().mockResolvedValue([
+        { hash: GOT, from: TUNDE, fromName: 'Tunde Bello', amountToken: '1000000', amountMinor: 160_000, at: new Date().toISOString(), note: 'Fuel' },
+      ]),
+    };
+    const { gateway } = withIndex([row({ id: 'y-0', from: TUNDE, to: ADDRESS, txHash: GOT, amount: '1000000' })], { payments });
+    const { activity, arrived } = await gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({ note: 'Fuel', amountMinor: 160_000, direction: 'in' });
+    expect(arrived).toHaveLength(1);
+  });
+
+  it('a payment that arrived, found only in the index, is still said when it is recent', async () => {
+    const now = String(Math.floor(Date.now() / 1000) - 30);
+    const { gateway } = withIndex([row({ id: 'y-0', from: TUNDE, to: ADDRESS, txHash: GOT, timestamp: now })]);
+    const first = await gateway.loadSnapshot();
+    const second = await gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+
+    expect(first.arrived?.map((entry) => entry.id)).toEqual([`rc-${GOT}`]);
+    expect(second.arrived).toBeUndefined();
+    expect(second.activity).toHaveLength(1);
+  });
+
+  it('an index that is down leaves the list as it was', async () => {
+    const { gateway, asked } = withIndex('down');
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 500_000 });
+    const { activity } = await gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+
+    expect(asked).toHaveBeenCalled();
+    expect(activity).toHaveLength(1);
+  });
+
+  it('asks only for this account, by its own address', async () => {
+    const { gateway, asked } = withIndex([]);
+    await gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+    const body = JSON.parse((asked.mock.calls[0] as unknown as [string, { body: string }])[1].body) as {
+      variables: { me: string };
+    };
+    expect(body.variables.me).toBe(ADDRESS.toLowerCase());
+  });
+});

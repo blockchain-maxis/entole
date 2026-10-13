@@ -137,6 +137,11 @@ export function useOnChainBackend(
       account: owner.viemAccount.address,
       sign: (message) => owner.viemAccount.signMessage({ message }),
     });
+    // Who an account is, by the name its owner gave: the directory.
+    const directory = createDirectoryClient({
+      baseUrl: '',
+      sign: (message) => owner.viemAccount.signMessage({ message }),
+    });
     // Money that arrives. A payment this account sends is reported once it has
     // settled, so the person it went to sees it; what has arrived for this
     // account is collected the same way. Signed like the inbox, and like it an
@@ -210,11 +215,9 @@ export function useOnChainBackend(
       },
       payments,
       resolveContactId: source.resolveContactId,
+      // The index names accounts, not people; the directory says who they are.
+      nameOf: async (address) => (await directory.resolveByAddress(address))?.name,
       ...(INDEXER_URL ? { indexerUrl: INDEXER_URL } : {}),
-    });
-    const directory = createDirectoryClient({
-      baseUrl: '',
-      sign: (message) => owner.viemAccount.signMessage({ message }),
     });
     // What reads a sentence said to the assistant. The plain grammar runs on
     // the device; anything it does not know is read by a model on the server,

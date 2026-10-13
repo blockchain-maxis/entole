@@ -1,44 +1,77 @@
-# Entole indexer (Envio HyperIndex)
+# Entole index (Envio HyperIndex)
 
-Per `docs/ARCHITECTURE.md`: "Do not read history directly from RPC in the
-app." This is that indexer, for the Envio bounty and for a real activity
-feed and allowance history instead of the app polling `eth_getLogs` itself.
+`docs/ARCHITECTURE.md`: "Envio HyperIndex for activity feeds and allowance
+history. Do not read history directly from RPC in the app." This is that index.
 
-## Status
+## What it is for
 
-`EntolePolicy` is deployed to Monad testnet at
-`0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e`, block 69645503 — see
-`contracts/README.md`. `config.yaml` has the real address and start block.
+A payment is written to the phone that made it, and a payment that arrives is
+collected from the server when the sender's app reported it. Both can miss. A
+new phone knows nothing, and a sender's app can close before it reports. The
+index misses neither, because it reads the payment network itself.
 
-Config, schema and handlers are still written against Envio's documented
-HyperIndex API, not yet run through `envio codegen` — that needs an
-`ENVIO_API_TOKEN` for the codegen CLI's login flow, which this environment
-doesn't have.
+It keeps one `Payment` row for every payment an Entole account sends or
+receives, whichever door it went through:
 
-`abis/EntolePolicy.json` is the real, compiled ABI (extracted from
-`contracts/out/EntolePolicy.sol/EntolePolicy.json` — not hand-written), so
-codegen has the right shape to work from once a token exists.
+| Contract | Event | Becomes |
+|---|---|---|
+| `EntoleRouter` | `Paid` | a `Payment`: who paid, who was paid, what arrived, the fee |
+| `EntolePolicy` | `Executed` | an `Execution` on its allowance, and a `Payment` from the allowance's owner, marked as the assistant's |
+| `EntolePolicy` | `AllowanceCreated`, `AllowanceRevoked` | an `Allowance` |
+| `EntolePolicy` | `Paused` | a `PauseChange` |
+| `EntolePolicy` | `PasskeyRegistered` | a `PasskeyRegistration` |
 
-Now a proper pnpm workspace member (`@entole/indexer`) so `envio` is an
-installed dependency, not a one-off `dlx`. `packages/core/indexed-activity.ts`
-already queries the GraphQL endpoint this produces and maps it into the same
-`Activity` shape every screen renders — see its file header. Wire the
-endpoint URL into `apps/mobile/app.json`'s `extra.entole.indexerUrl` and
-`apps/web/.env`'s `NEXT_PUBLIC_INDEXER_URL` once it's running; until then,
-the app keeps reading activity from the off-chain snapshot exactly as it
-already does — the indexer is additive, never load-bearing.
+The apps ask it for one account's payments, both directions
+(`packages/core/indexed-activity.ts`), and write whatever the device does not
+have into the device's own activity (`loadActivity` in
+`packages/core/onchain-gateway.ts`). It fills in; it never replaces. With the
+address unset, or the index out of reach, activity is what the device and the
+server already know.
 
-## To finish
+Two things are not on the network and so are not here: the note someone
+wrote, and the naira figure they typed. An entry found only in the index says
+"Sent" or "Received", and its amount is worked out at the rate when it is
+first seen.
+
+## What is checked, and what is not
 
 ```bash
-# Get an API token at envio.dev, then, from the repo root:
-export ENVIO_API_TOKEN=...
-pnpm install
-pnpm --filter @entole/indexer codegen
-pnpm --filter @entole/indexer dev   # serves GraphQL at http://localhost:8080/v1/graphql
+pnpm --filter @entole/indexer codegen        # types from config.yaml and schema.graphql
+pnpm --filter @entole/indexer check          # the handlers against those types
+pnpm --filter @entole/indexer test:handlers  # the handlers, run, and what they stored read back
 ```
 
-`src/EventHandlers.ts` may need adjusting once codegen produces the actual
-`generated` module — it's written against the documented API shape, flagged
-as unverified in its own header, same disclosure pattern as everywhere else
-mocked-behind-an-interface in this codebase.
+All three run in CI and pass here. `test/handlers.test.ts` hands the real
+handlers events made in the test and reads back the rows, with nothing mocked
+in between.
+
+Not done from this repo: a run against the live network. That needs Docker
+(`pnpm --filter @entole/indexer dev`, GraphQL at
+`http://localhost:8080/v1/graphql`) or Envio's hosted service, and neither was
+available where this was written. The first real run is the hosted deployment
+below.
+
+## Deploying it
+
+On Envio's hosted service (envio.dev), signed in with the GitHub account that
+owns the repository:
+
+1. Add an indexer and choose this repository.
+2. Indexer directory `indexer`, config file `config.yaml`, branch `main`.
+3. Deploy. It gives a GraphQL address ending in `/v1/graphql`.
+
+Then set that address in two places and redeploy the web app:
+
+- `NEXT_PUBLIC_INDEXER_URL` in `apps/web/.env` (it is public, like every other
+  value in that file)
+- `extra.entole.indexerUrl` in `apps/mobile/app.json`
+
+To see it working: open the web app in a browser that has never signed in to
+the account, choose "I already have an account", and the account's earlier
+payments are in Activity.
+
+## After a redeploy of a contract
+
+Put the new address and its deployment block in `config.yaml`, run `codegen`,
+and push. The start block matters: the public RPC answers a log query only 100
+blocks back, so history comes from HyperSync, from the block named there.

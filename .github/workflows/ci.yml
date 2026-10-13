@@ -41,7 +41,7 @@ jobs:
         run: forge build --sizes
 
   indexer:
-    name: envio codegen — the activity indexer
+    name: envio — the payment index, generated, checked and run
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,9 +55,21 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # codegen is local and needs no token; it generates the ORM the handlers
-      # compile against, so a green run proves config, schema and handlers agree.
+      # codegen is local and needs no token. It writes the types the handlers
+      # are checked against, so it only proves config and schema are well formed.
       # The native envio binary runs on Linux, which it does not on every dev box.
       - name: codegen
         working-directory: indexer
         run: pnpm codegen
+
+      # The handlers against those types. Reading a field the config does not
+      # ask for is an error here; generation alone never noticed.
+      - name: check
+        working-directory: indexer
+        run: pnpm check
+
+      # The handlers themselves, run over events made in the test, and what
+      # they stored read back. Nothing is mocked between the two.
+      - name: handlers
+        working-directory: indexer
+        run: pnpm test:handlers

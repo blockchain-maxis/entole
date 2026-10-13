@@ -242,8 +242,25 @@ named as the receiver saved them, or else as the directory names them. Never
 by address.
 
 This is display, not enforcement: no check depends on it, and a server that
-kept nothing would cost a receiver an entry in a list, never money. When the
-indexer runs, what it knows is added to the same list (`loadActivity`).
+kept nothing would cost a receiver an entry in a list, never money.
+
+### History that follows the account
+
+The server only knows a payment the sender's app reported, and a device only
+knows what happened on it. The index (`indexer/`, Envio HyperIndex) reads the
+payment network itself: one `Payment` row for every payment through the router
+or inside an allowance. With its address set, each load asks it for the
+account's payments, both directions (`packages/core/indexed-activity.ts`), and
+writes whatever the device does not have into the device's activity
+(`takeInIndexed`). So a new phone has the account's history, and a payment
+whose sender never reported it still shows.
+
+Device, server and index all call a payment by the same id, so it is listed
+once. They are taken in that order: the server's entry carries the note and
+the figure that was typed, which the network does not hold; the index fills in
+what is still missing, as "Sent" or "Received" at the rate when it is first
+seen. It fills in and never replaces: with the index unset or out of reach,
+nothing changes.
 
 ### A receipt for it
 

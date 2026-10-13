@@ -1,46 +1,87 @@
 /**
- * Written against Envio's documented handler pattern. NOT yet verified by
- * running `envio codegen` against this config — that needs EntolePolicy
- * deployed and an ENVIO_API_TOKEN this environment doesn't have (see
- * config.yaml's header and docs/SECURITY.md's "not finished" section for
- * the same disclosure pattern used everywhere else in this codebase).
+ * What each event becomes in the index. Written for HyperIndex 3's
+ * `indexer.onEvent`, and run for real by `test/handlers.test.ts`, which feeds
+ * these handlers events and reads back what they stored.
  *
- * `context.<Entity>.set(...)` calls below assume the generated context API
- * matches schema.graphql exactly; if codegen surfaces a different shape,
- * this file is what needs editing, not the config or the schema.
+ * A handler can only read what `config.yaml` asks for under
+ * `field_selection`. A field that is not named there is not fetched, and
+ * reading one anyway is a type error: the first version of this file read the
+ * payment's hash without asking for it.
  */
-import { EntolePolicy } from 'generated';
+import { indexer } from 'envio';
 
-EntolePolicy.AllowanceCreated.handler(async ({ event, context }) => {
-  context.Allowance.set({
-    id: event.params.id,
-    owner: event.params.owner,
-    delegate: event.params.delegate,
-    revoked: false,
-    createdAtBlock: BigInt(event.block.number),
-    createdAtTimestamp: BigInt(event.block.timestamp),
-    createdAtTx: event.transaction.hash,
+/** An ordinary payment: who paid, who was paid, what arrived, what it cost. */
+indexer.onEvent({ contract: 'EntoleRouter', event: 'Paid' }, async ({ event, context }) => {
+  context.Payment.set({
+    id: `${event.transaction.hash}-${event.logIndex}`,
+    from: event.params.from,
+    to: event.params.recipient,
+    amount: event.params.amount,
+    fee: event.params.fee,
+    timestamp: BigInt(event.block.timestamp),
+    txHash: event.transaction.hash,
+    byAssistant: false,
   });
 });
 
-EntolePolicy.AllowanceRevoked.handler(async ({ event, context }) => {
+indexer.onEvent(
+  { contract: 'EntolePolicy', event: 'AllowanceCreated' },
+  async ({ event, context }) => {
+    context.Allowance.set({
+      id: event.params.id,
+      owner: event.params.owner,
+      delegate: event.params.delegate,
+      revoked: false,
+      createdAtBlock: BigInt(event.block.number),
+      createdAtTimestamp: BigInt(event.block.timestamp),
+      createdAtTx: event.transaction.hash,
+    });
+  },
+);
+
+indexer.onEvent({ contract: 'EntolePolicy', event: 'AllowanceRevoked' }, async ({ event, context }) => {
   const existing = await context.Allowance.get(event.params.id);
   if (!existing) return;
   context.Allowance.set({ ...existing, revoked: true });
 });
 
-EntolePolicy.Executed.handler(async ({ event, context }) => {
+/**
+ * A payment the assistant made inside an allowance. The event names the
+ * allowance and who was paid, not who paid: that is the allowance's owner,
+ * read from the allowance this index already holds. It is kept twice. As an
+ * `Execution`, tied to its allowance, for the allowance's own history; and as
+ * a `Payment`, so the person's history has it beside their ordinary sends.
+ */
+indexer.onEvent({ contract: 'EntolePolicy', event: 'Executed' }, async ({ event, context }) => {
+  const id = `${event.transaction.hash}-${event.logIndex}`;
+  const timestamp = BigInt(event.block.timestamp);
+
   context.Execution.set({
-    id: `${event.transaction.hash}-${event.logIndex}`,
+    id,
     allowance_id: event.params.id,
     recipient: event.params.recipient,
     amountMinor: event.params.amount,
-    timestamp: BigInt(event.block.timestamp),
+    timestamp,
     txHash: event.transaction.hash,
+  });
+
+  const allowance = await context.Allowance.get(event.params.id);
+  // An allowance made before this index's first block is not known here, and
+  // a payment with nobody to say it came from is not written down as one.
+  if (!allowance) return;
+  context.Payment.set({
+    id,
+    from: allowance.owner,
+    to: event.params.recipient,
+    amount: event.params.amount,
+    fee: 0n,
+    timestamp,
+    txHash: event.transaction.hash,
+    byAssistant: true,
   });
 });
 
-EntolePolicy.Paused.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: 'EntolePolicy', event: 'Paused' }, async ({ event, context }) => {
   context.PauseChange.set({
     id: `${event.transaction.hash}-${event.logIndex}`,
     owner: event.params.owner,
@@ -49,12 +90,15 @@ EntolePolicy.Paused.handler(async ({ event, context }) => {
   });
 });
 
-EntolePolicy.PasskeyRegistered.handler(async ({ event, context }) => {
-  context.PasskeyRegistration.set({
-    id: `${event.transaction.hash}-${event.logIndex}`,
-    owner: event.params.owner,
-    x: event.params.x,
-    y: event.params.y,
-    timestamp: BigInt(event.block.timestamp),
-  });
-});
+indexer.onEvent(
+  { contract: 'EntolePolicy', event: 'PasskeyRegistered' },
+  async ({ event, context }) => {
+    context.PasskeyRegistration.set({
+      id: `${event.transaction.hash}-${event.logIndex}`,
+      owner: event.params.owner,
+      x: event.params.x,
+      y: event.params.y,
+      timestamp: BigInt(event.block.timestamp),
+    });
+  },
+);

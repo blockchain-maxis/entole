@@ -1,71 +1,136 @@
-import { keccak256, toHex, type Address } from 'viem';
+import type { Address } from 'viem';
 import { describe, expect, it } from 'vitest';
 
-import { mapExecutionToActivity, type IndexedExecution } from './indexed-activity';
-import type { Allowance } from './schemas';
+import {
+  counterpartyOf,
+  fetchIndexedPayments,
+  mapPaymentToActivity,
+  type IndexedPayment,
+} from './indexed-activity';
+import { oneOffAddress, oneOffContact } from './one-off';
 
-const RECIPIENT: Address = '0x1111111111111111111111111111111111111111'.slice(0, 42) as Address;
-const OTHER: Address = '0x2222222222222222222222222222222222222222'.slice(0, 42) as Address;
+const ME = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01' as Address;
+const ADA = '0xc0d9BC33696d2F5676A1AcB1e39d03046405eE80' as Address;
+const STRANGER = '0x1111111111111111111111111111111111111111' as Address;
+const HASH = `0x${'ab'.repeat(32)}`;
 
-const ALLOWANCE: Allowance = {
-  id: 'a-mom',
-  name: 'Monthly transfer to Mom',
-  recipientId: 'c-mom',
-  limitMinor: 10_000_000,
-  spentMinor: 5_000_000,
-  perRunMinor: 5_000_000,
-  cadence: 'monthly',
-  resetsAt: '2026-10-01T00:00:00.000+01:00',
-  paused: false,
-};
-
-function execution(overrides: Partial<IndexedExecution> = {}): IndexedExecution {
+function payment(overrides: Partial<IndexedPayment> = {}): IndexedPayment {
   return {
-    id: '0xabc-0',
-    allowance_id: keccak256(toHex('a-mom')),
-    recipient: RECIPIENT,
-    amountMinor: '5000000', // 6-decimal token minor units
-    timestamp: '1758240000', // 2025-09-19T00:00:00Z-ish, exact value doesn't matter
-    txHash: '0xabc',
+    id: `${HASH}-3`,
+    from: ME.toLowerCase(),
+    to: ADA.toLowerCase(),
+    amount: '3160000', // 3.16 dollars, six decimals
+    timestamp: '1760300000',
+    txHash: HASH,
+    byAssistant: false,
     ...overrides,
   };
 }
 
 const OPTIONS = {
-  knownAllowances: [ALLOWANCE],
-  resolveContactId: (address: Address) => (address.toLowerCase() === RECIPIENT.toLowerCase() ? 'c-mom' : undefined),
+  account: ME,
   tokenDecimals: 6,
-  rate: { koboPerDollar: 158_000, quotedAt: '2026-09-19T00:00:00.000+01:00' },
+  rate: { koboPerDollar: 158_000, quotedAt: '2026-10-12T00:00:00.000Z' },
 };
 
-describe('mapExecutionToActivity', () => {
-  it('maps a resolvable execution to a settled, assistant-initiated activity entry', () => {
-    const entry = mapExecutionToActivity(execution(), OPTIONS);
-    expect(entry).not.toBeNull();
-    expect(entry).toMatchObject({
-      id: '0xabc-0',
-      contactId: 'c-mom',
-      note: 'Monthly transfer to Mom',
-      direction: 'out',
-      initiatedBy: 'assistant',
-      state: 'settled',
-      allowanceId: 'a-mom',
+describe('asking the index for one account’s payments', () => {
+  function index(body: unknown, status = 200) {
+    const sent: { url: string; query: string; variables: Record<string, unknown> }[] = [];
+    const fetchImpl = (async (url: string, init: { body: string }) => {
+      const parsed = JSON.parse(init.body) as { query: string; variables: Record<string, unknown> };
+      sent.push({ url, ...parsed });
+      return new Response(JSON.stringify(body), { status });
+    }) as unknown as typeof fetch;
+    return { fetchImpl, sent };
+  }
+
+  it('asks for payments from the account or to it, by its lower-case spelling, newest first', async () => {
+    const { fetchImpl, sent } = index({ data: { Payment: [payment()] } });
+    const rows = await fetchIndexedPayments({ indexerUrl: 'https://index.test/v1/graphql', account: ME, fetch: fetchImpl });
+    expect(rows).toEqual([payment()]);
+    expect(sent[0]!.url).toBe('https://index.test/v1/graphql');
+    expect(sent[0]!.variables).toEqual({ me: ME.toLowerCase(), limit: 100 });
+    expect(sent[0]!.query).toMatch(/_or: \[\{ from: \{ _eq: \$me \} \}, \{ to: \{ _eq: \$me \} \}\]/);
+    expect(sent[0]!.query).toMatch(/order_by: \{ timestamp: desc \}/);
+  });
+
+  it('leaves out a row that does not read, and keeps the rest', async () => {
+    const { fetchImpl } = index({ data: { Payment: [payment(), { id: 'x', from: 'nope' }, payment({ amount: '-5' })] } });
+    expect(await fetchIndexedPayments({ indexerUrl: 'u', account: ME, fetch: fetchImpl })).toEqual([payment()]);
+  });
+
+  it('an index that fails is an error, never "there are none"', async () => {
+    await expect(fetchIndexedPayments({ indexerUrl: 'u', account: ME, fetch: index({}, 500).fetchImpl })).rejects.toThrow();
+    await expect(
+      fetchIndexedPayments({ indexerUrl: 'u', account: ME, fetch: index({ errors: [{ message: 'no' }] }).fetchImpl }),
+    ).rejects.toThrow();
+    await expect(fetchIndexedPayments({ indexerUrl: 'u', account: ME, fetch: index({ data: {} }).fetchImpl })).rejects.toThrow();
+  });
+});
+
+describe('who is on the other end', () => {
+  it('is the person paid when the account paid, and the payer when it was paid', () => {
+    expect(counterpartyOf(payment(), ME)).toEqual({ address: ADA.toLowerCase(), direction: 'out' });
+    expect(counterpartyOf(payment({ from: ADA.toLowerCase(), to: ME.toLowerCase() }), ME)).toEqual({
+      address: ADA.toLowerCase(),
+      direction: 'in',
     });
   });
 
-  it('converts token minor units into naira minor units via the given rate', () => {
-    const entry = mapExecutionToActivity(execution({ amountMinor: '5000000' }), OPTIONS);
-    // 5,000,000 token-minor at 6 decimals = $5.00 -> naira minor at 158,000 kobo/$ = 790,000
-    expect(entry?.amountMinor).toBe(790_000);
+  it('is nobody for a payment to oneself, or one that is not this account’s', () => {
+    expect(counterpartyOf(payment({ to: ME.toLowerCase() }), ME)).toBeNull();
+    expect(counterpartyOf(payment({ from: STRANGER, to: ADA.toLowerCase() }), ME)).toBeNull();
+  });
+});
+
+describe('a payment from the index, as an activity entry', () => {
+  it('a send: the same id the device gives it, the amount in naira, to the person saved', () => {
+    const entry = mapPaymentToActivity(payment(), {
+      ...OPTIONS,
+      resolveContactId: (address) => (address.toLowerCase() === ADA.toLowerCase() ? 'b-ada' : undefined),
+    });
+    expect(entry).toEqual({
+      id: `rc-${HASH}`,
+      contactId: 'b-ada',
+      note: 'Sent',
+      at: new Date(1_760_300_000 * 1000).toISOString(),
+      amountMinor: 499_280, // 3.16 dollars at 1,580 naira
+      direction: 'out',
+      initiatedBy: 'you',
+      state: 'settled',
+    });
   });
 
-  it('returns null for a recipient outside the address book', () => {
-    const entry = mapExecutionToActivity(execution({ recipient: OTHER }), OPTIONS);
-    expect(entry).toBeNull();
+  it('a payment that arrived, from someone not saved: named as the directory names them', () => {
+    const entry = mapPaymentToActivity(payment({ from: STRANGER, to: ME.toLowerCase() }), {
+      ...OPTIONS,
+      nameOf: () => 'Tunde Bello',
+    })!;
+    expect(entry).toMatchObject({ direction: 'in', note: 'Received', initiatedBy: 'you' });
+    expect(oneOffContact(entry.contactId)?.name).toBe('Tunde Bello');
+    // Where to pay them back is kept; none of it is a name on a screen.
+    expect(oneOffAddress(entry.contactId)?.toLowerCase()).toBe(STRANGER);
+    expect(oneOffContact(entry.contactId)?.name).not.toMatch(/0x/);
   });
 
-  it('returns null for an allowance id that matches no known allowance', () => {
-    const entry = mapExecutionToActivity(execution({ allowance_id: keccak256(toHex('a-unknown')) }), OPTIONS);
-    expect(entry).toBeNull();
+  it('with no name to give, they are an Entole account, never an address', () => {
+    const entry = mapPaymentToActivity(payment({ from: STRANGER, to: ME.toLowerCase() }), OPTIONS)!;
+    expect(oneOffContact(entry.contactId)?.name).toBe('Entole account');
+  });
+
+  it('a payment the assistant made is the assistant’s for the one who made it, not for the one paid', () => {
+    expect(mapPaymentToActivity(payment({ byAssistant: true }), OPTIONS)!.initiatedBy).toBe('assistant');
+    const arrived = mapPaymentToActivity(payment({ byAssistant: true, from: ADA.toLowerCase(), to: ME.toLowerCase() }), OPTIONS)!;
+    expect(arrived.initiatedBy).toBe('you');
+  });
+
+  it('is nothing for a payment that is not this account’s', () => {
+    expect(mapPaymentToActivity(payment({ from: STRANGER, to: ADA.toLowerCase() }), OPTIONS)).toBeNull();
+    expect(mapPaymentToActivity(payment({ to: ME.toLowerCase() }), OPTIONS)).toBeNull();
+  });
+
+  it('calls a payment by one id however its hash is spelt', () => {
+    const upper = `0x${'AB'.repeat(32)}`;
+    expect(mapPaymentToActivity(payment({ txHash: upper }), OPTIONS)!.id).toBe(`rc-${HASH}`);
   });
 });

@@ -15,7 +15,7 @@ import {
   type SendQuote,
 } from './gateway';
 import { evaluateReleaseCondition } from './chainlink-cre';
-import { fetchIndexedActivity } from './indexed-activity';
+import { counterpartyOf, fetchIndexedPayments, mapPaymentToActivity } from './indexed-activity';
 import { nextInvoiceReference } from './invoices';
 import { cents, kobo } from './money';
 import type { ConfirmMovement, Movement } from './movement';
@@ -555,18 +555,20 @@ export type OnChainGatewayConfig = {
    * `indexerUrl` is unset or the indexer request fails — see
    * `loadSnapshot`'s comment below. */
   loadOffChainSnapshot: () => Promise<Snapshot>;
-  /** Envio HyperIndex's GraphQL endpoint, once `indexer/` is actually
-   * running (see `indexer/README.md` — needs an `ENVIO_API_TOKEN` this repo
-   * doesn't have committed anywhere). Left undefined, `loadSnapshot` uses
-   * `loadOffChainSnapshot`'s activity as it always has. Set, it tries the
-   * indexer first and only falls back on a failed/empty response — this is
-   * docs/ARCHITECTURE.md's "do not read history directly from RPC" rule,
-   * satisfied for real once the indexer is up. */
+  /** The GraphQL address of the running index (`indexer/`). Set, the account's
+   * payments are read from it on every load and whatever the device does not
+   * have is written into its activity: history then follows the account, not
+   * the phone. Unset, or out of reach, activity is what the device and the
+   * server already know. This is docs/ARCHITECTURE.md's "do not read history
+   * directly from RPC" rule, kept. */
   indexerUrl?: string;
+  /** The name the directory has for an account, for someone met in the index
+   * who is not saved on this device. Never the address back out to a screen. */
+  nameOf?: (address: Address) => Promise<string | undefined>;
   /** The reverse of `resolveRecipient` — a payment read from the network
-   * only carries an address, never the contact id a screen renders. Required
-   * whenever `indexerUrl` is set, and what lets a payment that arrives from
-   * someone already saved show under the name they were saved as. */
+   * only carries an address, never the contact id a screen renders. It is
+   * what lets a payment to or from someone already saved show under the name
+   * they were saved as. */
   resolveContactId?: (address: Address) => string | undefined;
   /** Where a settled payment is reported so the person it was sent to sees it,
    * and where this account collects what has arrived for it. Without it a
@@ -782,39 +784,85 @@ async function takeInArrivals(config: ResolvedConfig, known: Activity[]): Promis
   return config.records.activity.merge(entries).catch(() => []);
 }
 
+/** How many people met for the first time in one read of the index are looked up by name. */
+const NAMES_PER_LOAD = 12;
+
 /**
- * The account's activity: what this device sent, and what arrived for it.
- * With `indexerUrl` configured and reachable, what the indexer has is added
- * to that, never put in its place: the indexer knows only the assistant's
- * payments, so replacing the list would drop every ordinary send. A failed or
- * unreachable indexer leaves the list as it was rather than failing the load.
+ * What the index knows of this account's payments that the device does not
+ * have, written into the device's own activity. The index reads the payment
+ * network itself, so it has what the device missed: everything, on a new
+ * phone; and a payment whose sender's app closed before it could report it.
+ *
+ * Someone the device has not saved is named as the directory names them, a
+ * few lookups at a time, and is an Entole account until then. Returns only
+ * the entries that were new. An index that is unset, unreachable or wrong
+ * returns nothing, and the list stays as it was.
+ */
+async function takeInIndexed(config: ResolvedConfig, owner: Address, known: Activity[]): Promise<Activity[]> {
+  if (!config.indexerUrl || !config.records) return [];
+  let payments;
+  try {
+    payments = await fetchIndexedPayments({ indexerUrl: config.indexerUrl, account: owner });
+  } catch {
+    return [];
+  }
+
+  const have = new Set(known.map((entry) => entry.id));
+  const missing = payments.filter((payment) => !have.has(activityIdFor(payment.txHash.toLowerCase())));
+  if (missing.length === 0) return [];
+
+  // People not saved on this device, named once each.
+  const strangers = new Set<Address>();
+  for (const payment of missing) {
+    const other = counterpartyOf(payment, owner);
+    if (other && !config.resolveContactId?.(other.address)) strangers.add(other.address);
+  }
+  const names = new Map<string, string>();
+  await Promise.all(
+    [...strangers].slice(0, NAMES_PER_LOAD).map(async (address) => {
+      const name = await config.nameOf?.(address).catch(() => undefined);
+      if (name) names.set(address.toLowerCase(), name);
+    }),
+  );
+
+  const entries = missing.flatMap((payment) => {
+    const entry = mapPaymentToActivity(payment, {
+      account: owner,
+      resolveContactId: config.resolveContactId,
+      nameOf: (address) => names.get(address.toLowerCase()),
+      tokenDecimals: config.tokenDecimals,
+      rate: config.rate,
+    });
+    return entry ? [entry] : [];
+  });
+  return config.records.activity.merge(entries).catch(() => []);
+}
+
+/**
+ * The account's activity: what this device sent, what arrived for it, and
+ * whatever of either the index has that the device did not.
+ *
+ * Three sources, one list, and each payment in it once: they all call a
+ * payment by the same id. What the server kept for this account is taken in
+ * first, because it carries the sender's note and the figure they typed; the
+ * index then fills in anything still missing. Everything taken in is written
+ * to the device, so an entry, once seen, is there for good.
  */
 async function loadActivity(
   config: ResolvedConfig,
   base: Snapshot,
-  allowances: Allowance[],
+  owner: Address,
 ): Promise<{ activity: Snapshot['activity']; arrived: Activity[] }> {
-  const fresh = await takeInArrivals(config, base.activity);
-  const own = fresh.length > 0 ? [...fresh, ...base.activity].sort(newestFirst) : base.activity;
+  const told = await takeInArrivals(config, base.activity);
+  const afterTold = told.length > 0 ? [...told, ...base.activity].sort(newestFirst) : base.activity;
+  const indexed = await takeInIndexed(config, owner, afterTold);
+  const activity = indexed.length > 0 ? [...indexed, ...afterTold].sort(newestFirst) : afterTold;
+
   const now = Date.now();
-  const arrived = fresh.filter((entry) => now - Date.parse(entry.at) < ARRIVAL_IS_NEWS_MS);
-
-  if (!config.indexerUrl || !config.resolveContactId) return { activity: own, arrived };
-
-  try {
-    const indexed = await fetchIndexedActivity({
-      indexerUrl: config.indexerUrl,
-      resolveContactId: config.resolveContactId,
-      knownAllowances: allowances,
-      tokenDecimals: config.tokenDecimals,
-      rate: config.rate,
-    });
-    const have = new Set(own.map((entry) => entry.id));
-    const extra = indexed.filter((entry) => !have.has(entry.id));
-    return { activity: extra.length > 0 ? [...own, ...extra].sort(newestFirst) : own, arrived };
-  } catch {
-    return { activity: own, arrived };
-  }
+  const arrived = [...told, ...indexed.filter((entry) => entry.direction === 'in')].filter(
+    (entry) => now - Date.parse(entry.at) < ARRIVAL_IS_NEWS_MS,
+  );
+  return { activity, arrived };
 }
 
 export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGateway {
@@ -1150,7 +1198,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
           })
         : base.growPosition;
 
-      const { activity, arrived } = await loadActivity(config, base, allowances);
+      const { activity, arrived } = await loadActivity(config, base, owner);
 
       // Real holdings when a broker is configured; the (empty) off-chain
       // default otherwise. A failed broker request degrades to that default

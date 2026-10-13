@@ -1,23 +1,42 @@
-# Envio HyperIndex config for EntolePolicy — see docs/ARCHITECTURE.md:
+# Envio HyperIndex config for Entole — see docs/ARCHITECTURE.md, "Data":
 # "Envio HyperIndex for activity feeds and allowance history. Do not read
 # history directly from RPC in the app." This file is that indexer's
 # contract-facing half.
 #
-# Status: written against the documented HyperIndex config schema, not yet
-# run through `envio codegen` — that needs an ENVIO_API_TOKEN for the
-# codegen CLI's login flow, which this environment doesn't have. Runs
-# against plain RPC below, not HyperSync, so no token is needed for the
-# indexer itself once codegen has produced the generated/ folder.
+# Two contracts, because money moves through two doors:
 #
-# EntolePolicy deployed 17 Sep 2026 — address and start_block below are
-# real, from contracts/broadcast/Deploy.s.sol/10143/run-latest.json.
+#   EntoleRouter   every ordinary payment. `Paid` says who paid, who was paid
+#                  and how much arrived, in one line.
+#   EntolePolicy   allowances, and the payments the assistant makes inside
+#                  them (`Executed`), plus pauses and passkey registrations.
 #
-# After any redeploy of EntolePolicy: put the new address and its deployment
-# block here, then run `pnpm --filter @entole/indexer codegen`. The address
-# below is the 9 Oct 2026 deployment, the version with executeFor.
+# Between them that is every payment an Entole account sends or receives, so
+# a person's history can be read here on any device, not only on the one that
+# made the payment.
+#
+# Addresses and start blocks are the real deployments on Monad testnet, from
+# contracts/README.md. After a redeploy, put the new address and its
+# deployment block here and run `pnpm --filter @entole/indexer codegen`.
+#
+# Data comes from HyperSync where the chain has it (Monad testnet does); the
+# RPC below is the fallback. The public RPC answers a log query only 100
+# blocks back, so it could never serve the history on its own.
 name: entole-indexer
 
+# Accounts are compared as text by the app; one spelling, all lower-case.
+address_format: lowercase
+
+# What every handler may read about the payment an event came in. The hash is
+# what makes a row one row, and what ties it to the receipt the app shows.
+# Nothing is fetched that is not named here.
+field_selection:
+  transaction_fields:
+    - hash
+
 contracts:
+  - name: EntoleRouter
+    events:
+      - event: "Paid(address indexed from, address indexed recipient, uint256 amount, uint256 fee, bytes32 salt)"
   - name: EntolePolicy
     abi_file_path: abis/EntolePolicy.json
     events:
@@ -30,8 +49,13 @@ contracts:
 chains:
   - id: 10143 # Monad testnet — see contracts/README.md's network reference
     rpc: https://testnet-rpc.monad.xyz
-    start_block: 69645503 # EntolePolicy's deployment block, 9 Oct 2026
+    start_block: 64113781 # the router's deployment block, the earlier of the two
     contracts:
+      - name: EntoleRouter
+        start_block: 64113781
+        address:
+          - "0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01"
       - name: EntolePolicy
+        start_block: 69645503 # 9 Oct 2026, the version with executeFor
         address:
           - "0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e"
