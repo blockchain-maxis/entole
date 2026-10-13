@@ -167,13 +167,17 @@ Track: Consumer Products & Payments ($30,000).
 | Nansen | $5,000 | Corridor flow intelligence |
 | Mera — one passkey, many keys | $2,500 | Passkey-derived session keys |
 | Mera — best UX | $2,500 | Passkey onboarding |
-| MetaMask — agent wallet plugin | $2,500 | ERC-7715/7710 scoped permissions |
 | Chainlink CRE | $3,000 | Condition-gated payment workflow |
 | Envio | $1,000 | HyperIndex for activity |
+| Alchemy (open to this track) | not recorded here | Network fees paid through Alchemy's bundler and Gas Manager instead of a funded sponsor key. Not built, so not claimed |
 | Qwen / Kimi / Hunyuan | credits | Assistant intent parsing |
 
 Bounties are additive to the track prize. Claim only what is genuinely
 integrated. A thin integration claimed loudly reads worse than not claiming it.
+
+MetaMask's agent plugin was in this table until 13 October 2026. It is a
+Track 01 bounty and was never open to this track, so the package written for
+it (`packages/metamask-snap`) was taken out of the repository.
 
 ## Kill criteria
 
