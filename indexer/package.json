@@ -10,6 +10,6 @@
     "start": "envio start"
   },
   "dependencies": {
-    "envio": "^3.12.1"
+    "envio": "3.12.1"
   }
 }

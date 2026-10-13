@@ -53,14 +53,32 @@ below.
 
 ## Deploying it
 
-On Envio's hosted service (envio.dev), signed in with the GitHub account that
-owns the repository:
+On Envio's hosted service, signed in with the GitHub account that owns the
+repository. Once, in a browser: sign in at envio.dev/app and give the Envio
+Deployments GitHub app access to this repository. After that it is all the
+`envio-cloud` command:
 
-1. Add an indexer and choose this repository.
-2. Indexer directory `indexer`, config file `config.yaml`, branch `main`.
-3. Deploy. It gives a GraphQL address ending in `/v1/graphql`.
+```bash
+npx envio-cloud repos                 # the repository is listed once the app has access
+npx envio-cloud indexer add --name entole --repo entole \
+  --branch envio --root-dir indexer --config-file config.yaml
+npx envio-cloud deployment status entole <commit>
+npx envio-cloud deployment endpoint entole <commit>   # the GraphQL address
+```
 
-Then set that address in two places and redeploy the web app:
+The index is built from the `envio` branch, not `main`. `main` moves many
+times a day and every move would start the index again from the first block;
+`envio` moves only when something in this directory changes:
+
+```bash
+git push origin main:envio
+```
+
+Only this directory is built there, without the workspace's lockfile, which is
+why `envio` is pinned to one exact version in `package.json`: the version that
+runs is the version the tests ran against.
+
+Then set the address in two places and redeploy the web app:
 
 - `NEXT_PUBLIC_INDEXER_URL` in `apps/web/.env` (it is public, like every other
   value in that file)
