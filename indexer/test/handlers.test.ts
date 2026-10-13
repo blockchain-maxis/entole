@@ -1,13 +1,16 @@
 import { createTestIndexer } from 'envio';
 import { describe, expect, it } from 'vitest';
 
-// The handlers register themselves when their file is loaded.
-import '../src/EventHandlers';
-
 /**
- * The handlers, run. Each test hands the real handlers in `src/` a few events
- * and reads back what they stored, with nothing mocked in between: it is the
- * same code the hosted indexer runs, over events made here instead of fetched.
+ * The handlers, run. Each test hands the real handlers in `src/handlers/` a
+ * few events and reads back what they stored, with nothing mocked in between:
+ * it is the same code the hosted indexer runs, over events made here instead
+ * of fetched.
+ *
+ * The handler file is not imported here, on purpose. The index finds its
+ * handlers by looking in `src/handlers/`, and these tests must find them the
+ * same way. Imported by hand, they passed while the deployed index started
+ * with no handlers at all and stopped.
  */
 
 const CHAIN = 10143;

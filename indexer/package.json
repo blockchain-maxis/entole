@@ -2,6 +2,7 @@
   "name": "@entole/indexer",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "codegen": "envio codegen",
     "check": "tsc --noEmit",

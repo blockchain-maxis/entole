@@ -43,7 +43,9 @@ pnpm --filter @entole/indexer test:handlers  # the handlers, run, and what they 
 
 All three run in CI and pass here. `test/handlers.test.ts` hands the real
 handlers events made in the test and reads back the rows, with nothing mocked
-in between.
+in between. It does not import the handlers: they are found in
+`src/handlers/`, the way the running index finds them, so a handler file in
+the wrong place fails here and not after a deploy.
 
 Not done from this repo: a run against the live network. That needs Docker
 (`pnpm --filter @entole/indexer dev`, GraphQL at

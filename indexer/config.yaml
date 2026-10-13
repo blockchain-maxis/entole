@@ -33,6 +33,9 @@ field_selection:
   transaction_fields:
     - hash
 
+# The handlers for these are in `src/handlers/`, the one place the index looks
+# for them. A handler file anywhere else is never loaded, and an index with no
+# handlers has nothing to read and stops as it starts.
 contracts:
   - name: EntoleRouter
     events:
