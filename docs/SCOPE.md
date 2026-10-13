@@ -170,7 +170,8 @@ Track: Consumer Products & Payments ($30,000).
 | Chainlink CRE | $3,000 | Condition-gated payment workflow |
 | Envio | $1,000 | HyperIndex for activity |
 | Alchemy (open to this track) | not recorded here | Network fees paid through Alchemy's bundler and Gas Manager instead of a funded sponsor key. Not built, so not claimed |
-| Qwen / Kimi / Hunyuan | credits | Assistant intent parsing |
+| Kimi (open to this track) | credits | Assistant intent parsing. Not used, so not claimed: the assistant's reader runs on Qwen |
+| ~~Qwen~~, ~~Hunyuan~~ | credits | Not open to this track (Qwen is Track 04, Hunyuan Track 03). Qwen is what the assistant's reader uses; that is a fact about the build, not a claim |
 
 Bounties are additive to the track prize. Claim only what is genuinely
 integrated. A thin integration claimed loudly reads worse than not claiming it.
