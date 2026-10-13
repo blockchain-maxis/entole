@@ -245,6 +245,64 @@ This is display, not enforcement: no check depends on it, and a server that
 kept nothing would cost a receiver an entry in a list, never money. When the
 indexer runs, what it knows is added to the same list (`loadActivity`).
 
+### A receipt for it
+
+The same kept payment is what a receipt is drawn from. The server keeps each
+one under the reference its receipt prints (`paymentReference`, the first
+twelve characters of the payment; `getByReference` reads it back), and from
+that one record it draws the receipt three ways, all the same slip
+(`packages/core/receipt-slip.ts` turns the record into the words on it):
+
+- **A picture**, `GET /api/receipt/<reference>/image`
+  (`apps/web/app/api/receipt/[reference]/image/route.tsx`, drawn by
+  `components/ReceiptPicture.tsx` with `next/og`). Portrait, 1080 wide, exactly
+  as tall as what it says. This is what "Share receipt" sends.
+- **A page**, `/receipt/<reference>`, for whoever is sent the link. It needs no
+  account (`lib/public-routes.ts`), stays out of search, and names the picture
+  as its preview, so the link shows as the slip in a chat.
+- **Inside both apps**, straight after a payment is delivered
+  (`ReceiptStep` in the browser, `send/receipt` on the phone), from the
+  device's own receipt, which also has what only the sender is owed: the fee,
+  the total, the rate, how long it took.
+
+**A receipt cannot be made for a payment that did not happen.** The picture
+and the page take one thing from a request: the reference in the path.
+Amounts, names, the note and the time all come from the kept record, which was
+read from the network when it was kept. With no record there is no picture (a
+plain 404) and the page says the receipt is not there, repeating nothing it
+was given. `apps/web/tests/receipt.test.ts` holds this: the same picture comes
+back whatever else a request carries.
+
+**Sharing.** The sender's app tells the server a payment settled without
+waiting to hear back, so the record can be missing for a moment. Before a
+receipt is shared the app says it again and waits (`reportForReceipt`;
+keeping is idempotent). The browser then fetches the picture and hands it to
+the share panel as a file, saves it where a browser cannot share files, and
+falls back to the link (`lib/share-receipt.ts`). The phone brings the picture
+down and shares the file when the build has `expo-sharing` and
+`expo-file-system` (loaded inside a `try`, like the camera); a build without
+them shares the receipt in words with its link under them, and the words
+alone when the server does not have the payment (`receiptWords`).
+
+**Who can open one.** Anyone with the link: it shows both names and usernames,
+the amount, the time and the sender's note. The reference is the start of the
+payment's own entry on the network, which is public, so the link is not a
+secret and is not treated as one: the Privacy notice says so in those words.
+Both routes are rate-limited together (`receipt`, 60 a minute from one place).
+A receipt that only the two people on it could open would need a key that is
+not derivable from the network; that is not built.
+
+**The watermark** is the name, small and many, in leaning rows
+(`watermark` in `packages/tokens/design-tokens.js`, read by all three
+drawings). The picture lays it from one square stamp built from the outline
+of the word (`apps/web/assets/receipt/watermark-word.json`), which is why the
+rows lean one down for every two along and words sit two rows apart: only
+then do leaning rows meet themselves on a square. The picture's fonts are the
+apps' two faces cut down for it, with tabular figures made the default,
+because the renderer cannot ask a font for a feature
+(`apps/web/assets/receipt/make-fonts.py` makes them, the letter widths the
+picture measures lines with, and the word's outline).
+
 ## Optional integrations, in priority order
 
 Add only if the core is done. Each is a self-contained bounty claim.

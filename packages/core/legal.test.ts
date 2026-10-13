@@ -82,6 +82,25 @@ describe('the privacy notice names what the code does', () => {
   });
 });
 
+describe('the privacy notice says who can open a receipt', () => {
+  const text = [PRIVACY.lead, ...PRIVACY.sections.flatMap((section) => section.body)].join('\n');
+
+  it('says anyone with the link can, with no account, and names everything it shows', () => {
+    expect(text).toMatch(/A receipt can be opened by anyone who has its link, with no account/);
+    expect(text).toMatch(/both people’s names and usernames, the amount, when it was delivered and the note/);
+  });
+
+  it('does not let the link pass for a secret', () => {
+    // The reference is the start of the payment's own entry on the public network.
+    expect(text).toMatch(/A receipt’s link is not a secret/);
+    expect(text).toMatch(/someone who finds that entry can open the receipt without being sent it/);
+  });
+
+  it('says a receipt is kept until it is asked to be removed', () => {
+    expect(text).toMatch(/or a receipt, stays until you ask us to remove it/);
+  });
+});
+
 describe('the privacy notice says a username is published', () => {
   it('names what is published, that it is one person\'s, and that changing it frees the old one', () => {
     const text = [PRIVACY.lead, ...PRIVACY.sections.flatMap((section) => section.body)].join('\n');

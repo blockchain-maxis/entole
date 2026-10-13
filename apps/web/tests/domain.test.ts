@@ -29,6 +29,10 @@ describe('the one domain accounts are made on', () => {
     expect(app.expo.ios.associatedDomains).toEqual([`webcredentials:${DOMAIN}`]);
   });
 
+  it('is where a receipt says it can be checked, and where its link leads', () => {
+    expect(readFileSync(join(ROOT, 'lib/site.ts'), 'utf8')).toContain(`export const SITE_ORIGIN = 'https://${DOMAIN}';`);
+  });
+
   it('serves the file that lets the Android app use passkeys made here', () => {
     const links = JSON.parse(readFileSync(join(ROOT, 'public/.well-known/assetlinks.json'), 'utf8'));
     expect(links[0].target.package_name).toBe('to.entole.app');

@@ -94,8 +94,9 @@ describe('the pause control is reachable from every page header', () => {
   // whenever someone is signed in (asserted in "the public checkout page" below).
   // The page a bank transfer returns to (`/add-money/return`) is public for the
   // same reason and carries the same header. So do the Terms and the Privacy
-  // notice (`LegalPage`), which have to be readable before an account exists.
-  const PUBLIC_PAGES = [join('pay', ''), join('add-money', 'return', ''), join('legal', '')];
+  // notice (`LegalPage`), which have to be readable before an account exists,
+  // and a receipt (`/receipt/[reference]`), which whoever is sent the link opens.
+  const PUBLIC_PAGES = [join('pay', ''), join('add-money', 'return', ''), join('legal', ''), join('receipt', '')];
   const isCheckout = (file: string) => PUBLIC_PAGES.some((prefix) => relative(PAGES, file).startsWith(prefix));
 
   it.each(pages.filter((file) => !isCheckout(file)))('%s renders the shared header', (file) => {
@@ -108,8 +109,69 @@ describe('the pause control is reachable from every page header', () => {
     expect(page).not.toMatch(/useStore|useAccount|balance/i);
   });
 
+  it('a receipt anyone can open carries the checkout header, so it is there for someone signed in', () => {
+    const page = stripComments(read(join(PAGES, 'receipt/[reference]/page.tsx')));
+    expect(page).toMatch(/<CheckoutHeader brand=\{false\} \/>/);
+    // Leaving the name off the header leaves the control where it was.
+    const header = stripComments(read(join(COMPONENTS, 'CheckoutHeader.tsx')));
+    expect(header.indexOf('brand ?')).toBeLessThan(header.indexOf('<PauseControl />'));
+    expect(header).toMatch(/\{account \? \(\s*<div className="ml-3 flex-none">\s*<PauseControl \/>/);
+  });
+
   it('the shared header always carries the control', () => {
     expect(read(join(COMPONENTS, 'Header.tsx'))).toMatch(/<PauseControl\s*\/>/);
+  });
+});
+
+describe('a receipt is a slip: one raised surface, the name behind it small and many', () => {
+  const slip = stripComments(read(join(COMPONENTS, 'ReceiptSlip.tsx')));
+  const send = stripComments(read(join(PAGES, 'transfer/send/page.tsx')));
+  const open = stripComments(read(join(PAGES, 'receipt/[reference]/page.tsx')));
+
+  it('is the screen\'s one raised surface, in the card radius', () => {
+    expect(slip).toMatch(/<article className="relative isolate overflow-hidden rounded-card border border-line bg-card shadow-raised">/);
+    for (const screen of [send, open]) {
+      expect(screen).toMatch(/<ReceiptSlip>/);
+      expect(screen).not.toMatch(/shadow-raised|shadow-floating/);
+    }
+  });
+
+  it('has the watermark behind its words: drawn first, from the tokens, and out of the way', () => {
+    expect(slip.indexOf('<SlipWatermark />')).toBeGreaterThan(-1);
+    expect(slip.indexOf('<SlipWatermark />')).toBeLessThan(slip.indexOf('{children}</div>'));
+    expect(slip).toMatch(/const \{ word, angle, size, advance, row, opacity \} = watermarkToken;/);
+    expect(slip).toMatch(/patternTransform=\{`rotate\(\$\{angle\}\)`\}/);
+    // It is paper: nothing reads it out, selects it or presses it.
+    expect(slip).toMatch(/aria-hidden\s+focusable="false"\s+className="pointer-events-none absolute inset-0 h-full w-full select-none"/);
+    // In ink, so it turns with the theme, and never in the assistant's blue.
+    expect(slip).toMatch(/className: 'fill-ink font-display'/);
+  });
+
+  it('carries the mark, and says only that it was delivered', () => {
+    expect(slip).toMatch(/<BrandGlyph size=\{22\} \/>/);
+    expect(slip).toMatch(/bg-settled-wash[^"]*text-settled/);
+    expect(send).toMatch(/<SlipStatus byAssistant=\{entry\?\.initiatedBy === 'assistant'\}>\s*Delivered at \{timeWithSeconds\(receipt\.settledAt\)\}/);
+    expect(open).toMatch(/<SlipStatus>Delivered<\/SlipStatus>/);
+    for (const screen of [send, open]) expect(screen).not.toMatch(/Pending|Sending|On its way/);
+  });
+
+  it('marks a payment the assistant made as the assistant\'s', () => {
+    expect(slip).toMatch(/\{byAssistant \? <AssistantBadge \/> : null\}/);
+  });
+
+  it('keeps everything the sender is owed: fee, total, rate, both times, the reference', () => {
+    const labels = [...send.matchAll(/<SlipRow\s+label="([^"]+)"/g)].map((match) => match[1]);
+    expect(labels).toEqual(['They received', 'Fee', 'Total from you', 'Rate', 'Sent at', 'Delivered in', 'Reference']);
+    expect(send).toMatch(/<SlipFoot>Nothing is pending\.<\/SlipFoot>/);
+    expect(send).toMatch(/<Figure value=\{kobo\(receipt\.amountMinor\)\} \/>/);
+  });
+
+  it('for anyone else says who paid whom, how much, when and why, and where it is from', () => {
+    const labels = [...open.matchAll(/<SlipRow\s+label="([^"]+)"/g)].map((match) => match[1]);
+    expect(labels).toEqual(['From', 'To', 'When', 'Reference']);
+    expect(open).toMatch(/\{facts\.note \? <SlipNote>\{facts\.note\}<\/SlipNote> : null\}/);
+    expect(open).toMatch(/under=\{SLIP_ZONE_WORDS\}/);
+    expect(open).toMatch(/<SlipFigure symbol=\{facts\.figure\.symbol\} digits=\{facts\.figure\.digits\}>/);
   });
 });
 
@@ -526,14 +588,15 @@ describe('the public checkout page', () => {
     expect(page).toMatch(/openGraph/);
   });
 
-  it('skips the account gate and the tab bar, and only for checkout routes', () => {
+  it('skips the account gate and the tab bar, and only for checkout routes and receipts', () => {
     const providers = stripComments(read(join(PAGES, 'providers.tsx')));
     expect(providers).toMatch(/isPublicPath\(pathname\)/);
     expect(providers).toMatch(/return <>\{children\}<\/>/);
     // The tab bar lives inside the gate, so a public route never draws it.
     expect(stripComments(read(join(COMPONENTS, 'AuthGate.tsx')))).toMatch(/<BottomNav \/>/);
     const routes = stripComments(read(join(ROOT, 'lib/public-routes.ts')));
-    expect(routes).toMatch(/PUBLIC_PREFIXES = \['\/pay\/'\]/);
+    // The whole list. A receipt is opened by whoever is sent its link, like a pay link.
+    expect(routes).toMatch(/PUBLIC_PREFIXES = \['\/pay\/', '\/receipt\/'\];/);
   });
 
   it('draws the pause control in its header whenever someone is signed in', () => {

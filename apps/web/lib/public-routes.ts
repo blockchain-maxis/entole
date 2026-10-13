@@ -3,9 +3,12 @@
  * They render without the account gate and without the tab bar: a payer who
  * opened a checkout link should see the checkout, not an onboarding prompt.
  *
+ * A receipt (`/receipt/<reference>`) is the same: whoever is sent the link,
+ * the person paid as much as anyone, opens it without an account.
+ *
  * Deliberately a short allow-list. Everything else stays behind the gate.
  */
-const PUBLIC_PREFIXES = ['/pay/'];
+const PUBLIC_PREFIXES = ['/pay/', '/receipt/'];
 
 /**
  * The Terms and the Privacy notice. Someone deciding whether to make an account

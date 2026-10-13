@@ -149,7 +149,21 @@ a label: `font-strong text-note text-slate`. A form whose every field shouts
 in the display face has no hierarchy left.
 
 **One raised surface a screen.** Savings on Grow, the scan code on Receive, the
-invoice on a pay page. Everything else on that screen is ruled rows on paper.
+invoice on a pay page, the slip on a receipt. Everything else on that screen is
+ruled rows on paper.
+
+**A receipt is a slip.** One piece of paper, the same wherever it is drawn: in
+both apps after a payment is delivered, on the page a shared link opens, and
+as the picture that is shared. Top to bottom: the mark and the name, that it
+was delivered, the amount as the figure, then the facts as ruled rows, the
+reference last. The slip is the screen's raised surface.
+
+**The watermark.** Behind a slip the name runs small and many: `entole`, in the
+display face, in rows that lean, every other row half a step along, at a few
+parts in a hundred of `ink`. It is the paper, not a decoration on it: smaller
+than the smallest label and far fainter, so the slip's own words are always
+the easy thing to read. Its numbers are in `packages/tokens` (`watermark`) and
+nowhere else. It is for receipts only.
 
 ## Words
 
@@ -172,7 +186,8 @@ One word for each thing, everywhere a person reads.
 | `rules/new` / `/rules/new` | The allowance sentence |
 | `rules/[id]` / `/rules/[id]` | Meter, what is left, its payments, revoke |
 | `send`, `send/pick` / `/transfer/send` | Beneficiaries first, keypad, review sheet |
-| `send/receipt` / the receipt step | One receipt for every kind of payment, the amount as the figure |
+| `send/receipt` / the receipt step | One receipt for every kind of payment: a slip, the amount as the figure, shared as a picture |
+| the public receipt page, `/receipt/[reference]` | The same slip, for whoever is sent the link: who paid whom, how much, when |
 | `receive` / `/receive` | Link and scan code, no app needed |
 | `add-money` / `/add-money` | The balance as a line on paper, then the ways to add |
 | `(tabs)/grow` / `/grow` | Savings raised; your money, stocks and earning as ruled sections |

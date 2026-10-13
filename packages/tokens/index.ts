@@ -1,9 +1,10 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { colors, light, dark, shadow } = require('./design-tokens') as {
+const { colors, light, dark, shadow, watermark } = require('./design-tokens') as {
   colors: TokenTree;
   light: PaletteTree;
   dark: PaletteTree;
   shadow: ShadowTree;
+  watermark: WatermarkValue;
 };
 
 type PaletteTree = {
@@ -28,6 +29,19 @@ type TokenTree = PaletteTree & { white: string; black: string; scrim: string };
 
 type ShadowValue = { offsetX: number; offsetY: number; blur: number; opacity: number };
 type ShadowTree = { raised: ShadowValue; floating: ShadowValue };
+
+type WatermarkValue = {
+  word: string;
+  /** Degrees the rows lean by. */
+  angle: number;
+  size: number;
+  /** From the start of one word to the start of the next along a row. */
+  advance: number;
+  /** From one row to the next. */
+  row: number;
+  /** How much of `ink` the word is drawn in. */
+  opacity: number;
+};
 
 /** A `ShadowValue` as a React Native `style` object — iOS reads the
  * shadow* props, Android reads `elevation` (blur/2, close enough at these
@@ -75,6 +89,14 @@ const { cssVars } = require('./tailwind-preset') as {
 export function themeCssVariables(scheme: 'light' | 'dark'): Record<string, string> {
   return scheme === 'dark' ? cssVars.dark : cssVars.light;
 }
+
+/** The receipt's watermark: one set of numbers for the picture, the browser
+ * and the phone. See `design-tokens.js`. */
+export const watermarkToken: WatermarkValue = watermark;
+
+/** The `raised` shadow's own numbers, for the receipt picture, which is drawn
+ * with neither a class name nor a native style. */
+export const raisedShadow: ShadowValue = shadow.raised;
 
 /** Shadow tokens as ready-to-spread React Native style objects, for the
  * rare case (e.g. an `Animated.View`) that can't take a `shadow-*`

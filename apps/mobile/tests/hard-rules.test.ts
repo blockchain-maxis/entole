@@ -1712,3 +1712,88 @@ describe('the assistant works the app, and can never confirm for you', () => {
     expect(voice).not.toMatch(/^import [^\n]*from 'expo-speech/m);
   });
 });
+
+describe('a receipt is a slip, and is shared as a picture of it', () => {
+  const receipt = stripComments(read(join(ROOT, 'app/send/receipt.tsx')));
+  const slip = stripComments(read(join(ROOT, 'components/ui/ReceiptSlip.tsx')));
+  const share = stripComments(read(join(ROOT, 'lib/share-receipt.ts')));
+  const manifest = JSON.parse(read(join(ROOT, 'package.json'))) as { dependencies: Record<string, string> };
+
+  it('is the screen\'s one raised surface, with the name behind it small and many', () => {
+    expect(receipt).toMatch(/<ReceiptSlip>/);
+    expect(receipt).not.toMatch(/shadow-raised/);
+    expect(slip).toMatch(/className="rounded-card bg-card shadow-raised"/);
+    expect(slip).toMatch(/className="overflow-hidden rounded-card border border-line"/);
+    // The watermark is drawn first, from the same numbers the browser and the picture use.
+    expect(slip).toMatch(/const \{ word, angle, size, advance, row, opacity \} = watermarkToken;/);
+    expect(slip.indexOf('<SlipWatermark')).toBeLessThan(slip.indexOf('{children}</View>'));
+    expect(slip).toMatch(/transform: \[\{ rotate: `\$\{angle\}deg` \}\]/);
+    // It is paper: in ink, not read out, not pressed, and it does not grow with the reading size.
+    expect(slip).toMatch(/className="font-display text-ink"/);
+    expect(slip).toMatch(/pointerEvents="none"\s+accessibilityElementsHidden\s+importantForAccessibility="no-hide-descendants"/);
+    expect(slip).toMatch(/allowFontScaling=\{false\}/);
+  });
+
+  it('carries the mark, says it was delivered, and marks the assistant\'s own payments', () => {
+    expect(slip).toMatch(/<BrandGlyph size=\{22\} \/>/);
+    expect(receipt).toMatch(/<SlipStatus byAssistant=\{entry\?\.initiatedBy === 'assistant'\}>\s*Delivered at \{timeWithSeconds\(receipt\.settledAt\)\}/);
+    expect(slip).toMatch(/\{byAssistant \? <AssistantBadge label="Assistant" \/> : null\}/);
+    // Only ever a delivered payment: the slip is drawn from the store's receipt.
+    expect(receipt).toMatch(/const receipt = store\.receipt\(receiptId\);/);
+    expect(userFacingCopy(read(join(ROOT, 'app/send/receipt.tsx'))).join('\n')).not.toMatch(/Pending|Sending|On its way/);
+  });
+
+  it('keeps everything the sender is owed: fee, total, rate, both times, the reference', () => {
+    const labels = [...receipt.matchAll(/<SlipRow\s+label="([^"]+)"/g)].map((match) => match[1]);
+    expect(labels).toEqual(['They received', 'Fee', 'Total from you', 'Rate', 'Sent at', 'Delivered in', 'Reference']);
+    expect(receipt).toMatch(/<SlipFoot>Nothing is pending\.<\/SlipFoot>/);
+    expect(receipt).toMatch(/<Figure value=\{kobo\(receipt\.amountMinor\)\} \/>/);
+  });
+
+  it('keeps the pause control in its header', () => {
+    expect(receipt).toMatch(/<Header leading="close" onLeadingPress=/);
+    expect(receipt).not.toMatch(/trailing=/);
+  });
+
+  it('tells the server which payment it is, and waits, before anything is shared', () => {
+    expect(receipt).toMatch(/const report = reportForReceipt\(receipt, entry\?\.note\);/);
+    expect(receipt).toMatch(/tell: async \(\) => \(report \? backend\.payments\.record\(report\) : false\)/);
+    const body = /export async function shareReceipt[\s\S]*?\n}\n/.exec(share)?.[0] ?? '';
+    expect(body.indexOf('await input.tell()')).toBeGreaterThan(-1);
+    expect(body.indexOf('await input.tell()')).toBeLessThan(body.indexOf('downloadFileAsync('));
+    expect(body.indexOf('await input.tell()')).toBeLessThan(body.indexOf('Share.share('));
+  });
+
+  it('brings the picture down and shares the file, with modules an older build may not have', () => {
+    for (const name of ['expo-sharing', 'expo-file-system']) {
+      expect(share).toMatch(new RegExp(`try \\{[\\s\\S]*?require\\('${name}'\\)[\\s\\S]*?\\} catch \\{\\s*return null;`));
+      for (const file of sourceFiles) {
+        expect(stripComments(read(file)), relative(ROOT, file)).not.toMatch(new RegExp(`from '${name}'`));
+      }
+      expect(share).not.toMatch(new RegExp(`^import [^\\n]*from '${name}'`, 'm'));
+    }
+    // The versions this Expo release is built against.
+    expect(manifest.dependencies['expo-sharing']).toBe('~57.0.17');
+    expect(manifest.dependencies['expo-file-system']).toBe('~57.0.6');
+
+    expect(share).toMatch(/receiptImageLink\(CHECKOUT_BASE, input\.reference\)/);
+    expect(share).toMatch(/File\.downloadFileAsync\(address, into, \{ idempotent: true \}\)/);
+    expect(share).toMatch(/new modules\.files\.File\(modules\.files\.Paths\.cache, receiptFileName\(input\.reference\)\)/);
+    expect(share).toMatch(/shareAsync\(picture\.uri, \{ mimeType: PNG, UTI: 'public\.png', dialogTitle: 'Share receipt' \}\)/);
+  });
+
+  it('on a build without them still shares the receipt: in words, with its link when the server has it', () => {
+    expect(share).toMatch(/Share\.share\(\{\s*message: receiptWords\(\{ words: input\.words, base: CHECKOUT_BASE, reference: input\.reference, kept \}\),/);
+    // The words are still made, and still say what the receipt says.
+    expect(receipt).toMatch(/`\$\{formatNaira\(kobo\(receipt\.amountMinor\)\)\} to \$\{who\}`/);
+    expect(receipt).toMatch(/`Reference \$\{receipt\.reference\}`/);
+    expect(receipt).toMatch(/words: summary,/);
+    // And a failure is said, not swallowed.
+    expect(receipt).toMatch(/We couldn't share this receipt\. Try again in a moment\./);
+  });
+
+  it('shows the mark on the button while it works, never a spinner', () => {
+    expect(receipt).toMatch(/<Button label="Share receipt" variant="secondary" busy=\{sharing\} onPress=\{\(\) => void share\(\)\} \/>/);
+    expect(receipt).not.toMatch(/ActivityIndicator/);
+  });
+});

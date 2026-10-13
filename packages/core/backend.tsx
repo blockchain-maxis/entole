@@ -5,6 +5,7 @@ import { emptyProposalSlot, type ProposalSlot } from './assistant-ask';
 import { silentBrain, type AssistantBrain } from './assistant-brain';
 import type { AssistantInboxClient } from './assistant-inbox';
 import type { DirectoryClient } from './directory';
+import type { PaymentsFeed } from './payments-feed';
 import type { RelayClient } from './relay-client';
 
 /**
@@ -22,6 +23,9 @@ export type Backend = {
    * proposal lands, and where a chat is linked and the account's contacts are
    * synced from. Convenience, not authority: see `assistant-inbox.ts`. */
   inbox: AssistantInboxClient;
+  /** Money that arrives, and the one thing a screen says to it: a receipt about
+   * to be shared tells the server again which payment it is for. */
+  payments: PaymentsFeed;
   /** Where a payment asked for in the app waits out its undo window. Put one
    * here, re-read the account, and it is the store's `proposal`. */
   proposals: ProposalSlot;
@@ -77,6 +81,7 @@ export const pendingBackend: Backend = {
     sync: async () => false,
     syncInvoice: async () => false,
   },
+  payments: { record: async () => false, list: async () => [] },
 };
 
 const BackendContext = createContext<Backend | null>(null);

@@ -229,6 +229,7 @@ export function useOnChainBackend(
       relay,
       directory,
       inbox,
+      payments,
       proposals,
       brain,
       paymentCode: encodePaymentCode(owner.viemAccount.address),

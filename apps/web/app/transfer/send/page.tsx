@@ -2,7 +2,7 @@
 
 import { ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   EMPTY_ENTRY,
@@ -19,8 +19,9 @@ import { formatHandle } from '@entole/core/handle';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { isOneOffId, oneOffId } from '@entole/core/one-off';
 import { initialsFor } from '@entole/core/profile';
+import { reportForReceipt } from '@entole/core/receipt-slip';
 import { findRecipient, readRecipient, type Sought } from '@entole/core/recipient';
-import type { Contact } from '@entole/core/schemas';
+import type { Contact, Receipt } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 
 import { Figure } from '@/components/Amount';
@@ -28,11 +29,19 @@ import { Avatar } from '@/components/Avatar';
 import { ConfirmSendSheet } from '@/components/ConfirmSendSheet';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
-import { PageLoader } from '@/components/LogoLoader';
+import { LogoLoader, PageLoader } from '@/components/LogoLoader';
+import { ReceiptSlip, SlipFoot, SlipHead, SlipRow, SlipRows, SlipStatus } from '@/components/ReceiptSlip';
 import { SaveRecipient } from '@/components/SaveRecipient';
 import { ActivityRowSkeleton, Skeleton } from '@/components/Skeleton';
 import { nairaAmountOf } from '@/lib/checkout';
 import { checkSendAmount, rateLine } from '@/lib/send';
+import {
+  canSharePicture,
+  prepareReceiptPicture,
+  savePicture,
+  sharePicture,
+  shareReceiptLink,
+} from '@/lib/share-receipt';
 
 const NOT_SOMEONE = "That doesn't look like a username, a phone number or a pay link.";
 
@@ -237,26 +246,107 @@ function PickStep({
   );
 }
 
-function ReceiptLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-hairline py-3">
-      <dt className="font-body text-ui text-slate">{label}</dt>
-      <dd className="tabular text-right font-strong text-ui text-ink">{value}</dd>
-    </div>
-  );
+const PICTURE_READY = 'The picture is ready. Press Share receipt again.';
+const NOT_SHARED = "We couldn't share this receipt. Try again in a moment.";
+
+/**
+ * Sharing a receipt shares a picture of it. The picture is drawn by the server
+ * from the payment it kept, so the first thing done is to make sure it has
+ * kept this one; that starts as soon as the receipt is on screen, and a press
+ * usually finds the picture waiting. A browser only opens its share panel
+ * straight after a press, which is the other reason not to start then.
+ */
+function useReceiptShare(receipt: Receipt | undefined, note: string | undefined) {
+  const backend = useBackend();
+  const [busy, setBusy] = useState(false);
+  const [line, setLine] = useState<string | null>(null);
+  // The picture once it is known: a file, or `null` when it could not be had.
+  const known = useRef<File | null | undefined>(undefined);
+  const getting = useRef<Promise<File | null> | null>(null);
+
+  const prepare = useCallback((): Promise<File | null> => {
+    if (!receipt) return Promise.resolve(null);
+    if (!getting.current) {
+      const report = reportForReceipt(receipt, note);
+      const tell = async () => (report ? backend.payments.record(report) : false);
+      getting.current = prepareReceiptPicture(receipt.reference, tell).then((picture) => {
+        known.current = picture;
+        // Not had this time: the next press may ask again.
+        if (!picture) getting.current = null;
+        return picture;
+      });
+    }
+    return getting.current;
+  }, [receipt, note, backend]);
+
+  useEffect(() => {
+    void prepare();
+  }, [prepare]);
+
+  async function byLink(reference: string) {
+    const outcome = await shareReceiptLink(reference);
+    if (outcome === 'shared') setLine("We couldn't make the picture, so the link was shared. It opens this receipt.");
+    else if (outcome === 'copied') setLine("We couldn't make the picture, so the link is copied. It opens this receipt.");
+    else if (outcome === 'failed') setLine(NOT_SHARED);
+  }
+
+  async function share() {
+    if (!receipt || busy) return;
+    setLine(null);
+
+    const waiting = known.current;
+    if (waiting === null) {
+      // Already known not to be there. The link goes now, while the press still counts; the picture is asked for again behind it.
+      void prepare();
+      await byLink(receipt.reference);
+      return;
+    }
+
+    let picture = waiting ?? null;
+    if (!waiting) {
+      setBusy(true);
+      picture = await prepare();
+      setBusy(false);
+    }
+    if (!picture) {
+      await byLink(receipt.reference);
+      return;
+    }
+
+    if (canSharePicture(picture)) {
+      const outcome = await sharePicture(picture);
+      if (outcome === 'shared') {
+        setLine('Shared as a picture.');
+        return;
+      }
+      if (outcome === 'dismissed') return;
+      // The browser would not open its share panel: the press was too long ago.
+      if (!waiting) {
+        setLine(PICTURE_READY);
+        return;
+      }
+    }
+    savePicture(picture);
+    setLine('Saved as a picture. Look in your downloads.');
+  }
+
+  return { busy, line, share };
 }
 
 /**
- * A payment is pending until it is delivered, and then it is this: what was
- * sent, as the figure, to whom, and the facts of it as ruled lines. It can be
- * passed on as words, and the person can be saved from it.
+ * A payment is pending until it is delivered, and then it is this: a slip.
+ * The amount as the figure, to whom, and the facts of it as ruled rows, on the
+ * one raised surface of the screen. It can be passed on as a picture, and the
+ * person can be saved from it.
  */
 function ReceiptStep({ receiptId, link }: { receiptId: string; link: Checkout | null }) {
   const router = useRouter();
   const store = useStore();
   const receipt = store.receipt(receiptId);
   const recipient = receipt ? recipientFor(store.contact(receipt.contactId), link) : null;
-  const [shared, setShared] = useState<string | null>(null);
+  // The same payment as it sits in activity: it has the note, and who made it.
+  const entry = receipt ? store.activity.find((item) => item.id === receipt.id) : undefined;
+  const { busy, line, share } = useReceiptShare(receipt, entry?.note);
 
   if (!receipt) {
     return (
@@ -279,64 +369,49 @@ function ReceiptStep({ receiptId, link }: { receiptId: string; link: Checkout | 
   const who = recipient?.name ?? 'someone';
   const seconds = `${receipt.deliveredInSeconds} ${receipt.deliveredInSeconds === 1 ? 'second' : 'seconds'}`;
 
-  async function share() {
-    if (!receipt) return;
-    const words = `Sent ${formatNaira(kobo(receipt.amountMinor))} to ${who} with Entole. Delivered in ${seconds}. Reference ${receipt.reference}.`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ text: words });
-        return;
-      }
-      await navigator.clipboard.writeText(words);
-      setShared('Copied. Paste it wherever you like.');
-    } catch {
-      // Closing the share panel is not a failure, and nothing here was lost.
-    }
-  }
-
   return (
     <div className="flex flex-1 flex-col px-gutter pb-28 pt-2">
-      <p className="inline-flex items-center gap-1.5 self-start rounded-pill bg-settled-wash px-2.5 py-1 font-strong text-note text-settled">
-        <span aria-hidden className="h-1.5 w-1.5 rounded-pill bg-settled" />
-        Delivered at {timeWithSeconds(receipt.settledAt)}
-      </p>
+      <ReceiptSlip>
+        <SlipHead />
+        <SlipStatus byAssistant={entry?.initiatedBy === 'assistant'}>
+          Delivered at {timeWithSeconds(receipt.settledAt)}
+        </SlipStatus>
 
-      <div className="mt-4">
-        <Figure value={kobo(receipt.amountMinor)} />
-      </div>
-      <h2 className="mt-2 text-pretty font-display text-subhead text-ink">to {who}</h2>
-      {recipient?.caption ? <p className="mt-0.5 font-body text-ui text-slate">{recipient.caption}</p> : null}
+        <div className="mt-3">
+          <Figure value={kobo(receipt.amountMinor)} />
+        </div>
+        <p className="mt-1.5 text-pretty font-display text-subhead text-ink">to {who}</p>
+        {recipient?.caption ? <p className="mt-0.5 font-body text-ui text-slate">{recipient.caption}</p> : null}
 
-      <dl className="mt-6 border-t border-hairline">
-        <ReceiptLine label="They received" value={formatDollars(cents(receipt.receivedMinor))} />
-        <ReceiptLine label="Fee" value={formatNaira(kobo(receipt.feeMinor))} />
-        <ReceiptLine label="Total from you" value={formatNaira(kobo(receipt.amountMinor + receipt.feeMinor))} />
-        <ReceiptLine
-          label="Rate"
-          value={rateLine({ koboPerDollar: receipt.koboPerDollar, quotedAt: receipt.settledAt })}
-        />
-        <ReceiptLine label="Sent at" value={timeWithSeconds(receipt.sentAt)} />
-        <ReceiptLine label="Delivered in" value={seconds} />
-      </dl>
+        <SlipRows>
+          <SlipRow label="They received" value={formatDollars(cents(receipt.receivedMinor))} />
+          <SlipRow label="Fee" value={formatNaira(kobo(receipt.feeMinor))} />
+          <SlipRow label="Total from you" value={formatNaira(kobo(receipt.amountMinor + receipt.feeMinor))} />
+          <SlipRow
+            label="Rate"
+            value={rateLine({ koboPerDollar: receipt.koboPerDollar, quotedAt: receipt.settledAt })}
+          />
+          <SlipRow label="Sent at" value={timeWithSeconds(receipt.sentAt)} />
+          <SlipRow label="Delivered in" value={seconds} />
+          <SlipRow label="Reference" value={receipt.reference} spaced />
+        </SlipRows>
+        <SlipFoot>Nothing is pending.</SlipFoot>
+      </ReceiptSlip>
 
-      <p className="tabular mt-3 font-body text-note text-slate">
-        Reference {receipt.reference} · nothing is pending
-      </p>
-
-      <div className="mt-7 flex flex-col gap-2.5">
+      <div className="mt-6 flex flex-col gap-2.5">
         {isOneOffId(receipt.contactId) ? <SaveRecipient recipientId={receipt.contactId} /> : null}
-        {shared ? (
-          <p role="status" className="text-center font-body text-note text-slate">
-            {shared}
-          </p>
-        ) : null}
+        <p role="status" className="min-h-[18px] text-center font-body text-note text-slate">
+          {busy ? 'Getting the picture ready.' : line}
+        </p>
         <div className="flex gap-2.5">
           <button
             type="button"
+            disabled={busy}
+            aria-busy={busy}
             onClick={() => void share()}
-            className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist active:translate-y-px"
+            className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist active:translate-y-px disabled:opacity-60"
           >
-            Share receipt
+            {busy ? <LogoLoader size={22} mono label="Share receipt, in progress" /> : 'Share receipt'}
           </button>
           <button
             type="button"

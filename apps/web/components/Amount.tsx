@@ -19,7 +19,15 @@ const FIGURE = {
  * fits a phone as surely as nine hundred does. Tabular like every amount.
  */
 export function Figure({ value, steady = false }: { value: Naira; steady?: boolean }) {
-  const digits = formatNairaDigits(value);
+  return <FigureText symbol="₦" digits={formatNairaDigits(value)} steady={steady} />;
+}
+
+/**
+ * The same figure from words already set: a sign and its digits. A receipt
+ * anyone can open is drawn from what the server kept, which may be in dollars
+ * when no naira figure could be put on it.
+ */
+export function FigureText({ symbol: sign, digits, steady = false }: { symbol: string; digits: string; steady?: boolean }) {
   // While an amount is being typed nothing may move, so it holds one size.
   const { symbol, digits: size } = steady
     ? FIGURE.long
@@ -31,7 +39,7 @@ export function Figure({ value, steady = false }: { value: Naira; steady?: boole
 
   return (
     <span className="flex items-start gap-0.5">
-      <span className={`font-display text-ink ${symbol}`}>₦</span>
+      <span className={`font-display text-ink ${symbol}`}>{sign}</span>
       <span className={`tabular font-display text-ink ${size}`}>{digits}</span>
     </span>
   );

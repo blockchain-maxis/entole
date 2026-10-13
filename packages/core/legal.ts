@@ -5,8 +5,8 @@
  * They describe the product as it is today: a test network, test money, no
  * licence. Every sentence about data was checked against the code that handles
  * it (what the browser keeps, what the directory publishes, what the message
- * route stores and sends). When any of that changes, this file changes in the
- * same commit, and `updated` with it.
+ * route stores and sends, what a receipt shows and to whom). When any of that
+ * changes, this file changes in the same commit, and `updated` with it.
  *
  * Drafted 12 October 2026 and not yet reviewed by a lawyer. That review comes
  * before real money does. So does a rewrite of every "test network" and "test
@@ -147,6 +147,8 @@ export const PRIVACY: LegalDocument = {
         'Your name, your initials and your username are published against your account number, so that people can find and pay you by username and see a name when they do. A username belongs to one person: the first to choose it. Anyone who has your username or your pay link can see that name.',
         'If you give your phone number in the phone app, it is published the same way, so that you can be paid by number. Anyone who has your number can see your name.',
         'When you pay someone, your app tells us which payment it was and the note you wrote. We check that payment against the public record and keep it for the person you paid: your name, the amount, when it arrived and your note. That is how it shows in their activity and how they are told it came. When someone pays you, the same is kept for you. We keep the most recent 200 for each person.',
+        'Every payment kept this way also has a receipt, kept under the reference printed on it. A receipt can be opened by anyone who has its link, with no account. It shows both people’s names and usernames, the amount, when it was delivered and the note. Sharing a receipt from the app sends a picture of that same receipt, or its link.',
+        'A receipt’s link is not a secret. It is worked out from the payment’s entry on the public payment network, so someone who finds that entry can open the receipt without being sent it. Write nothing in a note that you would not want read by someone else.',
         'If you connect the assistant to a messaging app, we keep the link between that chat and your account, the names and account numbers of the people you have saved, the allowance it may use, and the payments it has proposed.',
         'Like every website, the service records the usual technical details of each request, such as an IP address, the kind of browser and the time. We use them to keep the service running and to stop abuse.',
       ],
@@ -174,7 +176,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'How long',
       body: [
         'What is on your device stays until you clear it there.',
-        'A published name, username or number, a connected chat, or a record of a payment that arrived for you, stays until you ask us to remove it. Changing your username releases the old one for someone else to take.',
+        'A published name, username or number, a connected chat, a record of a payment that arrived for you, or a receipt, stays until you ask us to remove it. Changing your username releases the old one for someone else to take.',
         'The public payment record cannot be removed by anyone.',
       ],
     },

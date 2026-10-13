@@ -112,6 +112,13 @@ threat model above. Concretely:
   registered `secret_token`, link codes are single-use and expire in 15 minutes,
   and in production the store refuses to run without Redis rather than quietly
   losing state.
+- **Receipts:** a receipt, as a page or a picture, is drawn only from a payment
+  the server kept after reading it back from the network. Nothing in a request
+  but the reference is used, so a receipt cannot be forged by writing a link.
+  The reference comes from the payment's public entry, so a receipt is
+  readable by anyone who looks for it, names and note included: it is treated
+  as public, not as a secret link. A compromised server could draw a false
+  receipt; it could not move money by doing so.
 - **Sponsor routes:** can pay a fee. They cannot move anyone's money without a
   signature the person's device or the assistant's allowance-bound key made.
   Limits are shared across instances through Redis, keyed by caller and, for

@@ -102,4 +102,29 @@ const shadow = {
   floating: { offsetX: 0, offsetY: 6, blur: 16, opacity: 0.1 },
 };
 
-module.exports = { colors, light, dark, constants, shadow };
+/**
+ * The receipt's watermark: the name, small and many, in rows that lean, with
+ * every other row set half a step along. A slip is drawn in three places (the
+ * picture a receipt is shared as, the browser, the phone); they read these
+ * numbers so the paper is the same in all three. Lengths are in the units a
+ * screen is laid out in; the picture multiplies them up.
+ *
+ * Two of the numbers are tied to each other. The rows drop one for every two
+ * they run (`angle` is that slope, in degrees), and words sit twice as far
+ * apart as rows (`advance` is twice `row`). Kept that way the pattern repeats
+ * on a small square, which is how the picture lays it; change one without the
+ * other and the picture's rows stop meeting.
+ *
+ * `opacity` is how much of `ink` the word is drawn in. It is low on purpose:
+ * the slip's own words sit on top of it and have to stay the easy thing to read.
+ */
+const watermark = {
+  word: 'entole',
+  angle: -26.565,
+  size: 6.5,
+  advance: 28,
+  row: 14,
+  opacity: 0.07,
+};
+
+module.exports = { colors, light, dark, constants, shadow, watermark };
