@@ -109,16 +109,41 @@ export type AssistantReply = z.infer<typeof assistantReplySchema>;
 // The plain grammar: works with no model, no network, nothing to configure.
 // ---------------------------------------------------------------------------
 
-/** "5000", "5,000", "₦5000", "5k", "2.5k", "1.5m", "5000 naira". `null` when it is not an amount. */
+/** The most the assistant will set up in one go: a billion naira, in kobo. */
+const MOST_KOBO = 100_000_000_000;
+
+/**
+ * Naira written as a plain decimal ("2500", "2500.5", "0.75"), as whole kobo.
+ * Worked out on the digits and never by multiplying a fraction: in floating
+ * point 1.005 × 100 is 100.49999…, which rounds to the wrong kobo. `scale`
+ * is the "k" or "m" that was said. Half a kobo rounds up. `null` for anything
+ * that is not a plain decimal, or is more than a number can hold exactly.
+ */
+export function koboFromDecimal(text: string, scale = 1): number | null {
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(text);
+  if (!match) return null;
+  const fraction = match[2] ?? '';
+  // digits × scale × 100 ÷ 10^(digits after the point), all in whole numbers.
+  const numerator = BigInt(match[1]! + fraction) * BigInt(scale) * 100n;
+  const divisor = 10n ** BigInt(fraction.length);
+  const inKobo = (numerator + divisor / 2n) / divisor;
+  return inKobo <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(inKobo) : null;
+}
+
+/**
+ * "5000", "5,000", "₦5000", "5k", "2.5k", "1.5m", "5000 naira", in naira as
+ * a person says it. `null` when it is not an amount.
+ *
+ * The naira it returns is whole kobo divided by a hundred and nothing else,
+ * so `toMinor` gets the same kobo back out of it; no sum is ever done on it.
+ */
 export function parseSpokenAmount(text: string): number | null {
   const match = /^(?:₦|ngn|n)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|thousand|m|million)?\s*(?:naira|ngn)?$/i.exec(text.trim());
   if (!match) return null;
-  const base = Number(match[1]!.replace(/,/g, ''));
-  if (!Number.isFinite(base) || base <= 0) return null;
   const unit = match[2]?.toLowerCase();
   const scale = unit === 'k' || unit === 'thousand' ? 1_000 : unit === 'm' || unit === 'million' ? 1_000_000 : 1;
-  const amount = Math.round(base * scale * 100) / 100;
-  return amount > 0 && amount <= 1_000_000_000 ? amount : null;
+  const inKobo = koboFromDecimal(match[1]!.replace(/,/g, ''), scale);
+  return inKobo !== null && inKobo > 0 && inKobo <= MOST_KOBO ? inKobo / 100 : null;
 }
 
 const AMOUNT = String.raw`(?:₦|ngn\s*|n)?\d[\d,]*(?:\.\d+)?\s*(?:k|thousand|m|million)?(?:\s*naira)?`;
@@ -325,7 +350,16 @@ export type AssistantAccount = {
   paused: boolean;
 };
 
-const toMinor = (amount: number | undefined) => (amount === undefined ? undefined : Math.round(amount * 100));
+/**
+ * An amount as it was said or as the reader wrote it, in naira, as whole
+ * kobo. Read from the number's own digits (see `koboFromDecimal`). An amount
+ * too small to be a kobo, or one that is not a plain figure, is no amount.
+ */
+function toMinor(amount: number | undefined): number | undefined {
+  if (amount === undefined) return undefined;
+  const inKobo = koboFromDecimal(String(amount));
+  return inKobo !== null && inKobo > 0 ? inKobo : undefined;
+}
 
 /**
  * Turns "pay Ada 5,000 for rent" into what the app should do about it.

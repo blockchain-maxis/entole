@@ -11,7 +11,7 @@ import {
 } from '@entole/core/assistant-brain';
 
 import { json, preflight, readJson } from '@/lib/server/http';
-import { rateLimit } from '@/lib/server/sponsor';
+import { dailyBudget, rateLimit } from '@/lib/server/sponsor';
 
 /**
  * One thing said to the assistant, read by a language model.
@@ -23,13 +23,31 @@ import { rateLimit } from '@/lib/server/sponsor';
  * it is returned and again on the device before anything is done. The model
  * has no key and no account: it cannot move money, and it cannot confirm.
  *
- * Signed by the account, so the model is not open to the whole internet, and
- * limited per caller. With no key configured it answers 501 and the app falls
- * back to its plain grammar, which is the honest state of things.
+ * Signed by the account, so the model is not open to the whole internet. A
+ * signature only proves someone holds a key, and keys are free, so what the
+ * model can cost is bounded by counting too: per caller a minute, per account
+ * a minute, and for everyone together a day (`ASSISTANT_DAILY_TURNS`). Past
+ * any of them it answers 429 and the app falls back to its plain grammar, as
+ * it does with no key configured (501), which is the honest state of things.
  */
 export const runtime = 'nodejs';
 
 const TURN_LIMIT_PER_MINUTE = 30;
+/** One account talking: a turn every few seconds, for as long as it likes. */
+const ACCOUNT_TURN_LIMIT_PER_MINUTE = 20;
+const DEFAULT_TURNS_PER_DAY = 5_000;
+
+/** Times the model is asked in a day, for everyone together. */
+function turnsPerDay(): number {
+  const configured = process.env.ASSISTANT_DAILY_TURNS?.trim();
+  return configured && /^\d{1,9}$/.test(configured) ? Number(configured) : DEFAULT_TURNS_PER_DAY;
+}
+
+function tooMany(limit: { retryAfterSeconds: number }) {
+  return json({ error: 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429, {
+    'Retry-After': String(limit.retryAfterSeconds),
+  });
+}
 
 const address = z
   .string()
@@ -53,11 +71,7 @@ export async function POST(request: Request) {
   if (!apiKey) return json({ error: 'not_configured' }, 501);
 
   const limit = await rateLimit(request, 'assistant-turn', TURN_LIMIT_PER_MINUTE);
-  if (!limit.ok) {
-    return json({ error: 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429, {
-      'Retry-After': String(limit.retryAfterSeconds),
-    });
-  }
+  if (!limit.ok) return tooMany(limit);
 
   const parsed = requestSchema.safeParse(await readJson(request));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
@@ -71,6 +85,12 @@ export async function POST(request: Request) {
     signature,
   }).catch(() => false);
   if (!valid) return json({ error: 'invalid_signature' }, 401);
+
+  // Only now is the model about to be asked, so only now is it counted.
+  const own = await rateLimit(request, 'assistant-turn-account', ACCOUNT_TURN_LIMIT_PER_MINUTE, account);
+  if (!own.ok) return tooMany(own);
+  const today = await dailyBudget('assistant-turns', turnsPerDay());
+  if (!today.ok) return tooMany(today);
 
   const reply = await readWithModel(
     text,

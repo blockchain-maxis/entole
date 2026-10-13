@@ -182,3 +182,50 @@ describe('allowances and pauses', () => {
     expect(await indexer.PauseChange.getAll()).toMatchObject([{ owner: PAYER, paused: true }]);
   });
 });
+
+describe('a passkey registered for revoking', () => {
+  // The two halves of a P-256 public key: 256-bit numbers, kept whole.
+  const X = 0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296n;
+  const Y = 0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5n;
+
+  it('is kept with whose it is, both halves of the key, and when', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            {
+              contract: 'EntolePolicy',
+              event: 'PasskeyRegistered',
+              params: { owner: PAYER, x: X, y: Y },
+              block: { number: AFTER_POLICY, timestamp: 1_760_300_500 },
+              transaction: { hash: hash('e1') },
+              logIndex: 2,
+            },
+          ],
+        },
+      },
+    });
+    expect(await indexer.PasskeyRegistration.getAll()).toEqual([
+      { id: `${hash('e1')}-2`, owner: PAYER, x: X, y: Y, timestamp: 1_760_300_500n },
+    ]);
+  });
+
+  it('is a new row each time, so an earlier key is not written over', async () => {
+    const indexer = createTestIndexer();
+    const registered = (byte: string, block: number, x: bigint) => ({
+      contract: 'EntolePolicy' as const,
+      event: 'PasskeyRegistered' as const,
+      params: { owner: PAYER, x, y: Y },
+      block: { number: block, timestamp: 1_760_300_000 + block - AFTER_POLICY },
+      transaction: { hash: hash(byte) },
+      logIndex: 0,
+    });
+    await indexer.process({
+      chains: { [CHAIN]: { simulate: [registered('e2', AFTER_POLICY, X), registered('e3', AFTER_POLICY + 9, X + 1n)] } },
+    });
+    const rows = await indexer.PasskeyRegistration.getAll();
+    expect(rows.map((row) => row.x).sort()).toEqual([X, X + 1n].sort());
+    expect(new Set(rows.map((row) => row.owner))).toEqual(new Set([PAYER]));
+  });
+});

@@ -4,6 +4,7 @@ import type { AllowanceView } from './allowance';
 import {
   assistantReplySchema,
   findSavedPayee,
+  koboFromDecimal,
   parseSpokenAmount,
   planPayment,
   planReply,
@@ -71,6 +72,50 @@ describe('an amount as a person says it', () => {
 
   it.each(['', 'five', '0', '-5', 'abc', '5kk', '12 apples'])('%s is not an amount', (said) => {
     expect(parseSpokenAmount(said)).toBeNull();
+  });
+
+  it('is not an amount when it is more than a billion naira', () => {
+    expect(parseSpokenAmount('1,000,000,000')).toBe(1_000_000_000);
+    expect(parseSpokenAmount('1,000,000,000.01')).toBeNull();
+    expect(parseSpokenAmount('1001m')).toBeNull();
+  });
+});
+
+describe('koboFromDecimal: naira as whole kobo, worked out on the digits', () => {
+  it.each([
+    ['2500', 1, 250_000],
+    ['2500.5', 1, 250_050],
+    ['0.75', 1, 75],
+    ['0.29', 1, 29],
+    ['2.5', 1_000, 250_000],
+    ['1.15', 1_000, 115_000],
+    ['1.5', 1_000_000, 150_000_000],
+    ['19.99', 1, 1_999],
+  ])('%s × %d is %d kobo', (text, scale, inKobo) => {
+    expect(koboFromDecimal(text, scale)).toBe(inKobo);
+  });
+
+  it('gets right what multiplying by a hundred gets wrong', () => {
+    // 1.005 × 100 is 100.49999999999999 as a float, which rounds down.
+    expect(Math.round(1.005 * 100)).toBe(100);
+    expect(koboFromDecimal('1.005')).toBe(101);
+    // 1.255 × 100 is 125.49999999999999.
+    expect(Math.round(1.255 * 100)).toBe(125);
+    expect(koboFromDecimal('1.255')).toBe(126);
+  });
+
+  it('rounds half a kobo up and less than half down', () => {
+    expect(koboFromDecimal('0.005')).toBe(1);
+    expect(koboFromDecimal('0.0049')).toBe(0);
+    expect(koboFromDecimal('12.344')).toBe(1_234);
+  });
+
+  it.each(['', '5k', '1e3', '-5', '5.', '.5', '1,000', ' 5', 'NaN'])('%s is not a plain decimal', (text) => {
+    expect(koboFromDecimal(text)).toBeNull();
+  });
+
+  it('refuses a figure too large to hold exactly', () => {
+    expect(koboFromDecimal('99999999999999999999')).toBeNull();
   });
 });
 
@@ -285,5 +330,21 @@ describe('figures are the app’s own, never the reader’s', () => {
       { kind: 'savings', mode: 'deposit', amountMinor: 50_000 },
       { kind: 'pause', paused: true },
     ]);
+  });
+
+  it('turns a figure with kobo into whole kobo exactly, whoever read it', async () => {
+    const amounts = async (reply: unknown) =>
+      (await planReply(assistantReplySchema.parse(reply), account(), facts, { directory: nobodyHome }))
+        .filter((step) => step.kind === 'request')
+        .map((step) => (step as { amountMinor?: number }).amountMinor);
+
+    // As a model writes it: a number in naira.
+    expect(await amounts({ actions: [{ do: 'request', amount: 1.005 }] })).toEqual([101]);
+    expect(await amounts({ actions: [{ do: 'request', amount: 2500.5 }] })).toEqual([250_050]);
+    // As the plain grammar reads it.
+    expect(await amounts(readPlainRequest('request 8.345'))).toEqual([835]);
+    expect(await amounts(readPlainRequest('request 2.5k'))).toEqual([250_000]);
+    // Too small to be a kobo: no amount, not an amount of nothing.
+    expect(await amounts({ actions: [{ do: 'request', amount: 0.001 }] })).toEqual([undefined]);
   });
 });

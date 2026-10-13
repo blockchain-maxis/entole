@@ -30,7 +30,9 @@ runs on Monad's test network with test money; nothing in it is real money.
 5. **Talk to it.** With the assistant on, a microphone sits beside its chip at
    the top of every page. Tap it and say, or type, "send 5,000 to" and a
    username, or "what's my balance". It opens the screen and fills it in. It
-   cannot confirm: that is still your fingerprint.
+   cannot confirm: that is still your fingerprint. Speaking and being spoken
+   to work in the browser. In the phone app as built today you type to it;
+   the two packages that let it listen and speak go in with the next build.
 6. **Stop it.** The Assistant chip at the top of every page pauses it at once.
 
 Accounts have been made and used by hand on an Android phone and in a desktop
@@ -96,6 +98,14 @@ What's real and tested:
   staff list to pay from on the phone) riding the same account. Seats and
   supply requests were taken off the screens, and the tax reserve only
   displays; [`docs/BACKLOG.md`](docs/BACKLOG.md) says why.
+- **History that follows the account (Envio HyperIndex).** `indexer/` keeps
+  every payment through the router and inside an allowance. It runs on
+  Envio's hosted service and both apps read from it, so a device that has
+  never seen an account shows what it sent and received. Checked on a local
+  build against the live index: pay, wipe everything the browser kept, sign
+  back in, and the payment is there. Money that arrives is also kept by the
+  server, which checks each settled payment against the network, so the
+  person paid is told at once and sees the sender's note.
 - **A Telegram intake adapter, wired end to end.** Message parsing was
   always real and tested; the webhook route now links a chat to an account
   with a one-time code, parses against that account's own contacts, and
@@ -133,10 +143,11 @@ What's real and tested:
   a server, so the passkey alone opens it again, on the same device or
   another. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)'s "Accounts
   and auth."
-- 1544 tests passing across `packages/core` (430, plus five skipped),
-  `apps/mobile` (533), `apps/web` (527) and `contracts` (54, plus four that
-  self-skip honestly; see `contracts/README.md`), via `pnpm test` /
-  `forge test`. Counted on 11 October 2026.
+- 2346 tests passing: `packages/core` (696, plus five skipped), `apps/mobile`
+  (749), `apps/web` (839), `contracts` (54, plus four that self-skip
+  honestly; see `contracts/README.md`) and `indexer` (8), via `pnpm test`,
+  `forge test` and `pnpm --filter @entole/indexer test:handlers`. Counted on
+  13 October 2026.
 
 What's disclosed as not finished, the same way the NGN off-ramp always was:
 
@@ -145,8 +156,9 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   been done by hand on an Android phone and in a desktop browser. Opening an
   account from a second device has not been tried on real devices, and the
   phone app has no iOS passkeys until an Apple Team ID exists. A new device
-  brings the account and its money; saved people, allowances and history
-  stay on the device they were made on.
+  brings the account, its money and its payments (read from the index, so
+  without the notes people wrote); saved people and allowances stay on the
+  device they were made on.
 - **Everything runs on the test network.** Adding real money, savings that
   earn and money in from other networks are written for the main network and
   have not been used with real money.
@@ -156,13 +168,8 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   caller's verdict), and marks the invoice released on success. What it still
   needs is a real registered CRE workflow watching an FX feed to POST to it,
   and a `CHAINLINK_CRE_WEBHOOK_SECRET`; unset, the route returns 501.
-- **Envio and Nansen** — written behind interfaces (`indexer/`,
-  `/api/nansen`), neither connected to a live account yet. The index covers
-  every payment through the router and inside an allowance, and its handlers
-  are run in CI; it has not been deployed, so no app reads from it yet. Money
-  that arrives from another Entole account is listed in activity without it:
-  the server checks each settled payment against the network and keeps it for
-  the person it was sent to.
+- **Nansen** — written behind an interface (`/api/nansen`) and not connected
+  to a live account.
 - **Aurora Intents** — money in from USDT on Tron and USDC on Solana. The
   server side is written against the live service
   (`packages/core/aurora-intents.ts`, `/api/aurora/deposit`); no screen offers

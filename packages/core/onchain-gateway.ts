@@ -665,12 +665,14 @@ function requireRecords(config: ResolvedConfig): Records {
   return config.records;
 }
 
+/**
+ * Where savings are kept, or a plain refusal when this build has nowhere to
+ * keep them (no `GrowthVault` address configured; contracts/README.md's Status
+ * section says where one is deployed). What is thrown can reach a screen, so
+ * it is said the way the other refusals here are.
+ */
 function requireGrowthVaultAddress(config: ResolvedConfig): Address {
-  if (!config.growthVaultAddress) {
-    throw new Error(
-      'GrowthVault is not deployed yet on this network — see contracts/README.md\'s Status section.',
-    );
-  }
+  if (!config.growthVaultAddress) throw new Error("Savings aren't available yet.");
   return config.growthVaultAddress;
 }
 

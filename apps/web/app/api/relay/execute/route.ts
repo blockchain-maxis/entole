@@ -8,6 +8,7 @@ import {
   getSponsor,
   rateLimit,
   sendSerially,
+  sponsoredSendAllowed,
   sponsorIsLow,
 } from '@/lib/server/sponsor';
 
@@ -18,6 +19,10 @@ import {
  * `EntolePolicy.executeFor` from the sponsor account, so it can change nothing
  * the signature covers and cannot replay it (see contracts/src/EntolePolicy.sol).
  * Every caveat is still checked by the contract, against the signer.
+ *
+ * What it will pay for is bounded per caller a minute, per allowance a minute
+ * and a day, and for everyone together a day; the last two are counted only
+ * for a run the contract would accept, just before it is sent.
  */
 export const runtime = 'nodejs';
 
@@ -106,6 +111,12 @@ export async function POST(request: Request) {
 
   try {
     if (await sponsorIsLow(sponsor)) return json({ error: 'sponsor_low' }, 503);
+    const allowed = await sponsoredSendAllowed(request, 'relay-execute', id);
+    if (!allowed.ok) {
+      return json({ error: 'rate_limited', retryAfterSeconds: allowed.retryAfterSeconds }, 429, {
+        'Retry-After': String(allowed.retryAfterSeconds),
+      });
+    }
     const hash = await sendSerially(() => sponsor.walletClient.writeContract(simulated.request));
     return json({ hash });
   } catch {

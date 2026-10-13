@@ -23,7 +23,9 @@ import {
 /**
  * The identity directory: publishes a name, a username and, optionally, a
  * phone number for an address. Reads are open — the whole point is that
- * anyone holding a username or a number can resolve who it is.
+ * anyone holding a username or a number can resolve who it is. Open, but
+ * counted: a caller gets so many lookups a minute, and far fewer by phone
+ * number, so the directory cannot be walked to find out whose number is whose.
  * Writes require a signature proving control of the address. A username or a
  * phone number belongs to the first address that claims it, and only that
  * address can ever change or release it: that is what makes a username one
@@ -32,6 +34,16 @@ import {
 export const runtime = 'nodejs';
 
 const DIRECTORY_LIMIT_PER_MINUTE = 20;
+/** Lookups a minute for one caller. An activity list can name a dozen people at once. */
+const LOOKUP_LIMIT_PER_MINUTE = 120;
+/** Of those, by phone number: enough to pay a few people, not to try a range of numbers. */
+const PHONE_LOOKUP_LIMIT_PER_MINUTE = 15;
+
+function tooMany(limit: { retryAfterSeconds: number }) {
+  return json({ error: 'rate_limited', retryAfterSeconds: limit.retryAfterSeconds }, 429, {
+    'Retry-After': String(limit.retryAfterSeconds),
+  });
+}
 
 const address = z
   .string()
@@ -66,6 +78,9 @@ function identityOf(record: { address: Address; name: string; initials: string; 
 export async function GET(request: Request) {
   if (!directoryConfigured()) return json({ error: 'not_configured' }, 501);
 
+  const limit = await rateLimit(request, 'directory-read', LOOKUP_LIMIT_PER_MINUTE);
+  if (!limit.ok) return tooMany(limit);
+
   const url = new URL(request.url);
   const rawAddress = url.searchParams.get('address');
   const country = url.searchParams.get('country');
@@ -90,6 +105,8 @@ export async function GET(request: Request) {
   }
 
   if (country && number) {
+    const phoneLimit = await rateLimit(request, 'directory-phone', PHONE_LOOKUP_LIMIT_PER_MINUTE);
+    if (!phoneLimit.ok) return tooMany(phoneLimit);
     const asked = phoneHandleSchema.safeParse({ country, number });
     if (!asked.success) return json({ error: 'bad_request' }, 400);
     // However it was written, with the leading zero or the country code.

@@ -6,6 +6,7 @@ import {
   getSponsor,
   rateLimit,
   sendSerially,
+  sponsoredSendAllowed,
   sponsorIsLow,
 } from '@/lib/server/sponsor';
 
@@ -15,6 +16,10 @@ import {
  * for `EntoleRouter.pay` from the sponsor account, so it can move nothing the
  * signature does not cover (see contracts/src/EntoleRouter.sol). Answers as
  * soon as the send is accepted — the caller watches for the receipt itself.
+ *
+ * What it will pay for is bounded three ways: per caller a minute, per payer
+ * a minute and a day, and for everyone together a day. The last two are
+ * counted only for a payment that would settle, just before it is sent.
  */
 export const runtime = 'nodejs';
 
@@ -70,6 +75,12 @@ export async function POST(request: Request) {
 
   try {
     if (await sponsorIsLow(sponsor)) return json({ error: 'sponsor_low' }, 503);
+    const allowed = await sponsoredSendAllowed(request, 'relay', from);
+    if (!allowed.ok) {
+      return json({ error: 'rate_limited', retryAfterSeconds: allowed.retryAfterSeconds }, 429, {
+        'Retry-After': String(allowed.retryAfterSeconds),
+      });
+    }
     const hash = await sendSerially(() => sponsor.walletClient.writeContract(simulated.request));
     return json({ hash });
   } catch {

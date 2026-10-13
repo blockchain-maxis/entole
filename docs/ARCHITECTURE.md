@@ -1,6 +1,10 @@
 # Entole — Architecture
 
-Chain: Monad mainnet, chain ID 143.
+Chain: Monad. What is deployed and live at entole.pro runs on Monad's test
+network, chain ID 10143: the contracts, the money (Agora's test AUSD) and
+every payment. Monad mainnet is chain ID 143; the parts written for it
+(real AUSD, savings that earn, money in from other networks) are named as
+such where they appear, and none has been used with real money.
 
 ## The trust boundary
 

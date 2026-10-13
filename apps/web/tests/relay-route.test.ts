@@ -187,7 +187,10 @@ describe('POST /api/relay', () => {
     expect(limited.status).toBe(429);
     expect((await body(limited)).error).toBe('rate_limited');
     expect(limited.headers.get('retry-after')).toBeTruthy();
-    expect((await relay(post(payment(), '8.8.8.8'))).status).toBe(200);
+    // Another caller paying from another account. The same payer from a new
+    // address is still held: see "what the sponsor will pay for" below.
+    const someoneElse = payment({ from: '0x7777777777777777777777777777777777777777' });
+    expect((await relay(post(someoneElse, '8.8.8.8'))).status).toBe(200);
   });
 
   it('answers the CORS preflight', () => {
@@ -294,5 +297,77 @@ describe('POST /api/faucet', () => {
     const response = faucetOptions();
     expect(response.status).toBe(204);
     expect(response.headers.get('access-control-allow-origin')).toBe('*');
+  });
+});
+
+describe('what the sponsor will pay for', () => {
+  const OTHER_PAYER = '0x5555555555555555555555555555555555555555';
+
+  beforeEach(() => {
+    delete process.env.SPONSOR_DAILY_SENDS;
+    delete process.env.SPONSOR_DAILY_SENDS_EACH;
+  });
+
+  it('is limited per payer, so changing address does not lift it', async () => {
+    // Ten a minute, each from a different caller.
+    for (let i = 0; i < 10; i += 1) expect((await relay(post(payment()))).status).toBe(200);
+    const eleventh = await relay(post(payment()));
+    expect(eleventh.status).toBe(429);
+    expect(eleventh.headers.get('retry-after')).toBeTruthy();
+    expect(writeContract).toHaveBeenCalledTimes(10);
+    // Someone else is not held up by it.
+    expect((await relay(post(payment({ from: OTHER_PAYER })))).status).toBe(200);
+  });
+
+  it('has a daily ceiling for one payer', async () => {
+    process.env.SPONSOR_DAILY_SENDS_EACH = '2';
+    expect((await relay(post(payment()))).status).toBe(200);
+    expect((await relay(post(payment()))).status).toBe(200);
+    expect((await relay(post(payment()))).status).toBe(429);
+    expect((await relay(post(payment({ from: OTHER_PAYER })))).status).toBe(200);
+    delete process.env.SPONSOR_DAILY_SENDS_EACH;
+  });
+
+  it('has a daily ceiling for everyone together', async () => {
+    process.env.SPONSOR_DAILY_SENDS = '2';
+    expect((await relay(post(payment()))).status).toBe(200);
+    expect((await relay(post(payment({ from: OTHER_PAYER })))).status).toBe(200);
+    const third = await relay(post(payment({ from: '0x6666666666666666666666666666666666666666' })));
+    expect(third.status).toBe(429);
+    expect(await body(third)).toMatchObject({ error: 'rate_limited' });
+    expect(writeContract).toHaveBeenCalledTimes(2);
+    delete process.env.SPONSOR_DAILY_SENDS;
+  });
+
+  it('counts only a payment that would settle', async () => {
+    process.env.SPONSOR_DAILY_SENDS = '1';
+    simulateContract.mockRejectedValueOnce(new Error('execution reverted'));
+    expect((await relay(post(payment()))).status).toBe(422);
+    expect((await relay(post(payment()))).status).toBe(200);
+    delete process.env.SPONSOR_DAILY_SENDS;
+  });
+
+  it('counts test money toward the same day', async () => {
+    process.env.SPONSOR_DAILY_SENDS = '1';
+    expect((await relay(post(payment()))).status).toBe(200);
+    expect((await faucet(post({ address: RECIPIENT }))).status).toBe(429);
+    delete process.env.SPONSOR_DAILY_SENDS;
+  });
+});
+
+describe('test money, off the test network', () => {
+  const before = process.env.NEXT_PUBLIC_CHAIN_ID;
+
+  it('is not there at all', async () => {
+    process.env.NEXT_PUBLIC_CHAIN_ID = '143';
+    try {
+      const response = await faucet(post({ address: RECIPIENT }));
+      expect(response.status).toBe(404);
+      expect(simulateContract).not.toHaveBeenCalled();
+      expect(writeContract).not.toHaveBeenCalled();
+    } finally {
+      if (before === undefined) delete process.env.NEXT_PUBLIC_CHAIN_ID;
+      else process.env.NEXT_PUBLIC_CHAIN_ID = before;
+    }
   });
 });

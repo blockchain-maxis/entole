@@ -211,7 +211,9 @@ export function createAssistantBrain(options: {
       } catch {
         return { kind: 'grammar-only' };
       }
-      if (response.status === 501) return { kind: 'grammar-only' };
+      // No model configured, or it has been asked too often for now: either
+      // way only the plain grammar is working, and that is what is said.
+      if (response.status === 501 || response.status === 429) return { kind: 'grammar-only' };
       if (!response.ok) return { kind: 'not-understood' };
       try {
         const parsed = z.object({ reply: assistantReplySchema }).safeParse(await response.json());

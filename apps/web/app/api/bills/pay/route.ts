@@ -12,6 +12,7 @@ import {
   getSponsor,
   rateLimit,
   sendSerially,
+  sponsoredSendAllowed,
   sponsorIsLow,
 } from '@/lib/server/sponsor';
 
@@ -117,6 +118,15 @@ export async function POST(request: Request) {
   let hash: `0x${string}`;
   try {
     if (await sponsorIsLow(sponsor)) return json({ error: 'sponsor_low' }, 503);
+    const allowed = await sponsoredSendAllowed(request, 'bills-pay', payment.from);
+    if (!allowed.ok) {
+      return json({ error: 'rate_limited', retryAfterSeconds: allowed.retryAfterSeconds }, 429, {
+        'Retry-After': String(allowed.retryAfterSeconds),
+      });
+    }
+    // Only the send itself waits its turn for the sponsor's next number. The
+    // wait for it to settle is outside that queue, so a slow block holds up
+    // this request and nobody else's.
     hash = await sendSerially(() => sponsor.walletClient.writeContract(simulated.request));
     const settled = await sponsor.publicClient.waitForTransactionReceipt({ hash });
     if (settled.status !== 'success') return json({ error: 'rejected' }, 422);

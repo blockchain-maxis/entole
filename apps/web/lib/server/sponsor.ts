@@ -21,7 +21,19 @@ import { getRedis } from './redis';
  */
 
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://testnet-rpc.monad.xyz';
-const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ? Number(process.env.NEXT_PUBLIC_CHAIN_ID) : 10143;
+/** Monad's test network. */
+export const TEST_CHAIN_ID = 10143;
+const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ? Number(process.env.NEXT_PUBLIC_CHAIN_ID) : TEST_CHAIN_ID;
+
+/**
+ * True on the test network only. Handing out test money has no meaning
+ * anywhere else, so the route that does it answers 404 off it. Read per call,
+ * so it follows the environment the server is actually running with.
+ */
+export function onTestNetwork(): boolean {
+  const configured = process.env.NEXT_PUBLIC_CHAIN_ID?.trim();
+  return (configured ? Number(configured) : TEST_CHAIN_ID) === TEST_CHAIN_ID;
+}
 
 export const TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ENTOLE_TOKEN_ADDRESS ??
   '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC') as Address;
@@ -186,7 +198,89 @@ export async function rateLimit(
   return { ok: true };
 }
 
+const DAY_SECONDS = 86_400;
+const days = new Map<string, { day: string; count: number }>();
+
+/** The slice of Redis a daily budget touches. */
+export type BudgetRedis = Pick<Redis, 'incr' | 'expire'>;
+
+function secondsLeftToday(now: Date): number {
+  return Math.max(1, DAY_SECONDS - (now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds()));
+}
+
+/**
+ * A count per day (UTC) that may not pass `limit`: how much the sponsor will
+ * pay for, or how many times the model will be asked, however many callers or
+ * addresses the requests are spread across. A per-minute limit slows a loop
+ * down; this is what bounds what a day of it can cost.
+ *
+ * Counted when asked, so call it only when the thing is about to be done.
+ * Shared through Redis when it is configured; in memory otherwise and if Redis
+ * errors, the same as `rateLimit`. With `subject`, the count is that subject's
+ * own (one account, one allowance) and not everyone's.
+ */
+export async function dailyBudget(name: string, limit: number, subject?: string, now = new Date()): Promise<RateResult> {
+  const day = now.toISOString().slice(0, 10);
+  const key = subject ? `${name}:${subject.toLowerCase()}` : name;
+  const over: RateResult = { ok: false, retryAfterSeconds: secondsLeftToday(now) };
+
+  const redis: BudgetRedis | null = getRedis();
+  if (redis) {
+    try {
+      const count = await redis.incr(`day:${day}:${key}`);
+      // Two days, so a key set just before midnight never outlives the day after.
+      if (count === 1) await redis.expire(`day:${day}:${key}`, DAY_SECONDS * 2);
+      return count <= limit ? { ok: true } : over;
+    } catch {
+      // Fall through to this instance's own count.
+    }
+  }
+
+  if (days.size > 5_000) {
+    for (const [stale, entry] of days) if (entry.day !== day) days.delete(stale);
+  }
+  const entry = days.get(key);
+  if (!entry || entry.day !== day) {
+    days.set(key, { day, count: 1 });
+    return limit >= 1 ? { ok: true } : over;
+  }
+  if (entry.count >= limit) return over;
+  entry.count += 1;
+  return { ok: true };
+}
+
+/** A whole number from the environment, or the default when it is unset or not one. */
+function configuredCount(name: string, fallback: number): number {
+  const value = process.env[name]?.trim();
+  return value && /^\d{1,9}$/.test(value) ? Number(value) : fallback;
+}
+
+/** Everything the sponsor pays a fee for in a day, across every route and caller. */
+export function sponsorDailySends(): number {
+  return configuredCount('SPONSOR_DAILY_SENDS', 5_000);
+}
+
+/** Sponsored sends in a day for one payer, or one allowance. */
+export function sponsorDailySendsEach(): number {
+  return configuredCount('SPONSOR_DAILY_SENDS_EACH', 300);
+}
+
+/**
+ * The checks every sponsored send passes just before it is sent: this payer
+ * (or allowance) has not been sent for too often, in the last minute or
+ * today, and the sponsor has not spent its day. `subject` is whatever the
+ * signature names, so changing address does not lift it.
+ */
+export async function sponsoredSendAllowed(request: Request, bucket: string, subject: string): Promise<RateResult> {
+  const minute = await rateLimit(request, `${bucket}-each`, RELAY_LIMIT_PER_MINUTE, subject);
+  if (!minute.ok) return minute;
+  const each = await dailyBudget(`${bucket}-each`, sponsorDailySendsEach(), subject);
+  if (!each.ok) return each;
+  return dailyBudget('sponsor-sends', sponsorDailySends());
+}
+
 /** For tests. */
 export function resetRateLimits(): void {
   windows.clear();
+  days.clear();
 }

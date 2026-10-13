@@ -157,6 +157,9 @@ importers:
       tailwindcss:
         specifier: ^3.4.19
         version: 3.4.19(tsx@4.21.0)(yaml@2.9.0)
+      viem:
+        specifier: ^2.21.0
+        version: 2.56.7(typescript@6.0.3)(zod@4.5.4)
       zod:
         specifier: ^4.5.4
         version: 4.5.4

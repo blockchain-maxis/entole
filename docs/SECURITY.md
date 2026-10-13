@@ -101,6 +101,46 @@ it, and a replace clears the old recipient list (`IdTaken`,
 `test_createAllowance_revertsWhenAnotherOwnerClaimsTheId`), so nobody can
 pre-claim a predictable id or inherit a stale allow-list.
 
+## Known limits of the deployed contracts
+
+Found reading the deployed source again on 13 October 2026. None lets anyone
+take or redirect money, and none lets the assistant spend more than an
+allowance says. They are written down rather than fixed because fixing them
+means new contracts at new addresses, and what is deployed is what is
+described here.
+
+- **A passkey revoke can be played again on the same id.** `revokeWithPasskey`
+  signs over the contract, the network and the allowance id, with no counter.
+  An owner who revokes that way and later creates an allowance again under the
+  same id can have it revoked by anyone holding the old signature, which is
+  public once used. It can only ever switch an allowance off. The apps
+  revoke with the owner's own transaction and have never used this path (it
+  was proven by hand, see below), so no such signature exists for an allowance
+  made in the app. It needs a counter in the digest before the apps do use it.
+- **The fee has a floor, so small payments pay a larger share.** The router
+  charges 0.5%, never less than 0.10 AUSD and never more than 2.50 AUSD, all
+  fixed at deployment. On 1 AUSD that floor is 10%; below that it would be
+  more, and the relay refuses a payment under 1 AUSD. The fee is read from the
+  contract and shown, with the total, before the person confirms; the payer's
+  signature covers it, so nobody can charge a different one.
+- **`pay` does not refuse the router or the token as the recipient.** A
+  payment signed to either would leave the money in a contract with no way
+  out. Only the payer's own signature can name a recipient, and the apps only
+  ever name a person's account, so this is a way to lose one's own money by
+  hand-signing, not a way to lose someone else's.
+- **`createAllowance` accepts an allowance that can do nothing.** A zero
+  delegate, a zero asset, a cap below the per-payment limit or an expiry
+  already past are all accepted. Each makes an allowance that can spend less
+  than it reads (or nothing), never more: every payment is still checked
+  against every caveat. The apps do not produce these.
+- **The assistant's signed payments go in the order they were signed.**
+  `executeFor` uses one counter per assistant key across all of that key's
+  allowances, so a signed payment that is never submitted holds up the ones
+  signed after it until the app signs again with the current count. A signed
+  payment is tied to the allowance id, not to a version of it: if the owner
+  replaces the allowance before it is submitted, it is checked against the new
+  caveats, which is the stricter of the two readings.
+
 ## What the app server can and cannot do
 
 The server is convenience, never authority, and it is assumed compromised in the
@@ -121,8 +161,38 @@ threat model above. Concretely:
   receipt; it could not move money by doing so.
 - **Sponsor routes:** can pay a fee. They cannot move anyone's money without a
   signature the person's device or the assistant's allowance-bound key made.
-  Limits are shared across instances through Redis, keyed by caller and, for
-  top-ups, by account.
+  What they will pay for is bounded by counting, shared across instances
+  through Redis: per caller a minute; per payer (or per allowance) a minute
+  and a day, so changing address does not lift it; and for everyone together a
+  day (`SPONSOR_DAILY_SENDS`). The per-payer and per-day counts only count a
+  payment that would settle. The counts bound the sponsor's cost; they are not
+  what protects anyone's money. The sponsor's sends go out one at a time
+  within a server instance and not across instances, so two instances can
+  pick the same number at the same moment; one of the two sends then fails
+  and the person is told their payment did not go through.
+- **Fee top-ups and test money** (`/api/gas`, `/api/faucet`) ask for no proof
+  of who is calling. Both exist on the test network only and answer 404 on any
+  other; on a network where the fee money is worth something, the top-up has
+  to become account abstraction, not an open tap. On the test network a top-up
+  is still bounded (a few a day for one account, a fixed number a day for
+  everyone), because an empty sponsor stops every payment.
+- **The directory** answers anyone who holds a username or a phone number;
+  that is its job. Lookups are counted per caller, and far fewer are allowed
+  by phone number, so it cannot be walked to learn whose number is whose. A
+  caller with many addresses can still ask slowly: a number someone published
+  is findable by design, and nobody has to publish one.
+- **The assistant's reader** (`/api/assistant/turn`) costs money per question.
+  A signature is required, but a signature only proves someone holds a key and
+  keys are free, so it is bounded by counting too: per caller, per account,
+  and for everyone together a day (`ASSISTANT_DAILY_TURNS`). Past a limit the
+  app falls back to its plain grammar. The reader never sees an account and
+  cannot move money whatever it is asked.
+- **Every page** is sent with headers that keep it out of another site's
+  frame, on https, and typed as what it is. The content policy covers who may
+  frame the app, where a form may post and plugins; it does not yet list which
+  scripts and addresses a page may load, so a script injected into a page
+  would not be stopped by the browser. Nothing in the app writes someone
+  else's text into a page as markup, and that is what is relied on.
 - **Pay a bill:** the biller's key never leaves the server. A bill is paid only
   after the person's own signed payment to the bills account has settled and
   covers the bill at the live rate (a 99-105% band); the payment's one-time
@@ -191,14 +261,16 @@ than pretended solved:
   and the next `execute()` call reverted `AlreadyRevoked`. Transaction
   hashes and the exact command sequence are in `contracts/README.md`,
   "Proving the P256 path."
-- **The account layer above this contract — Mera-derived passkey accounts
-  or the Privy fallback — is not built yet.** Today's `signIn()` in
-  `apps/mobile/lib/session.ts` is a bare device biometric gate with no key
-  derivation and no account behind it. This contract's guarantees hold
-  regardless of which account path sits above it, because the contract
-  never trusts the app layer either way — but the product's other named
-  differentiator, gas-abstracted passkey onboarding, is not represented in
-  this document because it does not exist yet to describe.
+- **The account layer above this contract is passkey accounts (Mera), and
+  it is proven by use, not by a test.** A passkey ceremony's output is the
+  account's key (`packages/core/passkey.ts`); both apps make and open
+  accounts with it, and nothing about the key is kept on a server. The logic
+  above the ceremony is tested against a stub authenticator; the ceremony
+  itself has been done by hand on an Android phone and in desktop browsers.
+  The phone app has no passkeys on iOS: the file that vouches for it still
+  has no Apple Team ID in it. This contract's guarantees hold whichever
+  account path sits above it, because the contract never trusts the app layer
+  either way.
 - **The settlement asset is Agora AUSD on Monad testnet**
   (`0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`, 6 decimals), not yet mainnet
   AUSD (`0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a`, chain 143). The policy

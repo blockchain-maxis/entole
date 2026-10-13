@@ -201,7 +201,7 @@ doc edit.
 ## Testing
 
 ```bash
-forge test                                                    # 54 pass, 2 self-skip, always
+forge test                                                    # 54 pass, 4 self-skip, always
 FOUNDRY_PROFILE=ffi forge test --match-test P256               # same skip, with FFI wired for when a real deploy exists
 forge coverage
 ```

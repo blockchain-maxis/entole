@@ -6,9 +6,12 @@ import {
   FAUCET_ADDRESS,
   FAUCET_LIMIT_PER_MINUTE,
   TOKEN_ADDRESS,
+  dailyBudget,
   getSponsor,
+  onTestNetwork,
   rateLimit,
   sendSerially,
+  sponsorDailySends,
   sponsorIsLow,
 } from '@/lib/server/sponsor';
 
@@ -17,6 +20,10 @@ import {
  * sponsor so the person needs no MON for the fee. The faucet mints to any
  * address, so this route only checks its rules first (recipient below the cap,
  * global cooldown elapsed) to answer clearly instead of paying for a revert.
+ *
+ * Test money exists on the test network only, and so does this route: it
+ * answers 404 anywhere else. The fee it pays counts toward what the sponsor
+ * will pay for in a day.
  */
 export const runtime = 'nodejs';
 
@@ -37,6 +44,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!onTestNetwork()) return json({ error: 'not_found' }, 404);
   const sponsor = getSponsor();
   if (!sponsor) return json({ error: 'not_configured' }, 501);
 
@@ -90,6 +98,12 @@ export async function POST(request: Request) {
 
   try {
     if (await sponsorIsLow(sponsor)) return json({ error: 'sponsor_low' }, 503);
+    const budget = await dailyBudget('sponsor-sends', sponsorDailySends());
+    if (!budget.ok) {
+      return json({ error: 'rate_limited', retryAfterSeconds: budget.retryAfterSeconds }, 429, {
+        'Retry-After': String(budget.retryAfterSeconds),
+      });
+    }
     const hash = await sendSerially(() => sponsor.walletClient.writeContract(simulated.request));
     return json({ hash, amountMinor: drip.toString() });
   } catch {

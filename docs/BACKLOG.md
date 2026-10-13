@@ -44,16 +44,19 @@ product: where it touches a screen, the screen says so plainly.
   key. Splitting the two is the upgrade.
 - **Savings and bills open, but are not filled in, when asked for by voice.**
   Send and Receive take the amount; those two screens do not yet.
-- **Records live on the device.** Beneficiaries, allowances, seats, invoices and
-  the send ledger are per-device. A backend (or the Envio indexer for history)
-  is the upgrade path; `RecordStore` in core is the seam. The assistant inbox,
-  directory and Telegram links are server-side (Upstash Redis).
-- **Signing in on a new device brings the account and its money, nothing
-  else.** "I already have an account" (added 10 October 2026) asks for the
+- **Records live on the device.** Beneficiaries, allowances, seats and invoices
+  are per-device; `RecordStore` in core is the seam for a backend. Payment
+  history is no longer only there: since 13 October 2026 both apps fill it in
+  from the Envio index (`indexer/README.md`), without the notes people wrote,
+  which the network does not hold. The assistant inbox, directory and Telegram
+  links are server-side (Upstash Redis).
+- **Signing in on a new device brings the account, its money and its
+  payments, nothing else.** "I already have an account" (added 10 October 2026) asks for the
   passkey the account was made with, so the same account opens on the phone
   app, a phone browser and a desktop. Before that every new device could only
-  make a new, empty account. The name is asked for again, and saved people,
-  allowances and history do not follow, for the reason above.
+  make a new, empty account. The name is asked for again, and saved people
+  and allowances do not follow, for the reason above. Payments do, from the
+  index.
   - It works only where the passkey can be reached: carried over by the same
     Google or Apple account, or by choosing the other device when the browser
     asks. Not tried on real devices yet.
@@ -194,7 +197,10 @@ yet") until its key exists.
 - `SPONSOR_PRIVATE_KEY`, funded: relayed sends, assistant runs and gas top-ups.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, then
   `pnpm --filter @entole/web telegram:webhook https://<domain>`.
-- `ENVIO_API_TOKEN`: hosted HyperIndex for activity history.
+- The index needs no key of ours: it runs on Envio's hosted service, which
+  holds its own. Its free deployment is kept 30 days at most (made 13 October
+  2026), so it has to be redeployed or moved to a paid tier before then; each
+  deployment has a new address (`indexer/README.md`, "Deploying it").
 - `AGORA_ACCESS_KEY`, `AURORA_INTENTS_API_KEY`, `NANSEN_API_KEY`,
   `CHAINLINK_CRE_WEBHOOK_SECRET` (see `docs/CRE.md`), `QWEN_API_KEY`.
 - `BILL_PAYMENT_API_KEY`, `BILL_ITEM_CODES` and `NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS`

@@ -136,6 +136,11 @@ describe('the reader on the device', () => {
     expect((await unreachable.reader.read('abeg send Tunde 2k')).kind).toBe('grammar-only');
   });
 
+  it('treats a model that has been asked too often as no model, not as a sentence it could not follow', async () => {
+    const limited = brain(() => new Response(JSON.stringify({ error: 'rate_limited', retryAfterSeconds: 30 }), { status: 429 }));
+    expect((await limited.reader.read('abeg send Tunde 2k')).kind).toBe('grammar-only');
+  });
+
   it('a server answer outside the vocabulary is not understood, never acted on', async () => {
     const made = brain(() => Response.json({ reply: { actions: [{ do: 'confirm' }] } }));
     expect((await made.reader.read('just confirm it for me')).kind).toBe('not-understood');

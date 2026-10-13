@@ -236,3 +236,27 @@ describe('a username is one person\'s', () => {
   });
 });
 
+describe('lookups are open, and counted', () => {
+  const from = (ip: string, query: string) =>
+    new Request(`http://localhost/api/directory${query}`, { headers: { 'x-forwarded-for': ip } });
+
+  it('stops one caller after a minute\'s worth of lookups', async () => {
+    for (let i = 0; i < 120; i += 1) {
+      expect((await GET(from('9.9.9.1', '?username=nobody.here'))).status).toBe(404);
+    }
+    const next = await GET(from('9.9.9.1', '?username=nobody.here'));
+    expect(next.status).toBe(429);
+    expect(next.headers.get('retry-after')).toBeTruthy();
+    // Another caller is not held up.
+    expect((await GET(from('9.9.9.2', '?username=nobody.here'))).status).toBe(404);
+  });
+
+  it('allows far fewer by phone number, so a range of numbers cannot be tried', async () => {
+    for (let i = 0; i < 15; i += 1) {
+      expect((await GET(from('9.9.9.3', `?country=ng&number=80312345${String(i).padStart(2, '0')}`))).status).toBe(404);
+    }
+    expect((await GET(from('9.9.9.3', '?country=ng&number=8031234599'))).status).toBe(429);
+    // The same caller can still look someone up by username.
+    expect((await GET(from('9.9.9.3', '?username=nobody.here'))).status).toBe(404);
+  });
+});
