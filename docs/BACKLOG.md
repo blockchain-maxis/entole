@@ -30,10 +30,10 @@ product: where it touches a screen, the screen says so plainly.
 - **The undo window is not enforced on-chain.** It is a countdown in the app
   before the assistant's run is submitted. Nothing in the contract delays it.
 - **The assistant needs a model key to understand free speech.** Without
-  `QWEN_API_KEY` it follows only the plain requests its grammar knows, and says
+  `KIMI_API_KEY` it follows only the plain requests its grammar knows, and says
   so. The model path is written and tested against the answer shapes, and has
   not been run against the live model from this repo: there was no key to run
-  it with.
+  it with. `assistant-brain.live.test.ts` runs it the day there is.
 - **The phone cannot listen or speak until its next build.** The talk sheet is
   there and is typed to. `expo-speech-recognition` and `expo-speech` are loaded
   behind a guard; the packages still have to be installed and the recognition
@@ -202,7 +202,7 @@ yet") until its key exists.
   2026), so it has to be redeployed or moved to a paid tier before then; each
   deployment has a new address (`indexer/README.md`, "Deploying it").
 - `AGORA_ACCESS_KEY`, `AURORA_INTENTS_API_KEY`, `NANSEN_API_KEY`,
-  `CHAINLINK_CRE_WEBHOOK_SECRET` (see `docs/CRE.md`), `QWEN_API_KEY`.
+  `CHAINLINK_CRE_WEBHOOK_SECRET` (see `docs/CRE.md`), `KIMI_API_KEY`.
 - `BILL_PAYMENT_API_KEY`, `BILL_ITEM_CODES` and `NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS`
   (the account bills are paid into) for Pay a bill.
 - Apple Team ID for the iOS `apple-app-site-association` file.

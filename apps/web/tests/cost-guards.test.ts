@@ -50,7 +50,7 @@ beforeEach(() => {
   // The sponsor is well funded; everyone else has nothing.
   getBalance.mockImplementation(async ({ address }: { address: string }) => (address === SPONSOR ? 100n * MON : 0n));
   sendTransaction.mockResolvedValue(HASH);
-  for (const key of ['SPONSOR_DAILY_TOP_UPS', 'ASSISTANT_DAILY_TURNS', 'QWEN_API_KEY']) delete process.env[key];
+  for (const key of ['SPONSOR_DAILY_TOP_UPS', 'ASSISTANT_DAILY_TURNS', 'KIMI_API_KEY']) delete process.env[key];
 });
 
 afterEach(() => {
@@ -125,7 +125,7 @@ describe('POST /api/assistant/turn', () => {
   }
 
   beforeEach(() => {
-    process.env.QWEN_API_KEY = 'test-key';
+    process.env.KIMI_API_KEY = 'test-key';
     model.mockReset();
     model.mockImplementation(async () => answer());
     vi.stubGlobal('fetch', model);

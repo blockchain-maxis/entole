@@ -44,6 +44,28 @@ describe('what the model is told', () => {
   });
 });
 
+describe('which model is asked', () => {
+  it('is Kimi by default, asked for JSON with thinking off', async () => {
+    const { fetchImpl, sent } = model('{"say":"","actions":[{"do":"open","screen":"receive"}]}');
+    await readWithModel('show me how to get paid', { apiKey: 'k', fetch: fetchImpl });
+    expect(sent[0]!.url).toBe('https://api.moonshot.ai/v1/chat/completions');
+    expect(sent[0]!.body).toMatchObject({
+      model: 'kimi-k2.6',
+      response_format: { type: 'json_object' },
+      thinking: { type: 'disabled' },
+    });
+    expect(sent[0]!.body).not.toHaveProperty('temperature');
+  });
+
+  it('takes another endpoint and model, and sends no thinking switch a model may not know', async () => {
+    const { fetchImpl, sent } = model('{"say":"","actions":[]}');
+    await readWithModel('hello', { apiKey: 'k', fetch: fetchImpl, apiUrl: 'https://example.test/v1/chat/completions', model: 'kimi-k3' });
+    expect(sent[0]!.url).toBe('https://example.test/v1/chat/completions');
+    expect(sent[0]!.body.model).toBe('kimi-k3');
+    expect(sent[0]!.body).not.toHaveProperty('thinking');
+  });
+});
+
 describe('what the model may answer', () => {
   it('a reply in the vocabulary is taken', async () => {
     const { fetchImpl } = model('{"say":"Getting it ready.","actions":[{"do":"pay","to":"Tunde","amount":2000,"note":"fuel"}]}');

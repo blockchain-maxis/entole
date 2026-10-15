@@ -21,8 +21,8 @@ const updateSchema = z.object({
  * here gets a shortcut past it.
  *
  * Both halves now run. Parsing goes through `parseTelegramMessageWithAssistant`
- * — the deterministic grammar first, Qwen only for what it can't parse, and
- * only when `QWEN_API_KEY` is set (server-side only, same rule as
+ * — the deterministic grammar first, Kimi only for what it can't parse, and
+ * only when `KIMI_API_KEY` is set (server-side only, same rule as
  * `TELEGRAM_BOT_TOKEN`). The result is written to the sender's account inbox in
  * `lib/server/store.ts`, ready for that account's app to pick up and run its
  * own undo-window UI. The store is convenience, not authority: a proposal
@@ -96,11 +96,17 @@ export async function POST(request: Request) {
   }
 
   const contacts = await store.contactsFor(accountId);
-  const qwenApiKey = process.env.QWEN_API_KEY;
+  const modelKey = process.env.KIMI_API_KEY?.trim();
   const parsed = await parseTelegramMessageWithAssistant(
     text,
     contacts,
-    qwenApiKey ? { apiKey: qwenApiKey } : undefined,
+    modelKey
+      ? {
+          apiKey: modelKey,
+          model: process.env.ASSISTANT_MODEL?.trim() || undefined,
+          apiUrl: process.env.ASSISTANT_API_URL?.trim() || undefined,
+        }
+      : undefined,
   );
 
   if (!parsed.ok) {

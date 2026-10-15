@@ -67,7 +67,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const apiKey = process.env.QWEN_API_KEY?.trim();
+  const apiKey = process.env.KIMI_API_KEY?.trim();
   if (!apiKey) return json({ error: 'not_configured' }, 501);
 
   const limit = await rateLimit(request, 'assistant-turn', TURN_LIMIT_PER_MINUTE);

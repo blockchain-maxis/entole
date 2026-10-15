@@ -43,7 +43,7 @@ beforeEach(() => {
   sent.mockReset();
   process.env.TELEGRAM_BOT_TOKEN = 'test-token';
   process.env.TELEGRAM_WEBHOOK_SECRET = SECRET;
-  delete process.env.QWEN_API_KEY;
+  delete process.env.KIMI_API_KEY;
   // The route replies through Telegram's API; capture instead of calling it.
   vi.stubGlobal(
     'fetch',

@@ -8,6 +8,7 @@ import {
   type AssistantReply,
   type AssistantScreen,
 } from './assistant-actions';
+import { askForJson, type ChatMessage, type LanguageModelConfig } from './language-model';
 
 /**
  * Reading what someone said to the assistant.
@@ -79,34 +80,13 @@ export const ASSISTANT_SYSTEM_PROMPT = [
   '- Never use these words: wallet, crypto, blockchain, chain, gas, token, signature. Say payment, account, fee, receipt.',
 ].join('\n');
 
-export type AssistantModelConfig = {
-  apiKey: string;
-  model?: string | undefined;
-  /** An OpenAI-compatible `chat/completions` endpoint. Defaults to Alibaba DashScope's. */
-  apiUrl?: string | undefined;
-  fetch?: typeof fetch;
-};
-
-const DEFAULT_API_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
-const DEFAULT_MODEL = 'qwen-plus';
+export type AssistantModelConfig = LanguageModelConfig;
 
 /** Tidies what a model said into something safe to speak, or nothing. */
 function cleanSay(value: string | undefined): string | undefined {
   const text = value?.replace(/\s+/g, ' ').trim();
   if (!text || NEVER_SAID.test(text)) return undefined;
   return text.slice(0, 300);
-}
-
-/** Pulls the JSON object out of a model's answer, which sometimes arrives wrapped in a code fence. */
-function jsonIn(content: string): unknown {
-  const start = content.indexOf('{');
-  const end = content.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  try {
-    return JSON.parse(content.slice(start, end + 1));
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -122,40 +102,20 @@ export async function readWithModel(
   const said = text.replace(/\s+/g, ' ').trim().slice(0, TURN_TEXT_MAX);
   if (!said) return null;
 
-  const messages = [
+  const messages: ChatMessage[] = [
     { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
-    ...(context.screen ? [{ role: 'system', content: `They are on this screen now: ${context.screen}.` }] : []),
+    ...(context.screen ? [{ role: 'system' as const, content: `They are on this screen now: ${context.screen}.` }] : []),
     ...(context.history ?? []).map((turn) => ({
-      role: turn.from === 'you' ? 'user' : 'assistant',
+      role: turn.from === 'you' ? ('user' as const) : ('assistant' as const),
       content: turn.text,
     })),
     { role: 'user', content: said },
   ];
 
-  try {
-    const response = await (config.fetch ?? fetch)(config.apiUrl ?? DEFAULT_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
-      body: JSON.stringify({
-        model: config.model ?? DEFAULT_MODEL,
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-        max_tokens: 300,
-        messages,
-      }),
-    });
-    if (!response.ok) return null;
-    const body: unknown = await response.json();
-    const content = (body as { choices?: { message?: { content?: unknown } }[] })?.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') return null;
-
-    const parsed = assistantReplySchema.safeParse(jsonIn(content));
-    if (!parsed.success) return null;
-    const say = cleanSay(parsed.data.say);
-    return { actions: parsed.data.actions, ...(say ? { say } : {}) };
-  } catch {
-    return null;
-  }
+  const parsed = assistantReplySchema.safeParse(await askForJson(messages, config));
+  if (!parsed.success) return null;
+  const say = cleanSay(parsed.data.say);
+  return { actions: parsed.data.actions, ...(say ? { say } : {}) };
 }
 
 // ---------------------------------------------------------------------------
