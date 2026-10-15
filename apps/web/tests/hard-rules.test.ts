@@ -506,7 +506,7 @@ describe('a person can be saved in the browser, so an allowance can be set there
 
   it('says how to get someone to set an allowance for, where there is nobody yet', () => {
     expect(rule).toMatch(/store\.contacts\.length === 0/);
-    expect(rule).toMatch(/href="\/transfer\/send"/);
+    expect(rule).toMatch(/href="\/beneficiaries\/new"/);
   });
 
   it('does not hold a choice made before the saved people had loaded', () => {

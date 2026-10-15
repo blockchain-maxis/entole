@@ -174,14 +174,14 @@ function NewRule() {
         <div className="flex-1 px-gutter pb-28 pt-2">
           <h2 className="font-display text-heading text-ink">Save someone first</h2>
           <p className="mt-2.5 text-pretty font-body text-prose text-slate">
-            An allowance is for one person you have saved. Pay them once by username or number, then save them
-            from the receipt.
+            An allowance is for one person you have saved. Save them by their username or phone number, then
+            come back here.
           </p>
           <Link
-            href="/transfer/send"
+            href="/beneficiaries/new"
             className="mt-7 flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
           >
-            Pay someone
+            Save someone
           </Link>
         </div>
       ) : store.status === 'loading' ? (
