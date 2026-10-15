@@ -160,7 +160,7 @@ describe('the allowance builder cannot be left doing nothing', () => {
   });
 
   it('says so when saving fails', () => {
-    const save = /async function save\(\)[\s\S]*?\n  }\n/.exec(builder)?.[0] ?? '';
+    const save = /async function write\(\)[\s\S]*?\n  }\n/.exec(builder)?.[0] ?? '';
     // And says why, when the reason is one a person can act on ("Not confirmed").
     expect(save).toMatch(/catch \(error\) \{\s*setProblem\(plainMessage\(error, "We couldn't save that allowance\./);
   });
@@ -405,7 +405,12 @@ describe('an account made on another device can be signed in to, not only made a
   it('the welcome screen offers it beside starting new', () => {
     expect(welcome).toMatch(/label="I already have an account"/);
     expect(welcome).toMatch(/signInWithExistingPasskey\(\)/);
-    expect(welcome).toMatch(/label="Continue with passkey"/);
+    expect(welcome).toMatch(/label="Get started"/);
+    // A new account is made on the next screen, once the name is known, so the passkey carries it.
+    const name = read(join(ROOT, 'app/onboarding/name.tsx'));
+    expect(name).toMatch(/label=\{account \? 'Continue' : 'Continue with passkey'\}/);
+    expect(name).toMatch(/registerAccount\(profile\)/);
+    expect(welcome).not.toMatch(/registerAccount/);
   });
 
   it('signing in names no passkey and makes none', () => {
@@ -520,7 +525,7 @@ describe('the header says who you are, not which app this is', () => {
     expect(chip).toMatch(/numberOfLines=\{1\}/);
     expect(header).toMatch(/<View className="ml-3 flex-none flex-row items-center gap-2">/);
     // With the microphone beside it on a narrow phone, the chip keeps its shield and its state and drops the word.
-    expect(stripComments(read(join(ROOT, 'components/ui/PauseButton.tsx')))).toMatch(/const compact = enabled && width < 390;/);
+    expect(stripComments(read(join(ROOT, 'components/ui/PauseButton.tsx')))).toMatch(/const compact = state !== 'off' && width < 390;/);
   });
 
   it('never renders an address, or a slice of one, in the chip or on Me', () => {
@@ -556,17 +561,27 @@ describe('the assistant is a setting the person turns on, never a default', () =
     expect(session).toMatch(/session: null/);
   });
 
-  it('starts off, and only the approval screen turns it on', () => {
+  it('starts off, and only the approval screen or a first allowance lets it pay', () => {
     const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
-    expect(provider).toMatch(/useState\(false\)/);
+    expect(provider).toMatch(/const \[enabled, setEnabled\] = useState\(false\)/);
+    expect(provider).toMatch(/const \[talking, setTalking\] = useState\(false\)/);
     const enablers = sourceFiles.filter((file) => /\.enable\(\)/.test(stripComments(read(file))));
-    expect(enablers.map((file) => rel(file))).toEqual(['app/assistant.tsx']);
+    expect(enablers.map((file) => rel(file)).sort()).toEqual(['app/assistant.tsx', 'app/rules/new.tsx']);
+    // The allowance screen says the passkey will be asked for before it is.
+    expect(stripComments(read(join(ROOT, 'app/rules/new.tsx')))).toMatch(/asks you to confirm with your passkey once more/);
   });
 
-  it('the introduction leads to the approval screen while the assistant is off, and cannot be waved away', () => {
+  it('talking asks for nothing: no passkey, no key', () => {
+    const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
+    const start = provider.slice(provider.indexOf('const startTalking'), provider.indexOf('const stopTalking'));
+    expect(start).not.toMatch(/derive|enable\(|ensureKey/);
+  });
+
+  it('the introduction leads to writing the first allowance, and cannot be waved away', () => {
     const intro = stripComments(read(join(ROOT, 'components/ui/AllowanceIntro.tsx')));
-    expect(intro).toMatch(/label="Turn on the assistant"/);
-    expect(intro).toMatch(/router\.push\('\/assistant'\)/);
+    expect(intro).toMatch(/label="Write your first allowance"/);
+    expect(intro).toMatch(/router\.push\('\/rules\/new'\)/);
+    expect(intro).toMatch(/asks for your passkey once more/);
     expect(intro).not.toMatch(/Got it|Not now|\.enable\(/);
   });
 
@@ -579,7 +594,8 @@ describe('the assistant is a setting the person turns on, never a default', () =
   it('the approval screen shows an action, not a toggle or a permission', () => {
     const screen = stripComments(read(join(ROOT, 'app/assistant.tsx')));
     expect(screen).not.toMatch(/<Switch/);
-    expect(screen).toMatch(/Turn on the assistant/);
+    expect(screen).toMatch(/Start talking/);
+    expect(screen).toMatch(/Let it pay inside them/);
   });
 });
 
@@ -626,10 +642,11 @@ describe('Home, Add money and Receive show the account, never a fixture', () => 
     expect(home).toMatch(/Payments you send and receive will show up here/);
   });
 
-  it('an empty Allowances section only offers set-up once the assistant is on', () => {
+  it('an empty Allowances section offers writing the first one, which is what lets the assistant pay', () => {
     expect(home).toMatch(/hasAllowances \? \([\s\S]*?\) : \(\s*<AllowanceIntro \/>/);
     const intro = stripComments(read(join(COMPONENTS, 'ui/AllowanceIntro.tsx')));
-    expect(intro).toMatch(/assistant\.enabled \?[\s\S]*?router\.push\('\/rules\/new'\)[\s\S]*?router\.push\('\/assistant'\)/);
+    expect(intro).toMatch(/router\.push\('\/rules\/new'\)/);
+    expect(intro).not.toMatch(/router\.push\('\/assistant'\)/);
   });
 
   it('Add money explains it is test money and waits for the real balance to move', () => {
@@ -1693,9 +1710,9 @@ describe('the assistant works the app, and can never confirm for you', () => {
   });
 
   it('off means off: no microphone in the header, and no sheet', () => {
-    expect(button).toMatch(/if \(!enabled\) return null;/);
+    expect(button).toMatch(/if \(!talking\) return null;/);
     expect(button).toMatch(/accessibilityLabel="Talk to the assistant"/);
-    expect(talk).toMatch(/if \(!account \|\| !enabled\) return <Redirect href="\/" \/>;/);
+    expect(talk).toMatch(/if \(!account \|\| !talking\) return <Redirect href="\/" \/>;/);
   });
 
   it('it is a sheet, says what it will not do, and is typed to on a build that cannot listen', () => {

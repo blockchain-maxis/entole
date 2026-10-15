@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Sentence, type SentencePart } from '@/components/ui/Sentence';
 import { SheetGrabber } from '@/components/ui/Sheet';
 import { Text } from '@/components/ui/Text';
+import { useAssistant } from '@/lib/assistant';
 import { plainMessage } from '@/lib/send';
 import { cadenceDetail, cadenceWords } from '@entole/core/allowance';
 import { entryDisplay, entryFromMinor, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
@@ -32,6 +33,7 @@ const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
 export default function RuleBuilder() {
   const router = useRouter();
   const store = useStore();
+  const assistant = useAssistant();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const existing = id ? store.allowance(id) : undefined;
 
@@ -65,10 +67,8 @@ export default function RuleBuilder() {
     { kind: 'words', text: ` ${period}.` },
   ];
 
-  async function save() {
-    if (!recipient || saving) return;
-    setSaving(true);
-    setProblem(null);
+  async function write() {
+    if (!recipient) return;
     try {
       await store.saveAllowance({
         ...(existing ? { id: existing.id } : {}),
@@ -86,6 +86,38 @@ export default function RuleBuilder() {
       setSaving(false);
     }
   }
+
+  // Set when the passkey has just made the assistant's key: the allowance is
+  // written on the next render, once the key is part of the store.
+  const saveOnceEnabled = useRef(false);
+  useEffect(() => {
+    if (!saveOnceEnabled.current || !assistant.enabled) return;
+    saveOnceEnabled.current = false;
+    void write();
+  });
+
+  /**
+   * The first allowance is what gives the assistant its own key: one more
+   * passkey confirmation, said under the button before it is pressed. The
+   * allowance is written on the render after, once the key is in place.
+   */
+  async function save() {
+    if (!recipient || saving) return;
+    setSaving(true);
+    setProblem(null);
+    if (!assistant.enabled) {
+      const result = await assistant.enable();
+      if (!result.ok) {
+        setProblem(result.reason);
+        setSaving(false);
+        return;
+      }
+      saveOnceEnabled.current = true;
+      return;
+    }
+    await write();
+  }
+
 
   return (
     <Screen>
@@ -138,6 +170,10 @@ export default function RuleBuilder() {
         ) : !nobodySaved && limit < perRun ? (
           <Text className="mt-3 text-center font-body text-note text-caution">
             The limit has to cover at least one payment.
+          </Text>
+        ) : !nobodySaved && !assistant.enabled && !assistant.loading ? (
+          <Text className="mt-3 text-center font-body text-note text-slate">
+            The assistant pays inside this allowance, so creating it asks you to confirm with your passkey once more.
           </Text>
         ) : null}
       </View>

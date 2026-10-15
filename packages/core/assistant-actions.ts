@@ -88,7 +88,11 @@ export const assistantActionSchema = z.discriminatedUnion('do', [
   z.object({ do: z.literal('request'), amount: spokenAmount.optional() }),
   z.object({ do: z.literal('save'), amount: spokenAmount.optional() }),
   z.object({ do: z.literal('take-out'), amount: spokenAmount.optional() }),
-  z.object({ do: z.literal('bill'), kind: z.enum(['electricity', 'airtime-data', 'cable-tv', 'internet']).optional() }),
+  z.object({
+    do: z.literal('bill'),
+    kind: z.enum(['electricity', 'airtime-data', 'cable-tv', 'internet']).optional(),
+    amount: spokenAmount.optional(),
+  }),
   /** Say something the app knows. The app supplies the facts, never the reader. */
   z.object({ do: z.literal('tell'), about: z.enum(['balance', 'recent', 'allowances', 'savings', 'username']) }),
   z.object({ do: z.literal('pause') }),
@@ -172,6 +176,40 @@ function screenFor(words: string): AssistantScreen | null {
   return null;
 }
 
+type BillKind = 'electricity' | 'airtime-data' | 'cable-tv' | 'internet';
+
+/** What people call each kind of bill. "Light" is electricity, "DSTV" is the cable bill. */
+const BILL_WORDS: [RegExp, BillKind][] = [
+  [/^(?:electricity|light|nepa|power|prepaid meter|meter|light bill|electricity bill|phcn)$/, 'electricity'],
+  [/^(?:airtime|data|recharge card|credit|call credit|mobile data|airtime and data)$/, 'airtime-data'],
+  [/^(?:dstv|gotv|startimes|cable|cable tv|tv|tv subscription|dstv subscription|gotv subscription)$/, 'cable-tv'],
+  [/^(?:internet|wifi|wi-fi|spectranet|smile|broadband)$/, 'internet'],
+];
+
+function billKind(words: string): BillKind | null {
+  const cleaned = words.toLowerCase().replace(/^(?:for\s+)?(?:my|the)\s+/, '').replace(/\s+bill$/, '').trim();
+  for (const [pattern, kind] of BILL_WORDS) if (pattern.test(cleaned)) return kind;
+  return null;
+}
+
+/**
+ * "pay my light bill", "pay dstv 5k", "buy 1000 airtime", "pay 10k for light".
+ * The kind of bill, and the amount when one was said.
+ */
+function readBillRequest(original: string): AssistantAction | null {
+  const kindFirst = new RegExp(String.raw`^(?:pay|buy|recharge|top up|renew)\s+(?:for\s+)?(.+?)(?:\s+(?:with\s+|for\s+)?(${AMOUNT}))?$`, 'i').exec(original);
+  const amountFirst = new RegExp(String.raw`^(?:pay|buy|recharge|top up)\s+(${AMOUNT})\s+(?:of\s+|worth of\s+|for\s+|on\s+)?(.+)$`, 'i').exec(original);
+  const read = amountFirst
+    ? { kind: billKind(amountFirst[2]!), amount: amountFirst[1] }
+    : kindFirst
+      ? { kind: billKind(kindFirst[1]!), amount: kindFirst[2] }
+      : null;
+  if (!read?.kind) return null;
+  if (read.amount === undefined) return { do: 'bill', kind: read.kind };
+  const amount = parseSpokenAmount(read.amount);
+  return amount ? { do: 'bill', kind: read.kind, amount } : null;
+}
+
 /**
  * Reads the sentences that can only mean one thing: "send 5,000 to Ada for
  * rent", "open receive", "what's my balance". `null` for anything else, which
@@ -189,6 +227,10 @@ export function readPlainRequest(input: string): AssistantReply | null {
   const lower = text.toLowerCase().replace(/^(?:please|hey entole|entole|ok|okay)[, ]+/, '');
   const offset = text.length - lower.length;
   const original = text.slice(offset);
+
+  // Bills come before people: "pay dstv 5k" is a bill, not someone called DSTV.
+  const bill = readBillRequest(original);
+  if (bill) return { actions: [bill] };
 
   // "send 5000 to ada for rent" / "pay ada 5k for rent"
   const amountFirst = new RegExp(String.raw`^(?:pay|send|transfer|give)\s+(${AMOUNT})\s+to\s+(.+?)(?:\s+for\s+(.+))?$`, 'i').exec(original);
@@ -339,7 +381,7 @@ export type AssistantStep =
   | { kind: 'propose'; proposal: Proposal }
   | { kind: 'request'; amountMinor?: number }
   | { kind: 'savings'; mode: 'deposit' | 'withdraw'; amountMinor?: number }
-  | { kind: 'bill'; category?: string }
+  | { kind: 'bill'; category?: string; amountMinor?: number }
   | { kind: 'pause'; paused: boolean };
 
 export type AssistantAccount = {
@@ -456,7 +498,14 @@ export async function planReply(
         mode: action.do === 'save' ? 'deposit' : 'withdraw',
         ...(amountMinor !== undefined ? { amountMinor } : {}),
       });
-    } else if (action.do === 'bill') steps.push({ kind: 'bill', ...(action.kind ? { category: action.kind } : {}) });
+    } else if (action.do === 'bill') {
+      const amountMinor = toMinor(action.amount);
+      steps.push({
+        kind: 'bill',
+        ...(action.kind ? { category: action.kind } : {}),
+        ...(amountMinor !== undefined ? { amountMinor } : {}),
+      });
+    }
     else steps.push({ kind: 'pause', paused: action.do === 'pause' });
   }
   // The app's own words about what it did win over the reader's. With neither,
@@ -477,7 +526,11 @@ export async function planReply(
               ? 'Here is savings. You confirm what goes in.'
               : 'Here is savings. You confirm what comes out.'
             : first?.kind === 'bill'
-              ? 'Here are your bills.'
+              ? first.category
+                ? first.amountMinor !== undefined
+                  ? `Here is that bill, for ${formatNaira(kobo(first.amountMinor))}. Add the account number, then confirm it yourself.`
+                  : 'Here is that bill. Add the account number and the amount, then confirm it yourself.'
+                : 'Here are your bills.'
               : null;
     if (words) steps.unshift({ kind: 'say', text: words });
   }

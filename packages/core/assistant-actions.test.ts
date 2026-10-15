@@ -165,6 +165,27 @@ describe('the plain grammar reads what can only mean one thing', () => {
   });
 });
 
+describe('bills, read before people', () => {
+  it.each([
+    ['pay my light bill', { do: 'bill', kind: 'electricity' }],
+    ['pay dstv 5k', { do: 'bill', kind: 'cable-tv', amount: 5000 }],
+    ['Buy 1000 airtime', { do: 'bill', kind: 'airtime-data', amount: 1000 }],
+    ['pay 10k for light', { do: 'bill', kind: 'electricity', amount: 10000 }],
+    ['top up my data', { do: 'bill', kind: 'airtime-data' }],
+    ['renew my gotv subscription', { do: 'bill', kind: 'cable-tv' }],
+    ['pay spectranet 15,000 naira', { do: 'bill', kind: 'internet', amount: 15000 }],
+  ])('%s', (said, action) => {
+    expect(readPlainRequest(said)).toEqual({ actions: [action] });
+  });
+
+  it('leaves a person called anything else to the payment grammar', () => {
+    expect(readPlainRequest('pay Ada 5k')).toEqual({ actions: [{ do: 'pay', to: 'Ada', amount: 5000 }] });
+    expect(readPlainRequest('send 5000 to Mum for light')).toEqual({
+      actions: [{ do: 'pay', to: 'Mum', amount: 5000, note: 'light' }],
+    });
+  });
+});
+
 describe('who a spoken name is', () => {
   it('finds one saved person by full name, first name or "my mum"', () => {
     expect(findSavedPayee('ada eze', [ADA, MUM])).toEqual({ kind: 'saved', contact: ADA });
@@ -329,6 +350,14 @@ describe('figures are the app’s own, never the reader’s', () => {
       { kind: 'request', amountMinor: 200_000 },
       { kind: 'savings', mode: 'deposit', amountMinor: 50_000 },
       { kind: 'pause', paused: true },
+    ]);
+  });
+
+  it('opens a bill with its kind and amount, so the screen can be filled in', async () => {
+    const steps = await planReply(readPlainRequest('pay dstv 5k')!, account(), facts, { directory: nobodyHome });
+    expect(steps).toEqual([
+      { kind: 'say', text: 'Here is that bill, for ₦5,000. Add the account number, then confirm it yourself.' },
+      { kind: 'bill', category: 'cable-tv', amountMinor: 500_000 },
     ]);
   });
 

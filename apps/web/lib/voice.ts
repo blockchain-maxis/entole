@@ -4,8 +4,9 @@
  * Listening is the browser's speech recognition. In Chrome and on Android the
  * browser sends the sound to its maker's service to be turned into words, and
  * hands back the words; Entole never receives the sound, only the words. Not
- * every browser has it. Where it is missing the assistant is typed to, and
- * says so.
+ * every browser has it, and Brave has it in name only. Where it is missing,
+ * the device can listen instead (`device-listening.ts`), and where neither
+ * can, the assistant is typed to and says so.
  *
  * Speaking is the browser's own voice, on the device.
  */
@@ -116,6 +117,23 @@ export function speak(text: string): void {
     window.speechSynthesis.speak(utterance);
   } catch {
     // Nothing is lost: the same words are on the screen.
+  }
+}
+
+/**
+ * Wakes the browser's voice inside a tap. An iPhone speaks only in answer to
+ * a tap, and the assistant's reply comes after waiting on the network, which
+ * no longer counts as one; a silent word said during the tap lets the reply
+ * be heard later.
+ */
+export function primeSpeech(): void {
+  if (!canSpeak()) return;
+  try {
+    const utterance = new SpeechSynthesisUtterance(' ');
+    utterance.volume = 0;
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // The reply is still written on the screen.
   }
 }
 

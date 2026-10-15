@@ -38,7 +38,7 @@ const EXAMPLES = ['Send 5,000 to Mum for rent', 'What’s my balance?', 'Show ho
 export default function Talk() {
   const router = useRouter();
   const { account } = useAccount();
-  const { enabled } = useAssistant();
+  const { talking } = useAssistant();
   const run = useAssistantRunner();
   const { show } = useToast();
   const colors = useThemeColors();
@@ -62,8 +62,8 @@ export default function Talk() {
     [],
   );
 
-  // Off means off: the sheet does not exist for someone who has not turned the assistant on.
-  if (!account || !enabled) return <Redirect href="/" />;
+  // Off means off: the sheet does not exist for someone who has not started talking to it.
+  if (!account || !talking) return <Redirect href="/" />;
 
   const note = (turn: Turn) => {
     turnsRef.current = [...turnsRef.current, turn].slice(-8);

@@ -9,9 +9,9 @@ import { Text } from './Text';
 /**
  * What the allowances section shows before there is one. It teaches the idea
  * with a single example of how an allowance reads, in the assistant's blue,
- * and leads to the next real step: writing the first allowance if the
- * assistant is on, turning it on if it is off (it is a setting, never a
- * default). There is nothing to dismiss; it goes when an allowance exists.
+ * and leads to the next real step: writing the first allowance, which is also
+ * what lets the assistant pay (it is a setting, never a default). There is
+ * nothing to dismiss; it goes when an allowance exists.
  */
 export function AllowanceIntro() {
   const router = useRouter();
@@ -26,15 +26,11 @@ export function AllowanceIntro() {
       <Text className="mt-3 font-body text-ui text-slate">
         {assistant.enabled
           ? 'Write one, and the assistant can pay inside it and never past it.'
-          : 'You write it once. The assistant can then pay inside it and never past it. It is off until you turn it on.'}
+          : 'You write it once. The assistant can then pay inside it and never past it. Writing the first one asks for your passkey once more.'}
       </Text>
       {assistant.loading ? null : (
         <View className="mt-4 flex-row">
-          {assistant.enabled ? (
-            <Button label="Write your first allowance" width="hug" onPress={() => router.push('/rules/new')} />
-          ) : (
-            <Button label="Turn on the assistant" width="hug" onPress={() => router.push('/assistant')} />
-          )}
+          <Button label="Write your first allowance" width="hug" onPress={() => router.push('/rules/new')} />
         </View>
       )}
     </View>

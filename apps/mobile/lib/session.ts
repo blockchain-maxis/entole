@@ -8,6 +8,7 @@ import { isMeraError, type PasskeyCredentialMetadata } from '@category-labs/mera
 import { reactNativeWebAuthnClient } from '@category-labs/mera/react-native-webauthn-client';
 import {
   createOwnerAccount,
+  passkeyLabel,
   deriveSessionAccount,
   signInToOwnerAccount,
   type EntoleKeyAccount,
@@ -269,20 +270,22 @@ async function failed(error: unknown): Promise<{ ok: false; reason: string }> {
  * files reachable, or without the target platform's passkey support, this
  * fails with a `MeraError`, not silently.
  */
-export async function registerAccount(displayName: string): Promise<SignInResult> {
+export async function registerAccount(person: { fullName: string; username?: string }): Promise<SignInResult> {
   const deviceProblem = await checkDeviceCanAuthenticate();
   if (deviceProblem) return { ok: false, reason: deviceProblem };
 
   try {
+    // Saved under their username and name, so it can be told apart from any other passkey.
+    const label = passkeyLabel(person);
     const owner = await createOwnerAccount({
       rp: RP,
-      displayName,
+      displayName: label.displayName,
+      userName: label.name,
       webAuthnClient: reactNativeWebAuthnClient,
     });
     await storeCredential(owner.credential);
     await SecureStore.setItemAsync(SESSION_KEY, String(Date.now()));
-    // Not known yet — captured a step later in `onboarding/name.tsx`, which
-    // merges the real name into the account already in context.
+    // The name and username are saved by `onboarding/name.tsx`, which asked for them first.
     return { ok: true, account: { owner, session: null, displayName: '', username: '' } };
   } catch (error) {
     return failed(error);
@@ -380,6 +383,23 @@ export async function markAssistantEnabled(address: string): Promise<void> {
   await SecureStore.setItemAsync(ASSISTANT_ENABLED_KEY, 'true');
 }
 
+const ASSISTANT_TALK_KEY = 'entole.assistant-talk';
+
+/**
+ * Whether the person talks to the assistant. Talking needs no key and no
+ * passkey: it only opens screens and gets things ready for the person to
+ * confirm. Before it was a choice of its own, turning the assistant on meant
+ * both, so an assistant already on keeps talking.
+ */
+export async function isTalkOn(): Promise<boolean> {
+  const saved = await SecureStore.getItemAsync(ASSISTANT_TALK_KEY);
+  return saved === null ? isAssistantEnabled() : saved === 'true';
+}
+
+export async function saveTalkOn(on: boolean): Promise<void> {
+  await SecureStore.setItemAsync(ASSISTANT_TALK_KEY, on ? 'true' : 'false');
+}
+
 export async function clearAssistant(): Promise<void> {
   await Promise.all([
     SecureStore.deleteItemAsync(ASSISTANT_ENABLED_KEY),
@@ -436,6 +456,7 @@ export async function forgetEverything(): Promise<void> {
     SecureStore.deleteItemAsync(PAUSE_INTRO_KEY),
     SecureStore.deleteItemAsync(ASSISTANT_ENABLED_KEY),
     SecureStore.deleteItemAsync(ASSISTANT_ADDRESS_KEY),
+    SecureStore.deleteItemAsync(ASSISTANT_TALK_KEY),
   ]);
 }
 

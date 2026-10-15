@@ -24,7 +24,15 @@ import { useStore } from '@entole/core/store';
 
 import { useAccount } from './account';
 import { useAssistant } from './assistant';
-import { canListen, listen, speak, stopSpeaking } from './voice';
+import {
+  canRecord,
+  deviceListeningReady,
+  listenOnDevice,
+  preferDeviceListening,
+  prefersDeviceListening,
+  prepareDeviceListening,
+} from './device-listening';
+import { canListen, listen, primeSpeech, speak, stopSpeaking } from './voice';
 
 /**
  * Talking to the assistant, from any page.
@@ -55,8 +63,8 @@ const ROUTES: Record<AssistantScreen, string> = {
   bills: '/transfer/bill',
   business: '/business',
   invoice: '/business/new-invoice',
-  // People are saved from a receipt and listed where a payment starts.
-  people: '/transfer',
+  // Saved people, to add, rename or remove.
+  people: '/beneficiaries',
   'new-allowance': '/rules/new',
   assistant: '/assistant',
   me: '/me',
@@ -68,7 +76,23 @@ function screenAt(pathname: string): AssistantScreen | undefined {
 }
 
 export type TalkTurn = { from: 'you' | 'assistant'; text: string };
-export type TalkPhase = 'idle' | 'listening' | 'reading';
+/** `writing` is the device turning a recording into words; `reading` is working out what they mean. */
+export type TalkPhase = 'idle' | 'listening' | 'writing' | 'reading';
+
+/**
+ * How this browser listens: by itself, with the model on the device, or not
+ * at all. Asked fresh each time, since trying the device model is remembered.
+ */
+export type ListeningWay = 'browser' | 'device' | 'none';
+
+function listeningWay(): ListeningWay {
+  if (canListen() && !prefersDeviceListening()) return 'browser';
+  if (canRecord()) return 'device';
+  return canListen() ? 'browser' : 'none';
+}
+
+/** Getting the device ready to listen: offered, on its way, or stopped part-way. */
+export type ListeningSetup = { state: 'offer' | 'loading' | 'failed'; fraction: number };
 
 type TalkValue = {
   open: boolean;
@@ -80,6 +104,11 @@ type TalkValue = {
   turns: TalkTurn[];
   /** Whether this browser can listen at all. Where it cannot, the assistant is typed to. */
   hears: boolean;
+  /** Set while the device's own listening is being offered or fetched. */
+  setup: ListeningSetup | null;
+  /** Yes to listening on the device: fetches the model once. */
+  getListening: () => Promise<void>;
+  dismissSetup: () => void;
   /** Why listening stopped without anything to act on, in plain words. */
   problem: string | null;
   startListening: () => void;
@@ -106,7 +135,7 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
   const store = useStore();
   const backend = useBackend();
   const { account } = useAccount();
-  const { enabled } = useAssistant();
+  const { talking, enabled } = useAssistant();
 
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<TalkPhase>('idle');
@@ -114,8 +143,10 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
   const [turns, setTurns] = useState<TalkTurn[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [line, setLine] = useState<string | null>(null);
+  const [setup, setSetup] = useState<ListeningSetup | null>(null);
   // Asked of the browser once it is there; the server render assumes it cannot.
-  const hears = useSyncExternalStore(noSubscription, canListen, () => false);
+  const way = useSyncExternalStore(noSubscription, listeningWay, () => 'none' as const);
+  const hears = way !== 'none';
   const listening = useRef<{ stop: () => void } | null>(null);
   const turnsRef = useRef<TalkTurn[]>([]);
 
@@ -154,7 +185,10 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
           router.push(`/grow/savings?${query.toString()}`);
           moved = true;
         } else if (step.kind === 'bill') {
-          router.push(step.category ? `/transfer/bill?category=${step.category}` : '/transfer/bill');
+          const query = new URLSearchParams();
+          if (step.category) query.set('category', step.category);
+          if (step.amountMinor !== undefined) query.set('amount', String(step.amountMinor));
+          router.push(query.size ? `/transfer/bill?${query.toString()}` : '/transfer/bill');
           moved = true;
         } else if (step.kind === 'pause') {
           await store.setPaused(step.paused);
@@ -223,23 +257,63 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
     listening.current?.stop();
   }, []);
 
+  const heardThen = useCallback(
+    (text: string) => {
+      listening.current = null;
+      void ask(text);
+    },
+    [ask],
+  );
+
   const startListening = useCallback(() => {
     if (listening.current) return;
+    primeSpeech();
     stopSpeaking();
     setProblem(null);
     setHearing('');
+
+    if (listeningWay() === 'device') {
+      if (!deviceListeningReady()) {
+        setSetup({ state: 'offer', fraction: 0 });
+        return;
+      }
+      setSetup(null);
+      listening.current = listenOnDevice({
+        onWriting: () => setPhase('writing'),
+        onEnd: (why, text) => {
+          if (why === 'heard' && text) {
+            heardThen(text);
+            return;
+          }
+          listening.current = null;
+          setPhase('idle');
+          if (why === 'not-allowed') {
+            setProblem("This browser won't share the microphone. Allow it for this site, type instead, or open entole.pro in Chrome.");
+          } else if (why === 'no-microphone') setProblem('No microphone was found. Type what you need instead.');
+          else if (why === 'failed') setProblem("I couldn't make out the recording. Try again, or type instead.");
+          else setProblem("I didn't hear anything. Tap the microphone and try again.");
+        },
+      });
+      setPhase('listening');
+      return;
+    }
+
     const session = listen({
       onWords: setHearing,
       onEnd: (why, text) => {
-        listening.current = null;
         if (why === 'heard' && text) {
-          void ask(text);
+          heardThen(text);
           return;
         }
+        listening.current = null;
         setPhase('idle');
         setHearing('');
         if (why === 'not-allowed') setProblem('The microphone is off for this site. Turn it on in the browser, or type instead.');
-        else if (why === 'failed') setProblem("I couldn't listen just now. Try again, or type instead.");
+        else if (why === 'failed' && canRecord()) {
+          // The browser's own listening is there and did not work: offer the device's.
+          setProblem("This browser's listening didn't work.");
+          setSetup({ state: 'offer', fraction: 0 });
+        } else if (why === 'failed') setProblem("I couldn't listen just now. Try again, or type instead.");
         else setProblem("I didn't hear anything. Tap the microphone and try again.");
       },
     });
@@ -249,9 +323,25 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
     }
     listening.current = session;
     setPhase('listening');
-  }, [ask]);
+  }, [heardThen]);
+
+  const getListening = useCallback(async () => {
+    preferDeviceListening();
+    setProblem(null);
+    setSetup({ state: 'loading', fraction: 0 });
+    try {
+      await prepareDeviceListening((fraction) => setSetup({ state: 'loading', fraction }));
+      setSetup(null);
+      say('Listening is ready on this phone. Tap the microphone and tell me what you need.');
+    } catch {
+      setSetup({ state: 'failed', fraction: 0 });
+    }
+  }, [say]);
+
+  const dismissSetup = useCallback(() => setSetup(null), []);
 
   const show = useCallback(() => {
+    primeSpeech();
     setLine(null);
     setProblem(null);
     setOpen(true);
@@ -263,12 +353,14 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
     setOpen(false);
     setPhase('idle');
     setHearing('');
+    // A download on its way carries on and is shown again on return; an offer is put away.
+    setSetup((current) => (current?.state === 'loading' ? current : null));
   }, []);
 
   const clearLine = useCallback(() => setLine(null), []);
 
-  // Turning the assistant off, or signing out, puts all of this away.
-  const active = enabled && Boolean(account);
+  // Stopping talking, or signing out, puts all of this away.
+  const active = talking && Boolean(account);
   useEffect(() => {
     if (active) return;
     listening.current?.stop();
@@ -284,6 +376,9 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
       hearing,
       turns,
       hears,
+      setup,
+      getListening,
+      dismissSetup,
       problem,
       startListening,
       stopListening,
@@ -291,7 +386,25 @@ export function AssistantTalkProvider({ children }: { children: React.ReactNode 
       line: active ? line : null,
       clearLine,
     }),
-    [open, active, show, hide, phase, hearing, turns, hears, problem, startListening, stopListening, ask, line, clearLine],
+    [
+      open,
+      active,
+      show,
+      hide,
+      phase,
+      hearing,
+      turns,
+      hears,
+      setup,
+      getListening,
+      dismissSetup,
+      problem,
+      startListening,
+      stopListening,
+      ask,
+      line,
+      clearLine,
+    ],
   );
 
   return <TalkContext.Provider value={value}>{children}</TalkContext.Provider>;

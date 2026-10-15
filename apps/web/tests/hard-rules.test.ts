@@ -409,19 +409,30 @@ describe('the assistant is a setting the person turns on, never a default', () =
     expect(session).toMatch(/session: null/);
   });
 
-  it('starts off, and only the approval screen turns it on', () => {
+  it('starts off, and only the approval screen or a first allowance lets it pay', () => {
     const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
-    expect(provider).toMatch(/useState\(false\)/);
+    expect(provider).toMatch(/const \[enabled, setEnabled\] = useState\(false\)/);
+    expect(provider).toMatch(/const \[talking, setTalking\] = useState\(false\)/);
     const enablers = sourceFiles.filter((file) => /\.enable\(\)/.test(stripComments(read(file))));
-    expect(enablers.map((file) => relative(ROOT, file).split(sep).join('/'))).toEqual([
+    expect(enablers.map((file) => relative(ROOT, file).split(sep).join('/')).sort()).toEqual([
       'app/assistant/page.tsx',
+      'app/rules/new/page.tsx',
     ]);
+    // The allowance page says the passkey will be asked for before it is.
+    const rules = stripComments(read(join(ROOT, 'app/rules/new/page.tsx')));
+    expect(rules).toMatch(/asks you to confirm with your passkey once more/);
   });
 
-  it('the introduction leads to the approval screen while the assistant is off, and cannot be waved away', () => {
+  it('talking asks for nothing: no passkey, no key', () => {
+    const provider = stripComments(read(join(ROOT, 'lib/assistant.tsx')));
+    const start = provider.slice(provider.indexOf('const startTalking'), provider.indexOf('const stopTalking'));
+    expect(start).not.toMatch(/derive|enable\(|ensureKey/);
+  });
+
+  it('the introduction leads to writing the first allowance, and cannot be waved away', () => {
     const intro = stripComments(read(join(ROOT, 'components/AllowanceIntro.tsx')));
-    expect(intro).toMatch(/Turn on the assistant/);
-    expect(intro).toMatch(/href=\{assistant\.enabled \? '\/rules\/new' : '\/assistant'\}/);
+    expect(intro).toMatch(/href="\/rules\/new"/);
+    expect(intro).toMatch(/asks for your passkey once more/);
     expect(intro).not.toMatch(/Got it|Not now|\.enable\(/);
   });
 
@@ -434,7 +445,8 @@ describe('the assistant is a setting the person turns on, never a default', () =
   it('the approval screen shows an action, not a toggle or a permission', () => {
     const screen = stripComments(read(join(ROOT, 'app/assistant/page.tsx')));
     expect(screen).not.toMatch(/type="checkbox"|role="switch"/);
-    expect(screen).toMatch(/Turn on the assistant/);
+    expect(screen).toMatch(/Start talking/);
+    expect(screen).toMatch(/Let it pay inside them/);
   });
 });
 
@@ -518,7 +530,7 @@ describe('no screen leaves a person stuck or misled', () => {
     expect(rule).toMatch(/Enter how much each payment is\./);
     expect(rule).toMatch(/The limit has to cover at least one payment\./);
     // And says why, when the reason is one a person can act on ("Not confirmed").
-    expect(/async function save\(\)[\s\S]*?\n  }\n/.exec(rule)?.[0]).toMatch(
+    expect(/async function write\(\)[\s\S]*?\n  }\n/.exec(rule)?.[0]).toMatch(
       /catch \(error\) \{\s*setProblem\(plainMessage\(error, "We couldn't create that allowance\./,
     );
   });
@@ -1202,9 +1214,9 @@ describe('the assistant works the app, and can never confirm for you', () => {
   });
 
   it('the microphone is beside the assistant’s control, and stopping the assistant is still one click', () => {
-    expect(control).toMatch(/<TalkButton \/>\s*<PauseToggle paused=\{paused\} onToggle=\{\(\) => void setPaused\(!paused\)\} \/>/);
-    // Off means off: no microphone until the assistant has been turned on.
-    const off = control.slice(control.indexOf('if (!enabled)'), control.indexOf('return (\n    <div'));
+    expect(control).toMatch(/\{talking \? <TalkButton \/> : null\}\s*<PauseToggle paused=\{paused\} onToggle=\{\(\) => void setPaused\(!paused\)\} \/>/);
+    // Off means off: no microphone until the person has started talking to it.
+    const off = control.slice(control.indexOf('if (!enabled && !talking)'), control.indexOf('return (\n    <div'));
     expect(off).not.toMatch(/TalkButton/);
     expect(sheet).toMatch(/aria-label="Talk to the assistant"/);
   });
@@ -1216,5 +1228,39 @@ describe('the assistant works the app, and can never confirm for you', () => {
     expect(sheet).toMatch(/\{hears \? \(/);
     expect(sheet).toMatch(/id="talk-typed"/);
     expect(sheet).not.toMatch(/animate-spin/);
+  });
+
+  it('listening on the device is downloaded only after a yes, at a size said first, from a pinned version', () => {
+    const device = stripComments(read(join(ROOT, 'lib/device-listening.ts')));
+    const worker = stripComments(read(join(ROOT, 'lib/whisper.worker.ts')));
+    // The one call that fetches the model is behind the person's yes.
+    const everyFile = [...sourceFiles, ...walk(join(ROOT, 'lib'))];
+    const fetchers = everyFile.filter((file) => /prepareDeviceListening\(/.test(stripComments(read(file))));
+    expect(fetchers.map((file) => relative(ROOT, file).split(sep).join('/')).sort()).toEqual([
+      'lib/assistant-talk.tsx',
+      'lib/device-listening.ts',
+    ]);
+    const getListening = talk.slice(talk.indexOf('const getListening'), talk.indexOf('const dismissSetup'));
+    expect(getListening).toMatch(/prepareDeviceListening\(/);
+    expect(talk.replace(getListening, '')).not.toMatch(/prepareDeviceListening\(/);
+    expect(sheet).toMatch(/about \$\{DEVICE_LISTENING_MEGABYTES\} MB, downloaded once/);
+    expect(sheet).toMatch(/role="progressbar"/);
+    // An exact version of the library, never a moving one.
+    expect(worker).toMatch(/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@\d+\.\d+\.\d+\/dist\/transformers\.min\.js/);
+    // Sound stays on the device: the recording goes to the worker, and nothing else is sent.
+    expect(device).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon/);
+    expect(worker).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon/);
+  });
+
+  it('voice fills in Savings and Bills, and the keypad is still the only way the amount is typed', () => {
+    const savings = stripComments(read(join(PAGES, 'grow/savings/page.tsx')));
+    const bill = stripComments(read(join(PAGES, 'transfer/bill/page.tsx')));
+    expect(talk).toMatch(/query\.set\('amount', String\(step\.amountMinor\)\)/);
+    expect(savings).toMatch(/askedMinor\(query\.get\('amount'\)\)/);
+    expect(bill).toMatch(/askedMinor\(query\.get\('amount'\)\)/);
+    for (const page of [savings, bill]) {
+      expect(page).toMatch(/entryFromMinor\(kobo\(askedAmountMinor\)\)/);
+      expect(page).not.toMatch(/inputMode="(decimal|numeric)"/);
+    }
   });
 });

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { decodePaymentCode } from './payment-code';
 import { initialsFor } from './profile';
+import { RECORD_COLLECTIONS, type RecordCollection, type RecordSync } from './record-sync';
 import {
   activitySchema,
   allowanceSchema,
@@ -141,34 +142,114 @@ async function readList<T>(store: RecordStore, key: string, schema: z.ZodType<T>
   }
 }
 
-/** One owner's records. Keyed by the account, so two accounts on the same
- * phone never see each other's people or history. */
-export function createRecords(store: RecordStore, owner: Address) {
+/** Whether a collection read from elsewhere is at least a JSON list. Each entry is still parsed on read. */
+function isJsonList(value: string): boolean {
+  try {
+    return Array.isArray(JSON.parse(value));
+  } catch {
+    return false;
+  }
+}
+
+/** How long the first read waits on the server before going on with what the device has. */
+const PULL_WAIT_MS = 4_000;
+
+/**
+ * One owner's records. Keyed by the account, so two accounts on the same
+ * phone never see each other's people or history.
+ *
+ * With `sync`, they also follow the account between devices
+ * (`record-sync.ts`). Every collection carries when it was last written; a
+ * write here is sent on, and the first read on a device asks the server for
+ * anything newer. The newer copy of a collection wins, whole. The device's
+ * own copy is always what is read, so nothing waits on the network for more
+ * than a moment, and without a server nothing changes.
+ */
+export function createRecords(store: RecordStore, owner: Address, sync?: RecordSync) {
   const chunked = chunkedStore(store);
   const key = (collection: string) => `entole.records.${owner.toLowerCase()}.${collection}`;
+  const atKey = (collection: string) => `${key(collection)}.at`;
 
-  async function write<T>(collection: string, list: T[]) {
-    await chunked.set(key(collection), JSON.stringify(list));
+  async function writtenAt(collection: RecordCollection): Promise<number> {
+    const raw = await store.get(atKey(collection));
+    return raw && /^\d+$/.test(raw) ? Number(raw) : 0;
+  }
+
+  async function localValue(collection: RecordCollection): Promise<string | null> {
+    return collection === 'savings-principal' ? store.get(key(collection)) : chunked.get(key(collection));
+  }
+
+  async function setLocal(collection: RecordCollection, value: string, at: number): Promise<void> {
+    if (collection === 'savings-principal') await store.set(key(collection), value);
+    else await chunked.set(key(collection), value);
+    await store.set(atKey(collection), String(at));
+  }
+
+  /** Takes in what the server has that is newer, and sends on what the device has that the server lacks. */
+  async function exchange(): Promise<void> {
+    if (!sync) return;
+    const remote = await sync.pull();
+    for (const collection of RECORD_COLLECTIONS) {
+      const theirs = remote[collection];
+      const mine = await writtenAt(collection);
+      if (theirs && theirs.at > mine) {
+        // A collection that would not read back is not taken in.
+        if (collection === 'savings-principal' ? /^\d+$/.test(theirs.value) : isJsonList(theirs.value)) {
+          await setLocal(collection, theirs.value, theirs.at);
+        }
+      } else if (!theirs || mine > theirs.at) {
+        const value = await localValue(collection);
+        if (value === null) continue;
+        // Written before records were sent anywhere: it has no date, so it is dated now.
+        const at = mine || Date.now();
+        if (!mine) await store.set(atKey(collection), String(at));
+        await sync.push(collection, value, at);
+      }
+    }
+  }
+
+  let exchanged: Promise<void> | null = null;
+  function ready(): Promise<void> {
+    if (!sync) return Promise.resolve();
+    exchanged ??= exchange().catch(() => undefined);
+    return Promise.race([exchanged, new Promise<void>((resolve) => setTimeout(resolve, PULL_WAIT_MS))]);
+  }
+
+  async function save(collection: RecordCollection, value: string) {
+    await ready();
+    const at = Math.max(Date.now(), (await writtenAt(collection)) + 1);
+    await setLocal(collection, value, at);
+    void sync?.push(collection, value, at);
+  }
+
+  async function write<T>(collection: RecordCollection, list: T[]) {
+    await save(collection, JSON.stringify(list));
+  }
+
+  async function read<T>(collection: RecordCollection, schema: z.ZodType<T>): Promise<T[]> {
+    await ready();
+    return readList(chunked, key(collection), schema);
   }
 
   return {
     /** What the person has put into savings and not yet taken out, in the
      * settlement asset's base units. It is what lets earnings be told apart
-     * from their own money. Kept on the device like everything else here, so
-     * a new device does not know it and shows no earnings figure. */
+     * from their own money. Kept with the other records, so it follows the
+     * account to a new device when records are synced. */
     savings: {
       async principal(): Promise<bigint | null> {
+        await ready();
         const raw = await store.get(key('savings-principal'));
         return raw && /^\d+$/.test(raw) ? BigInt(raw) : null;
       },
       async setPrincipal(units: bigint): Promise<void> {
-        await store.set(key('savings-principal'), (units < 0n ? 0n : units).toString());
+        await save('savings-principal', (units < 0n ? 0n : units).toString());
       },
     },
     activity: {
-      list: () => readList(chunked, key('activity'), activitySchema),
+      list: () => read('activity', activitySchema),
       async add(entry: Activity) {
-        const current = await readList(chunked, key('activity'), activitySchema);
+        const current = await read('activity', activitySchema);
         const next = [entry, ...current.filter((item) => item.id !== entry.id)].slice(0, ACTIVITY_LIMIT);
         await write('activity', next);
       },
@@ -180,7 +261,7 @@ export function createRecords(store: RecordStore, owner: Address) {
        */
       async merge(entries: Activity[]): Promise<Activity[]> {
         if (entries.length === 0) return [];
-        const current = await readList(chunked, key('activity'), activitySchema);
+        const current = await read('activity', activitySchema);
         const have = new Set(current.map((item) => item.id));
         const fresh = entries.filter((entry, index) => !have.has(entry.id) && entries.findIndex((e) => e.id === entry.id) === index);
         if (fresh.length === 0) return [];
@@ -192,74 +273,74 @@ export function createRecords(store: RecordStore, owner: Address) {
       },
     },
     allowances: {
-      list: () => readList(chunked, key('allowances'), allowanceSchema),
+      list: () => read('allowances', allowanceSchema),
       async upsert(entry: Allowance) {
-        const current = await readList(chunked, key('allowances'), allowanceSchema);
+        const current = await read('allowances', allowanceSchema);
         const exists = current.some((item) => item.id === entry.id);
         await write('allowances', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [...current, entry]);
       },
       async remove(id: string) {
-        const current = await readList(chunked, key('allowances'), allowanceSchema);
+        const current = await read('allowances', allowanceSchema);
         await write('allowances', current.filter((item) => item.id !== id));
       },
     },
     seats: {
-      list: () => readList(chunked, key('seats'), seatSchema),
+      list: () => read('seats', seatSchema),
       async upsert(input: Seat) {
         const entry = seatSchema.parse(input); // never store what would not read back
-        const current = await readList(chunked, key('seats'), seatSchema);
+        const current = await read('seats', seatSchema);
         const exists = current.some((item) => item.id === entry.id);
         await write('seats', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [...current, entry]);
       },
       async remove(id: string) {
-        const current = await readList(chunked, key('seats'), seatSchema);
+        const current = await read('seats', seatSchema);
         await write('seats', current.filter((item) => item.id !== id));
       },
     },
     staff: {
-      list: () => readList(chunked, key('staff'), staffSchema),
+      list: () => read('staff', staffSchema),
       async upsert(input: Staff) {
         const entry = staffSchema.parse(input); // never store what would not read back
-        const current = await readList(chunked, key('staff'), staffSchema);
+        const current = await read('staff', staffSchema);
         const exists = current.some((item) => item.id === entry.id);
         await write('staff', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [...current, entry]);
       },
       /** Adds or replaces many at once in a single write — an import is all or nothing. */
       async upsertMany(inputs: Staff[]) {
         const entries = inputs.map((entry) => staffSchema.parse(entry));
-        const current = await readList(chunked, key('staff'), staffSchema);
+        const current = await read('staff', staffSchema);
         const byId = new Map(current.map((item) => [item.id, item]));
         for (const entry of entries) byId.set(entry.id, entry);
         await write('staff', [...byId.values()]);
       },
       async remove(id: string) {
-        const current = await readList(chunked, key('staff'), staffSchema);
+        const current = await read('staff', staffSchema);
         await write('staff', current.filter((item) => item.id !== id));
       },
     },
     invoices: {
       /** Newest first. */
-      list: () => readList(chunked, key('invoices'), invoiceSchema),
+      list: () => read('invoices', invoiceSchema),
       async upsert(input: Invoice) {
         const entry = invoiceSchema.parse(input);
-        const current = await readList(chunked, key('invoices'), invoiceSchema);
+        const current = await read('invoices', invoiceSchema);
         const exists = current.some((item) => item.id === entry.id);
         await write('invoices', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [entry, ...current]);
       },
       async remove(id: string) {
-        const current = await readList(chunked, key('invoices'), invoiceSchema);
+        const current = await read('invoices', invoiceSchema);
         await write('invoices', current.filter((item) => item.id !== id));
       },
     },
     beneficiaries: {
-      list: () => readList(chunked, key('beneficiaries'), beneficiarySchema),
+      list: () => read('beneficiaries', beneficiarySchema),
       async upsert(entry: Beneficiary) {
-        const current = await readList(chunked, key('beneficiaries'), beneficiarySchema);
+        const current = await read('beneficiaries', beneficiarySchema);
         const exists = current.some((item) => item.id === entry.id);
         await write('beneficiaries', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [...current, entry]);
       },
       async remove(id: string) {
-        const current = await readList(chunked, key('beneficiaries'), beneficiarySchema);
+        const current = await read('beneficiaries', beneficiarySchema);
         await write('beneficiaries', current.filter((item) => item.id !== id));
       },
     },

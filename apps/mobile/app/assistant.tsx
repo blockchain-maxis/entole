@@ -31,24 +31,33 @@ const POINTS: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: ShieldCheck,
     title: 'You still send money yourself',
-    body: 'Turning it on changes nothing about how you pay people. Leave it off and Entole never moves money on its own.',
+    body: 'Talking to it changes nothing about how you pay people. Without an allowance, Entole never moves money on its own.',
   },
 ];
 
 /**
- * Where the assistant is explained and approved. It is a setting the person
- * turns on, never a default — so this is the only place its second passkey
- * confirmation happens, and signing in never asks for it.
+ * Where the assistant is explained and turned on, in two parts.
+ *
+ * Talking to it is free of ceremony: it reads what was said and works the
+ * app, and every payment it gets ready is still confirmed by the person. So
+ * turning that on asks for nothing.
+ *
+ * Paying inside allowances is the part that needs its own key, so it is the
+ * only part that asks for the passkey once more. It is offered here when
+ * there are allowances for it already, and otherwise happens the first time
+ * the person writes one. Signing in never asks for it. Mirrors
+ * `apps/web/app/assistant/page.tsx`.
  */
 export default function AssistantSettings() {
   const router = useRouter();
+  const store = useStore();
   const assistant = useAssistant();
   const colors = useThemeColors();
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const { account } = useAccount();
 
-  async function turnOn() {
+  async function letItPay() {
     setWorking(true);
     setProblem(null);
     try {
@@ -63,7 +72,7 @@ export default function AssistantSettings() {
     }
   }
 
-  async function turnOff() {
+  async function stopPaying() {
     setWorking(true);
     setProblem(null);
     try {
@@ -78,6 +87,9 @@ export default function AssistantSettings() {
   // nothing to turn on, so this screen sends them to the start instead.
   if (!account) return <Redirect href="/" />;
 
+  const anyOn = assistant.talking || assistant.enabled;
+  const hasAllowances = store.allowances.length > 0;
+
   return (
     <Screen keyboard>
       <Header title="Assistant" />
@@ -86,16 +98,73 @@ export default function AssistantSettings() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <AssistantTag>{assistant.enabled ? 'On' : 'Off'}</AssistantTag>
-
-        <Text className="mt-4 font-display text-subhead text-ink">
-          {assistant.enabled ? 'The assistant is on' : 'Let Entole pay for you, within limits'}
+        <Text className="font-display text-subhead text-ink">
+          {anyOn ? 'Your assistant' : 'An assistant that works the app for you'}
         </Text>
         <Text className="mt-2.5 font-body text-ui text-slate">
-          {assistant.enabled
-            ? 'It can propose and make payments for you, only inside the allowances you set. Turn it off any time and it stops proposing anything.'
-            : 'The assistant can propose and make payments for you, like a bill that comes round every month. It is off until you turn it on here.'}
+          Say or type what you need. It opens the screen, picks the person and fills in the amount. Anything that
+          moves your money, you confirm yourself, unless it is inside an allowance you wrote.
         </Text>
+
+        <View className="mt-6 border-t border-hairline">
+          <View className="border-b border-hairline py-4">
+            <View className="flex-row items-baseline justify-between gap-4">
+              <Text className="font-strong text-ui text-ink">Talks with you</Text>
+              <AssistantTag>{assistant.talking ? 'On' : 'Off'}</AssistantTag>
+            </View>
+            <Text className="mt-1 font-body text-note text-slate">
+              {assistant.talking
+                ? 'The microphone is beside the assistant’s control at the top of every screen.'
+                : 'Turning this on asks for nothing. It cannot move money by talking.'}
+            </Text>
+            <View className="mt-3 flex-row">
+              <Button
+                label={assistant.talking ? 'Stop talking' : 'Start talking'}
+                variant={assistant.talking ? 'secondary' : 'primary'}
+                width="hug"
+                disabled={assistant.loading}
+                onPress={() => void (assistant.talking ? assistant.stopTalking() : assistant.startTalking())}
+              />
+            </View>
+          </View>
+
+          <View className="border-b border-hairline py-4">
+            <View className="flex-row items-baseline justify-between gap-4">
+              <Text className="font-strong text-ui text-ink">Pays inside allowances</Text>
+              <AssistantTag>{assistant.enabled ? 'On' : 'Off'}</AssistantTag>
+            </View>
+            <Text className="mt-1 font-body text-note text-slate">
+              {assistant.enabled
+                ? `It pays only inside the allowances you write, and each payment waits ${ASK_UNDO_SECONDS} seconds for you to stop it.`
+                : hasAllowances
+                  ? 'Your allowances are there. Let it pay inside them; that asks you to confirm with your passkey once more.'
+                  : 'Write it an allowance and it can pay inside it, never past it. Your first one asks you to confirm with your passkey once more.'}
+            </Text>
+            <View className="mt-3 flex-row">
+              {assistant.enabled ? (
+                <Button
+                  label={working ? 'Working' : 'Stop it paying'}
+                  variant="secondary"
+                  width="hug"
+                  busy={working}
+                  onPress={() => void stopPaying()}
+                />
+              ) : hasAllowances ? (
+                <Button
+                  label={working ? 'Confirming' : 'Let it pay inside them'}
+                  width="hug"
+                  busy={working}
+                  disabled={assistant.loading}
+                  onPress={() => void letItPay()}
+                />
+              ) : (
+                <Button label="Write an allowance" width="hug" onPress={() => router.push('/rules/new')} />
+              )}
+            </View>
+          </View>
+        </View>
+
+        {problem ? <Text className="mt-4 font-body text-note text-halt">{problem}</Text> : null}
 
         {assistant.enabled ? <AskAssistant /> : null}
 
@@ -112,36 +181,12 @@ export default function AssistantSettings() {
             </View>
           ))}
         </View>
-
-        {assistant.enabled ? null : (
-          <Text className="mt-7 font-body text-note text-slate">
-            Turning it on asks you to confirm with your passkey once more.
-          </Text>
-        )}
-        {problem ? <Text className="mt-4 font-body text-note text-halt">{problem}</Text> : null}
       </ScrollView>
 
-      <ActionBar>
-        {assistant.enabled ? (
-          <Button
-            label={working ? 'Working' : 'Turn off the assistant'}
-            variant="secondary"
-            busy={working}
-            onPress={() => void turnOff()}
-          />
-        ) : (
-          <Button
-            label={working ? 'Confirming' : 'Turn on the assistant'}
-            busy={working}
-            disabled={assistant.loading}
-            onPress={() => void turnOn()}
-          />
-        )}
-      </ActionBar>
-      {assistant.enabled ? (
-        <View className="px-gutter pb-2.5">
-          <Button label="Done" variant="quiet" onPress={() => router.replace('/(tabs)')} />
-        </View>
+      {anyOn ? (
+        <ActionBar>
+          <Button label="Done" variant="secondary" onPress={() => router.replace('/(tabs)')} />
+        </ActionBar>
       ) : null}
     </Screen>
   );

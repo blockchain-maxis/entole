@@ -8,8 +8,10 @@ import {
   clearAssistant,
   deriveAssistantAccount,
   isAssistantEnabled,
+  isTalkOn,
   loadAssistantAddress,
   markAssistantEnabled,
+  saveTalkOn,
 } from './session';
 
 type EnableResult = { ok: true } | { ok: false; reason: string };
@@ -17,7 +19,12 @@ type EnableResult = { ok: true } | { ok: false; reason: string };
 type AssistantValue = {
   /** True until the saved on/off choice has been read. */
   loading: boolean;
-  /** Off until the person approves it. Never on by default. */
+  /** Whether the person talks to it. No key and no passkey: it only opens screens and gets things ready. */
+  talking: boolean;
+  startTalking: () => Promise<void>;
+  stopTalking: () => Promise<void>;
+  /** Whether it can pay inside allowances: it holds its own key. Off until the
+   * person writes it an allowance or turns it on. Never on by default. */
   enabled: boolean;
   /** The assistant key's address (never shown) — lets an allowance be created
    * without a passkey prompt. */
@@ -36,15 +43,23 @@ type AssistantValue = {
 const AssistantContext = createContext<AssistantValue | null>(null);
 
 /**
- * The assistant is a setting the person turns on, not a default. Signing in
- * derives only their own key (one prompt); the assistant's key — a second
- * passkey ceremony with its own salt — is derived here, only when they approve
- * the assistant, and after a restart only when it first has something to do.
+ * The assistant is two settings the person turns on, never defaults.
+ *
+ * Talking to it costs nothing: no key, no passkey. It only reads what was said
+ * and works the app, and everything that moves money still ends at the
+ * person's own confirmation.
+ *
+ * Paying inside allowances needs its own key — a second passkey ceremony with
+ * its own salt — derived here only when they turn that on (or write their
+ * first allowance), and after a restart only when it first has something to
+ * do. Signing in derives only their own key (one prompt). Mirrors
+ * `apps/web/lib/assistant.tsx`.
  */
 export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const { account, setAssistantKey } = useAccount();
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
+  const [talking, setTalking] = useState(false);
   const [address, setAddress] = useState<`0x${string}` | null>(null);
 
   const accountRef = useRef(account);
@@ -61,10 +76,11 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const owner = account?.owner ?? null;
   useEffect(() => {
     let live = true;
-    Promise.all([isAssistantEnabled(), loadAssistantAddress()])
-      .then(([on, saved]) => {
+    Promise.all([isAssistantEnabled(), loadAssistantAddress(), isTalkOn()])
+      .then(([on, saved, talks]) => {
         if (!live) return;
         setEnabled(on && saved !== null);
+        setTalking(talks);
         setAddress(saved);
       })
       .catch(() => undefined)
@@ -87,6 +103,16 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     setEnabled(true);
     return { ok: true };
   }, [setAssistantKey]);
+
+  const startTalking = useCallback(async () => {
+    await saveTalkOn(true);
+    setTalking(true);
+  }, []);
+
+  const stopTalking = useCallback(async () => {
+    await saveTalkOn(false);
+    setTalking(false);
+  }, []);
 
   const disable = useCallback(async () => {
     await clearAssistant();
@@ -113,8 +139,8 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
   }, [setAssistantKey]);
 
   const value = useMemo<AssistantValue>(
-    () => ({ loading, enabled, address, enable, disable, ensureKey }),
-    [loading, enabled, address, enable, disable, ensureKey],
+    () => ({ loading, talking, startTalking, stopTalking, enabled, address, enable, disable, ensureKey }),
+    [loading, talking, startTalking, stopTalking, enabled, address, enable, disable, ensureKey],
   );
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;

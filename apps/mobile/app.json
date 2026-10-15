@@ -52,6 +52,14 @@
       ],
       "expo-document-picker",
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Entole uses the microphone so you can tell the assistant what you need.",
+          "speechRecognitionPermission": "Entole turns what you say to the assistant into words, to fill in the screen for you.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",

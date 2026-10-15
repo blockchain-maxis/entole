@@ -67,8 +67,11 @@ export default function PayPage() {
           ) : store.contacts.length === 0 ? (
             <li className="border-t border-hairline py-4">
               <p className="text-pretty font-body text-ui text-slate">
-                No beneficiaries yet. After you pay someone you can save them from the receipt, and they appear
-                here.
+                No beneficiaries yet. Save someone from{' '}
+                <Link href="/beneficiaries/new" className="font-strong text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
+                  Beneficiaries
+                </Link>
+                , or from the receipt after you pay them.
               </p>
             </li>
           ) : (

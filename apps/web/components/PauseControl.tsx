@@ -20,15 +20,16 @@ import { useAssistant } from '@/lib/assistant';
  * keeps its shield and its state and drops the word; the label read aloud is
  * unchanged.
  *
- * While the assistant is on, the microphone for talking to it sits beside this
+ * While the person talks to the assistant, the microphone sits beside this
  * control: the same corner, on every page. It is a second control and never
  * takes this one's place, so the way to stop the assistant is still one click.
+ * Talking needs no key, so the microphone can be there while paying is off.
  */
 export function PauseControl() {
   const { paused, setPaused } = useStore();
-  const { enabled } = useAssistant();
+  const { enabled, talking } = useAssistant();
 
-  if (!enabled) {
+  if (!enabled && !talking) {
     return (
       <Link
         href="/assistant"
@@ -44,7 +45,7 @@ export function PauseControl() {
 
   return (
     <div className="flex flex-none items-center gap-2">
-      <TalkButton />
+      {talking ? <TalkButton /> : null}
       <PauseToggle paused={paused} onToggle={() => void setPaused(!paused)} />
     </div>
   );

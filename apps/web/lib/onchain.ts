@@ -12,6 +12,7 @@ import type { PaymentsGateway } from '@entole/core/gateway';
 import { createOnChainGateway } from '@entole/core/onchain-gateway';
 import type { EntoleKeyAccount } from '@entole/core/passkey';
 import { encodePaymentCode } from '@entole/core/payment-code';
+import { createRecordSync } from '@entole/core/record-sync';
 import { createRecords } from '@entole/core/records';
 import { createEnsureGas, createRelayClient } from '@entole/core/relay-client';
 import { MovementNotConfirmedError, type ConfirmMovement } from '@entole/core/movement';
@@ -128,7 +129,18 @@ export function useOnChainBackend(
   return useMemo(() => {
     if (!owner) return { gateway: pendingGateway, backend: pendingBackend };
 
-    const records = createRecords(deviceRecordStore, owner.viemAccount.address);
+    // Records follow the account between devices, sealed on this one with a key
+    // only its passkey can make (`@entole/core/record-sync`). Without a server
+    // they simply stay here.
+    const records = createRecords(
+      deviceRecordStore,
+      owner.viemAccount.address,
+      createRecordSync({
+        baseUrl: '',
+        account: owner.viemAccount.address,
+        sign: (message) => owner.viemAccount.signMessage({ message }),
+      }),
+    );
     // The assistant's proposal inbox, keyed by the owner address and read with
     // a signature proving control of it. Same origin: the route lives in this
     // Next app. An unconfigured or down server reads as an empty inbox.

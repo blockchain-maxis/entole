@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
-import { markOnboarded, registerAccount, signInWithExistingPasskey } from '@/lib/session';
+import { markOnboarded, signInWithExistingPasskey } from '@/lib/session';
 
 /**
  * Sign-in is a passkey — confirmed with whatever unlocks the phone (face,
@@ -17,21 +17,18 @@ import { markOnboarded, registerAccount, signInWithExistingPasskey } from '@/lib
 export default function Welcome() {
   const router = useRouter();
   const { setAccount } = useAccount();
-  // Which of the two buttons is waiting on the passkey prompt, if either.
-  const [busy, setBusy] = useState<'new' | 'existing' | null>(null);
+  // Whether signing in is waiting on the passkey prompt.
+  const [busy, setBusy] = useState<'existing' | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
-  async function start() {
-    setBusy('new');
+  /**
+   * A new account starts with the person's name and username, and the passkey
+   * is made on the next screen under them, so a phone holding several passkeys
+   * can tell this one apart.
+   */
+  function start() {
     setProblem(null);
-    const result = await registerAccount('Entole account');
-    setBusy(null);
-    if (result.ok) {
-      setAccount(result.account);
-      router.push('/onboarding/name');
-    } else {
-      setProblem(result.reason);
-    }
+    router.push('/onboarding/name');
   }
 
   /**
@@ -91,12 +88,7 @@ export default function Welcome() {
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">
-          <Button
-            label="Continue with passkey"
-            busy={busy === 'new'}
-            disabled={busy !== null}
-            onPress={() => void start()}
-          />
+          <Button label="Get started" disabled={busy !== null} onPress={start} />
         </View>
         <View className="mt-1 flex-row">
           <Button

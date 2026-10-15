@@ -27,12 +27,12 @@ import { Text } from './Text';
 export function PauseButton() {
   const router = useRouter();
   const { paused } = useStore();
-  const { enabled } = useAssistant();
+  const { enabled, talking } = useAssistant();
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
 
-  const state = !enabled ? 'off' : paused ? 'paused' : 'on';
-  const compact = enabled && width < 390;
+  const state = !enabled && !talking ? 'off' : paused ? 'paused' : 'on';
+  const compact = state !== 'off' && width < 390;
   const label = compact
     ? { off: 'Off', on: 'On', paused: 'Paused' }[state]
     : { off: 'Assistant · Off', on: 'Assistant · On', paused: 'Assistant · Paused' }[state];

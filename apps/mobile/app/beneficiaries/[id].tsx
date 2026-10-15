@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 
 import { useBackend } from '@entole/core/backend';
+import { draftFrom, draftProblems, toRecordFields, type BeneficiaryDraft } from '@entole/core/beneficiary-draft';
 import { toContact, type Beneficiary } from '@entole/core/records';
 import { useStore } from '@entole/core/store';
 
@@ -15,12 +16,6 @@ import { Screen } from '@/components/ui/Screen';
 import { Sheet, SheetLayer } from '@/components/ui/Sheet';
 import { RowSkeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import {
-  draftFrom,
-  draftProblems,
-  toRecordFields,
-  type BeneficiaryDraft,
-} from '@/lib/beneficiary-draft';
 
 type Load = { state: 'loading' } | { state: 'missing' } | { state: 'ready'; beneficiary: Beneficiary };
 

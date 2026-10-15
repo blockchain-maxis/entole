@@ -33,6 +33,12 @@ works the app for you: it opens a screen, picks the person, fills in the
 amount, reads out a balance. It is optional. Off, there is no microphone
 anywhere and nothing else about the app changes.
 
+Talking and paying are two settings (since 15 October 2026). Talking needs no
+key and asks for nothing: the assistant only reads what was said and works the
+app. Paying inside allowances needs the assistant's own key, a second passkey
+ceremony, which is asked for once, when the person writes their first
+allowance or lets it pay inside the ones they have (`apps/*/lib/assistant.tsx`).
+
 The trust model above is unchanged, and three things keep it so.
 
 - **A fixed vocabulary.** `packages/core/assistant-actions.ts` lists everything
@@ -59,11 +65,51 @@ The trust model above is unchanged, and three things keep it so.
   left: that becomes a proposal, waits out its undo window, and is held to its
   limit by the contract, exactly as before.
 
-Listening and speaking are the browser's or the phone's own. Entole receives
-words, never sound. In the browser that is the Web Speech API
-(`apps/web/lib/voice.ts`); on the phone, `expo-speech-recognition` and
-`expo-speech`, loaded so that a build without them still runs and is typed to
-(`apps/mobile/lib/voice.ts`).
+Listening and speaking are the browser's or the phone's own, or a model on the
+device. Entole receives words, never sound.
+
+- **The browser's own listening.** Where it works (Chrome, Edge, Android), it is
+  the Web Speech API (`apps/web/lib/voice.ts`).
+- **Listening on the device.** Where it is missing or does not deliver (Firefox,
+  Brave, the iPhone home-screen app, the browsers inside other apps), a small
+  speech model runs in the browser itself (`apps/web/lib/device-listening.ts`,
+  `whisper.worker.ts`): Whisper tiny, English, through transformers.js 3.8.1.
+  Nothing of it is in the app's bundle. After the person agrees to a one-time
+  download of about 65 MB, the library and its runtime come from jsDelivr at
+  that pinned version and the model from Hugging Face; the browser keeps them.
+  The microphone is recorded, the recording becomes words in a worker, and only
+  the words go on. The worker has no access to the page or the account, and
+  words only ever get a payment ready for the person to confirm.
+- **The phone.** `expo-speech-recognition` and `expo-speech`, loaded so that a
+  build without them still runs and is typed to (`apps/mobile/lib/voice.ts`).
+  Both are installed and the recognition plugin is in `app.json`; a build made
+  after 15 October 2026 listens and speaks.
+- **Speaking** is the browser's or the phone's own voice. On an iPhone the
+  browser's voice is woken inside the tap that opens the sheet, so the reply,
+  which comes after waiting on the network, can still be heard.
+
+## Records that follow the account
+
+Saved people, allowances, seats, staff, invoices, tax reserves, activity and
+the savings figure are the person's own records (`packages/core/records.ts`).
+They are kept on the device and, since 15 October 2026, carried between the
+account's devices (`packages/core/record-sync.ts`, `apps/web/app/api/records`).
+
+- **Sealed on the device.** Each collection is encrypted with AES-256-GCM under
+  a key made from the owner key's signature over a fixed sentence, through
+  HKDF. secp256k1 signatures here are deterministic (RFC 6979), so every device
+  signed in with the same passkey makes the same key; a test fails if that ever
+  stops being true. The signature is never sent. The account and the
+  collection's name are bound into each seal, so one cannot be passed off as
+  another. The server keeps what it cannot read.
+- **Signed requests.** Reading and writing carry the owner key's signature, like
+  the payments feed. A write's signature covers the sha256 of exactly what is
+  stored and when it was written.
+- **Newest wins.** Each collection carries when it was written. A write is kept
+  only if it is newer than the copy held (a compare-and-set on Upstash), so a
+  request sent twice changes nothing. The first read on a device asks the server
+  for anything newer and sends what the server lacks; it waits at most four
+  seconds, then goes on with the device's own copy.
 
 ## Accounts and auth
 

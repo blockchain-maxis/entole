@@ -34,29 +34,28 @@ product: where it touches a screen, the screen says so plainly.
   so. The model path is written and tested against the answer shapes, and has
   not been run against the live model from this repo: there was no key to run
   it with. `assistant-brain.live.test.ts` runs it the day there is.
-- **The phone cannot listen or speak until its next build.** The talk sheet is
-  there and is typed to. `expo-speech-recognition` and `expo-speech` are loaded
-  behind a guard; the packages still have to be installed and the recognition
-  plugin added to `app.json` before that build (`docs/ARCHITECTURE.md`, "The
-  assistant you talk to").
-- **Turning the assistant on still costs a passkey prompt**, because one switch
-  both lets it talk and gives it its own key for allowances. Talking needs no
-  key. Splitting the two is the upgrade.
-- **Savings and bills open, but are not filled in, when asked for by voice.**
-  Send and Receive take the amount; those two screens do not yet.
-- **Records live on the device.** Beneficiaries, allowances, seats and invoices
-  are per-device; `RecordStore` in core is the seam for a backend. Payment
-  history is no longer only there: since 13 October 2026 both apps fill it in
-  from the Envio index (`indexer/README.md`), without the notes people wrote,
-  which the network does not hold. The assistant inbox, directory and Telegram
-  links are server-side (Upstash Redis).
-- **Signing in on a new device brings the account, its money and its
-  payments, nothing else.** "I already have an account" (added 10 October 2026) asks for the
-  passkey the account was made with, so the same account opens on the phone
-  app, a phone browser and a desktop. Before that every new device could only
-  make a new, empty account. The name is asked for again, and saved people
-  and allowances do not follow, for the reason above. Payments do, from the
-  index.
+- **The phone listens and speaks from its next build.** The packages are
+  installed and the recognition plugin is in `app.json` (15 October 2026); the
+  build itself has not been made. Until it is, the talk sheet is typed to.
+- **Listening on the device in the browser has not been tried on a real
+  phone.** It is written and its pieces are tested; the first download and a
+  spoken request on a mid-range Android in Firefox, and in the iPhone
+  home-screen app, are still to be seen.
+- **Records follow the account, through Upstash.** Since 15 October 2026
+  saved people, allowances, seats, staff, invoices, tax reserves, activity
+  (with the notes people wrote) and the savings figure are sealed on the device
+  and kept on the server (`packages/core/record-sync.ts`, `/api/records`); a
+  device that has none of them reads them back. The newer copy of a collection
+  wins whole, so two devices editing the same list at the same moment keep the
+  later one. Without Redis in production the route answers 501 and records stay
+  on the device, as before. The compare-and-set runs as a Lua script on Upstash
+  and has been tested against the in-memory store only.
+- **Signing in on a new device brings the account, its money, its payments
+  and its records.** "I already have an account" (added 10 October 2026) asks
+  for the passkey the account was made with, so the same account opens on the
+  phone app, a phone browser and a desktop. The name is asked for again; saved
+  people, allowances and invoices follow from the server (above), and payments
+  from the index.
   - It works only where the passkey can be reached: carried over by the same
     Google or Apple account, or by choosing the other device when the browser
     asks. Not tried on real devices yet.
@@ -66,22 +65,14 @@ product: where it touches a screen, the screen says so plainly.
     The earlier address now sends people on to the new one.
   - Accounts made before this on separate devices are separate accounts and
     stay that way.
-  - Every passkey is saved under the same label, "Entole account", so someone
-    holding several cannot tell them apart when asked to pick one.
-- **In the browser a person is saved from a receipt, and that is all.** After
-  paying someone by their username or number, the receipt offers to save them under
-  a name (added 11 October 2026); until then the browser could not save anyone,
-  so no allowance could be set there and the assistant had nobody to pay. There
-  is still no page in the browser to rename or remove a saved person, or to add
-  one without paying them first. The phone app has all three.
-- **Seats are not offered.** A team member has no account to sign with, so the
-  contract cannot enforce a seat. The phone Business tab dropped seats on
-  purpose (a hard-rules test holds that), and the web Business page no longer
-  links to them either: it drew a seat with an allowance meter that nothing
-  moved. The `/business/new-seat` page still exists, unlinked.
-- **Supply requests are not offered.** They were kept only until the page
-  reloaded. The web Business page no longer links to them; the
-  `/business/order-supplies` page still exists, unlinked.
+  - Passkeys made before 15 October 2026 are all saved under the same label,
+    "Entole account". Since then each is saved under the person's username and
+    name (`passkeyLabel` in `packages/core/passkey.ts`); the phone now asks for
+    the name before it makes the passkey.
+- **Seats and supply requests are not offered.** A team member has no account
+  to sign with, so the contract cannot enforce a seat, and supply requests were
+  kept only until the page reloaded. Neither is linked from either app; the two
+  unlinked web pages were removed on 15 October 2026. The core functions stay.
 - **A held invoice holds nothing.** "Held" means the business will not treat
   the request as due until the rate is at or better than the one it set.
   Checking it reads the business's own record and the live rate, and releasing

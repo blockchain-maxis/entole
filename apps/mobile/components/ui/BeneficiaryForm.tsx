@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import type { BeneficiaryDraft } from '@/lib/beneficiary-draft';
+import type { BeneficiaryDraft } from '@entole/core/beneficiary-draft';
 
 import { CountryField } from './CountryPicker';
 import { Field } from './Field';

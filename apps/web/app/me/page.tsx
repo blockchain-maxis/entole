@@ -250,8 +250,13 @@ function Me() {
         <div className="flex flex-col gap-2">
           <Row label="Allowances" value={`${store.allowances.length} active`} />
           <LinkRow
+            label="Beneficiaries"
+            value={store.status === 'ready' ? `${store.contacts.length} saved` : undefined}
+            onClick={() => router.push('/beneficiaries')}
+          />
+          <LinkRow
             label="Assistant"
-            value={!assistant.enabled ? 'Off' : store.paused ? 'Paused' : 'On'}
+            value={!assistant.enabled && !assistant.talking ? 'Off' : store.paused ? 'Paused' : 'On'}
             onClick={() => router.push('/assistant')}
           />
           <LinkRow label="Connections" onClick={() => router.push('/connections')} />

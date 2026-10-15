@@ -1,8 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 
-import { EMPTY_ENTRY, entryDisplay, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import {
+  EMPTY_ENTRY,
+  entryDisplay,
+  entryFromMinor,
+  entryToMinor,
+  pressKey,
+  type AmountEntry,
+} from '@entole/core/amount-entry';
 import { formatNaira, kobo } from '@entole/core/money';
 import { savingsEarning } from '@entole/core/savings';
 import { useStore } from '@entole/core/store';
@@ -10,7 +18,9 @@ import { useStore } from '@entole/core/store';
 import { Amount } from '@/components/Amount';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { PageLoader } from '@/components/LogoLoader';
 import { BalanceSkeleton } from '@/components/Skeleton';
+import { askedMinor } from '@/lib/asked-amount';
 
 type Mode = 'view' | 'deposit' | 'withdraw';
 
@@ -26,14 +36,37 @@ type Mode = 'view' | 'deposit' | 'withdraw';
  * `apps/mobile/app/grow/savings.tsx`.
  */
 export default function SavingsPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <SavingsFromAddress />
+    </Suspense>
+  );
+}
+
+/**
+ * `?mode=deposit|withdraw&amount=` (kobo) opens the page part-way: the
+ * assistant was asked to put money in or take it out. Asked again while here,
+ * the page starts over with the new request.
+ */
+function SavingsFromAddress() {
+  const query = useSearchParams();
+  const asked = query.get('mode');
+  const mode = asked === 'deposit' || asked === 'withdraw' ? asked : 'view';
+  const amountMinor = mode === 'view' ? undefined : askedMinor(query.get('amount'));
+  return <Savings key={query.toString()} askedMode={mode} askedAmountMinor={amountMinor} />;
+}
+
+function Savings({ askedMode, askedAmountMinor }: { askedMode: Mode; askedAmountMinor: number | undefined }) {
   const store = useStore();
   const loading = store.status === 'loading';
   const position = store.growPosition;
   // Only ever a rate read from where the money is held. Null means it earns nothing.
   const earning = savingsEarning(position);
 
-  const [mode, setMode] = useState<Mode>('view');
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const [mode, setMode] = useState<Mode>(askedMode);
+  const [entry, setEntry] = useState<AmountEntry>(() =>
+    askedAmountMinor !== undefined ? entryFromMinor(kobo(askedAmountMinor)) : EMPTY_ENTRY,
+  );
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 

@@ -52,18 +52,36 @@ function toEntoleAccount(
 }
 
 /**
+ * What a passkey is saved under, so someone holding several can tell them
+ * apart when the phone asks which to use: their username where they have one,
+ * and their own name. The app's name is not repeated; the phone already shows
+ * the domain beside every passkey.
+ */
+export function passkeyLabel(person: { fullName: string; username?: string | undefined }): {
+  name: string;
+  displayName: string;
+} {
+  const fullName = person.fullName.replace(/\s+/g, ' ').trim();
+  const username = person.username?.trim().replace(/^@/, '');
+  const name = username ? `@${username}` : fullName || 'Entole account';
+  return { name, displayName: fullName || name };
+}
+
+/**
  * Registers a new passkey and derives the owner account from it. Onboarding
  * calls this once; there is nothing else to store — the credential metadata
  * returned here is enough to sign back in later with `signInToOwnerAccount`.
+ * `userName` is what the passkey is listed as; it defaults to `displayName`.
  */
 export async function createOwnerAccount(options: {
   rp: PasskeyRelyingParty;
   displayName: string;
+  userName?: string;
   webAuthnClient?: WebAuthnClient;
 }): Promise<EntoleKeyAccount> {
   const created = await createPasskeyWithPrfOutput({
     rp: options.rp,
-    user: { name: options.displayName, displayName: options.displayName },
+    user: { name: options.userName ?? options.displayName, displayName: options.displayName },
     prfSalt: OWNER_SALT,
     ...(options.webAuthnClient ? { webAuthnClient: options.webAuthnClient } : {}),
   });

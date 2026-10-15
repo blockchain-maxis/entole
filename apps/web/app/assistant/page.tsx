@@ -27,22 +27,30 @@ const POINTS: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: ShieldCheck,
     title: 'You still send money yourself',
-    body: 'Turning it on changes nothing about how you pay people. Leave it off and Entole never moves money on its own.',
+    body: 'Talking to it changes nothing about how you pay people. Without an allowance, Entole never moves money on its own.',
   },
 ];
 
 /**
- * Where the assistant is explained and approved. It is a setting the person
- * turns on, never a default — so this is the only place its second passkey
- * confirmation happens, and signing in never asks for it.
+ * Where the assistant is explained and turned on, in two parts.
+ *
+ * Talking to it is free of ceremony: it reads what was said and works the
+ * app, and every payment it gets ready is still confirmed by the person. So
+ * turning that on asks for nothing.
+ *
+ * Paying inside allowances is the part that needs its own key, so it is the
+ * only part that asks for the passkey once more. It is offered here when
+ * there are allowances for it already, and otherwise happens the first time
+ * the person writes one. Signing in never asks for it.
  */
 export default function AssistantPage() {
   const router = useRouter();
+  const store = useStore();
   const assistant = useAssistant();
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  async function turnOn() {
+  async function letItPay() {
     setWorking(true);
     setProblem(null);
     try {
@@ -53,28 +61,93 @@ export default function AssistantPage() {
     }
   }
 
-  function turnOff() {
+  function stopPaying() {
     setProblem(null);
     assistant.disable();
   }
+
+  const anyOn = assistant.talking || assistant.enabled;
+  const hasAllowances = store.allowances.length > 0;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
       <Header title="Assistant" back="/me" />
 
       <div className="flex-1 px-gutter pb-28 pt-2">
-        <span className="inline-block rounded-md bg-indigo-wash px-2 py-1 font-heavy text-micro uppercase text-indigo">
-          {assistant.enabled ? 'On' : 'Off'}
-        </span>
-
-        <h2 className="mt-4 font-display text-subhead text-ink">
-          {assistant.enabled ? 'The assistant is on' : 'Let Entole pay for you, within limits'}
+        <h2 className="font-display text-subhead text-ink">
+          {anyOn ? 'Your assistant' : 'An assistant that works the app for you'}
         </h2>
-        <p className="mt-2.5 font-body text-ui text-slate">
-          {assistant.enabled
-            ? 'It can propose and make payments for you, only inside the allowances you set. Turn it off any time and it stops proposing anything.'
-            : 'The assistant can propose and make payments for you, like a bill that comes round every month. It is off until you turn it on here.'}
+        <p className="mt-2.5 text-pretty font-body text-ui text-slate">
+          Say or type what you need. It opens the screen, picks the person and fills in the amount. Anything that
+          moves your money, you confirm yourself, unless it is inside an allowance you wrote.
         </p>
+
+        <ul className="mt-6 border-t border-hairline">
+          <li className="border-b border-hairline py-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="font-strong text-ui text-ink">Talks with you</p>
+              <p className="font-strong text-note text-indigo">{assistant.talking ? 'On' : 'Off'}</p>
+            </div>
+            <p className="mt-1 text-pretty font-body text-note text-slate">
+              {assistant.talking
+                ? 'The microphone is beside the assistant’s control at the top of every page.'
+                : 'Turning this on asks for nothing. It cannot move money by talking.'}
+            </p>
+            <button
+              type="button"
+              disabled={assistant.loading}
+              onClick={assistant.talking ? assistant.stopTalking : assistant.startTalking}
+              className={`mt-3 flex h-12 items-center justify-center rounded-control px-5 font-strong text-ui transition-colors active:translate-y-px disabled:opacity-60 ${
+                assistant.talking
+                  ? 'border border-line bg-card text-ink hover:border-mist'
+                  : 'bg-ink text-paper hover:bg-ink/85'
+              }`}
+            >
+              {assistant.talking ? 'Stop talking' : 'Start talking'}
+            </button>
+          </li>
+
+          <li className="border-b border-hairline py-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="font-strong text-ui text-ink">Pays inside allowances</p>
+              <p className="font-strong text-note text-indigo">{assistant.enabled ? 'On' : 'Off'}</p>
+            </div>
+            <p className="mt-1 text-pretty font-body text-note text-slate">
+              {assistant.enabled
+                ? `It pays only inside the allowances you write, and each payment waits ${ASK_UNDO_SECONDS} seconds for you to stop it.`
+                : hasAllowances
+                  ? 'Your allowances are there. Let it pay inside them; that asks you to confirm with your passkey once more.'
+                  : 'Write it an allowance and it can pay inside it, never past it. Your first one asks you to confirm with your passkey once more.'}
+            </p>
+            {assistant.enabled ? (
+              <button
+                type="button"
+                onClick={stopPaying}
+                className="mt-3 flex h-12 items-center justify-center rounded-control border border-line bg-card px-5 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px"
+              >
+                Stop it paying
+              </button>
+            ) : hasAllowances ? (
+              <button
+                type="button"
+                disabled={working || assistant.loading}
+                onClick={() => void letItPay()}
+                className="mt-3 flex h-12 items-center justify-center rounded-control bg-ink px-5 font-strong text-ui text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
+              >
+                {working ? 'Confirming' : 'Let it pay inside them'}
+              </button>
+            ) : (
+              <Link
+                href="/rules/new"
+                className="mt-3 inline-flex h-12 items-center justify-center rounded-control bg-ink px-5 font-strong text-ui text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
+              >
+                Write an allowance
+              </Link>
+            )}
+          </li>
+        </ul>
+
+        {problem ? <p className="mt-4 font-body text-note text-halt">{problem}</p> : null}
 
         {assistant.enabled ? <AskAssistant /> : null}
 
@@ -92,42 +165,15 @@ export default function AssistantPage() {
           ))}
         </ul>
 
-        {assistant.enabled ? null : (
-          <p className="mt-7 font-body text-note text-slate">
-            Turning it on asks you to confirm with your passkey once more.
-          </p>
-        )}
-        {problem ? <p className="mt-4 font-body text-note text-halt">{problem}</p> : null}
-
-        <div className="mt-8 flex gap-2.5">
-          {assistant.enabled ? (
-            <>
-              <button
-                type="button"
-                onClick={turnOff}
-                className="flex h-14 flex-1 items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist"
-              >
-                Turn off the assistant
-              </button>
-              <button
-                type="button"
-                onClick={() => router.replace('/')}
-                className="flex h-14 items-center justify-center rounded-control px-5 font-strong text-prose text-slate"
-              >
-                Done
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              disabled={working || assistant.loading}
-              onClick={() => void turnOn()}
-              className="flex h-14 flex-1 items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 disabled:opacity-60"
-            >
-              {working ? 'Confirming' : 'Turn on the assistant'}
-            </button>
-          )}
-        </div>
+        {anyOn ? (
+          <button
+            type="button"
+            onClick={() => router.replace('/')}
+            className="mt-8 flex h-14 w-full items-center justify-center rounded-control border border-line bg-card font-strong text-prose text-ink transition-colors hover:border-mist"
+          >
+            Done
+          </button>
+        ) : null}
       </div>
     </main>
   );

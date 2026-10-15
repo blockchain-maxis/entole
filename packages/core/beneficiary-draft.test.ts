@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EMPTY_DRAFT, draftProblems, isValidDraft, toRecordFields } from '../lib/beneficiary-draft';
+import { EMPTY_DRAFT, draftProblems, isValidDraft, toRecordFields } from './beneficiary-draft';
 
 describe('a beneficiary draft', () => {
   it('needs a name and nothing else', () => {

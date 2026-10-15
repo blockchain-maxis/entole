@@ -67,7 +67,7 @@ export const ASSISTANT_SYSTEM_PROMPT = [
   '{"do":"pay","to":WHO,"amount":NUMBER,"note":TEXT} gets a payment ready. WHO is who they named, as they said it: a name, an @username or a phone number. "amount" and "note" are optional.',
   '{"do":"request","amount":NUMBER} when they want to be paid or to show their own link. "amount" is optional.',
   '{"do":"save","amount":NUMBER} puts money into savings. {"do":"take-out","amount":NUMBER} takes it out. "amount" is optional.',
-  '{"do":"bill","kind":K} where K is electricity, airtime-data, cable-tv or internet. "kind" is optional.',
+  '{"do":"bill","kind":K,"amount":NUMBER} opens a bill. K is electricity (also "light", NEPA), airtime-data, cable-tv (DSTV, GOtv, Startimes) or internet. "kind" and "amount" are optional.',
   '{"do":"tell","about":A} where A is balance, recent, allowances, savings or username. Use this whenever they ask for a fact about their account; the app says the real figure.',
   '{"do":"pause"} and {"do":"resume"} pause or resume the assistant itself.',
   '',

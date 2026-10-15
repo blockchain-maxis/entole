@@ -187,6 +187,19 @@ threat model above. Concretely:
   and for everyone together a day (`ASSISTANT_DAILY_TURNS`). Past a limit the
   app falls back to its plain grammar. The reader never sees an account and
   cannot move money whatever it is asked.
+- **Records** (`/api/records`) are kept sealed: each collection is encrypted on
+  the device under a key made from the owner key's signature, which never
+  leaves it, so the server holds saved people, bank details on file, invoices
+  and notes it cannot read. Reading and writing need the owner's signature; a
+  write's signature covers the exact copy stored. A compromised server could
+  withhold or roll back a collection to a copy the owner once wrote; it could
+  not read one, forge one, or move money with one.
+- **On-device listening** (`apps/web/lib/whisper.worker.ts`) loads a speech
+  library and its runtime from jsDelivr at one pinned version, and the model
+  from Hugging Face, after the person agrees to the download. It runs in a
+  worker with no access to the page, the account or its keys; what it hands
+  back is words, and words can only get a payment ready for the person to
+  confirm. The recording never leaves the device.
 - **Every page** is sent with headers that keep it out of another site's
   frame, on https, and typed as what it is. The content policy covers who may
   frame the app, where a form may post and plugins; it does not yet list which

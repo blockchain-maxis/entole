@@ -143,7 +143,7 @@ export default function Me() {
               <DetailRow label="Allowances" value={`${store.allowances.length} active`} tabular={false} />
               <LinkRow
                 label="Assistant"
-                value={!assistant.enabled ? 'Off' : store.paused ? 'Paused' : 'On'}
+                value={!assistant.enabled && !assistant.talking ? 'Off' : store.paused ? 'Paused' : 'On'}
                 onPress={() => router.push('/assistant')}
               />
               <LinkRow

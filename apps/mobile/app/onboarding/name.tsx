@@ -21,7 +21,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { API_BASE } from '@/lib/onchain';
-import { markOnboarded, recordUsernameClaim, storeProfile } from '@/lib/session';
+import { markOnboarded, recordUsernameClaim, registerAccount, storeProfile } from '@/lib/session';
 
 /**
  * The onboarding fields that aren't money — plain text inputs are correct here,
@@ -32,6 +32,11 @@ import { markOnboarded, recordUsernameClaim, storeProfile } from '@/lib/session'
  * A username is one person's. The field says so as it is typed, and
  * continuing claims it for this account: if someone else got there first, the
  * claim is refused and the person picks another before going on.
+ *
+ * A new person comes here before they have an account: Continue makes their
+ * passkey, saved under the username and name just typed, so a phone holding
+ * several passkeys can tell this one apart. Then the username is claimed for
+ * the account the passkey made.
  *
  * Someone who signed in with a passkey from another device lands here too
  * (`returning`): their account exists, this phone just has no name for them.
@@ -47,6 +52,7 @@ export default function NameStep() {
   const [usernameEdited, setUsernameEdited] = useState(false);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   /** A name the directory refused when it was claimed: someone took it in between. */
   const [refused, setRefused] = useState<string | null>(null);
   const backend = useBackend();
@@ -71,17 +77,30 @@ export default function NameStep() {
     setTouched(true);
     if (!canContinue) return;
     const profile = { fullName: fullName.trim(), username };
-    if (account) {
+    setProblem(null);
+    let current = account;
+    if (!current) {
+      setSaving(true);
+      const made = await registerAccount(profile);
+      if (!made.ok) {
+        setProblem(made.reason);
+        setSaving(false);
+        return;
+      }
+      current = made.account;
+      setAccount(made.account);
+    }
+    if (current) {
       setSaving(true);
       try {
         await backend.directory.claim({
-          address: account.owner.address,
+          address: current.owner.address,
           name: profile.fullName,
           initials: initialsFor(profile.fullName),
           tone: 1,
           username,
         });
-        await recordUsernameClaim(account.owner.address, username);
+        await recordUsernameClaim(current.owner.address, username);
       } catch (error) {
         // Taken in the moment between the check and the claim: stay and pick
         // another. Anything else (no connection, say) does not block signing
@@ -95,7 +114,7 @@ export default function NameStep() {
       setSaving(false);
     }
     await storeProfile(profile);
-    if (account) setAccount({ ...account, displayName: profile.fullName, username: profile.username });
+    if (current) setAccount({ ...current, displayName: profile.fullName, username: profile.username });
     if (returning) {
       await markOnboarded();
       router.replace('/(tabs)');
@@ -185,11 +204,17 @@ export default function NameStep() {
               : 'Lowercase letters, numbers, dots and underscores.'}
           </Text>
         )}
+        {problem ? <Text className="mt-5 font-body text-ui text-halt">{problem}</Text> : null}
       </ScrollView>
 
       <View className="flex-none px-gutter-lg pb-2.5 pt-3">
         <View className="flex-row">
-          <Button label="Continue" busy={saving} disabled={!canContinue} onPress={() => void submit()} />
+          <Button
+            label={account ? 'Continue' : 'Continue with passkey'}
+            busy={saving}
+            disabled={!canContinue}
+            onPress={() => void submit()}
+          />
         </View>
       </View>
     </Screen>

@@ -16,7 +16,8 @@ import { plainMessage } from '@/lib/send';
 export default function BillReference() {
   const router = useRouter();
   const colors = useThemeColors();
-  const params = useLocalSearchParams<{ category?: string }>();
+  // `amount` (kobo) rides along to the keypad when the assistant was asked for a figure.
+  const params = useLocalSearchParams<{ category?: string; amount?: string }>();
   const info = billCategory(params.category);
   const [reference, setReference] = useState('');
   const trimmed = reference.trim();
@@ -44,7 +45,12 @@ export default function BillReference() {
       const found = await store.validateBill({ category: info.id, customerIdentifier: trimmed });
       router.push({
         pathname: '/bill/pay',
-        params: { category: info.id, reference: trimmed, name: found.customerName },
+        params: {
+          category: info.id,
+          reference: trimmed,
+          name: found.customerName,
+          ...(params.amount ? { amount: params.amount } : {}),
+        },
       });
     } catch (error) {
       setProblem(plainMessage(error, "We couldn't check that account. Try again."));

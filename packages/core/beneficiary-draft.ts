@@ -1,4 +1,4 @@
-import type { Beneficiary } from '@entole/core/records';
+import type { Beneficiary } from './records';
 
 /**
  * What the add and edit screens hold while someone types. Everything is a

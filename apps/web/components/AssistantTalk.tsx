@@ -4,7 +4,8 @@ import { ArrowUp, Mic, Square } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { LogoLoader } from '@/components/LogoLoader';
-import { useAssistantTalk } from '@/lib/assistant-talk';
+import { useAssistantTalk, type ListeningSetup } from '@/lib/assistant-talk';
+import { DEVICE_LISTENING_MEGABYTES } from '@/lib/device-listening';
 
 /**
  * Talking to the assistant.
@@ -66,7 +67,21 @@ export function AssistantLine() {
 }
 
 export function AssistantTalkSheet() {
-  const { open, hide, phase, hearing, turns, hears, problem, startListening, stopListening, ask } = useAssistantTalk();
+  const {
+    open,
+    hide,
+    phase,
+    hearing,
+    turns,
+    hears,
+    setup,
+    getListening,
+    dismissSetup,
+    problem,
+    startListening,
+    stopListening,
+    ask,
+  } = useAssistantTalk();
   const [typed, setTyped] = useState('');
   const panel = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
@@ -91,7 +106,8 @@ export function AssistantTalkSheet() {
   if (!open) return null;
 
   const listening = phase === 'listening';
-  const reading = phase === 'reading';
+  const writing = phase === 'writing';
+  const reading = phase === 'reading' || writing;
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -161,6 +177,8 @@ export function AssistantTalkSheet() {
           </p>
         ) : null}
 
+        {setup ? <ListeningSetupPanel setup={setup} onAccept={() => void getListening()} onDismiss={dismissSetup} /> : null}
+
         <div className="mt-4 flex flex-none items-center gap-3">
           {hears ? (
             <button
@@ -174,7 +192,7 @@ export function AssistantTalkSheet() {
               }`}
             >
               {reading ? (
-                <LogoLoader size={26} label="Working it out" mono />
+                <LogoLoader size={26} label={writing ? 'Writing down what you said' : 'Working it out'} mono />
               ) : listening ? (
                 <Square size={18} strokeWidth={0} fill="currentColor" aria-hidden />
               ) : (
@@ -191,7 +209,7 @@ export function AssistantTalkSheet() {
               id="talk-typed"
               value={typed}
               onChange={(event) => setTyped(event.target.value)}
-              placeholder={listening ? 'Listening' : hears ? 'Or type it' : 'Type what you need'}
+              placeholder={listening ? 'Listening' : writing ? 'Writing it down' : hears ? 'Or type it' : 'Type what you need'}
               autoComplete="off"
               autoCapitalize="sentences"
               enterKeyHint="send"
@@ -215,5 +233,72 @@ export function AssistantTalkSheet() {
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Listening on the phone itself, offered where the browser cannot listen.
+ * Nothing is fetched until the person says yes, because it costs them data:
+ * the size is said before, and how much has arrived is shown while it comes.
+ */
+function ListeningSetupPanel({
+  setup,
+  onAccept,
+  onDismiss,
+}: {
+  setup: ListeningSetup;
+  onAccept: () => void;
+  onDismiss: () => void;
+}) {
+  const percent = Math.round(Math.min(Math.max(setup.fraction, 0), 1) * 100);
+
+  return (
+    <section aria-labelledby="listen-here" className="mt-3 flex-none border-t border-hairline pt-3">
+      <h3 id="listen-here" className="font-strong text-ui text-ink">
+        {setup.state === 'loading' ? 'Getting listening ready' : 'Listen on this phone'}
+      </h3>
+
+      {setup.state === 'loading' ? (
+        <>
+          <div
+            role="progressbar"
+            aria-labelledby="listen-here"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="mt-3 h-1.5 w-full overflow-hidden rounded-pill bg-track"
+          >
+            <div className="h-full rounded-pill bg-ink transition-[width] duration-300" style={{ width: `${percent}%` }} />
+          </div>
+          <p className="mt-2 font-body text-note tabular-nums text-slate">
+            {percent}% of the model, about {DEVICE_LISTENING_MEGABYTES} MB in all. You can keep typing while it comes.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="mt-1 max-w-[52ch] text-pretty font-body text-note text-slate">
+            {setup.state === 'failed'
+              ? 'The download stopped part-way. Try again on a steadier connection.'
+              : `A small listening model, about ${DEVICE_LISTENING_MEGABYTES} MB, downloaded once and kept by this browser. What you say becomes words on this phone; the sound is never sent anywhere.`}
+          </p>
+          <div className="mt-3 flex items-center gap-5">
+            <button
+              type="button"
+              onClick={onAccept}
+              className="h-11 rounded-control bg-ink px-5 font-strong text-ui text-paper transition-colors hover:bg-ink/85 active:translate-y-px"
+            >
+              {setup.state === 'failed' ? 'Try again' : 'Get listening'}
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="font-strong text-ui text-slate transition-colors hover:text-ink"
+            >
+              Not now
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

@@ -3,6 +3,7 @@ import { profileSchema, suggestUsername, type Profile } from '@entole/core/profi
 import {
   createOwnerAccount,
   deriveSessionAccount,
+  passkeyLabel,
   signInToOwnerAccount,
   type EntoleKeyAccount,
 } from '@entole/core/passkey';
@@ -109,9 +110,10 @@ function reasonFor(error: unknown): string {
  * per `@entole/core/passkey`) is only derived when the person approves it —
  * see `deriveAssistantAccount`. Called once, from onboarding.
  */
-export async function registerAccount(displayName: string): Promise<SignInResult> {
+export async function registerAccount(person: { fullName: string; username?: string }): Promise<SignInResult> {
   try {
-    const owner = await createOwnerAccount({ rp: RP, displayName });
+    const label = passkeyLabel(person);
+    const owner = await createOwnerAccount({ rp: RP, displayName: label.displayName, userName: label.name });
     storeCredential(owner.credential);
     window.localStorage.setItem(SESSION_KEY, String(Date.now()));
     // Not known yet — captured a step later in `AuthGate`'s onboarding flow,
@@ -237,6 +239,25 @@ export function markAssistantEnabled(address: string): void {
   if (!storageAvailable()) return;
   window.localStorage.setItem(ASSISTANT_ADDRESS_KEY, address);
   window.localStorage.setItem(ASSISTANT_ENABLED_KEY, 'true');
+}
+
+const ASSISTANT_TALK_KEY = 'entole.assistant-talk';
+
+/**
+ * Whether the person talks to the assistant. Talking needs no key and no
+ * passkey: it only opens screens and gets things ready for the person to
+ * confirm. Before it was a choice of its own, turning the assistant on meant
+ * both, so an assistant already on keeps talking.
+ */
+export function isTalkOn(): boolean {
+  if (!storageAvailable()) return false;
+  const saved = window.localStorage.getItem(ASSISTANT_TALK_KEY);
+  return saved === null ? isAssistantEnabled() : saved === 'true';
+}
+
+export function saveTalkOn(on: boolean): void {
+  if (!storageAvailable()) return;
+  window.localStorage.setItem(ASSISTANT_TALK_KEY, on ? 'true' : 'false');
 }
 
 export function clearAssistant(): void {

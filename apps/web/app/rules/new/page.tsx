@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { cadenceDetail, cadenceWords } from '@entole/core/allowance';
 import {
@@ -22,6 +22,7 @@ import { Keypad } from '@/components/Keypad';
 import { PageLoader } from '@/components/LogoLoader';
 import { Sentence, type SentencePart } from '@/components/Sentence';
 import { Skeleton } from '@/components/Skeleton';
+import { useAssistant } from '@/lib/assistant';
 import { plainMessage } from '@/lib/send';
 
 const CADENCES: Cadence[] = ['weekly', 'monthly', 'on-request'];
@@ -62,6 +63,7 @@ function sentenceCase(text: string): string {
 function NewRule() {
   const router = useRouter();
   const store = useStore();
+  const assistant = useAssistant();
   const preset = useSearchParams().get('for');
 
   // Nothing is held until the person chooses: the saved people may not have
@@ -113,10 +115,8 @@ function NewRule() {
     setLimitEntry((current) => pressKey(current ?? entryFromMinor(each), key));
   }
 
-  async function save() {
-    if (!recipient || !ready || saving) return;
-    setSaving(true);
-    setProblem(null);
+  async function write() {
+    if (!recipient) return;
     try {
       await store.saveAllowance({
         name: `${cadenceWords(cadence)} to ${recipient.name}`,
@@ -133,6 +133,38 @@ function NewRule() {
       setSaving(false);
     }
   }
+
+  // Set when the passkey has just made the assistant's key: the allowance is
+  // written on the next render, once the key is part of the store.
+  const saveOnceEnabled = useRef(false);
+  useEffect(() => {
+    if (!saveOnceEnabled.current || !assistant.enabled) return;
+    saveOnceEnabled.current = false;
+    void write();
+  });
+
+  /**
+   * The first allowance is what gives the assistant its own key: one more
+   * passkey confirmation, said under the button before it is pressed. The
+   * allowance is written on the render after, once the key is in place.
+   */
+  async function save() {
+    if (!recipient || !ready || saving) return;
+    setSaving(true);
+    setProblem(null);
+    if (!assistant.enabled) {
+      const result = await assistant.enable();
+      if (!result.ok) {
+        setProblem(result.reason);
+        setSaving(false);
+        return;
+      }
+      saveOnceEnabled.current = true;
+      return;
+    }
+    await write();
+  }
+
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
@@ -259,6 +291,11 @@ function NewRule() {
           >
             {saving ? 'Creating' : 'Create allowance'}
           </button>
+          {assistant.enabled || assistant.loading ? null : (
+            <p className="mt-3 text-center font-body text-note text-slate">
+              The assistant pays inside this allowance, so creating it asks you to confirm with your passkey once more.
+            </p>
+          )}
         </div>
       )}
     </main>

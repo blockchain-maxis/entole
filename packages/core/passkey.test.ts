@@ -3,7 +3,7 @@ import type { WebAuthnClient } from '@category-labs/mera';
 import { verifyMessage } from 'viem';
 import { describe, expect, it } from 'vitest';
 
-import { createOwnerAccount, deriveSessionAccount, signInToOwnerAccount } from './passkey';
+import { createOwnerAccount, deriveSessionAccount, passkeyLabel, signInToOwnerAccount } from './passkey';
 
 /**
  * A deterministic stand-in for a real authenticator, matching Mera's own
@@ -49,6 +49,34 @@ describe('createOwnerAccount', () => {
       webAuthnClient: stubAuthenticator(),
     });
     expect(account.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+  });
+});
+
+describe('what a passkey is saved under', () => {
+  it('is the username and the person’s own name, so several can be told apart', () => {
+    expect(passkeyLabel({ fullName: '  Adaeze   Obi ', username: 'ada.obi' })).toEqual({
+      name: '@ada.obi',
+      displayName: 'Adaeze Obi',
+    });
+  });
+
+  it('falls back to the name, and never to a blank', () => {
+    expect(passkeyLabel({ fullName: 'Adaeze Obi' })).toEqual({ name: 'Adaeze Obi', displayName: 'Adaeze Obi' });
+    expect(passkeyLabel({ fullName: ' ' })).toEqual({ name: 'Entole account', displayName: 'Entole account' });
+  });
+
+  it('is what the authenticator is asked to save', async () => {
+    const asked: { name: string; displayName: string }[] = [];
+    const client = stubAuthenticator();
+    const recording: WebAuthnClient = {
+      ...client,
+      async createCredential(request) {
+        asked.push({ name: request.user.name, displayName: request.user.displayName });
+        return client.createCredential(request);
+      },
+    };
+    await createOwnerAccount({ rp: RP, displayName: 'Adaeze Obi', userName: '@ada.obi', webAuthnClient: recording });
+    expect(asked).toEqual([{ name: '@ada.obi', displayName: 'Adaeze Obi' }]);
   });
 });
 

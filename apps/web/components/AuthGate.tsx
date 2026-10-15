@@ -123,7 +123,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
     setBusy(true);
     setProblem(null);
-    const result = await registerAccount('Entole account');
+    // The passkey is saved under their username and name, so it can be told apart from any other.
+    const result = await registerAccount(profile);
     setBusy(false);
     if (result.ok) {
       storeProfile(profile);

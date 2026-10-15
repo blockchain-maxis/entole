@@ -16,6 +16,7 @@ import { SavingsSheet } from '@/components/ui/SavingsSheet';
 import { Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
+import { entryFromParam } from '@/lib/recipient';
 import { checkSavingsAmount, type SavingsMode } from '@/lib/savings';
 
 /**
@@ -28,10 +29,11 @@ import { checkSavingsAmount, type SavingsMode } from '@/lib/savings';
 export default function Savings() {
   const router = useRouter();
   const store = useStore();
-  const params = useLocalSearchParams<{ mode?: string }>();
+  // `amount` (kobo) is there when the assistant was asked for a figure.
+  const params = useLocalSearchParams<{ mode?: string; amount?: string }>();
 
   const [mode, setMode] = useState<SavingsMode>(params.mode === 'withdraw' ? 'withdraw' : 'deposit');
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const [entry, setEntry] = useState<AmountEntry>(() => entryFromParam(params.amount));
   const [reviewing, setReviewing] = useState(false);
 
   const loading = store.status === 'loading';

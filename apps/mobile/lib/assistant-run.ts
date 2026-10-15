@@ -116,9 +116,26 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
             pathname: '/receive',
             params: step.amountMinor !== undefined ? { amount: String(step.amountMinor) } : {},
           });
-        } else if (step.kind === 'savings') go({ pathname: '/grow/savings', params: { mode: step.mode } });
-        else if (step.kind === 'bill') {
-          go(step.category ? { pathname: '/bill/[category]', params: { category: step.category } } : '/bill');
+        } else if (step.kind === 'savings') {
+          go({
+            pathname: '/grow/savings',
+            params: {
+              mode: step.mode,
+              ...(step.amountMinor !== undefined ? { amount: String(step.amountMinor) } : {}),
+            },
+          });
+        } else if (step.kind === 'bill') {
+          go(
+            step.category
+              ? {
+                  pathname: '/bill/[category]',
+                  params: {
+                    category: step.category,
+                    ...(step.amountMinor !== undefined ? { amount: String(step.amountMinor) } : {}),
+                  },
+                }
+              : '/bill',
+          );
         } else {
           await store.setPaused(step.paused);
           words.push(step.paused ? 'The assistant is paused.' : 'The assistant is back on.');

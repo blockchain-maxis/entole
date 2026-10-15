@@ -1,10 +1,10 @@
 'use client';
 
 import { ChevronRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useMemo, useState } from 'react';
 
-import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import { EMPTY_ENTRY, entryFromMinor, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import type { BillReceipt } from '@entole/core/gateway';
 import { formatNaira, kobo } from '@entole/core/money';
 import { BILL_CATEGORIES, type BillCategoryInfo } from '@entole/core/pay-hub';
@@ -13,6 +13,8 @@ import { useStore } from '@entole/core/store';
 import { Amount } from '@/components/Amount';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
+import { PageLoader } from '@/components/LogoLoader';
+import { askedMinor } from '@/lib/asked-amount';
 import { BILL_ICONS, billsAvailable } from '@/lib/bills';
 import { plainMessage } from '@/lib/send';
 
@@ -28,14 +30,42 @@ function UnavailableNote({ body }: { body: string }) {
 }
 
 export default function PayBillPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <BillFromAddress />
+    </Suspense>
+  );
+}
+
+/**
+ * `?category=` opens straight at that bill, and `?amount=` (kobo) is waiting
+ * on the keypad once the account has been checked: the assistant was asked
+ * for "DSTV, 5k". The account number is still the person's to give.
+ */
+function BillFromAddress() {
+  const query = useSearchParams();
+  const asked = BILL_CATEGORIES.find((category) => category.id === query.get('category')) ?? null;
+  const amountMinor = asked ? askedMinor(query.get('amount')) : undefined;
+  return <PayBill key={query.toString()} askedCategory={asked} askedAmountMinor={amountMinor} />;
+}
+
+function PayBill({
+  askedCategory,
+  askedAmountMinor,
+}: {
+  askedCategory: BillCategoryInfo | null;
+  askedAmountMinor: number | undefined;
+}) {
   const router = useRouter();
   const store = useStore();
   const available = billsAvailable();
 
-  const [step, setStep] = useState<Step>('category');
-  const [info, setInfo] = useState<BillCategoryInfo | null>(null);
+  const [step, setStep] = useState<Step>(askedCategory ? 'reference' : 'category');
+  const [info, setInfo] = useState<BillCategoryInfo | null>(askedCategory);
   const [reference, setReference] = useState('');
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const [entry, setEntry] = useState<AmountEntry>(() =>
+    askedAmountMinor !== undefined ? entryFromMinor(kobo(askedAmountMinor)) : EMPTY_ENTRY,
+  );
   const [paying, setPaying] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<BillReceipt | null>(null);

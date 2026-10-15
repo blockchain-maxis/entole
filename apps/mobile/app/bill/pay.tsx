@@ -12,8 +12,9 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { UnavailableNote } from '@/components/ui/UnavailableNote';
 import { billsAvailable } from '@/lib/bills';
+import { entryFromParam } from '@/lib/recipient';
 import { plainMessage } from '@/lib/send';
-import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import { entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import type { BillReceipt } from '@entole/core/gateway';
 import { formatNaira, kobo } from '@entole/core/money';
 import { billCategory } from '@entole/core/pay-hub';
@@ -22,11 +23,11 @@ import { useStore } from '@entole/core/store';
 export default function PayBillAmount() {
   const router = useRouter();
   const store = useStore();
-  const params = useLocalSearchParams<{ category?: string; reference?: string; name?: string }>();
+  const params = useLocalSearchParams<{ category?: string; reference?: string; name?: string; amount?: string }>();
   const info = billCategory(params.category);
   const available = billsAvailable();
 
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const [entry, setEntry] = useState<AmountEntry>(() => entryFromParam(params.amount));
   const [paying, setPaying] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<BillReceipt | null>(null);
