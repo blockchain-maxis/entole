@@ -85,7 +85,7 @@
         "growthVaultAddress": "0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd",
         "rpcUrl": "https://testnet-rpc.monad.xyz",
         "chainId": 10143,
-        "indexerUrl": "https://indexer.dev.hyperindex.xyz/ab2b91f/v1/graphql",
+        "indexerUrl": "https://indexer.dev.hyperindex.xyz/edc5168/v1/graphql",
         "billsAddress": ""
       },
       "router": {},

@@ -193,9 +193,10 @@ yet") until its key exists.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`, then
   `pnpm --filter @entole/web telegram:webhook https://<domain>`.
 - The index needs no key of ours: it runs on Envio's hosted service, which
-  holds its own. Its free deployment is kept 30 days at most (made 13 October
-  2026), so it has to be redeployed or moved to a paid tier before then; each
-  deployment has a new address (`indexer/README.md`, "Deploying it").
+  holds its own. Its free deployment is kept 30 days at most (the current one,
+  `edc5168`, made 15 October 2026), so it has to be redeployed or moved to a
+  paid tier before then; each deployment has a new address
+  (`indexer/README.md`, "Deploying it").
 - `AGORA_ACCESS_KEY`, `AURORA_INTENTS_API_KEY`, `NANSEN_API_KEY`,
   `CHAINLINK_CRE_WEBHOOK_SECRET` (see `docs/CRE.md`), `KIMI_API_KEY`.
 - `BILL_PAYMENT_API_KEY`, `BILL_ITEM_CODES` and `NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS`
