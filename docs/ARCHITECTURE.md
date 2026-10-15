@@ -18,10 +18,13 @@ does not consult the assistant, the app, or the backend.
 Three layers, and only one of them is allowed to think:
 
 1. **Assistant** — LLM. Parses intent, proposes a payment. No authority.
-2. **App / backend** — assembles the proposal, runs the undo window, submits.
+2. **App / backend** — assembles the proposal, shows the undo window, submits.
    Convenience, not security. Assume it can be compromised.
 3. **Policy contract** — arithmetic and signature checks only. Never calls a
-   model. Never accepts an assertion. Enforces caps, recipients, cadence.
+   model. Never accepts an assertion. Enforces caps, recipients, cadence, and
+   (since version 2, 15 October 2026) the undo window itself: a run is
+   proposed, waits `undoSeconds` on the network, can be cancelled by the owner
+   until then, and only then can be carried out.
 
 If a check can be bypassed by the app or backend behaving badly, it is not a
 check. Move it into the contract or drop the feature.
