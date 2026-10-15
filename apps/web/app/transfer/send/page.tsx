@@ -453,6 +453,8 @@ function AmountStep({
     return asked ? entryFromMinor(kobo(asked)) : EMPTY_ENTRY;
   });
   const defaultNote = noteFor(link) ?? askedNote;
+  // An invoice link's reference travels in the payment, so the business sees it paid.
+  const invoiceReference = link?.kind === 'invoice' ? link.reference : undefined;
   const [reviewing, setReviewing] = useState(false);
 
   const loading = store.status === 'loading';
@@ -554,6 +556,7 @@ function AmountStep({
           initials={recipient.initials}
           amountMinor={amount}
           {...(defaultNote ? { defaultNote } : {})}
+          {...(invoiceReference ? { invoiceReference } : {})}
           onDismiss={() => setReviewing(false)}
           onSettled={onSettled}
         />

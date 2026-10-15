@@ -60,6 +60,9 @@ export const pendingBackend: Backend = {
   relay: {
     submitPayment: notSignedIn,
     submitExecute: notSignedIn,
+    submitPropose: notSignedIn,
+    submitCancel: notSignedIn,
+    submitRunPending: notSignedIn,
     validateBill: notSignedIn,
     submitBill: notSignedIn,
     requestGas: notSignedIn,

@@ -17,6 +17,7 @@ import {
   type Invoice,
   type ProcurementItem,
   type ProcurementRequest,
+  type Proposal,
   type Receipt,
   type ReleaseCondition,
   type Seat,
@@ -46,6 +47,15 @@ export interface PaymentsGateway {
   saveAllowance(draft: AllowanceDraft): Promise<Allowance>;
   revokeAllowance(allowanceId: string): Promise<void>;
   cancelProposal(proposalId: string): Promise<void>;
+  /** Puts the assistant's proposal in the contract's queue as it is shown, so
+   * the countdown is the network's own: when it ends, the run can be carried
+   * out, and until then cancelling stops it on the network. Gateways with no
+   * contract leave it out and the countdown is the app's. */
+  beginProposal?(proposal: Proposal): Promise<{ readyAt: string }>;
+  /** Clears any approval this account left on a policy contract it no longer uses. */
+  clearOldApprovals?(): Promise<void>;
+  /** Records that these tax reserves were moved into savings. */
+  markTaxReservesMoved?(ids: string[]): Promise<TaxReserve[]>;
 
   /** Business layer — see docs/SCOPE.md. Every one of these is a caveat
    * grant or a plain record, never a second trust model. */
@@ -137,6 +147,12 @@ export type SendInput = {
   amountMinor: number;
   note?: string;
   allowanceId?: string;
+  /** The invoice this pays, by its reference, when it came from an invoice
+   * link. It is carried in the payment so the business knows it was paid. */
+  reference?: string;
+  /** The assistant's proposal this payment carries out, when it was put in
+   * the contract's queue as it was shown (`beginProposal`). */
+  proposalId?: string;
   /** Set on each payment of a run the person confirms once, as when paying a
    * list of people: the first asks for the whole run, the rest go through on
    * that answer. */

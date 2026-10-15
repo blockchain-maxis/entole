@@ -21,14 +21,13 @@ product: where it touches a screen, the screen says so plainly.
 
 ## Known gaps in what exists
 
-- **The standing approval is additive and never shrinks.** Creating an
-  allowance has the owner approve `current + (cap x periods)` to the policy,
-  because the policy draws with `transferFrom`. Every allowance shares that one
-  approval, and revoking one does not lower it. The caveats still bound every
-  draw; the leftover is headroom, not authority. A "reset approval" action is
-  the upgrade.
-- **The undo window is not enforced on-chain.** It is a countdown in the app
-  before the assistant's run is submitted. Nothing in the contract delays it.
+- **The policy contract changed on 15 October 2026 (version 2).** The undo
+  window and the standing approval are now held exactly (`docs/SECURITY.md`).
+  Allowances written on the earlier contract do not exist on this one: they show
+  stopped, and Home offers to clear what they could still draw. A payment the
+  assistant queued is carried out by the app that shows the countdown; if that
+  app is closed before the window ends, the run goes stale after fifteen
+  minutes and nothing moves.
 - **The assistant needs a model key to understand free speech.** Without
   `KIMI_API_KEY` it follows only the plain requests its grammar knows, and says
   so. The model path is written and tested against the answer shapes, and has
@@ -79,25 +78,30 @@ product: where it touches a screen, the screen says so plainly.
   it changes the record from held to sent; no money moves. Releasing it
   automatically needs the server store (Upstash) and a registered Chainlink
   workflow, and neither is set up.
-- **Nothing notices an invoice being paid.** The money arrives in the balance
-  and, since 12 October 2026, in activity with who sent it; the business still
-  marks the invoice paid by hand, because nothing ties a payment that arrived
-  to the invoice it was for.
+- **An invoice paid by card or bank is still marked by hand.** A payment made
+  from an invoice link through the app carries the invoice's tag in its salt
+  (`packages/core/invoice-tag.ts`), and the business's app marks that invoice
+  paid when the index shows it (since 15 October 2026). A payment that came any
+  other way carries no tag.
 - **Money that arrives is told in the app, not outside it.** A payment shows in
   the receiver's activity and a banner says so while the app or the page is
   open (see "Money that arrives" in `docs/ARCHITECTURE.md`). There is no alert
   when the app is closed: that needs a notifications module in a new phone
   build, push credentials for Android, and a push handler for the browser.
-- **A payment made outside the apps is not listed.** The record is made when
-  the sender's app reports a payment it settled. Money that arrives some other
-  way (the test faucet, a transfer from another app) raises the balance and is
-  not in activity.
-- **Tax reserve is display only.** `settleInvoice` returns no reserve; nothing
-  creates one in the live app. The invoice CSV export covers the bookkeeping.
-- **Bill payment has no automatic refund.** The person's payment settles before
-  the biller is paid. If the biller then refuses, the route answers
-  `bill_failed`, logs `[bills] paid-not-billed hash=...`, and the payment has to
-  be returned by hand from the bills account.
+- **Money that arrives outside the apps is listed from the index.** Test money
+  and money sent in from another app show in activity as "Test money" and "Money
+  in" once the index from 15 October 2026 is running (it reads AUSD transfers,
+  leaving out the router's and the policy's own). Until it is deployed they
+  raise the balance only.
+- **A tax reserve is a figure, until it is moved.** Marking an invoice paid (by
+  hand, or by its tag) sets 20% of it aside as a kept record, with no payout date
+  made up. It leaves the balance only when the person moves it into savings
+  from Business.
+- **Bill refunds need the bills account's key.** When the biller refuses after
+  the person's payment settled, the payment is sent back from the bills account,
+  once (since 15 October 2026). That needs `BILLS_PRIVATE_KEY`; without it the
+  refusal is logged with the payment hash and returned by hand, as before. The
+  router's fee is not returned: it was never the bills account's.
 - **Money in from Tron and Solana has a server and no screen.**
   `/api/aurora/deposit` (Aurora Intents) takes what the person is sending
   (USDT on Tron or USDC on Solana), how much, and an account of theirs on that

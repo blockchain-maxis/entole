@@ -111,7 +111,7 @@ describe('relay client', () => {
     const small = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(422, { error: 'amount_too_small' }) });
     await expect(small.startBankTransfer(payment.from, 100)).rejects.toThrow(/smallest amount you can add/);
     const down = createRelayClient({ baseUrl: 'https://x.test', fetch: reply(502, { error: 'partner_unavailable' }) });
-    await expect(down.startBankTransfer(payment.from, 2_000_000)).rejects.toThrow(/Bank transfer isn't available/);
+    await expect(down.startBankTransfer(payment.from, 2_000_000)).rejects.toThrow(/That isn't available right now/);
   });
 });
 

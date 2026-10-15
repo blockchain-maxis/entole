@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
+import { TaxReserveCard } from '@/components/ui/TaxReserveCard';
 import { Screen } from '@/components/ui/Screen';
 import { RowSkeleton } from '@/components/ui/Skeleton';
 import { StatusChip } from '@/components/ui/StatusChip';
@@ -171,6 +172,8 @@ export default function Business() {
           <HubRow hub={hubs.supplier} onPress={() => router.push(hubs.supplier.href)} />
           <HubRow hub={hubs.team} onPress={() => router.push(hubs.team.href)} />
         </View>
+
+        <TaxReserveCard />
 
         <SectionHeading
           title="Invoices"

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { resetLabel, secondsWords } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
@@ -25,6 +25,11 @@ import { plainMessage } from '@/lib/send';
  *
  * Nothing here says "sent" until the payment has settled: `runProposal`
  * resolves only then, and only then does the receipt appear.
+ *
+ * The wait is the contract's, not this page's. As the page opens the run is
+ * put in the policy contract's queue, and the countdown runs to the moment the
+ * contract will let it be carried out. Cancelling stops it there. Closing the
+ * page does not send it; a run nobody carries out goes stale on its own.
  */
 export default function AssistantAction() {
   const router = useRouter();
@@ -32,6 +37,7 @@ export default function AssistantAction() {
   const proposal = store.proposal;
   const [sending, setSending] = useState(false);
   const [stopped, setStopped] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -53,9 +59,17 @@ export default function AssistantAction() {
   }
 
   async function stop() {
+    if (stopping) return;
     setStopped(true);
-    await store.cancelProposal();
-    leave();
+    setStopping(true);
+    setProblem(null);
+    try {
+      await store.cancelProposal();
+      leave();
+    } catch (error) {
+      setStopping(false);
+      setProblem(plainMessage(error, "We couldn't stop it on the network. Pause the assistant now to be sure it does not go."));
+    }
   }
 
   const receipt = receiptId ? store.receipt(receiptId) : undefined;
@@ -91,7 +105,9 @@ export default function AssistantAction() {
           <ProposalPanel
             sending={sending}
             stopped={stopped}
+            stopping={stopping}
             problem={problem}
+            onProblem={setProblem}
             onRun={() => void run()}
             onStop={() => void stop()}
           />
@@ -109,18 +125,47 @@ export default function AssistantAction() {
 function ProposalPanel({
   sending,
   stopped,
+  stopping,
   problem,
+  onProblem,
   onRun,
   onStop,
 }: {
   sending: boolean;
   stopped: boolean;
+  stopping: boolean;
   problem: string | null;
+  onProblem: (problem: string) => void;
   onRun: () => void;
   onStop: () => void;
 }) {
   const store = useStore();
   const proposal = store.proposal!;
+  // Where the wait is held: being put in the contract's queue, waiting there
+  // until `readyAt`, or (with no contract to hold it) on this page.
+  const [queue, setQueue] = useState<{ state: 'starting' } | { state: 'queued'; readyAt: number; seconds: number } | { state: 'here' }>({
+    state: 'starting',
+  });
+  const begun = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (begun.current === proposal.id) return;
+    begun.current = proposal.id;
+    store
+      .beginProposal()
+      .then((started) =>
+        setQueue(() => {
+          if (!started) return { state: 'here' };
+          const readyAt = Date.parse(started.readyAt);
+          // Counted from now to when the network will let it go.
+          return { state: 'queued', readyAt, seconds: Math.max(0, Math.ceil((readyAt - Date.now()) / 1000)) };
+        }),
+      )
+      .catch((error: unknown) => onProblem(plainMessage(error, "The assistant couldn't start that payment. Nothing was sent.")));
+  }, [proposal.id, store, onProblem]);
+
+  const waitSeconds = queue.state === 'queued' ? queue.seconds : proposal.undoSeconds;
+  const counting = queue.state !== 'starting' && !stopped && !sending && !problem;
   const contact = store.contact(proposal.contactId);
   const allowance = store.allowance(proposal.allowanceId);
   const amount = kobo(proposal.amountMinor);
@@ -166,13 +211,22 @@ function ProposalPanel({
       ) : null}
 
       <div className="mt-6 flex items-center gap-3.5">
-        <Countdown seconds={proposal.undoSeconds} running={!stopped && !sending && !problem} onElapsed={onRun} />
+        <Countdown
+          key={queue.state === 'queued' ? queue.readyAt : queue.state}
+          seconds={waitSeconds}
+          running={counting}
+          onElapsed={onRun}
+        />
         <p className="flex-1 text-pretty font-body text-ui text-slate">
-          {sending
-            ? 'Sending. This updates when the payment has been delivered.'
-            : problem
-              ? 'Not sent. Nothing was taken.'
-              : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
+          {stopping
+            ? 'Stopping it on the network.'
+            : sending
+              ? 'Sending. This updates when the payment has been delivered.'
+              : problem
+                ? 'Not sent. Nothing was taken.'
+                : queue.state === 'starting'
+                  ? 'Starting the wait. Nothing moves until it ends.'
+                  : `Sending in ${secondsWords(waitSeconds)}. You can stop it until then.`}
         </p>
       </div>
 
@@ -185,20 +239,23 @@ function ProposalPanel({
       <div className="mt-auto pt-8">
         <button
           type="button"
-          disabled={sending}
+          disabled={sending || stopping}
           onClick={onStop}
           className="flex h-14 w-full items-center justify-center rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:opacity-60"
         >
-          {problem ? 'Close' : 'Cancel this payment'}
+          {stopping ? 'Stopping' : problem ? 'Close' : 'Cancel this payment'}
         </button>
-        <button
-          type="button"
-          disabled={sending}
-          onClick={onRun}
-          className="mt-1 flex h-12 w-full items-center justify-center rounded-control font-strong text-ui text-slate transition-colors hover:bg-press hover:text-ink disabled:opacity-60"
-        >
-          {problem ? 'Try again' : 'Send it now'}
-        </button>
+        {/* The contract holds the wait, so there is no sending early; only a page-held wait can be cut short. */}
+        {queue.state === 'here' || problem ? (
+          <button
+            type="button"
+            disabled={sending || stopping}
+            onClick={onRun}
+            className="mt-1 flex h-12 w-full items-center justify-center rounded-control font-strong text-ui text-slate transition-colors hover:bg-press hover:text-ink disabled:opacity-60"
+          >
+            {problem ? 'Try again' : 'Send it now'}
+          </button>
+        ) : null}
       </div>
     </section>
   );

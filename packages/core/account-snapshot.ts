@@ -66,7 +66,7 @@ export function createAccountSource(options: {
         seats,
         invoices,
         procurementRequests: [],
-        taxReserves: [],
+        taxReserves: await options.records.taxReserves.list(),
         growPosition: null,
         stockPositions: [],
         request: null,

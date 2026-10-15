@@ -18,6 +18,7 @@ import { AssistantBadge } from '@/components/Badge';
 import { ButtonLink } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
+import { OldAllowancesNotice } from '@/components/OldAllowancesNotice';
 import { SectionHeading } from '@/components/SectionHeading';
 import { ActivityRowSkeleton, AllowanceRowSkeleton, FigureSkeleton } from '@/components/Skeleton';
 import { UsernameTakenNotice } from '@/components/UsernameTakenNotice';
@@ -106,11 +107,12 @@ export default function Home() {
               <SectionHeading
                 title="Allowances"
                 action={
-                  !loading && assistant.enabled && store.allowances.length > 0
+                  !loading && store.allowances.length > 0
                     ? { label: 'New allowance', href: '/rules/new' }
                     : undefined
                 }
               />
+              <OldAllowancesNotice />
               {loading ? (
                 <div className="divide-y divide-hairline border-y border-hairline">
                   <AllowanceRowSkeleton />

@@ -10,6 +10,7 @@ import { AllowanceIntro } from '@/components/ui/AllowanceIntro';
 import { Figure } from '@/components/ui/Amount';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
+import { OldAllowancesNotice } from '@/components/ui/OldAllowancesNotice';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
@@ -166,10 +167,11 @@ export default function Home() {
               <>
                 <SectionHeading
                   title="Allowances"
-                  action={!loading && assistant.enabled && hasAllowances ? 'New allowance' : undefined}
+                  action={!loading && hasAllowances ? 'New allowance' : undefined}
                   onActionPress={() => router.push('/rules/new')}
                 />
 
+                <OldAllowancesNotice />
                 {loading ? (
                   <View className="border-y border-hairline">
                     <AllowanceRowSkeleton />

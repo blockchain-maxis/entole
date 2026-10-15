@@ -19,7 +19,14 @@ export type SendParams = {
   /** Integer minor units (kobo), as a string, to pre-fill the keypad. */
   amount?: string;
   note?: string;
+  /** The invoice a link asks to be paid, carried in the payment so the business sees it paid. */
+  reference?: string;
 };
+
+/** An invoice reference as a link carries it, or nothing. */
+export function cleanReference(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[A-Za-z0-9-]{1,24}$/.test(value.trim()) ? value.trim() : undefined;
+}
 
 /** The longest note the review sheet's field takes. */
 export const NOTE_MAX = 80;
@@ -53,6 +60,7 @@ function paramsFor(
     contactId,
     ...(found.amountMinor !== undefined && found.currency === 'NGN' ? { amount: String(found.amountMinor) } : {}),
     ...(chosenNote ? { note: chosenNote } : {}),
+    ...(found.kind === 'invoice' && cleanReference(found.reference) ? { reference: cleanReference(found.reference)! } : {}),
   };
 }
 

@@ -3,12 +3,16 @@
 # history directly from RPC in the app." This file is that indexer's
 # contract-facing half.
 #
-# Two contracts, because money moves through two doors:
+# Three contracts, because money moves through three doors:
 #
-#   EntoleRouter   every ordinary payment. `Paid` says who paid, who was paid
-#                  and how much arrived, in one line.
-#   EntolePolicy   allowances, and the payments the assistant makes inside
-#                  them (`Executed`), plus pauses and passkey registrations.
+#   EntoleRouter     every ordinary payment. `Paid` says who paid, who was paid
+#                    and how much arrived, in one line, with the payer's salt.
+#   EntolePolicy     allowances, the runs the assistant queues inside them, the
+#                    payments it makes (`Executed`), pauses and passkeys. Both
+#                    deployments are read: the first, and version 2 with the
+#                    undo window held on the network.
+#   SettlementToken  Agora AUSD itself, for money that reaches an account some
+#                    other way: test money, or money sent from another app.
 #
 # Between them that is every payment an Entole account sends or receives, so
 # a person's history can be read here on any device, not only on the one that
@@ -48,6 +52,15 @@ contracts:
       - event: "Paused(address indexed owner, bool paused)"
       - event: "Executed(bytes32 indexed id, address indexed recipient, uint256 amount)"
       - event: "PasskeyRegistered(address indexed owner, uint256 x, uint256 y)"
+      - event: "Proposed(bytes32 indexed runId, bytes32 indexed id, address indexed recipient, uint256 amount, uint256 readyAt)"
+      - event: "Cancelled(bytes32 indexed runId, bytes32 indexed id)"
+      - event: "RunCarriedOut(bytes32 indexed runId, bytes32 indexed id)"
+  # The account's own money, for what reaches it some other way than a payment
+  # in the app: test money, or money sent in from another app. Movements the
+  # two contracts above already record are left out by the handler.
+  - name: SettlementToken
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
 
 chains:
   - id: 10143 # Monad testnet — see contracts/README.md's network reference
@@ -62,3 +75,7 @@ chains:
         start_block: 69645503 # 9 Oct 2026, the version with executeFor
         address:
           - "0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e"
+      - name: SettlementToken
+        start_block: 64113781
+        address:
+          - "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC"

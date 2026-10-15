@@ -222,7 +222,8 @@ describe('an allowance reads as its sentence, and is not revoked on one tap', ()
   it('the undo window names the assistant, and stopping it is the strong button', () => {
     expect(action).toMatch(/The assistant is about to send/);
     expect(action).not.toMatch(/Entole (is sending|sent)/);
-    expect(action).toMatch(/<Button label=\{problem \? 'Close' : 'Cancel this payment'\} disabled=\{sending\}/);
+    expect(action).toMatch(/label=\{stopping \? 'Stopping' : problem \? 'Close' : 'Cancel this payment'\}/);
+    expect(action).toMatch(/disabled=\{sending \|\| stopping\}\s*onPress=\{\(\) => void stop\(\)\}/);
     expect(action).toMatch(/<Figure value=\{amount\} \/>/);
   });
 });
@@ -1228,9 +1229,16 @@ describe('the Business tab is plain jobs, not seats and templates', () => {
   it('every business screen is a real record or a real payment: no fixtures, no demo gateway, no address', () => {
     for (const path of ['app/(tabs)/business.tsx', ...businessScreens]) {
       const source = stripComments(read(join(ROOT, path)));
-      expect(source, path).not.toMatch(/fixtures|demoGateway|address-book|procurement|saveSeat|revokeSeat|taxReserve/);
+      expect(source, path).not.toMatch(/fixtures|demoGateway|address-book|procurement|saveSeat|revokeSeat/);
       expect(source, path).not.toMatch(/0x[0-9a-fA-F]{6,}|\.address\b|shortAddress/);
     }
+  });
+
+  it('the tax reserve is a kept record: no payout date made up, and money moves only into savings, confirmed', () => {
+    const card = stripComments(read(join(COMPONENTS, 'ui/TaxReserveCard.tsx')));
+    expect(card).not.toMatch(/payoutAt|Q3|fixtures/);
+    expect(card).toMatch(/store\.moveTaxReserveToSavings\(\)/);
+    expect(card).toMatch(/it has not left your balance/);
   });
 
   it('the routes the redesign added exist', () => {
@@ -1579,8 +1587,16 @@ describe('a payment the network refuses says so', () => {
   it('the reason is shown, not swallowed, and the countdown does not start again', () => {
     expect(action).toMatch(/catch \(error\) \{\s*setSending\(false\);\s*setProblem\(plainMessage\(error,/);
     expect(action).toMatch(/accessibilityRole="alert"/);
-    expect(action).toMatch(/running=\{!stopped && !sending && !problem\}/);
+    expect(action).toMatch(/const counting = queue\.state !== 'starting' && !stopped && !sending && !problem;/);
+    expect(action).toMatch(/running=\{counting\}/);
     expect(action).toMatch(/'Not sent\. Nothing was taken\.'/);
+  });
+
+  it('the wait is the contract\'s: started as the sheet opens, counted to its readyAt, never cut short', () => {
+    expect(action).toMatch(/store\s*\.beginProposal\(\)/);
+    expect(action).toMatch(/Date\.parse\(started\.readyAt\)/);
+    expect(action).toMatch(/\{queue\.state === 'here' \|\| problem \? \(/);
+    expect(action).toMatch(/Pause the assistant now to be sure it does not go\./);
   });
 });
 

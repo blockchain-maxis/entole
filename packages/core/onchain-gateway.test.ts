@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Address, PublicClient, WalletClient } from 'viem';
+import { encodeAbiParameters, encodeEventTopics, type Address, type PublicClient, type WalletClient } from 'viem';
 
 import { DEMO_RATE } from './fx';
 import { describeMovement, MovementNotConfirmedError } from './movement';
@@ -11,9 +11,12 @@ import {
   allowanceFigures,
   createOnChainGateway,
   describeRevert,
+  ENTOLE_POLICY_ABI,
+  remainingAuthorityOf,
   whyRefused,
 } from './onchain-gateway';
 import type { PaymentsFeed, ReceivedPayment } from './payments-feed';
+import { invoiceSalt } from './invoice-tag';
 import { createRecords } from './records';
 
 /**
@@ -153,12 +156,20 @@ describe('invoices are real records, not the demo', () => {
     await expect(gateway.createInvoice({ ...draft, reference: 'INV-0001' })).rejects.toThrow(/already exists/);
   });
 
-  it('marks an invoice paid on request and invents no tax reserve', async () => {
+  it('marks an invoice paid on request and keeps what it sets aside for tax, with no date made up', async () => {
     const records = memoryRecords();
     const { gateway } = build({ records });
     const invoice = await gateway.createInvoice(draft);
     const settled = await gateway.settleInvoice(invoice.id, 0.2);
-    expect(settled.taxReserve).toBeNull();
+    expect(settled.taxReserve).toMatchObject({
+      sourceInvoiceId: invoice.id,
+      balanceMinor: Math.round(invoice.amountMinor * 0.2),
+    });
+    expect(settled.taxReserve?.payoutAt).toBeUndefined();
+    expect(await records.taxReserves.list()).toHaveLength(1);
+    // Nothing is set aside when nothing is asked for.
+    const other = await gateway.createInvoice({ ...draft, reference: 'INV-0099' });
+    expect((await gateway.settleInvoice(other.id, 0)).taxReserve).toBeNull();
     expect(settled.invoice).toMatchObject({ id: invoice.id, status: 'paid' });
     expect(settled.invoice.paidAt).toBeDefined();
     expect((await records.invoices.list())[0]!.status).toBe('paid');
@@ -174,8 +185,9 @@ describe('invoices are real records, not the demo', () => {
 });
 
 describe('an allowance can actually pay', () => {
-  it('approves the policy before creating the allowance, on top of what is already approved', async () => {
+  it('approves the policy before creating the allowance, exactly what it can draw, never on top', async () => {
     const { gateway, owner, publicClient } = build({ delegateAddress: ASSISTANT });
+    // Whatever was approved before (7 here) is replaced, not added to.
     (publicClient.readContract as ReturnType<typeof vi.fn>).mockResolvedValue(7n);
 
     await gateway.saveAllowance(draft);
@@ -184,8 +196,22 @@ describe('an allowance can actually pay', () => {
     expect(names).toEqual(['approve', 'createAllowance']);
     const approval = owner.writeContract.mock.calls[0]![0] as { args: [Address, bigint] };
     expect(approval.args[0]).toBe(ADDRESS);
-    // 24 monthly periods of the cap, plus the 7 already approved.
-    expect(approval.args[1]).toBeGreaterThan(7n);
+    const created = owner.writeContract.mock.calls[1]![0] as { args: unknown[] };
+    const cap = created.args[5] as bigint;
+    // With no other allowance, 24 monthly periods of the cap and nothing else.
+    expect(approval.args[1]).toBe(cap * 24n);
+    // Every run waits out its undo window on the network.
+    expect(created.args[8]).toBe(10n);
+  });
+
+  it('lowers the approval when an allowance is revoked', async () => {
+    const { gateway, owner, publicClient } = build({ delegateAddress: ASSISTANT });
+    (publicClient.readContract as ReturnType<typeof vi.fn>).mockResolvedValue(7n);
+    await gateway.revokeAllowance('a-1');
+    const calls = owner.writeContract.mock.calls.map(([call]) => call as { functionName: string; args: unknown[] });
+    expect(calls.map((call) => call.functionName)).toEqual(['revoke', 'approve']);
+    // Nothing else is live, so what the policy may draw falls to nothing.
+    expect(calls[1]!.args[1]).toBe(0n);
   });
 
   it('approves a single period for an on-request allowance', async () => {
@@ -906,7 +932,7 @@ describe('history from the index', () => {
 
   /** A gateway on a clean chain, reading history from an index that answers with `rows`. */
   function withIndex(rows: unknown[] | 'down', extra: Parameters<typeof build>[0] = {}) {
-    const records = memoryRecords();
+    const records = extra.records ?? memoryRecords();
     const asked = vi.fn(async () =>
       rows === 'down' ? new Response('', { status: 503 }) : new Response(JSON.stringify({ data: { Payment: rows } })),
     );
@@ -942,6 +968,35 @@ describe('history from the index', () => {
     expect(activity.map((entry) => oneOffContact(entry.contactId)?.name)).toEqual(['Ada Eze', 'Tunde Bello']);
     // Written to the device, so it is there for good.
     expect(await records.activity.list()).toHaveLength(2);
+  });
+
+  it('an invoice paid with its tag is marked paid without anyone marking it', async () => {
+    const { gateway, records } = withIndex([]);
+    const invoice = await gateway.createInvoice({ clientName: 'Chiamaka Stores', amountMinor: 50_000_00, note: 'Fabric', dueAt: '2026-11-01T00:00:00.000Z', link: 'https://entole.pro/pay/@chiamaka' });
+    vi.unstubAllGlobals();
+    const tagged = invoiceSalt(ADDRESS, invoice.reference!);
+    const paid = withIndex([row({ from: ADA, to: ADDRESS, salt: tagged, door: 'router', amount: '31645570', txHash: GOT })], {
+      records,
+    });
+    const { invoices } = await paid.gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+    expect(invoices.find((entry) => entry.id === invoice.id)).toMatchObject({ status: 'paid' });
+  });
+
+  it('a payment without the tag, or for much less, leaves the invoice as it was', async () => {
+    const { gateway, records } = withIndex([]);
+    const invoice = await gateway.createInvoice({ clientName: 'Chiamaka Stores', amountMinor: 50_000_00, note: 'Fabric', dueAt: '2026-11-01T00:00:00.000Z', link: 'https://entole.pro/pay/@chiamaka' });
+    vi.unstubAllGlobals();
+    const short = withIndex(
+      [
+        row({ from: ADA, to: ADDRESS, salt: `0x${'07'.repeat(32)}`, door: 'router', amount: '31645570', txHash: GOT }),
+        row({ id: 'z-0', from: ADA, to: ADDRESS, salt: invoiceSalt(ADDRESS, invoice.reference!), amount: '1000000', txHash: SENT }),
+      ],
+      { records },
+    );
+    const { invoices } = await short.gateway.loadSnapshot();
+    vi.unstubAllGlobals();
+    expect(invoices.find((entry) => entry.id === invoice.id)?.status).not.toBe('paid');
   });
 
   it('a payment the device already has is not listed twice, and keeps what the device knew', async () => {
@@ -1001,5 +1056,141 @@ describe('history from the index', () => {
       variables: { me: string };
     };
     expect(body.variables.me).toBe(ADDRESS.toLowerCase());
+  });
+});
+
+describe('what an allowance can still draw', () => {
+  const month = 30n * 86_400n;
+  const base = { periodCap: 100n, periodSeconds: month, periodStart: 0n, spentInPeriod: 0n, expiresAt: 24n * month - 1n, revoked: false };
+
+  it('is the whole cap of every period it has, and nothing past its end', () => {
+    expect(remainingAuthorityOf(base, 0n)).toBe(2_400n);
+    expect(remainingAuthorityOf(base, 24n * month)).toBe(0n);
+  });
+
+  it('counts what is spent in the period it is in, and not once that period is over', () => {
+    expect(remainingAuthorityOf({ ...base, spentInPeriod: 30n }, 10n)).toBe(2_370n);
+    // A month on, the spent figure belongs to a period that has rolled.
+    expect(remainingAuthorityOf({ ...base, spentInPeriod: 30n }, month + 5n)).toBe(2_300n);
+  });
+
+  it('is nothing for one revoked, and the cap left for one on request', () => {
+    expect(remainingAuthorityOf({ ...base, revoked: true }, 0n)).toBe(0n);
+    expect(
+      remainingAuthorityOf({ ...base, periodSeconds: 2n ** 255n, expiresAt: 365n * 86_400n, spentInPeriod: 40n }, 100n),
+    ).toBe(60n);
+  });
+});
+
+describe('the undo window is held by the contract', () => {
+  const RUN = `0x${'ee'.repeat(32)}` as const;
+  const proposal = {
+    id: 'ask-1',
+    allowanceId: 'a-1',
+    contactId: 'c',
+    amountMinor: 1_000_00,
+    note: 'Asked in the app',
+    undoSeconds: 10,
+  };
+
+  function proposedLog(readyAt: bigint) {
+    return {
+      address: ADDRESS,
+      topics: encodeEventTopics({
+        abi: ENTOLE_POLICY_ABI,
+        eventName: 'Proposed',
+        args: { runId: RUN, id: `0x${'00'.repeat(32)}`, recipient: ADDRESS },
+      }),
+      data: encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [1n, readyAt]),
+      blockNumber: 1n,
+      logIndex: 0,
+      transactionHash: HASH,
+      transactionIndex: 0,
+      blockHash: HASH,
+      removed: false,
+    };
+  }
+
+  type Relay = (...args: never[]) => Promise<`0x${string}`>;
+  function queued(relay: { submitCancel?: ReturnType<typeof vi.fn<Relay>>; submitRunPending?: ReturnType<typeof vi.fn<Relay>> } = {}) {
+    const delegate = walletClient();
+    const submitPropose = vi.fn<Relay>().mockResolvedValue(HASH);
+    const submitRunPending = relay.submitRunPending ?? vi.fn<Relay>().mockResolvedValue(HASH);
+    const submitCancel = relay.submitCancel ?? vi.fn<Relay>().mockResolvedValue(HASH);
+    const built = build({
+      delegateAddress: ASSISTANT,
+      getDelegateWalletClient: vi.fn().mockResolvedValue(delegate.client),
+      relay: { submitPayment: vi.fn(), submitPropose, submitRunPending, submitCancel },
+    });
+    const publicClient = built.publicClient as unknown as {
+      readContract: ReturnType<typeof vi.fn>;
+      waitForTransactionReceipt: ReturnType<typeof vi.fn>;
+    };
+    publicClient.readContract.mockImplementation(async ({ functionName }: { functionName: string }) =>
+      functionName === 'allowances'
+        ? [ADDRESS, ASSISTANT, ADDRESS, 0n, 0n, 0n, 0n, 0n, 0n, false, 10n]
+        : functionName === 'wouldExceed'
+          ? false
+          : 0n,
+    );
+    // The run is ready the moment it is proposed, so the tests do not wait.
+    publicClient.waitForTransactionReceipt.mockResolvedValue({
+      transactionHash: HASH,
+      status: 'success',
+      logs: [proposedLog(BigInt(Math.floor(Date.now() / 1000)))],
+    });
+    return { ...built, delegate, submitPropose, submitRunPending, submitCancel };
+  }
+
+  it('puts the run in the queue as it is shown, signed by the assistant, and carries out that run', async () => {
+    const { gateway, submitPropose, submitRunPending } = queued();
+    const begun = await gateway.beginProposal!(proposal);
+    expect(Date.parse(begun.readyAt)).toBeGreaterThan(0);
+    expect(submitPropose).toHaveBeenCalledWith(expect.objectContaining({ signature: SIGNATURE, recipient: ADDRESS }));
+
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00, allowanceId: 'a-1', proposalId: proposal.id });
+    expect(submitRunPending).toHaveBeenCalledWith(RUN);
+    expect(submitPropose).toHaveBeenCalledTimes(1);
+  });
+
+  it('starting it twice queues it once', async () => {
+    const { gateway, submitPropose } = queued();
+    await gateway.beginProposal!(proposal);
+    await gateway.beginProposal!(proposal);
+    expect(submitPropose).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancelling stops it on the network, signed by the assistant', async () => {
+    const { gateway, submitCancel, delegate } = queued();
+    await gateway.beginProposal!(proposal);
+    await gateway.cancelProposal(proposal.id);
+    expect(submitCancel).toHaveBeenCalledWith(expect.objectContaining({ runId: RUN, signature: SIGNATURE }));
+    expect(delegate.signTypedData).toHaveBeenLastCalledWith(expect.objectContaining({ primaryType: 'Cancel' }));
+  });
+
+  it('says so, and points at the pause, when it cannot be stopped', async () => {
+    const submitCancel = vi.fn<Relay>().mockRejectedValue(Object.assign(new Error('x'), { code: 'rejected' }));
+    const { gateway, delegate } = queued({ submitCancel });
+    await gateway.beginProposal!(proposal);
+    delegate.writeContract.mockRejectedValue(new Error('execution reverted'));
+    await expect(gateway.cancelProposal(proposal.id)).rejects.toThrow(/Pause the assistant now/);
+  });
+
+  it('asks again when the network clock is a moment behind', async () => {
+    const submitRunPending = vi
+      .fn<Relay>()
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'too_early' }))
+      .mockResolvedValue(HASH);
+    const { gateway } = queued({ submitRunPending });
+    await gateway.beginProposal!(proposal);
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00, allowanceId: 'a-1', proposalId: proposal.id });
+    expect(submitRunPending).toHaveBeenCalledTimes(2);
+  }, 10_000);
+
+  it('a run not started on screen is queued and waited out before it is carried out', async () => {
+    const { gateway, submitPropose, submitRunPending } = queued();
+    await gateway.submitPayment({ contactId: 'c', amountMinor: 1_000_00, allowanceId: 'a-1' });
+    expect(submitPropose).toHaveBeenCalledTimes(1);
+    expect(submitRunPending).toHaveBeenCalledWith(RUN);
   });
 });

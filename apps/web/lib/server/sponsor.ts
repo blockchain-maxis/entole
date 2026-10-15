@@ -65,6 +65,11 @@ export function getChainReader() {
   return reader;
 }
 
+/** Clients that sign as the account `key` belongs to, on the same network as the sponsor. */
+export function signerFor(key: Hex) {
+  return build(key);
+}
+
 function build(key: Hex) {
   const account = privateKeyToAccount(key);
   const transport = http(RPC_URL);

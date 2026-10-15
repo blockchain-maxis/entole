@@ -42,6 +42,7 @@ export function ConfirmSendSheet({
   initials,
   amountMinor,
   defaultNote,
+  invoiceReference,
   onDismiss,
   onSettled,
 }: {
@@ -52,6 +53,8 @@ export function ConfirmSendSheet({
   amountMinor: number;
   /** Pre-fills the note — an invoice payment names its reference. */
   defaultNote?: string;
+  /** The invoice this pays, carried in the payment so the business sees it paid. */
+  invoiceReference?: string;
   onDismiss: () => void;
   onSettled: (receiptId: string) => void;
 }) {
@@ -128,6 +131,7 @@ export function ConfirmSendSheet({
         contactId,
         amountMinor,
         ...(trimmed ? { note: trimmed } : {}),
+        ...(invoiceReference ? { reference: invoiceReference } : {}),
       });
       setSettled(true);
       onSettled(receipt.id);

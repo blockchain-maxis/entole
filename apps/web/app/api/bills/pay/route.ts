@@ -3,7 +3,7 @@ import { toDollars } from '@entole/core/fx';
 import { kobo } from '@entole/core/money';
 import { z } from 'zod';
 
-import { getBillsConfig, getServerRate } from '@/lib/server/bills';
+import { getBillsConfig, getServerRate, refundBill, type RefundOutcome } from '@/lib/server/bills';
 import { json, preflight, readJson } from '@/lib/server/http';
 import { paymentRevertCode, paymentSchema, routerAbi } from '@/lib/server/payment-schema';
 import {
@@ -29,9 +29,11 @@ import {
  * to the biller before the person's payment has settled. A payment signed once
  * can be relayed once (its nonce is single-use), so a replay pays nothing.
  *
- * If the biller refuses after the person's payment settled, the answer is
- * `bill_failed` with the payment's hash, and the line below is logged so the
- * payment can be returned. There is no automatic refund yet (docs/BACKLOG.md).
+ * If the biller refuses after the person's payment settled, the payment is
+ * sent back from the bills account (`refundBill`), once, and the answer is
+ * `bill_refunded`. Where that cannot be done (no bills key, or the refund
+ * fails) the answer is `bill_failed` with the payment's hash, and a line is
+ * logged so it can be returned by hand.
  */
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -149,10 +151,22 @@ export async function POST(request: Request) {
     if (paid.status === 'failed') throw new Error('biller refused');
     return json({ status: paid.status, reference: paid.reference, hash });
   } catch {
+    // The biller refused after the person's money arrived: it goes back now,
+    // from the bills account, once. Only when that cannot be done is it left
+    // to be returned by hand, and the line below says which payment.
+    const refund = await refundBill({
+      hash,
+      payer: payment.from,
+      amount: payment.amount,
+      recipient: config.recipient,
+    }).catch((): RefundOutcome => ({ refunded: false, reason: 'failed' }));
+    if (refund.refunded) {
+      return json({ error: 'bill_refunded', hash, refunded: true, refundHash: refund.refundHash }, 502);
+    }
     console.error(
-      `[bills] paid-not-billed hash=${hash} category=${bill.category} amountMinor=${bill.amountMinor}: return this payment`,
+      `[bills] paid-not-billed hash=${hash} category=${bill.category} amountMinor=${bill.amountMinor} refund=${refund.reason}: return this payment`,
     );
-    return json({ error: 'bill_failed', hash }, 502);
+    return json({ error: 'bill_failed', hash, refunded: false }, 502);
   }
 }
 

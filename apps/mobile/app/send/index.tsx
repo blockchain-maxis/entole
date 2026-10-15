@@ -20,7 +20,7 @@ import { Keypad } from '@/components/ui/Keypad';
 import { Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
-import { cleanNote, entryFromParam } from '@/lib/recipient';
+import { cleanNote, cleanReference, entryFromParam } from '@/lib/recipient';
 import { checkSendAmount } from '@/lib/send';
 
 /**
@@ -37,7 +37,8 @@ export default function Send() {
   const router = useRouter();
   const store = useStore();
   const backend = useBackend();
-  const params = useLocalSearchParams<{ contactId?: string; amount?: string; note?: string }>();
+  // `reference` is the invoice an invoice link asks to be paid.
+  const params = useLocalSearchParams<{ contactId?: string; amount?: string; note?: string; reference?: string }>();
 
   const [entry, setEntry] = useState<AmountEntry>(() => entryFromParam(params.amount));
   const [reviewing, setReviewing] = useState(false);
@@ -215,6 +216,7 @@ export default function Send() {
           contact={contact}
           amountMinor={amount}
           {...(defaultNote ? { defaultNote } : {})}
+          {...(cleanReference(params.reference) ? { invoiceReference: cleanReference(params.reference)! } : {})}
           onDismiss={() => setReviewing(false)}
         />
       ) : null}

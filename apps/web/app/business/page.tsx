@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { formatRate } from '@entole/core/fx';
-import { resetLabel } from '@entole/core/format';
 import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
 import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
+import { TaxReserveCard } from '@/components/TaxReserveCard';
 import { AllowanceCardSkeleton, RowSkeleton } from '@/components/Skeleton';
 
 type Service = { label: string; hint: string; Icon: LucideIcon; href: string };
@@ -94,19 +94,7 @@ export default function BusinessPage() {
               ))}
             </div>
 
-            {store.taxReserves.length > 0 ? (
-              <div className="mb-3 mt-6 rounded-card bg-card p-5 shadow-raised">
-                <span className="rounded-control bg-press px-2 py-1 font-heavy text-micro uppercase text-slate">
-                  Tax reserve
-                </span>
-                <p className="tabular mt-3 font-display text-figure-sm text-ink">
-                  {formatNaira(kobo(store.taxReserves[0]!.balanceMinor))}
-                </p>
-                <p className="mt-1.5 font-body text-note text-slate">
-                  Held aside, {resetLabel(store.taxReserves[0]!.payoutAt)}
-                </p>
-              </div>
-            ) : null}
+            <TaxReserveCard />
 
             <div className="flex items-baseline justify-between pb-3 pt-8">
               <h2 className="font-display text-subhead text-ink">Invoices</h2>

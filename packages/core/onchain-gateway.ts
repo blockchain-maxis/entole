@@ -1,5 +1,5 @@
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
-import { encodeAbiParameters, keccak256, parseSignature, toHex } from 'viem';
+import { encodeAbiParameters, keccak256, parseEventLogs, parseSignature, toHex } from 'viem';
 
 import { RateUnavailableError, toDollars, toNaira, type Rate } from './fx';
 import {
@@ -15,7 +15,15 @@ import {
   type SendQuote,
 } from './gateway';
 import { evaluateReleaseCondition } from './chainlink-cre';
-import { counterpartyOf, fetchIndexedPayments, mapPaymentToActivity } from './indexed-activity';
+import { ASK_UNDO_SECONDS } from './assistant-ask';
+import {
+  counterpartyOf,
+  fetchIndexedAllowanceIds,
+  fetchIndexedPayments,
+  mapPaymentToActivity,
+  type IndexedPayment,
+} from './indexed-activity';
+import { invoiceSalt, saltPaysInvoice } from './invoice-tag';
 import { nextInvoiceReference } from './invoices';
 import { cents, kobo } from './money';
 import type { ConfirmMovement, Movement } from './movement';
@@ -33,11 +41,14 @@ import {
   type Cadence,
   type GrowPosition,
   type Invoice,
+  type Proposal,
   type Receipt,
   type Seat,
   type Snapshot,
   type StockPosition,
   stockPositionSchema,
+  DEFAULT_TAX_FRACTION,
+  taxReserveSchema,
   type TaxReserve,
 } from './schemas';
 import {
@@ -75,8 +86,45 @@ export const ENTOLE_POLICY_ABI = [
       { name: 'periodCap', type: 'uint256' },
       { name: 'periodSeconds', type: 'uint256' },
       { name: 'expiresAt', type: 'uint256' },
+      { name: 'undoSeconds', type: 'uint256' },
     ],
     outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'propose',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'id', type: 'bytes32' },
+      { name: 'recipient', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: 'runId', type: 'bytes32' }],
+  },
+  {
+    type: 'function',
+    name: 'cancel',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'runId', type: 'bytes32' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'executePending',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'runId', type: 'bytes32' }],
+    outputs: [],
+  },
+  {
+    type: 'event',
+    name: 'Proposed',
+    inputs: [
+      { name: 'runId', type: 'bytes32', indexed: true },
+      { name: 'id', type: 'bytes32', indexed: true },
+      { name: 'recipient', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'readyAt', type: 'uint256', indexed: false },
+    ],
   },
   {
     type: 'function',
@@ -150,6 +198,7 @@ export const ENTOLE_POLICY_ABI = [
       { name: 'spentInPeriod', type: 'uint256' },
       { name: 'expiresAt', type: 'uint256' },
       { name: 'revoked', type: 'bool' },
+      { name: 'undoSeconds', type: 'uint256' },
     ],
   },
   {
@@ -261,11 +310,41 @@ const EXECUTE_TYPES = {
   ],
 } as const;
 
+/** `EntolePolicy.proposeFor`: the same commitments as `Execute`, for a run that waits out its undo window. */
+const PROPOSE_TYPES = {
+  Propose: [
+    { name: 'id', type: 'bytes32' },
+    { name: 'recipient', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+} as const;
+
+/** `EntolePolicy.cancelFor`: which run to stop, and until when the signature holds. */
+const CANCEL_TYPES = {
+  Cancel: [
+    { name: 'runId', type: 'bytes32' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+} as const;
+
 /** Sponsor answers that settle the question: do not retry on the key's own fee. */
-const DEFINITIVE_RELAY_CODES = new Set(['over_limit', 'insufficient_funds', 'rate_limited']);
+const DEFINITIVE_RELAY_CODES = new Set(['over_limit', 'insufficient_funds', 'rate_limited', 'gone', 'stale']);
 
 /** How long a signed assistant run stays valid. */
 const EXECUTE_WINDOW_SECONDS = 300;
+
+/** A run in the contract's queue: which one, and when its undo window ends there. */
+type WaitingRun = { runId: Hex; readyAtMs: number };
+
+/** A run called a moment before the network's clock reaches it is asked for again, this often. */
+const RUN_ATTEMPTS = 5;
+const RUN_RETRY_MS = 1_500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** An allowance is created for 24 periods; the owner's standing approval to
  * the policy covers that whole horizon (one period for an on-request cap). */
@@ -322,6 +401,38 @@ export function whyRefused(
   const spent = nowSeconds >= allowance.periodStart + allowance.periodSeconds ? 0n : allowance.spentInPeriod;
   if (spent + amountToken > allowance.periodCap) return REFUSED.overWhatIsLeft;
   return REFUSED.unknown;
+}
+
+/**
+ * What one allowance can still draw from the owner, in token units: what is
+ * left of the period it is in, as the contract would roll it, and the whole
+ * cap of every period after that until it expires. Nothing for one that is
+ * revoked or over. The owner's standing approval to the policy is the sum of
+ * these, never more.
+ */
+export function remainingAuthorityOf(
+  allowance: {
+    periodCap: bigint;
+    periodSeconds: bigint;
+    periodStart: bigint;
+    spentInPeriod: bigint;
+    expiresAt: bigint;
+    revoked: boolean;
+  },
+  nowSeconds: bigint,
+): bigint {
+  if (allowance.revoked || allowance.periodSeconds === 0n || nowSeconds > allowance.expiresAt) return 0n;
+  let start = allowance.periodStart;
+  let spent = allowance.spentInPeriod;
+  if (nowSeconds >= start + allowance.periodSeconds) {
+    start += ((nowSeconds - start) / allowance.periodSeconds) * allowance.periodSeconds;
+    spent = 0n;
+  }
+  const thisPeriod = allowance.periodCap > spent ? allowance.periodCap - spent : 0n;
+  const end = start + allowance.periodSeconds;
+  const later =
+    allowance.expiresAt >= end ? (allowance.expiresAt - end) / allowance.periodSeconds + 1n : 0n;
+  return thisPeriod + later * allowance.periodCap;
 }
 
 /** A refusal in plain words; anything unrecognised stays generic. */
@@ -536,7 +647,18 @@ export type OnChainGatewayConfig = {
    * runs only). */
   routerAddress?: Address;
   relay?: Pick<RelayClient, 'submitPayment'> &
-    Partial<Pick<RelayClient, 'submitExecute' | 'validateBill' | 'submitBill'>>;
+    Partial<
+      Pick<
+        RelayClient,
+        'submitExecute' | 'submitPropose' | 'submitCancel' | 'submitRunPending' | 'validateBill' | 'submitBill'
+      >
+    >;
+  /** How long each of the assistant's runs waits on the network for the owner
+   * to stop it, written into every allowance made here. */
+  undoSeconds?: number;
+  /** Policy contracts this account may have used before the current one. An
+   * approval left on one is offered to be cleared (`clearOldApprovals`). */
+  previousPolicyAddresses?: readonly Address[];
   /** The account bills are paid into, when bill payment is set up. A public
    * address like any other, never shown on a screen. Without it, and without
    * the relay's bill calls, `payBill` refuses. */
@@ -800,6 +922,59 @@ const NAMES_PER_LOAD = 12;
  * the entries that were new. An index that is unset, unreachable or wrong
  * returns nothing, and the list stays as it was.
  */
+/**
+ * Invoices paid without anyone marking them. A payment that arrived through
+ * the router carrying an invoice's tag in its salt (`invoice-tag.ts`) marks
+ * that invoice paid, when it is at least nine tenths of what was asked: the
+ * rate moves between the asking and the paying. A payment that came another
+ * way carries no tag, and that invoice is still marked by hand.
+ */
+async function settleTaggedInvoices(config: ResolvedConfig, owner: Address, payments: IndexedPayment[]): Promise<void> {
+  const records = config.records;
+  if (!records) return;
+  const due = (await records.invoices.list()).filter(
+    (invoice): invoice is typeof invoice & { reference: string } =>
+      (invoice.status === 'sent' || invoice.status === 'pending-release') && Boolean(invoice.reference),
+  );
+  for (const invoice of due) {
+    const paid = payments.find(
+      (payment) =>
+        payment.to.toLowerCase() === owner.toLowerCase() &&
+        saltPaysInvoice(payment.salt, owner, invoice.reference) &&
+        fromTokenMinor(BigInt(payment.amount), config) * 10 >= invoice.amountMinor * 9,
+    );
+    if (!paid) continue;
+    const settled = invoiceSchema.parse({
+      ...invoice,
+      status: 'paid',
+      paidAt: new Date(Number(paid.timestamp) * 1000).toISOString(),
+      koboPerDollar: config.rate.koboPerDollar,
+    });
+    await records.invoices.upsert(settled);
+    await setAsideForTax(records, settled, DEFAULT_TAX_FRACTION);
+  }
+}
+
+/**
+ * What a paid invoice sets aside for tax: a share of it, kept as a record, so
+ * the business sees what it owes before it spends it. Earmarking only: no
+ * money moves until the person moves it into savings, and no payout date is
+ * made up for it. One per invoice.
+ */
+async function setAsideForTax(records: Records, invoice: Invoice, taxFraction: number): Promise<TaxReserve | null> {
+  const share = Math.round(invoice.amountMinor * Math.min(Math.max(taxFraction, 0), 1));
+  if (share <= 0) return null;
+  const reserve = taxReserveSchema.parse({
+    id: `tr-${invoice.id}`,
+    name: `Tax on ${invoice.reference ?? invoice.clientName}`,
+    balanceMinor: share,
+    setAsideAt: invoice.paidAt ?? new Date().toISOString(),
+    sourceInvoiceId: invoice.id,
+  });
+  await records.taxReserves.upsert(reserve);
+  return reserve;
+}
+
 async function takeInIndexed(config: ResolvedConfig, owner: Address, known: Activity[]): Promise<Activity[]> {
   if (!config.indexerUrl || !config.records) return [];
   let payments;
@@ -808,6 +983,8 @@ async function takeInIndexed(config: ResolvedConfig, owner: Address, known: Acti
   } catch {
     return [];
   }
+
+  await settleTaggedInvoices(config, owner, payments).catch(() => undefined);
 
   const have = new Set(known.map((entry) => entry.id));
   const missing = payments.filter((payment) => !have.has(activityIdFor(payment.txHash.toLowerCase())));
@@ -932,6 +1109,8 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
   async function signRelayedPayment(
     amountMinor: number,
     recipient: Address,
+    /** The invoice this pays, when it came from an invoice link: its tag goes in the salt. */
+    reference?: string,
   ): Promise<{ payment: RelayPayment; feeMinor: number }> {
     const { amountToken, feeToken, feeMinor } = await quote(amountMinor);
     const owner = ownerAddress();
@@ -946,7 +1125,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       throw new Error("You don't have enough for this payment and its fee.");
     }
 
-    const salt = toHex(crypto.getRandomValues(new Uint8Array(32)));
+    const salt = reference ? invoiceSalt(recipient, reference) : toHex(crypto.getRandomValues(new Uint8Array(32)));
     const nonce = keccak256(
       encodeAbiParameters(
         [{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'bytes32' }],
@@ -987,8 +1166,12 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     };
   }
 
-  async function sendRelayed(amountMinor: number, recipient: Address): Promise<{ hash: Hex; feeMinor: number }> {
-    const { payment, feeMinor } = await signRelayedPayment(amountMinor, recipient);
+  async function sendRelayed(
+    amountMinor: number,
+    recipient: Address,
+    reference?: string,
+  ): Promise<{ hash: Hex; feeMinor: number }> {
+    const { payment, feeMinor } = await signRelayedPayment(amountMinor, recipient, reference);
     const hash = await config.relay!.submitPayment(payment);
     return { hash, feeMinor };
   }
@@ -1002,22 +1185,61 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     await config.confirmMovement?.(movement);
   }
 
-  /** Makes sure the policy may draw what an allowance can spend. Added to what
-   * is already approved, because every allowance shares one approval. */
-  async function approveForAllowance(neededToken: bigint): Promise<void> {
+  /**
+   * What every live allowance this owner holds on the policy can still draw,
+   * in token units. The allowances are the ones this account has written down
+   * and, where the index is running, the ones the network says it created, so
+   * one made on another device is not missed. Each is read from the contract.
+   */
+  async function remainingAuthority(except?: Hex): Promise<bigint> {
+    const ids = new Set<Hex>();
+    for (const allowance of (await config.records?.allowances.list()) ?? []) ids.add(toChainAllowanceId(allowance.id));
+    if (config.indexerUrl) {
+      const indexed = await fetchIndexedAllowanceIds({ indexerUrl: config.indexerUrl, owner: ownerAddress() }).catch(
+        () => [] as Hex[],
+      );
+      for (const id of indexed) ids.add(id);
+    }
+    if (except) ids.delete(except);
+
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+    const me = ownerAddress().toLowerCase();
+    let total = 0n;
+    for (const id of ids) {
+      const [owner, , , , periodCap, periodSeconds, periodStart, spentInPeriod, expiresAt, revoked] =
+        await config.publicClient.readContract({
+          address: config.policyAddress,
+          abi: ENTOLE_POLICY_ABI,
+          functionName: 'allowances',
+          args: [id],
+        });
+      if (owner.toLowerCase() !== me) continue;
+      total += remainingAuthorityOf({ periodCap, periodSeconds, periodStart, spentInPeriod, expiresAt, revoked }, nowSeconds);
+    }
+    return total;
+  }
+
+  /**
+   * Sets the policy's standing approval to exactly what the live allowances
+   * can still draw, plus `extraToken` for one about to be written. The
+   * approval is replaced, not added to, so revoking an allowance lowers it.
+   */
+  async function setStandingApproval(extraToken: bigint, except?: Hex): Promise<void> {
+    const wanted = (await remainingAuthority(except)) + extraToken;
     const current = await config.publicClient.readContract({
       address: config.tokenAddress,
       abi: ERC20_ABI,
       functionName: 'allowance',
       args: [ownerAddress(), config.policyAddress],
     });
+    if (current === wanted) return;
     const hash = await config.ownerWalletClient.writeContract({
       chain: config.ownerWalletClient.chain,
       account: config.ownerWalletClient.account!,
       address: config.tokenAddress,
       abi: ERC20_ABI,
       functionName: 'approve',
-      args: [config.policyAddress, (current ?? 0n) + neededToken],
+      args: [config.policyAddress, wanted],
     });
     await config.publicClient.waitForTransactionReceipt({ hash });
   }
@@ -1116,6 +1338,156 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     }
   }
 
+  /** The assistant's runs waiting out their undo window, by the proposal they came from. */
+  const waitingRuns = new Map<string, WaitingRun>();
+
+  async function policyDomain(client: WalletClient) {
+    return {
+      name: 'EntolePolicy',
+      version: '1',
+      chainId: client.chain?.id ?? (await config.publicClient.getChainId()),
+      verifyingContract: config.policyAddress,
+    } as const;
+  }
+
+  /**
+   * The assistant puts a run in the contract's queue. Every rule is checked
+   * now and the amount is held back against the allowance; nothing moves
+   * until the run's undo window has passed. Its key only signs; the sponsor
+   * pays the fee, or the key pays for itself where there is no sponsor.
+   */
+  async function proposeAsAssistant(allowanceId: string, recipient: Address, amountToken: bigint): Promise<WaitingRun> {
+    const delegate = await delegateClient();
+    const delegateAccount = delegate.account!;
+    const id = toChainAllowanceId(allowanceId);
+
+    const refused = await config.publicClient.readContract({
+      address: config.policyAddress,
+      abi: ENTOLE_POLICY_ABI,
+      functionName: 'wouldExceed',
+      args: [id, recipient, amountToken],
+    });
+    if (refused === true) throw new Error(await refusalReason(id, amountToken));
+
+    let hash: Hex | null = null;
+    if (config.relay?.submitPropose) {
+      try {
+        const nonce = await config.publicClient.readContract({
+          address: config.policyAddress,
+          abi: ENTOLE_POLICY_ABI,
+          functionName: 'nonces',
+          args: [delegateAccount.address],
+        });
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + EXECUTE_WINDOW_SECONDS);
+        const signature = await delegate.signTypedData({
+          account: delegateAccount,
+          domain: await policyDomain(delegate),
+          types: PROPOSE_TYPES,
+          primaryType: 'Propose',
+          message: { id, recipient, amount: amountToken, nonce: nonce ?? 0n, deadline },
+        });
+        hash = await config.relay.submitPropose({ id, recipient, amount: amountToken, deadline, signature });
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (code && DEFINITIVE_RELAY_CODES.has(code)) throw error;
+      }
+    }
+    if (!hash) {
+      await config.ensureGas?.(delegateAccount.address);
+      try {
+        hash = await delegate.writeContract({
+          chain: delegate.chain,
+          account: delegateAccount,
+          address: config.policyAddress,
+          abi: ENTOLE_POLICY_ABI,
+          functionName: 'propose',
+          args: [id, recipient, amountToken],
+        });
+      } catch (error) {
+        throw describeRevert(error);
+      }
+    }
+
+    const receipt = await config.publicClient.waitForTransactionReceipt({ hash });
+    const proposed = parseEventLogs({ abi: ENTOLE_POLICY_ABI, logs: receipt.logs, eventName: 'Proposed' })[0];
+    if (receipt.status !== 'success' || !proposed) {
+      throw new Error("The assistant couldn't start that payment. Nothing was sent.");
+    }
+    return { runId: proposed.args.runId, readyAtMs: Number(proposed.args.readyAt) * 1000 };
+  }
+
+  /**
+   * Carries out a run once its undo window has passed on the network. The
+   * network's clock can trail this device's by a moment, so a run it calls too
+   * early is asked for again shortly.
+   */
+  async function runWhenReady(run: WaitingRun): Promise<Hex> {
+    const wait = run.readyAtMs - Date.now();
+    if (wait > 0) await sleep(wait);
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        if (config.relay?.submitRunPending) return await config.relay.submitRunPending(run.runId);
+        const delegate = await delegateClient();
+        await config.ensureGas?.(delegate.account!.address);
+        return await delegate.writeContract({
+          chain: delegate.chain,
+          account: delegate.account!,
+          address: config.policyAddress,
+          abi: ENTOLE_POLICY_ABI,
+          functionName: 'executePending',
+          args: [run.runId],
+        });
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        const early = code === 'too_early' || /TooEarly/.test(String((error as Error)?.message ?? error));
+        if (!early || attempt >= RUN_ATTEMPTS) throw code ? error : describeRevert(error);
+        await sleep(RUN_RETRY_MS);
+      }
+    }
+  }
+
+  /** Stops a waiting run on the network, signed by the assistant's own key. */
+  async function cancelRun(run: WaitingRun): Promise<void> {
+    const delegate = await delegateClient();
+    let hash: Hex | null = null;
+    if (config.relay?.submitCancel) {
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + EXECUTE_WINDOW_SECONDS);
+      const signature = await delegate.signTypedData({
+        account: delegate.account!,
+        domain: await policyDomain(delegate),
+        types: CANCEL_TYPES,
+        primaryType: 'Cancel',
+        message: { runId: run.runId, deadline },
+      });
+      try {
+        hash = await config.relay.submitCancel({ runId: run.runId, deadline, signature });
+      } catch (error) {
+        // Already stopped or already gone: there is nothing left to stop.
+        if ((error as { code?: string }).code === 'gone') return;
+      }
+    }
+    if (!hash) {
+      await config.ensureGas?.(delegate.account!.address);
+      try {
+        hash = await delegate.writeContract({
+          chain: delegate.chain,
+          account: delegate.account!,
+          address: config.policyAddress,
+          abi: ENTOLE_POLICY_ABI,
+          functionName: 'cancel',
+          args: [run.runId],
+        });
+      } catch (error) {
+        if (/NoSuchRun/.test(String((error as Error)?.message ?? error))) return;
+        throw new Error("We couldn't stop it on the network. Pause the assistant now to be sure it does not go.");
+      }
+    }
+    const receipt = await config.publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== 'success') {
+      throw new Error("We couldn't stop it on the network. Pause the assistant now to be sure it does not go.");
+    }
+  }
+
   const cadenceSeconds = config.cadenceSeconds ?? DEFAULT_CADENCE_SECONDS;
   const delegateAddress = config.delegateAddress ?? config.delegateWalletClient?.account?.address;
 
@@ -1134,6 +1506,17 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       functionName: 'convertToAssets',
       args: [shares],
     });
+  }
+
+  /** How long an allowance makes each run wait, as the contract has it. */
+  async function undoSecondsOf(allowanceId: string): Promise<bigint> {
+    const record = await config.publicClient.readContract({
+      address: config.policyAddress,
+      abi: ENTOLE_POLICY_ABI,
+      functionName: 'allowances',
+      args: [toChainAllowanceId(allowanceId)],
+    });
+    return record[10];
   }
 
   /** The assistant's signing client, or a clear refusal when it is not on. */
@@ -1173,11 +1556,14 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
             functionName: 'allowances',
             args: [id],
           });
-          const [, , , , periodCap, , , spentInPeriod, , revoked] = onchain;
+          const [allowanceOwner, , , , periodCap, , , spentInPeriod, , revoked] = onchain;
           const { limitMinor, spentMinor } = allowanceFigures(a.limitMinor, periodCap, spentInPeriod, (amount) =>
             fromTokenMinor(amount, config),
           );
-          return { ...a, spentMinor, limitMinor, paused: revoked || a.paused };
+          // One written on a policy this account no longer uses does not exist
+          // on this one: it is shown stopped until it is written again.
+          const missing = allowanceOwner.toLowerCase() !== owner.toLowerCase();
+          return { ...a, spentMinor, limitMinor, paused: revoked || missing || a.paused };
         }),
       );
 
@@ -1202,6 +1588,17 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
 
       const { activity, arrived } = await loadActivity(config, base, owner);
 
+      // An approval left on a policy this account used before is worth clearing.
+      const oldPolicyApproval = (
+        await Promise.all(
+          (config.previousPolicyAddresses ?? []).map((policy) =>
+            config.publicClient
+              .readContract({ address: config.tokenAddress, abi: ERC20_ABI, functionName: 'allowance', args: [owner, policy] })
+              .catch(() => 0n),
+          ),
+        )
+      ).some((left) => left > 0n);
+
       // Real holdings when a broker is configured; the (empty) off-chain
       // default otherwise. A failed broker request degrades to that default
       // rather than failing the whole snapshot — Holdings then reads empty
@@ -1222,7 +1619,10 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
         },
         allowances,
         activity,
+        // Read again: an invoice the index just showed paid is paid on this screen too.
+        ...(config.records ? { invoices: await config.records.invoices.list() } : {}),
         ...(arrived.length > 0 ? { arrived } : {}),
+        ...(oldPolicyApproval ? { oldPolicyApproval } : {}),
         growPosition,
         stockPositions,
       });
@@ -1255,9 +1655,20 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       let hash: Hex;
       let feeMinor: number = FEE_MINOR;
       if (allowanceId) {
-        hash = await executeAsAssistant(allowanceId, recipient, toTokenMinor(input.amountMinor, config));
+        const amountToken = toTokenMinor(input.amountMinor, config);
+        const waiting = input.proposalId ? waitingRuns.get(input.proposalId) : undefined;
+        if (waiting) {
+          // Started when the person was shown it: its window is over now.
+          hash = await runWhenReady(waiting);
+          waitingRuns.delete(input.proposalId!);
+        } else if ((await undoSecondsOf(allowanceId)) > 0n) {
+          // Not started yet: it goes into the queue now and waits its window out.
+          hash = await runWhenReady(await proposeAsAssistant(allowanceId, recipient, amountToken));
+        } else {
+          hash = await executeAsAssistant(allowanceId, recipient, amountToken);
+        }
       } else if (relayed) {
-        const sent = await sendRelayed(input.amountMinor, recipient);
+        const sent = await sendRelayed(input.amountMinor, recipient, input.reference);
         hash = sent.hash;
         feeMinor = sent.feeMinor;
       } else {
@@ -1349,12 +1760,21 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       // period to multiply (its "period" is effectively forever), so it lasts
       // a year instead.
       const onRequest = draft.cadence === 'on-request';
-      const expiresAt = nowSeconds + (onRequest ? 365n * SECONDS_PER_DAY : seconds * ALLOWANCE_PERIODS);
+      // It ends the second before a 25th period would begin, so 24 periods are exactly 24 caps.
+      const expiresAt = nowSeconds + (onRequest ? 365n * SECONDS_PER_DAY : seconds * ALLOWANCE_PERIODS - 1n);
 
       // The policy can only draw what the owner has approved, so approve first:
       // an allowance that exists but cannot pay would fail on its first use.
-      const periods = onRequest ? 1n : ALLOWANCE_PERIODS;
-      await approveForAllowance(toTokenMinor(draft.limitMinor, config) * periods);
+      // The approval is set to exactly what the other allowances can still
+      // draw plus what this one can, never added on top of whatever was there.
+      const capToken = toTokenMinor(draft.limitMinor, config);
+      await setStandingApproval(
+        remainingAuthorityOf(
+          { periodCap: capToken, periodSeconds: seconds, periodStart: nowSeconds, spentInPeriod: 0n, expiresAt, revoked: false },
+          nowSeconds,
+        ),
+        id,
+      );
 
       const hash = await config.ownerWalletClient.writeContract({
         chain: config.ownerWalletClient.chain,
@@ -1371,6 +1791,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
           toTokenMinor(draft.limitMinor, config),
           seconds,
           expiresAt,
+          BigInt(config.undoSeconds ?? ASK_UNDO_SECONDS),
         ],
       });
       await config.publicClient.waitForTransactionReceipt({ hash });
@@ -1404,6 +1825,9 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       });
       await config.publicClient.waitForTransactionReceipt({ hash });
       await config.records?.allowances.remove(allowanceId);
+      // What it could have drawn is no longer approved. Best-effort: the
+      // revocation already stops every draw, the approval is only headroom.
+      await setStandingApproval(0n, id).catch(() => undefined);
       await notifyAllowanceChanged(null);
     },
 
@@ -1615,15 +2039,53 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       return loadStockPositions(config);
     },
 
-    async cancelProposal(): Promise<void> {
-      // Nothing on-chain to undo: the undo window is exactly the promise
-      // that `execute` is never called until it expires. Cancelling is a
-      // pure app/backend-side action — see docs/PRODUCT.md's "undo window,
-      // never a confirmation dialog." When an inbox is configured, this also
-      // drops the server copy so a cancelled (or already-run) proposal does
-      // not re-surface on the next snapshot read. Best-effort: a failed clear
-      // must never turn cancelling into an error.
+    async beginProposal(proposal: Proposal): Promise<{ readyAt: string }> {
+      const known = waitingRuns.get(proposal.id);
+      if (known) return { readyAt: new Date(known.readyAtMs).toISOString() };
+      await refreshRate();
+      const run = await proposeAsAssistant(
+        proposal.allowanceId,
+        config.resolveRecipient(proposal.contactId),
+        toTokenMinor(proposal.amountMinor, config),
+      );
+      waitingRuns.set(proposal.id, run);
+      return { readyAt: new Date(run.readyAtMs).toISOString() };
+    },
+
+    async cancelProposal(proposalId?: string): Promise<void> {
+      // A run already in the contract's queue is stopped there, where it
+      // counts: cancelled on the network, it can never be carried out. A
+      // failure to stop it is said, not swallowed.
+      const waiting = proposalId ? waitingRuns.get(proposalId) : undefined;
+      if (waiting) {
+        await cancelRun(waiting);
+        waitingRuns.delete(proposalId!);
+      }
+      // The server inbox copy goes too, so a cancelled (or already-run)
+      // proposal does not re-surface on the next read. Best-effort.
       await config.clearProposal?.().catch(() => undefined);
+    },
+
+    async clearOldApprovals(): Promise<void> {
+      for (const policy of config.previousPolicyAddresses ?? []) {
+        const left = await config.publicClient.readContract({
+          address: config.tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'allowance',
+          args: [ownerAddress(), policy],
+        });
+        if (left === 0n) continue;
+        await withGas();
+        const hash = await config.ownerWalletClient.writeContract({
+          chain: config.ownerWalletClient.chain,
+          account: config.ownerWalletClient.account!,
+          address: config.tokenAddress,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [policy, 0n],
+        });
+        await config.publicClient.waitForTransactionReceipt({ hash });
+      }
     },
 
     // A seat is the business's own record of what a person on the team may
@@ -1684,7 +2146,10 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
 
     /** A manual mark: it records that the client paid. Nothing here watches the
      * balance, and no tax reserve is invented — that stays `null`. */
-    async settleInvoice(invoiceId: string): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }> {
+    async settleInvoice(
+      invoiceId: string,
+      taxFraction = DEFAULT_TAX_FRACTION,
+    ): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }> {
       const records = requireRecords(config);
       const found = (await records.invoices.list()).find((entry) => entry.id === invoiceId);
       if (!found) throw new Error("We couldn't find that invoice.");
@@ -1696,7 +2161,16 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
         koboPerDollar: config.rate.koboPerDollar,
       });
       await records.invoices.upsert(invoice);
-      return { invoice, taxReserve: null };
+      return { invoice, taxReserve: await setAsideForTax(records, invoice, taxFraction) };
+    },
+
+    async markTaxReservesMoved(ids: string[]): Promise<TaxReserve[]> {
+      const records = requireRecords(config);
+      const movedAt = new Date().toISOString();
+      for (const reserve of await records.taxReserves.list()) {
+        if (ids.includes(reserve.id) && !reserve.movedAt) await records.taxReserves.upsert({ ...reserve, movedAt });
+      }
+      return records.taxReserves.list();
     },
 
     // Chainlink-gated release stays gated as it was: it needs the CRE workflow.

@@ -10,11 +10,13 @@ import {
   avatarToneSchema,
   invoiceSchema,
   seatSchema,
+  taxReserveSchema,
   type Activity,
   type Allowance,
   type Contact,
   type Invoice,
   type Seat,
+  type TaxReserve,
 } from './schemas';
 
 /**
@@ -330,6 +332,17 @@ export function createRecords(store: RecordStore, owner: Address, sync?: RecordS
       async remove(id: string) {
         const current = await read('invoices', invoiceSchema);
         await write('invoices', current.filter((item) => item.id !== id));
+      },
+    },
+    taxReserves: {
+      /** Newest first. */
+      list: () => read('tax-reserves', taxReserveSchema),
+      /** Adds or replaces one; one reserve per invoice. */
+      async upsert(input: TaxReserve) {
+        const entry = taxReserveSchema.parse(input);
+        const current = await read('tax-reserves', taxReserveSchema);
+        const exists = current.some((item) => item.id === entry.id);
+        await write('tax-reserves', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [entry, ...current]);
       },
     },
     beneficiaries: {

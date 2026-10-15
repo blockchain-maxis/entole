@@ -140,10 +140,18 @@ export const taxReserveSchema = z.object({
   name: z.string().min(1),
   balanceMinor: nonNegativeMinor,
   /** Earmarking, not investment — no yield accrues here. See docs/SCOPE.md,
-   * "Cut from the pitch." */
-  payoutAt: isoDate,
+   * "Cut from the pitch." A date to pay it out by, where one was set; none is
+   * ever invented. */
+  payoutAt: isoDate.optional(),
+  /** When it was set aside: when its invoice was marked paid. */
+  setAsideAt: isoDate.optional(),
+  /** When the person moved it into savings, so it is money apart and not only a figure. */
+  movedAt: isoDate.optional(),
   sourceInvoiceId: z.string().optional(),
 });
+
+/** The share of a paid invoice set aside for tax, unless the person says otherwise. */
+export const DEFAULT_TAX_FRACTION = 0.2;
 
 /**
  * A "Grow" position — the balance behind the growth-vault feature. Accrual
@@ -239,6 +247,9 @@ export const snapshotSchema = z.object({
   /** Payments that arrived and were seen for the first time on this load, so
    * the app can say so once. They are in `activity` too. */
   arrived: z.array(activitySchema).optional(),
+  /** True when an approval is left on a policy contract this account used
+   * before the current one, and its allowances there have to be written again. */
+  oldPolicyApproval: z.boolean().optional(),
 });
 
 export type Contact = z.infer<typeof contactSchema>;

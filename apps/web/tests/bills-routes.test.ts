@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST as pay } from '@/app/api/bills/pay/route';
 import { POST as validate } from '@/app/api/bills/validate/route';
-import { getServerRate } from '@/lib/server/bills';
+import { getServerRate, refundBill } from '@/lib/server/bills';
 import { getRouterAddress, getSponsor, resetRateLimits, type Sponsor } from '@/lib/server/sponsor';
 
 /**
@@ -19,6 +19,7 @@ vi.mock('@/lib/server/sponsor', async (importActual) => ({
 }));
 vi.mock('@/lib/server/bills', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/server/bills')>()),
+  refundBill: vi.fn(),
   getServerRate: vi.fn(),
 }));
 
@@ -198,17 +199,28 @@ describe('POST /api/bills/pay', () => {
     expect(simulateContract).not.toHaveBeenCalled();
   });
 
-  it('keeps the payment hash and logs it when the biller refuses after the payment settled', async () => {
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it('sends the payment back when the biller refuses after it settled', async () => {
+    vi.mocked(refundBill).mockResolvedValueOnce({ refunded: true, refundHash: HASH as `0x${string}` });
     biller.mockResolvedValueOnce(reply({}, 500));
     const response = await pay(post(request()));
     expect(response.status).toBe(502);
-    expect(await body(response)).toEqual({ error: 'bill_failed', hash: HASH });
+    expect(await body(response)).toEqual({ error: 'bill_refunded', hash: HASH, refunded: true, refundHash: HASH });
+    expect(refundBill).toHaveBeenCalledWith(expect.objectContaining({ hash: HASH }));
+  });
+
+  it('keeps the payment hash and logs it when it cannot be sent back', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(refundBill).mockResolvedValueOnce({ refunded: false, reason: 'no_key' });
+    biller.mockResolvedValueOnce(reply({}, 500));
+    const response = await pay(post(request()));
+    expect(response.status).toBe(502);
+    expect(await body(response)).toEqual({ error: 'bill_failed', hash: HASH, refunded: false });
     expect(logged.mock.calls[0]![0]).toContain(HASH);
     logged.mockRestore();
   });
 
   it('treats a biller answer that is not a success as a failure, never as paid', async () => {
+    vi.mocked(refundBill).mockResolvedValueOnce({ refunded: false, reason: 'no_key' });
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     biller.mockResolvedValueOnce(reply({ status: 'error' }));
     expect((await pay(post(request()))).status).toBe(502);

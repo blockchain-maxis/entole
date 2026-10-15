@@ -14,7 +14,7 @@ Assistant (LLM)          →  proposes a payment. Can be wrong, can be
                              that matters, because it cannot make a payment
                              — only ask for one.
 
-App / backend             →  assembles the proposal, runs the undo window,
+App / backend             →  assembles the proposal, shows the undo window,
                              submits the transaction. Convenience, not
                              security. Assume it is compromised too.
 
@@ -30,9 +30,21 @@ That rule shaped every line of `contracts/src/EntolePolicy.sol`.
 
 ## What the contract actually enforces
 
-Source: `contracts/src/EntolePolicy.sol`. Open, ~300 lines, 28 passing tests
-in `contracts/test/EntolePolicy.t.sol` — every caveat below has a test that
-tries to break it and fails to.
+Source: `contracts/src/EntolePolicy.sol`. Open, ~450 lines, 47 passing tests
+in `contracts/test/EntolePolicy.t.sol` and `EntolePolicyUndo.t.sol` — every
+caveat below has a test that tries to break it and fails to.
+
+- **An undo window the contract holds** (version 2, 15 October 2026). An
+  allowance carries `undoSeconds` (the app writes 10). With one set, the
+  assistant cannot spend at once: `execute` and `executeFor` revert
+  `UndoWindowRequired`. It can only `propose` a run, which checks every caveat,
+  holds the amount back against the period cap (so runs waiting together can
+  never add up past it), and becomes payable at `readyAt`. Until then the owner
+  or the assistant can `cancel` it; a pause, a revocation or a change of terms
+  in the meantime stops it too, because `executePending` checks everything
+  again. A run nobody carries out within fifteen minutes of `readyAt` goes
+  stale and can only be cleared. So a stolen assistant key gets, at most, a
+  payment the person can watch coming and stop.
 
 - **A per-transaction maximum.** `execute()` reverts `OverPerRunMax` before
   it looks at anything else if the amount is too big for a single run.
@@ -209,13 +221,19 @@ threat model above. Concretely:
 - **Pay a bill:** the biller's key never leaves the server. A bill is paid only
   after the person's own signed payment to the bills account has settled and
   covers the bill at the live rate (a 99-105% band); the payment's one-time
-  nonce means a replay pays nothing. The residual risk is a biller refusing after
-  the payment settled: it is logged with the payment hash and returned by hand
-  (no automatic refund yet).
-- **Standing approval:** creating an allowance has the owner approve the policy
-  for the allowance's cap across its life, added to whatever is already
-  approved. It is headroom, bounded on every draw by the caveats, and revoking
-  the approval itself (outside this contract) still works.
+  nonce means a replay pays nothing. If the biller refuses after the payment
+  settled, the server sends it back from the bills account with that account's
+  own key (`BILLS_PRIVATE_KEY`), once per payment. That key on the server can
+  move whatever the bills account holds, which is only bill payments on their
+  way to the biller; it cannot touch anyone's own balance. Without the key a
+  refusal is logged with the payment hash and returned by hand.
+- **Standing approval:** the owner's approval to the policy is set to exactly
+  what the live allowances can still draw (`remainingAuthorityOf`: the rest of
+  each one's current period and every full period until it expires), recounted
+  whenever one is written and lowered whenever one is revoked. The live set is
+  the account's own records joined with what the index says the owner created,
+  each read back from the contract. An approval left on the policy an account
+  used before is offered to be cleared, once, on Home.
 
 ## Grow, and why it sits outside this contract
 

@@ -50,12 +50,15 @@ export function ConfirmSendSheet({
   contact,
   amountMinor,
   defaultNote,
+  invoiceReference,
   onDismiss,
 }: {
   contact: Contact;
   amountMinor: number;
   /** Pre-fills the note — a supplier payment says so. */
   defaultNote?: string;
+  /** The invoice this pays, carried in the payment so the business sees it paid. */
+  invoiceReference?: string;
   onDismiss: () => void;
 }) {
   const router = useRouter();
@@ -137,6 +140,7 @@ export function ConfirmSendSheet({
         contactId: contact.id,
         amountMinor,
         ...(trimmed ? { note: trimmed } : {}),
+        ...(invoiceReference ? { reference: invoiceReference } : {}),
       });
       // Settled for real. The sheet stays locked until the receipt replaces it.
       setSettled(true);

@@ -2,6 +2,7 @@ import { getAddress, isAddress, parseAbi, type Address, type Hex } from 'viem';
 import { z } from 'zod';
 
 import { json, preflight, readJson } from '@/lib/server/http';
+import { policyRevertCode } from '@/lib/server/policy-revert';
 import {
   RELAY_LIMIT_PER_MINUTE,
   getPolicyAddress,
@@ -53,28 +54,6 @@ const bodySchema = z.object({
   signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/).transform((value) => value as Hex),
 });
 
-/** What went wrong in a revert, by the contract's error name — never raw RPC text. */
-function revertCode(error: unknown): string {
-  const text = (
-    error instanceof Error
-      ? `${(error as { shortMessage?: string }).shortMessage ?? ''} ${error.message}`
-      : String(error)
-  ).toLowerCase();
-  if (text.includes('signatureexpired')) return 'expired';
-  if (text.includes('badsignature')) return 'invalid_signature';
-  if (text.includes('transferfailed') || text.includes('balance') || text.includes('allowance')) {
-    return 'insufficient_funds';
-  }
-  if (
-    ['overperrunmax', 'overperiodcap', 'recipientnotallowed', 'accountpaused', 'alreadyrevoked', 'expired', 'notdelegate'].some(
-      (name) => text.includes(name),
-    )
-  ) {
-    return 'over_limit';
-  }
-  return 'rejected';
-}
-
 export async function POST(request: Request) {
   const sponsor = getSponsor();
   const policy = getPolicyAddress();
@@ -106,7 +85,7 @@ export async function POST(request: Request) {
       args: [id, recipient, amount, deadline, signature],
     });
   } catch (error) {
-    return json({ error: revertCode(error) }, 422);
+    return json({ error: policyRevertCode(error) }, 422);
   }
 
   try {

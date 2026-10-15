@@ -1078,9 +1078,19 @@ describe('a payment the network refuses says so', () => {
   const gateway = stripComments(read(join(ROOT, '../../packages/core/onchain-gateway.ts')));
 
   it('the undo window stops counting, says it was not sent, and offers a way out', () => {
-    expect(action).toMatch(/running=\{!stopped && !sending && !problem\}/);
+    expect(action).toMatch(/const counting = queue\.state !== 'starting' && !stopped && !sending && !problem;/);
+    expect(action).toMatch(/running=\{counting\}/);
     expect(action).toMatch(/'Not sent\. Nothing was taken\.'/);
-    expect(action).toMatch(/\{problem \? 'Close' : 'Cancel this payment'\}/);
+    expect(action).toMatch(/\{stopping \? 'Stopping' : problem \? 'Close' : 'Cancel this payment'\}/);
+  });
+
+  it('the wait is the contract\'s: started as the screen opens, counted to its readyAt, never cut short', () => {
+    expect(action).toMatch(/store\s*\.beginProposal\(\)/);
+    expect(action).toMatch(/Date\.parse\(started\.readyAt\)/);
+    // "Send it now" exists only where no contract holds the wait.
+    expect(action).toMatch(/\{queue\.state === 'here' \|\| problem \? \(/);
+    // A cancel that fails is said, with the pause as the sure way.
+    expect(action).toMatch(/Pause the assistant now to be sure it does not go\./);
   });
 
   it('the reason comes from the network\'s own record, in the order the contract checks', () => {

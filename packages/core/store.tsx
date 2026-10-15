@@ -18,6 +18,7 @@ import {
 } from './gateway';
 import { kobo, type Naira } from './money';
 import { oneOffContact } from './one-off';
+import { DEFAULT_TAX_FRACTION } from './schemas';
 import type {
   Activity,
   Contact,
@@ -69,13 +70,24 @@ type Store = {
   send(input: SendInput): Promise<Receipt>;
   saveAllowance(draft: AllowanceDraft): Promise<void>;
   revokeAllowance(id: string): Promise<void>;
+  /** Puts the waiting proposal in the contract's queue as it is shown, and
+   * says when its undo window ends there. `null` where there is no contract to
+   * queue it in, and the countdown is the app's own. */
+  beginProposal(): Promise<{ readyAt: string } | null>;
   cancelProposal(): Promise<void>;
   runProposal(): Promise<Receipt>;
+  /** True when allowances written on a policy this account used before need writing again. */
+  oldPolicyApproval: boolean;
+  /** Clears the approval left on that policy. */
+  clearOldApprovals(): Promise<void>;
   receipt(id: string): Receipt | undefined;
   saveSeat(draft: SeatDraft): Promise<void>;
   revokeSeat(id: string): Promise<void>;
   createInvoice(draft: InvoiceDraft): Promise<Invoice>;
   settleInvoice(invoiceId: string, taxFraction?: number): Promise<void>;
+  /** Moves what is set aside for tax and not yet moved into savings, as one
+   * savings deposit, confirmed like any other. */
+  moveTaxReserveToSavings(): Promise<void>;
   createProcurementRequest(draft: ProcurementRequestDraft): Promise<ProcurementRequest>;
   /** Re-checks a `'pending-release'` invoice's condition against `rate`.
    * Resolves `true` if it released, `false` if it's still not met. */
@@ -237,11 +249,21 @@ export function StoreProvider({
     [gateway],
   );
 
+  const beginProposal = useCallback(async () => {
+    if (!proposal || !gateway.beginProposal) return null;
+    return gateway.beginProposal(proposal);
+  }, [gateway, proposal]);
+
   const cancelProposal = useCallback(async () => {
     if (!proposal) return;
     await gateway.cancelProposal(proposal.id);
     setProposal(null);
   }, [gateway, proposal]);
+
+  const clearOldApprovals = useCallback(async () => {
+    await gateway.clearOldApprovals?.();
+    setSnapshot((current) => (current ? { ...current, oldPolicyApproval: false } : current));
+  }, [gateway]);
 
   const saveSeat = useCallback(
     async (draft: SeatDraft) => {
@@ -278,15 +300,17 @@ export function StoreProvider({
   );
 
   const settleInvoice = useCallback(
-    async (invoiceId: string, taxFraction = 0.2) => {
+    async (invoiceId: string, taxFraction = DEFAULT_TAX_FRACTION) => {
       const { invoice, taxReserve } = await gateway.settleInvoice(invoiceId, taxFraction);
       setSnapshot((current) => {
         if (!current) return current;
         return {
           ...current,
           invoices: current.invoices.map((entry) => (entry.id === invoiceId ? invoice : entry)),
-          // The real gateway keeps no reserve, so there may be none to add.
-          taxReserves: taxReserve ? [taxReserve, ...current.taxReserves] : current.taxReserves,
+          // A share of zero sets nothing aside, so there may be none to add.
+          taxReserves: taxReserve
+            ? [taxReserve, ...current.taxReserves.filter((entry) => entry.id !== taxReserve.id)]
+            : current.taxReserves,
         };
       });
     },
@@ -345,6 +369,19 @@ export function StoreProvider({
     [gateway],
   );
 
+  const moveTaxReserveToSavings = useCallback(async () => {
+    const waiting = (snapshot?.taxReserves ?? []).filter((reserve) => !reserve.movedAt && reserve.balanceMinor > 0);
+    const total = waiting.reduce((sum, reserve) => sum + reserve.balanceMinor, 0);
+    if (total <= 0) return;
+    // The same move as Add to savings, confirmed the same way. Only once the
+    // money is there are the reserves written down as moved.
+    const growPosition = await gateway.depositGrow(total);
+    const taxReserves = (await gateway.markTaxReservesMoved?.(waiting.map((reserve) => reserve.id))) ?? null;
+    setSnapshot((current) =>
+      current ? { ...current, growPosition, ...(taxReserves ? { taxReserves } : {}) } : current,
+    );
+  }, [gateway, snapshot]);
+
   const withdrawGrow = useCallback(
     async (amountMinor: number) => {
       const growPosition = await gateway.withdrawGrow(amountMinor);
@@ -379,6 +416,7 @@ export function StoreProvider({
       amountMinor: proposal.amountMinor,
       note: proposal.note,
       allowanceId: proposal.allowanceId,
+      proposalId: proposal.id,
     });
     // The proposal is consumed: drop the server inbox copy through the same
     // clear path a cancel uses, so it does not re-surface on the next refresh.
@@ -427,13 +465,17 @@ export function StoreProvider({
       send,
       saveAllowance,
       revokeAllowance,
+      beginProposal,
       cancelProposal,
       runProposal,
+      oldPolicyApproval: snapshot?.oldPolicyApproval ?? false,
+      clearOldApprovals,
       receipt: (id) => receipts[id],
       saveSeat,
       revokeSeat,
       createInvoice,
       settleInvoice,
+      moveTaxReserveToSavings,
       createProcurementRequest,
       requestConditionalRelease,
       validateBill,
@@ -448,7 +490,9 @@ export function StoreProvider({
   }, [
     arrivals,
     buyStock,
+    beginProposal,
     cancelProposal,
+    clearOldApprovals,
     clearArrivals,
     createInvoice,
     createProcurementRequest,
@@ -473,6 +517,7 @@ export function StoreProvider({
     send,
     setPaused,
     settleInvoice,
+    moveTaxReserveToSavings,
     snapshot,
     status,
     withdrawGrow,

@@ -30,6 +30,12 @@ export type RelayExecute = {
   signature: Hex;
 };
 
+/** A run the assistant's key signed, to wait out its undo window on the network. */
+export type RelayPropose = RelayExecute;
+
+/** A cancellation the owner's or the assistant's key signed. */
+export type RelayCancel = { runId: Hex; deadline: bigint; signature: Hex };
+
 export type RelayBill = {
   category: 'electricity' | 'airtime-data' | 'cable-tv' | 'internet';
   customerIdentifier: string;
@@ -50,6 +56,7 @@ const MESSAGES: Record<string, string> = {
   amount_mismatch: "That amount doesn't match the bill. Try again.",
   rate_unavailable: "We can't price that right now. Try again shortly.",
   bill_failed: "The bill wasn't paid. Your payment will be returned.",
+  bill_refunded: "The bill wasn't paid, so your payment was sent back to you. The fee was not.",
   invalid_customer: "We couldn't find that account. Check the number and try again.",
   over_limit: "That's outside what the assistant can spend right now.",
   sponsor_low: 'Payments are paused for a moment. Try again shortly.',
@@ -57,7 +64,11 @@ const MESSAGES: Record<string, string> = {
   cooldown: 'Adding money is busy right now. Try again in a minute.',
   already_funded: 'You already have plenty of test money.',
   amount_too_small: "That's less than the smallest amount you can add. Try a bit more.",
-  partner_unavailable: "Bank transfer isn't available right now. Try again shortly.",
+  partner_unavailable: "That isn't available right now. Try again shortly.",
+  too_early: 'That payment is still waiting. It goes when the countdown ends.',
+  stale: 'That payment waited too long and was not sent. Ask again.',
+  gone: 'That payment was already stopped or sent.',
+  undo_required: "That's outside what the assistant can spend right now.",
 };
 
 export class RelayError extends Error {
@@ -160,6 +171,36 @@ export function createRelayClient(options: { baseUrl: string; fetch?: typeof fet
         },
         hashSchema,
       );
+      return hash as Hex;
+    },
+    /** Submits a run for its undo window; resolves with the hash of the transaction that proposed it. */
+    async submitPropose(run: RelayPropose): Promise<Hex> {
+      const { hash } = await post(
+        '/api/relay/pending',
+        {
+          action: 'propose',
+          id: run.id,
+          recipient: run.recipient,
+          amount: run.amount.toString(),
+          deadline: run.deadline.toString(),
+          signature: run.signature,
+        },
+        hashSchema,
+      );
+      return hash as Hex;
+    },
+    /** Stops a waiting run, with a signed cancellation. */
+    async submitCancel(cancel: RelayCancel): Promise<Hex> {
+      const { hash } = await post(
+        '/api/relay/pending',
+        { action: 'cancel', runId: cancel.runId, deadline: cancel.deadline.toString(), signature: cancel.signature },
+        hashSchema,
+      );
+      return hash as Hex;
+    },
+    /** Carries out a run whose undo window has passed. */
+    async submitRunPending(runId: Hex): Promise<Hex> {
+      const { hash } = await post('/api/relay/pending', { action: 'run', runId }, hashSchema);
       return hash as Hex;
     },
     /** Whose account a bill number belongs to, checked before any money moves. */

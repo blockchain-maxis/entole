@@ -134,3 +134,40 @@ describe('a payment from the index, as an activity entry', () => {
     expect(mapPaymentToActivity(payment({ txHash: upper }), OPTIONS)!.id).toBe(`rc-${HASH}`);
   });
 });
+
+describe('an index from before the new fields', () => {
+  it('is asked the older question when it does not know the new one', async () => {
+    const queries: string[] = [];
+    const fetchImpl = (async (_url: string, init: { body: string }) => {
+      const { query } = JSON.parse(init.body) as { query: string };
+      queries.push(query);
+      const body = query.includes('salt') ? { errors: [{ message: 'field salt not found' }] } : { data: { Payment: [payment()] } };
+      return new Response(JSON.stringify(body));
+    }) as unknown as typeof fetch;
+    expect(await fetchIndexedPayments({ indexerUrl: 'u', account: ME, fetch: fetchImpl })).toEqual([payment()]);
+    expect(queries).toHaveLength(2);
+  });
+});
+
+describe('money that came in some other way', () => {
+  it('test money is called test money', () => {
+    const entry = mapPaymentToActivity(
+      payment({ from: '0x0000000000000000000000000000000000000000', to: ME.toLowerCase(), door: 'transfer' }),
+      OPTIONS,
+    );
+    expect(entry?.note).toBe('Test money added');
+    expect(oneOffContact(entry!.contactId)?.name).toBe('Test money');
+  });
+
+  it('money in from another app says so, unless the sender is known', () => {
+    const unknown = mapPaymentToActivity(payment({ from: STRANGER.toLowerCase(), to: ME.toLowerCase(), door: 'transfer' }), OPTIONS);
+    expect(unknown?.note).toBe('Money in');
+    expect(oneOffContact(unknown!.contactId)?.name).toBe('Money in');
+
+    const known = mapPaymentToActivity(payment({ from: STRANGER.toLowerCase(), to: ME.toLowerCase(), door: 'transfer' }), {
+      ...OPTIONS,
+      nameOf: () => 'Chiamaka Obi',
+    });
+    expect(oneOffContact(known!.contactId)?.name).toBe('Chiamaka Obi');
+  });
+});

@@ -39,7 +39,7 @@ contract EntolePolicyTest is Test {
 
         vm.prank(owner);
         policy.createAllowance(
-            ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+            ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days, 0
         );
     }
 
@@ -47,7 +47,7 @@ contract EntolePolicyTest is Test {
 
     function test_createAllowance_storesCaveats() public {
         _createDefaultAllowance();
-        (address o, address d, address t, uint256 perRun, uint256 cap,,,, uint256 expiresAt, bool revoked) =
+        (address o, address d, address t, uint256 perRun, uint256 cap,,,, uint256 expiresAt, bool revoked,) =
             policy.allowances(ID);
 
         assertEq(o, owner);
@@ -66,7 +66,7 @@ contract EntolePolicyTest is Test {
         recipients[0] = recipient;
         vm.prank(owner);
         vm.expectRevert(EntolePolicy.InvalidPeriod.selector);
-        policy.createAllowance(ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, 0, block.timestamp + 1);
+        policy.createAllowance(ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, 0, block.timestamp + 1, 0);
     }
 
     // ── execute: the assistant can pay inside the allowance ────────────
@@ -185,7 +185,7 @@ contract EntolePolicyTest is Test {
         recipients[0] = recipient;
         vm.prank(owner);
         policy.createAllowance(
-            secondId, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, 7 days, block.timestamp + 365 days
+            secondId, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, 7 days, block.timestamp + 365 days, 0
         );
 
         vm.prank(owner);
@@ -218,7 +218,7 @@ contract EntolePolicyTest is Test {
         recipients[0] = recipient;
         vm.prank(otherOwner);
         policy.createAllowance(
-            otherId, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+            otherId, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days, 0
         );
 
         vm.prank(owner);
@@ -292,7 +292,7 @@ contract EntolePolicyTest is Test {
 
         policy.revokeWithPasskey(ID, bytes32(r), bytes32(s));
 
-        (,,,,,,,,, bool revoked) = policy.allowances(ID);
+        (,,,,,,,,, bool revoked,) = policy.allowances(ID);
         assertTrue(revoked);
     }
 
@@ -318,10 +318,10 @@ contract EntolePolicyTest is Test {
         vm.prank(stranger);
         vm.expectRevert(EntolePolicy.IdTaken.selector);
         policy.createAllowance(
-            ID, stranger, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+            ID, stranger, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days, 0
         );
 
-        (address o, address d,,,,,,,,) = policy.allowances(ID);
+        (address o, address d,,,,,,,,,) = policy.allowances(ID);
         assertEq(o, owner);
         assertEq(d, delegate);
     }
@@ -334,7 +334,7 @@ contract EntolePolicyTest is Test {
         recipients[0] = stranger;
         vm.prank(owner);
         policy.createAllowance(
-            ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+            ID, delegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days, 0
         );
 
         assertFalse(policy.recipientAllowed(ID, recipient), "old recipient must not survive a replace");
@@ -352,7 +352,7 @@ contract EntolePolicyTest is Test {
         recipients[0] = recipient;
         vm.prank(owner);
         policy.createAllowance(
-            ID, signingDelegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days
+            ID, signingDelegate, address(token), recipients, PER_RUN, PERIOD_CAP, PERIOD, block.timestamp + 365 days, 0
         );
     }
 

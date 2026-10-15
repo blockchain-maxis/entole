@@ -59,6 +59,7 @@ and the address and block in `indexer/config.yaml`.
 | `NANSEN_API_KEY` | `/api/nansen` | Endpoint is best-effort: `NANSEN_API_BASE`, `NANSEN_NETFLOW_PATH`. Check: `curl .../api/nansen` returns one headline. |
 | `CHAINLINK_CRE_WEBHOOK_SECRET` | `/api/chainlink-cre/release` | See `docs/CRE.md`. |
 | `BILL_PAYMENT_API_KEY`, `BILL_ITEM_CODES`, `NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS` | Pay a bill | All three, plus `SPONSOR_PRIVATE_KEY`. Item codes are JSON, e.g. `{"electricity":"<code>"}`; a category without one is unavailable. Endpoint paths are `BILL_PAYMENT_API_BASE`, `BILL_VALIDATE_PATH`, `BILL_PAY_PATH` if Flutterwave's differ. Check: Pay a bill, enter a meter number; it must show the holder's name before asking for an amount. |
+| `BILLS_PRIVATE_KEY` | Sending a bill payment back when the biller refuses it after the person's payment settled (`lib/server/bills.ts`, `refundBill`) | The private key of the account in `NEXT_PUBLIC_ENTOLE_BILLS_ADDRESS`, and only that one: a key for any other account is ignored. Server-only. Without it a refused bill is logged with its payment hash and returned by hand. The sponsor tops the bills account up with fee money when it runs low. Each refused payment is sent back once (remembered in Redis). |
 | `ENVIO_API_TOKEN` | Running the indexer | `pnpm --filter @entole/indexer codegen`, then `dev`. |
 
 ## Phone (`apps/mobile/app.json`, `extra.entole`)

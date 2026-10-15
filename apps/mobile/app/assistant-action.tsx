@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Figure } from '@/components/ui/Amount';
@@ -24,6 +24,11 @@ import { plainMessage } from '@/lib/send';
  *
  * The sheet does not dismiss by gesture: an undo window that can disappear by
  * accident is not an undo window.
+ *
+ * The wait is the contract's, not this sheet's. As it opens the run is put in
+ * the policy contract's queue, and the countdown runs to the moment the
+ * contract will let it be carried out. Cancelling stops it there. Mirrors
+ * `apps/web/app/assistant/action/page.tsx`.
  */
 export default function AssistantAction() {
   const router = useRouter();
@@ -33,6 +38,31 @@ export default function AssistantAction() {
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [stopped, setStopped] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  // Where the wait is held: being put in the contract's queue, waiting there
+  // until `readyAt`, or (with no contract to hold it) in this sheet.
+  const [queue, setQueue] = useState<{ state: 'starting' } | { state: 'queued'; readyAt: number; seconds: number } | { state: 'here' }>({
+    state: 'starting',
+  });
+  const begun = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!proposal || begun.current === proposal.id) return;
+    begun.current = proposal.id;
+    store
+      .beginProposal()
+      .then((started) =>
+        setQueue(() => {
+          if (!started) return { state: 'here' };
+          const readyAt = Date.parse(started.readyAt);
+          // Counted from now to when the network will let it go.
+          return { state: 'queued', readyAt, seconds: Math.max(0, Math.ceil((readyAt - Date.now()) / 1000)) };
+        }),
+      )
+      .catch((error: unknown) =>
+        setProblem(plainMessage(error, "The assistant couldn't start that payment. Nothing was sent.")),
+      );
+  }, [proposal, store]);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
 
@@ -73,11 +103,22 @@ export default function AssistantAction() {
   }
 
   async function stop() {
+    if (stopping) return;
     setStopped(true);
+    setStopping(true);
+    setProblem(null);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    await store.cancelProposal();
-    close();
+    try {
+      await store.cancelProposal();
+      close();
+    } catch (error) {
+      setStopping(false);
+      setProblem(plainMessage(error, "We couldn't stop it on the network. Pause the assistant now to be sure it does not go."));
+    }
   }
+
+  const waitSeconds = queue.state === 'queued' ? queue.seconds : proposal.undoSeconds;
+  const counting = queue.state !== 'starting' && !stopped && !sending && !problem;
 
   return (
     <Sheet onDismiss={close} locked>
@@ -121,16 +162,21 @@ export default function AssistantAction() {
 
       <View className="mt-5 flex-row items-center gap-3.5">
         <Countdown
-          seconds={proposal.undoSeconds}
-          running={!stopped && !sending && !problem}
+          key={queue.state === 'queued' ? queue.readyAt : queue.state}
+          seconds={waitSeconds}
+          running={counting}
           onElapsed={() => void run()}
         />
         <Text className="flex-1 font-body text-ui text-slate">
-          {sending
-            ? 'Sending now.'
-            : problem
-              ? 'Not sent. Nothing was taken.'
-              : `Sending in ${secondsWords(proposal.undoSeconds)}. You can stop it until then.`}
+          {stopping
+            ? 'Stopping it on the network.'
+            : sending
+              ? 'Sending now.'
+              : problem
+                ? 'Not sent. Nothing was taken.'
+                : queue.state === 'starting'
+                  ? 'Starting the wait. Nothing moves until it ends.'
+                  : `Sending in ${secondsWords(waitSeconds)}. You can stop it until then.`}
         </Text>
       </View>
 
@@ -142,17 +188,27 @@ export default function AssistantAction() {
 
       {/* The one strong button is yours, in ink: stopping it. */}
       <View className="mt-6 flex-row">
-        <Button label={problem ? 'Close' : 'Cancel this payment'} disabled={sending} onPress={() => void stop()} />
+        <Button
+          label={stopping ? 'Stopping' : problem ? 'Close' : 'Cancel this payment'}
+          busy={stopping}
+          disabled={sending || stopping}
+          onPress={() => void stop()}
+        />
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        disabled={sending}
-        onPress={() => void run()}
-        className="items-center py-3.5 active:opacity-60"
-      >
-        <Text className="font-strong text-ui text-slate">{problem ? 'Try again' : 'Send it now'}</Text>
-      </Pressable>
+      {/* The contract holds the wait, so there is no sending early; only a sheet-held wait can be cut short. */}
+      {queue.state === 'here' || problem ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={sending || stopping}
+          onPress={() => void run()}
+          className="items-center py-3.5 active:opacity-60"
+        >
+          <Text className="font-strong text-ui text-slate">{problem ? 'Try again' : 'Send it now'}</Text>
+        </Pressable>
+      ) : (
+        <View className="h-3" />
+      )}
     </Sheet>
   );
 }
