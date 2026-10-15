@@ -44,6 +44,28 @@ type Payment @entity {
   txHash: String!
   # True when the assistant made it, inside an allowance.
   byAssistant: Boolean!
+  # Which way it moved: "router" (an ordinary payment), "allowance" (the
+  # assistant, inside an allowance) or "transfer" (money sent to or from the
+  # account some other way: test money, another app).
+  door: String!
+  # The payer's salt, for a payment through the router. A payment made from an
+  # invoice link carries the invoice's tag in its first half.
+  salt: String
+}
+
+# A run the assistant proposed inside an allowance, waiting out its undo
+# window on the network (EntolePolicy version 2). It ends carried out, or
+# cancelled by the owner or the assistant, or stale with nobody acting on it.
+type AssistantRun @entity {
+  id: ID! # the run id
+  allowance: Allowance!
+  recipient: String!
+  amount: BigInt!
+  readyAt: BigInt!
+  # "waiting", "carried-out" or "cancelled".
+  state: String!
+  proposedAt: BigInt!
+  txHash: String!
 }
 
 type PauseChange @entity {

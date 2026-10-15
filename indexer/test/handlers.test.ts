@@ -53,6 +53,8 @@ describe('an ordinary payment', () => {
         timestamp: 1_760_300_000n,
         txHash: hash('ab'),
         byAssistant: false,
+        door: 'router',
+        salt: SALT,
       },
     ]);
   });
@@ -118,6 +120,8 @@ describe('a payment the assistant makes inside an allowance', () => {
         timestamp: 1_760_400_000n,
         txHash: hash('e1'),
         byAssistant: true,
+        door: 'allowance',
+        salt: undefined,
       },
     ]);
     // And it stays in the allowance's own history.
@@ -180,5 +184,159 @@ describe('allowances and pauses', () => {
       },
     });
     expect(await indexer.PauseChange.getAll()).toMatchObject([{ owner: PAYER, paused: true }]);
+  });
+});
+
+describe('a passkey registered for revoking', () => {
+  // The two halves of a P-256 public key: 256-bit numbers, kept whole.
+  const X = 0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296n;
+  const Y = 0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5n;
+
+  it('is kept with whose it is, both halves of the key, and when', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            {
+              contract: 'EntolePolicy',
+              event: 'PasskeyRegistered',
+              params: { owner: PAYER, x: X, y: Y },
+              block: { number: AFTER_POLICY, timestamp: 1_760_300_500 },
+              transaction: { hash: hash('e1') },
+              logIndex: 2,
+            },
+          ],
+        },
+      },
+    });
+    expect(await indexer.PasskeyRegistration.getAll()).toEqual([
+      { id: `${hash('e1')}-2`, owner: PAYER, x: X, y: Y, timestamp: 1_760_300_500n },
+    ]);
+  });
+
+  it('is a new row each time, so an earlier key is not written over', async () => {
+    const indexer = createTestIndexer();
+    const registered = (byte: string, block: number, x: bigint) => ({
+      contract: 'EntolePolicy' as const,
+      event: 'PasskeyRegistered' as const,
+      params: { owner: PAYER, x, y: Y },
+      block: { number: block, timestamp: 1_760_300_000 + block - AFTER_POLICY },
+      transaction: { hash: hash(byte) },
+      logIndex: 0,
+    });
+    await indexer.process({
+      chains: { [CHAIN]: { simulate: [registered('e2', AFTER_POLICY, X), registered('e3', AFTER_POLICY + 9, X + 1n)] } },
+    });
+    const rows = await indexer.PasskeyRegistration.getAll();
+    expect(rows.map((row) => row.x).sort()).toEqual([X, X + 1n].sort());
+    expect(new Set(rows.map((row) => row.owner))).toEqual(new Set([PAYER]));
+  });
+});
+
+describe('money that reaches an account some other way', () => {
+  const ROUTER = '0x26dfd3aa7601b57d8b7bb9e9555f5bdac60dab01' as const;
+  const NOBODY = '0x0000000000000000000000000000000000000000' as const;
+  const transfer = (from: `0x${string}`, to: `0x${string}`, value: bigint, tx: string, logIndex = 0) => ({
+    contract: 'SettlementToken' as const,
+    event: 'Transfer' as const,
+    params: { from, to, value },
+    block: { number: AFTER_POLICY + 20, timestamp: 1_760_500_000 },
+    transaction: { hash: hash(tx) },
+    logIndex,
+  });
+
+  it('test money and money from another app are kept, as transfers', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: { [CHAIN]: { simulate: [transfer(NOBODY, PAID, 5_000_000n, 'f1', 0), transfer(ASSISTANT, PAID, 2_000_000n, 'f2', 1)] } },
+    });
+    const rows = await indexer.Payment.getAll();
+    expect(rows.map((row) => [row.from, row.door, row.amount])).toEqual([
+      [NOBODY, 'transfer', 5_000_000n],
+      [ASSISTANT, 'transfer', 2_000_000n],
+    ]);
+  });
+
+  it('the router’s legs of a payment are not kept again', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: { [CHAIN]: { simulate: [transfer(PAYER, ROUTER, 1_010_000n, 'f3', 1), transfer(ROUTER, PAID, 1_000_000n, 'f3', 2)] } },
+    });
+    expect(await indexer.Payment.getAll()).toEqual([]);
+  });
+
+  it('the assistant’s draw inside an allowance is kept once, as the assistant’s', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            {
+              contract: 'EntolePolicy',
+              event: 'AllowanceCreated',
+              params: { id: ALLOWANCE, owner: PAYER, delegate: ASSISTANT },
+              block: { number: AFTER_POLICY },
+              transaction: { hash: hash('c2') },
+            },
+            {
+              contract: 'EntolePolicy',
+              event: 'Executed',
+              params: { id: ALLOWANCE, recipient: PAID, amount: 1_500_000n },
+              block: { number: AFTER_POLICY + 10, timestamp: 1_760_400_000 },
+              transaction: { hash: hash('e2') },
+              logIndex: 4,
+            },
+            transfer(PAYER, PAID, 1_500_000n, 'e2', 5),
+          ],
+        },
+      },
+    });
+    const rows = await indexer.Payment.getAll();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ byAssistant: true, door: 'allowance' });
+  });
+});
+
+describe('a run waiting out its undo window', () => {
+  const RUN = hash('9a');
+  const proposed = {
+    contract: 'EntolePolicy' as const,
+    event: 'Proposed' as const,
+    params: { runId: RUN, id: ALLOWANCE, recipient: PAID, amount: 1_500_000n, readyAt: 1_760_400_010n },
+    block: { number: AFTER_POLICY + 30, timestamp: 1_760_400_000 },
+    transaction: { hash: hash('d1') },
+  };
+
+  it('is waiting until it is carried out', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            proposed,
+            { contract: 'EntolePolicy', event: 'RunCarriedOut', params: { runId: RUN, id: ALLOWANCE }, block: { number: AFTER_POLICY + 31 } },
+          ],
+        },
+      },
+    });
+    expect(await indexer.AssistantRun.getAll()).toEqual([
+      expect.objectContaining({ id: RUN, state: 'carried-out', readyAt: 1_760_400_010n, amount: 1_500_000n }),
+    ]);
+  });
+
+  it('says so when it was cancelled', async () => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            proposed,
+            { contract: 'EntolePolicy', event: 'Cancelled', params: { runId: RUN, id: ALLOWANCE }, block: { number: AFTER_POLICY + 31 } },
+          ],
+        },
+      },
+    });
+    expect((await indexer.AssistantRun.getAll())[0]).toMatchObject({ state: 'cancelled' });
   });
 });

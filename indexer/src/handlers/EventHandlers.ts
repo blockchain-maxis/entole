@@ -10,6 +10,21 @@
  */
 import { indexer } from 'envio';
 
+/**
+ * Accounts whose movements of the account's money are already written down
+ * by another event, or are not payments at all: the router (its three legs of
+ * every payment are one `Paid`), both policy deployments (a draw is one
+ * `Executed`), and the savings vaults (putting money aside is not paying
+ * anyone). Lower-case, as the index keeps every account.
+ */
+const NOT_A_PAYMENT = new Set([
+  '0x26dfd3aa7601b57d8b7bb9e9555f5bdac60dab01', // EntoleRouter
+  '0xee9c2ce4fc3a58f88d3e2fce9807cdca3a97ed3e', // EntolePolicy, 9 Oct 2026
+  '0x0d57a7713123c52f2bfa513f71ea811f61e67c33', // EntolePolicy version 2, 15 Oct 2026
+  '0x9d904c6a9231f16913ad3a41563dcb07bf9d89bd', // GrowthVault, the one the apps use
+  '0x49ea1846326b3398783001a26d303f0b82b0d9dc', // GrowthVault, the duplicate
+]);
+
 /** An ordinary payment: who paid, who was paid, what arrived, what it cost. */
 indexer.onEvent({ contract: 'EntoleRouter', event: 'Paid' }, async ({ event, context }) => {
   context.Payment.set({
@@ -21,6 +36,8 @@ indexer.onEvent({ contract: 'EntoleRouter', event: 'Paid' }, async ({ event, con
     timestamp: BigInt(event.block.timestamp),
     txHash: event.transaction.hash,
     byAssistant: false,
+    door: 'router',
+    salt: event.params.salt,
   });
 });
 
@@ -78,6 +95,57 @@ indexer.onEvent({ contract: 'EntolePolicy', event: 'Executed' }, async ({ event,
     timestamp,
     txHash: event.transaction.hash,
     byAssistant: true,
+    door: 'allowance',
+    salt: undefined,
+  });
+});
+
+/** A run the assistant put in the queue, waiting out its undo window. */
+indexer.onEvent({ contract: 'EntolePolicy', event: 'Proposed' }, async ({ event, context }) => {
+  context.AssistantRun.set({
+    id: event.params.runId,
+    allowance_id: event.params.id,
+    recipient: event.params.recipient,
+    amount: event.params.amount,
+    readyAt: event.params.readyAt,
+    state: 'waiting',
+    proposedAt: BigInt(event.block.timestamp),
+    txHash: event.transaction.hash,
+  });
+});
+
+indexer.onEvent({ contract: 'EntolePolicy', event: 'Cancelled' }, async ({ event, context }) => {
+  const run = await context.AssistantRun.get(event.params.runId);
+  if (run) context.AssistantRun.set({ ...run, state: 'cancelled' });
+});
+
+indexer.onEvent({ contract: 'EntolePolicy', event: 'RunCarriedOut' }, async ({ event, context }) => {
+  const run = await context.AssistantRun.get(event.params.runId);
+  if (run) context.AssistantRun.set({ ...run, state: 'carried-out' });
+});
+
+/**
+ * The account's money moving some other way than a payment in the app: test
+ * money (from nobody: a mint), or money sent in from another app. Everything
+ * the other events already record is left out, and so is a draw the assistant
+ * made inside an allowance, which is the log just after its `Executed`.
+ */
+indexer.onEvent({ contract: 'SettlementToken', event: 'Transfer' }, async ({ event, context }) => {
+  const { from, to, value } = event.params;
+  if (value === 0n || from === to || NOT_A_PAYMENT.has(from) || NOT_A_PAYMENT.has(to)) return;
+  const drawn = await context.Payment.get(`${event.transaction.hash}-${event.logIndex - 1}`);
+  if (drawn?.byAssistant) return;
+  context.Payment.set({
+    id: `${event.transaction.hash}-${event.logIndex}`,
+    from,
+    to,
+    amount: value,
+    fee: 0n,
+    timestamp: BigInt(event.block.timestamp),
+    txHash: event.transaction.hash,
+    byAssistant: false,
+    door: 'transfer',
+    salt: undefined,
   });
 });
 
