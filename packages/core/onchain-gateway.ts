@@ -650,7 +650,14 @@ export type OnChainGatewayConfig = {
     Partial<
       Pick<
         RelayClient,
-        'submitExecute' | 'submitPropose' | 'submitCancel' | 'submitRunPending' | 'validateBill' | 'submitBill'
+        | 'submitExecute'
+        | 'submitPropose'
+        | 'submitCancel'
+        | 'submitRunPending'
+        | 'validateBill'
+        | 'submitBill'
+        | 'prepareBringBack'
+        | 'submitBringBack'
       >
     >;
   /** How long each of the assistant's runs waits on the network for the owner
@@ -2162,6 +2169,21 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
       });
       await records.invoices.upsert(invoice);
       return { invoice, taxReserve: await setAsideForTax(records, invoice, taxFraction) };
+    },
+
+    async bringBackHeld(source: 'tron-usdt' | 'solana-usdc'): Promise<void> {
+      if (!config.relay?.prepareBringBack || !config.relay.submitBringBack) throw new Error("This isn't available yet.");
+      const owner = ownerAddress();
+      const { intent, units } = await config.relay.prepareBringBack(owner, source);
+      await refreshRate();
+      // Both are dollars with six decimals, as the account's own money is.
+      await confirm({ kind: 'bring-in', amountMinor: fromTokenMinor(BigInt(units), config) });
+      // The person's own key signs the exact intent written for them, as any Ethereum wallet signs a message.
+      const signature = await config.ownerWalletClient.signMessage({
+        account: config.ownerWalletClient.account!,
+        message: intent.payload,
+      });
+      await config.relay.submitBringBack(owner, intent, signature);
     },
 
     async markTaxReservesMoved(ids: string[]): Promise<TaxReserve[]> {

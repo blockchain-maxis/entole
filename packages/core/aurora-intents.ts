@@ -21,9 +21,15 @@ import { z } from 'zod';
  * - **An amount.** Every deposit is priced for a stated amount. It accepts
  *   that amount or a little under it (`minimumUnits`), because the app someone
  *   sends from often takes its own fee out of what arrives.
- * - **Somewhere to send it back.** `refundTo` has to be an account on the
- *   sending network, so the person supplies one. Nothing of ours is in the
- *   path of a failed deposit.
+ * - **Somewhere to send it back.** A deposit that cannot be completed is
+ *   returned into the person's own account on NEAR Intents, which is named by
+ *   the same address as their Entole account (`refundType: 'INTENTS'`). So
+ *   nobody is asked for an account on Tron or Solana, nothing of ours is in
+ *   the path, and the return costs no fee. Their own key, the one their
+ *   passkey makes, is what moves it on from there (`intents-held.ts`).
+ *   Checked against 1Click on 15 October 2026 with a free price check: an
+ *   Intents refund to an Ethereum-style account is accepted, with a refund fee
+ *   of nothing where a refund on Tron costs about $0.90.
  *
  * There is no test network: a real deposit moves real money. `dry: true`
  * prices a deposit and makes nothing.
@@ -45,8 +51,8 @@ const SLIPPAGE_BPS = 100;
 
 /**
  * What can be sent in this way. Named the way the other app names it, as in
- * `deposit-sources.ts`. `returnAccount` is the shape an account has on that
- * network, used to refuse a slip of the thumb before Aurora does.
+ * `deposit-sources.ts`. `assetId` is the token's name on NEAR Intents, which is
+ * also what a returned deposit is held as.
  */
 export const AURORA_SOURCES = [
   {
@@ -55,7 +61,6 @@ export const AURORA_SOURCES = [
     place: 'Tron',
     assetId: 'nep141:tron-d28a265909efecdcee7c5028585214ea0b96f015.omft.near',
     decimals: 6,
-    returnAccount: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
   },
   {
     id: 'solana-usdc',
@@ -63,7 +68,6 @@ export const AURORA_SOURCES = [
     place: 'Solana',
     assetId: 'nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near',
     decimals: 6,
-    returnAccount: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
   },
 ] as const;
 
@@ -76,18 +80,11 @@ export function auroraSource(id: string): AuroraSource | undefined {
   return AURORA_SOURCES.find((source) => source.id === id);
 }
 
-/** Whether `account` could be an account on the network `source` is sent from. */
-export function isReturnAccount(source: AuroraSource, account: string): boolean {
-  return source.returnAccount.test(account.trim());
-}
-
 export type AuroraErrorCode =
   /** No key, so nothing was asked. */
   | 'not_configured'
   /** Under what the service accepts right now. `minimumDollars` says how much that is, when it said. */
   | 'amount_too_small'
-  /** The service does not accept the return account. */
-  | 'bad_return_account'
   /** Refused for a reason not listed here, or not reachable. */
   | 'partner_unavailable';
 
@@ -133,8 +130,9 @@ export type AuroraDepositRequest = {
   amountUnits: bigint;
   /** Where the USDC lands on Monad. An address; never rendered. */
   recipient: string;
-  /** An account on the sending network that a failed deposit returns to. */
-  returnAccount: string;
+  /** The person's own Entole account: a deposit that cannot be completed is
+   * held for them on NEAR Intents under this address. Never rendered. */
+  owner: string;
   /** Prices the deposit and makes no address. */
   dry?: boolean;
 };
@@ -176,8 +174,7 @@ export async function requestAuroraDeposit(request: AuroraDepositRequest, config
   const source = auroraSource(request.source);
   if (!source) throw new AuroraError('partner_unavailable');
   if (request.amountUnits <= 0n) throw new AuroraError('amount_too_small');
-  const returnAccount = request.returnAccount.trim();
-  if (!isReturnAccount(source, returnAccount)) throw new AuroraError('bad_return_account');
+  if (!/^0x[0-9a-fA-F]{40}$/.test(request.owner)) throw new AuroraError('partner_unavailable');
 
   const fetchImpl = resolved.fetch ?? fetch;
   const now = (resolved.now ?? (() => new Date()))();
@@ -200,8 +197,9 @@ export async function requestAuroraDeposit(request: AuroraDepositRequest, config
         originAsset: source.assetId,
         destinationAsset: AURORA_MONAD_USDC,
         amount: request.amountUnits.toString(),
-        refundTo: returnAccount,
-        refundType: 'ORIGIN_CHAIN',
+        // Held for them in their own Intents account, under their own address.
+        refundTo: request.owner.toLowerCase(),
+        refundType: 'INTENTS',
         recipient: request.recipient,
         recipientType: 'DESTINATION_CHAIN',
         deadline: new Date(now.getTime() + AURORA_DEPOSIT_WINDOW_MS).toISOString(),
@@ -215,7 +213,6 @@ export async function requestAuroraDeposit(request: AuroraDepositRequest, config
     const refusal = refusalSchema.safeParse(await response.json().catch(() => null));
     const message = refusal.success ? refusal.data.message : '';
     if (/minimum/i.test(message)) throw new AuroraError('amount_too_small', minimumFrom(message));
-    if (/refundTo/i.test(message)) throw new AuroraError('bad_return_account');
     throw new AuroraError('partner_unavailable');
   }
 

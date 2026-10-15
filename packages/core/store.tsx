@@ -80,6 +80,8 @@ type Store = {
   oldPolicyApproval: boolean;
   /** Clears the approval left on that policy. */
   clearOldApprovals(): Promise<void>;
+  /** Brings money held for the person on NEAR Intents home, confirmed first. */
+  bringBackHeld(source: 'tron-usdt' | 'solana-usdc'): Promise<void>;
   receipt(id: string): Receipt | undefined;
   saveSeat(draft: SeatDraft): Promise<void>;
   revokeSeat(id: string): Promise<void>;
@@ -259,6 +261,14 @@ export function StoreProvider({
     await gateway.cancelProposal(proposal.id);
     setProposal(null);
   }, [gateway, proposal]);
+
+  const bringBackHeld = useCallback(
+    async (source: 'tron-usdt' | 'solana-usdc') => {
+      if (!gateway.bringBackHeld) throw new Error("This isn't available yet.");
+      await gateway.bringBackHeld(source);
+    },
+    [gateway],
+  );
 
   const clearOldApprovals = useCallback(async () => {
     await gateway.clearOldApprovals?.();
@@ -470,6 +480,7 @@ export function StoreProvider({
       runProposal,
       oldPolicyApproval: snapshot?.oldPolicyApproval ?? false,
       clearOldApprovals,
+      bringBackHeld,
       receipt: (id) => receipts[id],
       saveSeat,
       revokeSeat,
@@ -493,6 +504,7 @@ export function StoreProvider({
     beginProposal,
     cancelProposal,
     clearOldApprovals,
+    bringBackHeld,
     clearArrivals,
     createInvoice,
     createProcurementRequest,

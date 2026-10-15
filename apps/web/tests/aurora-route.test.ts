@@ -14,7 +14,6 @@ import { resetRateLimits } from '@/lib/server/sponsor';
 const ACCOUNT = '0x1111111111111111111111111111111111111111';
 const HOLDING = '0x2222222222222222222222222222222222222222';
 const SETTLEMENT = '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a';
-const TRON_ACCOUNT = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
 const TRON_DEPOSIT = 'TXdepositAddressGoodForOneDepositOnly1';
 let ipCounter = 0;
 
@@ -57,7 +56,7 @@ const upstream = vi.fn(async (url: string | URL | Request) => {
   return reply(CONVERSION, conversionStatus);
 });
 
-const body = { address: ACCOUNT, source: 'tron-usdt', amountUnits: '150000000', returnAccount: TRON_ACCOUNT };
+const body = { address: ACCOUNT, source: 'tron-usdt', amountUnits: '150000000' };
 
 beforeEach(() => {
   resetRateLimits();
@@ -110,7 +109,9 @@ describe('POST /api/aurora/deposit', () => {
     expect(JSON.parse(String(auroraInit.body))).toMatchObject({
       dry: false,
       recipient: HOLDING,
-      refundTo: TRON_ACCOUNT,
+      // Held for them under their own address, on NEAR Intents: nobody is asked for a Tron account.
+      refundTo: ACCOUNT.toLowerCase(),
+      refundType: 'INTENTS',
       amount: '150000000',
     });
   });
@@ -120,14 +121,6 @@ describe('POST /api/aurora/deposit', () => {
     const response = await startDeposit(post({ ...body, amountUnits: '20000000' }));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'amount_too_small', minimumDollars: 100 });
-  });
-
-  it('refuses a return account that is not one on the sending network', async () => {
-    const response = await startDeposit(post({ ...body, returnAccount: 'T'.padEnd(34, '0') }));
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'bad_return_account' });
-    // An account of ours is not one on Tron either.
-    expect((await startDeposit(post({ ...body, returnAccount: ACCOUNT }))).status).toBe(400);
   });
 
   it('rejects a body that makes no sense', async () => {

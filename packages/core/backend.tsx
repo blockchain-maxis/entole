@@ -70,6 +70,11 @@ export const pendingBackend: Backend = {
     startBankTransfer: notSignedIn,
     startDeposit: notSignedIn,
     startCardPayment: notSignedIn,
+    startCrossChainDeposit: notSignedIn,
+    crossChainDepositState: notSignedIn,
+    heldElsewhere: notSignedIn,
+    prepareBringBack: notSignedIn,
+    submitBringBack: notSignedIn,
   },
   directory: {
     resolveByAddress: async () => null,

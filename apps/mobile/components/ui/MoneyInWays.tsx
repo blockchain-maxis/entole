@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { ChevronRight, CreditCard, Landmark, ScanLine, type LucideIcon } from 'lucide-react-native';
+import { ArrowDownToLine, ChevronRight, CreditCard, Landmark, ScanLine, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -53,17 +53,19 @@ function WayRow({
   );
 }
 
-/** The three ways real money comes in. One is not open yet, and says so. */
+/** The ways real money comes in. One is not open yet, and says so. */
 export function WaysToAdd({
   disabled,
   bankOpen,
   onAnotherApp,
+  onElsewhere,
   onCard,
   onBank,
 }: {
   disabled: boolean;
   bankOpen: boolean;
   onAnotherApp: () => void;
+  onElsewhere: () => void;
   onCard: () => void;
   onBank: () => void;
 }) {
@@ -76,6 +78,13 @@ export function WaysToAdd({
           title="From another app"
           hint="Send dollars you already hold somewhere else."
           onPress={onAnotherApp}
+          disabled={disabled}
+        />
+        <WayRow
+          icon={ArrowDownToLine}
+          title="From Tron or Solana"
+          hint="USDT on Tron or USDC on Solana."
+          onPress={onElsewhere}
           disabled={disabled}
         />
         <WayRow icon={CreditCard} title="Card" hint="Debit or credit card. $20 or more." onPress={onCard} disabled={disabled} />

@@ -102,24 +102,24 @@ product: where it touches a screen, the screen says so plainly.
   once (since 15 October 2026). That needs `BILLS_PRIVATE_KEY`; without it the
   refusal is logged with the payment hash and returned by hand, as before. The
   router's fee is not returned: it was never the bills account's.
-- **Money in from Tron and Solana has a server and no screen.**
-  `/api/aurora/deposit` (Aurora Intents) takes what the person is sending
-  (USDT on Tron or USDC on Solana), how much, and an account of theirs on that
-  network for a deposit that cannot be completed. It answers with a scan-code
-  payload, the least that counts, about what will arrive, and a deadline; a
-  `GET` says how far a deposit has got. Written against the live service's real
-  request and answer on 10 October 2026 (free price checks only).
-  - No screen offers it yet. The return account is an address the person has to
-    give, and the hard rules forbid showing one as text, so how it is entered
-    is a product call still open.
-  - Main network only, with `AURORA_INTENTS_API_KEY`. Aurora has no test
-    network, so nothing has been sent through it.
-  - Aurora delivers USDC, not the account's own money, so it delivers to a
-    holding address that converts on arrival. Two partners in a row: if the
-    conversion cannot be done the USDC lands in the person's own account, where
-    no screen shows it.
+- **Money in from Tron and Solana is built and not yet tried with real money.**
+  Add money offers "From Tron or Solana" on both apps (15 October 2026): the
+  person keys in how much they are sending, gets a scan code for that one
+  deposit, and sees it arrive (`/api/aurora/deposit`).
+  - Nobody is asked for an account over there. A deposit that cannot be
+    completed is held for them in their own NEAR Intents account, named by
+    their Entole address (`refundType: 'INTENTS'`). 1Click accepted exactly
+    that in a free price check on 15 October 2026, and charged no refund fee
+    where a refund on Tron costs about $0.90. Aurora's own service has not been
+    asked, because there is no `AURORA_INTENTS_API_KEY` yet.
+  - What is held is shown at the top of Add money, and "Bring it in" moves it
+    home: 1Click writes the intent, the person's own key signs it, and it goes
+    as USDC on Arbitrum into a holding address that turns it into the account's
+    money (`packages/core/intents-held.ts`, `/api/aurora/held`). That needs
+    `ONECLICK_API_KEY`, 1Click's partner key, which does not exist yet.
+  - Main network only. Aurora has no test network, so nothing has been sent.
   - On 10 October 2026 Aurora refused Tron deposits under $100 ("temporary swap
-    limits"). The route passes on whatever minimum the service states.
+    limits"). The screen passes on whatever the service says.
   - Each deposit is for a stated amount, good for an hour. Money sent after the
     deadline, or something other than what was picked, may not arrive.
 - **Adding real money is built but not proven with real money.** It only runs

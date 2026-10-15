@@ -8,6 +8,7 @@ import { BankTransferSheet } from '@/components/ui/BankTransferSheet';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
 import { Keypad } from '@/components/ui/Keypad';
+import { FromElsewhere, HeldElsewhereNotice } from '@/components/ui/FromElsewhere';
 import { CardStep, FromAnotherApp, WaysToAdd, type Loaded } from '@/components/ui/MoneyInWays';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -31,7 +32,7 @@ const TRANSFER_POLL_EVERY_MS = 5000;
 const TRANSFER_POLL_FOR_MS = 600_000;
 
 /** How real money comes in. Test money has no choice to make. */
-type Way = 'choose' | 'another-app' | 'card' | 'bank';
+type Way = 'choose' | 'another-app' | 'elsewhere' | 'card' | 'bank';
 
 type Phase =
   /** Nothing asked yet. */
@@ -282,14 +283,21 @@ export default function AddMoney() {
             )}
           </View>
 
+          {REAL_MONEY && address ? <HeldElsewhereNotice owner={address} /> : null}
+
           {choosing ? (
             <WaysToAdd
               disabled={!ready || !account}
               bankOpen={BANK_TRANSFER}
               onAnotherApp={() => setWay('another-app')}
+              onElsewhere={() => setWay('elsewhere')}
               onCard={() => void openCard()}
               onBank={() => setWay('bank')}
             />
+          ) : null}
+
+          {REAL_MONEY && way === 'elsewhere' && address ? (
+            <FromElsewhere owner={address} onArrived={() => void store.refresh().catch(() => undefined)} />
           ) : null}
 
           {REAL_MONEY && way === 'another-app' && !settled ? (

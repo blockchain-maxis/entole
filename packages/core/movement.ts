@@ -16,7 +16,9 @@ export type Movement =
   | { kind: 'bill'; amountMinor: number }
   | { kind: 'save'; amountMinor: number }
   | { kind: 'take-out'; amountMinor: number }
-  | { kind: 'allowance'; limitMinor: number };
+  | { kind: 'allowance'; limitMinor: number }
+  /** Money held for the person elsewhere, brought into the account. */
+  | { kind: 'bring-in'; amountMinor: number };
 
 /** What the confirmation prompt says is about to happen. */
 export function describeMovement(movement: Movement): string {
@@ -33,6 +35,8 @@ export function describeMovement(movement: Movement): string {
       return `Take ${formatNaira(kobo(movement.amountMinor))} out of savings`;
     case 'allowance':
       return `Let the assistant spend up to ${formatNaira(kobo(movement.limitMinor))}`;
+    case 'bring-in':
+      return `Bring about ${formatNaira(kobo(movement.amountMinor))} into your account`;
   }
 }
 

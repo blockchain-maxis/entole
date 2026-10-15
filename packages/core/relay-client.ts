@@ -66,6 +66,7 @@ const MESSAGES: Record<string, string> = {
   amount_too_small: "That's less than the smallest amount you can add. Try a bit more.",
   partner_unavailable: "That isn't available right now. Try again shortly.",
   too_early: 'That payment is still waiting. It goes when the countdown ends.',
+  nothing_held: 'Nothing is held for you there now.',
   stale: 'That payment waited too long and was not sent. Ask again.',
   gone: 'That payment was already stopped or sent.',
   undo_required: "That's outside what the assistant can spend right now.",
@@ -106,20 +107,47 @@ const cardSchema = z.object({
  * the payment partner's page. The link is for opening, never for showing. */
 export type BankTransferOffer = z.infer<typeof bankTransferSchema>;
 
+const units = z.string().regex(/^\d{1,30}$/);
+
+/** A deposit from Tron or Solana: what to send, the least that counts, about what arrives. */
+const crossChainDepositSchema = z.object({
+  qrPayload: z.string().regex(/^[A-Za-z0-9]{26,64}$/),
+  sendUnits: units,
+  minimumUnits: units,
+  arrivesAboutUnits: units,
+  deadline: z.string().optional(),
+  etaSeconds: z.number().nonnegative(),
+});
+export type CrossChainDeposit = z.infer<typeof crossChainDepositSchema>;
+
+const crossChainStateSchema = z.object({
+  state: z.enum(['waiting', 'on_its_way', 'arrived', 'too_little', 'returned', 'failed']),
+});
+export type CrossChainState = z.infer<typeof crossChainStateSchema>['state'];
+
+const heldSchema = z.object({
+  held: z.array(z.object({ source: z.enum(['tron-usdt', 'solana-usdc']), units })),
+  canBringBack: z.boolean(),
+});
+export type HeldElsewhere = z.infer<typeof heldSchema>;
+
+const intentSchema = z.object({ intent: z.object({ standard: z.literal('erc191'), payload: z.string().min(1) }), units });
+
 export type RelayClient = ReturnType<typeof createRelayClient>;
 
 export function createRelayClient(options: { baseUrl: string; fetch?: typeof fetch }) {
   const fetchImpl = options.fetch ?? fetch;
   const base = options.baseUrl.replace(/\/$/, '');
 
-  async function post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
+  async function post<T>(path: string, body: unknown, schema: z.ZodType<T>, method: 'POST' | 'GET' = 'POST'): Promise<T> {
     let response: Response;
     try {
-      response = await fetchImpl(`${base}${path}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      response = await fetchImpl(
+        `${base}${path}`,
+        method === 'GET'
+          ? { method: 'GET' }
+          : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+      );
     } catch {
       throw new RelayError('unreachable');
     }
@@ -253,6 +281,31 @@ export function createRelayClient(options: { baseUrl: string; fetch?: typeof fet
      * answer is for a scan code or a copy button; never for showing as text. */
     async startDeposit(address: Address, source: DepositSourceId): Promise<{ qrPayload: string }> {
       return post('/api/onramp/deposit', { address, source }, depositCodeSchema);
+    },
+    /** Where to send USDT on Tron or USDC on Solana, for a stated amount. A scan code or a copy button only. */
+    async startCrossChainDeposit(address: Address, source: 'tron-usdt' | 'solana-usdc', amountUnits: bigint) {
+      return post('/api/aurora/deposit', { address, source, amountUnits: amountUnits.toString() }, crossChainDepositSchema);
+    },
+    /** How far a deposit from Tron or Solana has got. */
+    async crossChainDepositState(depositAddress: string): Promise<CrossChainState> {
+      const { state } = await post(
+        `/api/aurora/deposit?depositAddress=${encodeURIComponent(depositAddress)}`,
+        null,
+        crossChainStateSchema,
+        'GET',
+      );
+      return state;
+    },
+    /** What came back from Tron or Solana and is held for this account. */
+    async heldElsewhere(address: Address): Promise<HeldElsewhere> {
+      return post(`/api/aurora/held?address=${address}`, null, heldSchema, 'GET');
+    },
+    /** The intent that brings held money home, for the account's own key to sign. */
+    async prepareBringBack(address: Address, source: 'tron-usdt' | 'solana-usdc') {
+      return post('/api/aurora/held', { action: 'prepare', address, source }, intentSchema);
+    },
+    async submitBringBack(address: Address, intent: { standard: 'erc191'; payload: string }, signature: Hex) {
+      return post('/api/aurora/held', { action: 'submit', address, intent, signature }, z.object({ intentHash: z.string() }));
     },
     /** The card partner's page, with the account already set. For opening. */
     async startCardPayment(address: Address): Promise<{ url: string }> {

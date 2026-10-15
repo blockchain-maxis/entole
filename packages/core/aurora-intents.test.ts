@@ -4,7 +4,6 @@ import {
   AURORA_MONAD_USDC,
   AuroraError,
   auroraSource,
-  isReturnAccount,
   readAuroraDeposit,
   requestAuroraDeposit,
 } from './aurora-intents';
@@ -15,8 +14,7 @@ import {
  * shapes this code reads.
  */
 const RECIPIENT = '0x8f0c2D4eB6aa368069b16D03708932731625F069';
-const TRON_ACCOUNT = 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE';
-const SOLANA_ACCOUNT = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
+const OWNER = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01';
 const QUOTE = {
   quote: {
     depositAddress: 'TXdepositAddressGoodForOneDepositOnly1',
@@ -32,20 +30,16 @@ const TOO_SMALL = { message: 'Temporary swap limits: minimum swap amount is $100
 
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const NOW = () => new Date('2026-10-10T22:03:00.000Z');
-const request = { source: 'tron-usdt', amountUnits: 150_000_000n, recipient: RECIPIENT, returnAccount: TRON_ACCOUNT } as const;
+const request = { source: 'tron-usdt', amountUnits: 150_000_000n, recipient: RECIPIENT, owner: OWNER } as const;
 
 function config(fetchImpl: ReturnType<typeof vi.fn>) {
   return { apiKey: 'key-1', fetch: fetchImpl as unknown as typeof fetch, now: NOW };
 }
 
 describe('what can be sent in', () => {
-  it('knows an account on each sending network by its shape', () => {
-    expect(isReturnAccount(auroraSource('tron-usdt')!, TRON_ACCOUNT)).toBe(true);
-    expect(isReturnAccount(auroraSource('tron-usdt')!, ` ${TRON_ACCOUNT} `)).toBe(true);
-    expect(isReturnAccount(auroraSource('tron-usdt')!, RECIPIENT)).toBe(false);
-    expect(isReturnAccount(auroraSource('tron-usdt')!, SOLANA_ACCOUNT)).toBe(false);
-    expect(isReturnAccount(auroraSource('solana-usdc')!, SOLANA_ACCOUNT)).toBe(true);
-    expect(isReturnAccount(auroraSource('solana-usdc')!, RECIPIENT)).toBe(false);
+  it('is USDT on Tron and USDC on Solana, each named as NEAR Intents names it', () => {
+    expect(auroraSource('tron-usdt')?.assetId).toMatch(/^nep141:tron-/);
+    expect(auroraSource('solana-usdc')?.assetId).toMatch(/^nep141:sol-/);
   });
 });
 
@@ -83,8 +77,9 @@ describe('requestAuroraDeposit', () => {
       originAsset: 'nep141:tron-d28a265909efecdcee7c5028585214ea0b96f015.omft.near',
       destinationAsset: AURORA_MONAD_USDC,
       amount: '150000000',
-      refundTo: TRON_ACCOUNT,
-      refundType: 'ORIGIN_CHAIN',
+      // Nobody is asked for an account on Tron: it is held for them under their own address.
+      refundTo: OWNER.toLowerCase(),
+      refundType: 'INTENTS',
       recipient: RECIPIENT,
       recipientType: 'DESTINATION_CHAIN',
       deadline: '2026-10-10T23:03:00.000Z',
@@ -108,13 +103,13 @@ describe('requestAuroraDeposit', () => {
     ).rejects.toMatchObject({ code: 'amount_too_small', minimumDollars: 100 });
   });
 
-  it('refuses a return account of the wrong shape before asking, and one the service refuses after', async () => {
+  it('asks nothing for an owner that is not an account, and says so when the service refuses', async () => {
     const fetchImpl = vi.fn(async () => reply({ message: 'refundTo is not valid' }, 400));
-    await expect(
-      requestAuroraDeposit({ ...request, returnAccount: RECIPIENT }, config(fetchImpl)),
-    ).rejects.toMatchObject({ code: 'bad_return_account' });
+    await expect(requestAuroraDeposit({ ...request, owner: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE' }, config(fetchImpl))).rejects.toMatchObject({
+      code: 'partner_unavailable',
+    });
     expect(fetchImpl).not.toHaveBeenCalled();
-    await expect(requestAuroraDeposit(request, config(fetchImpl))).rejects.toMatchObject({ code: 'bad_return_account' });
+    await expect(requestAuroraDeposit(request, config(fetchImpl))).rejects.toMatchObject({ code: 'partner_unavailable' });
   });
 
   it('never offers an address it did not get, or one that needs a memo', async () => {

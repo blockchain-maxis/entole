@@ -54,6 +54,8 @@ export interface PaymentsGateway {
   beginProposal?(proposal: Proposal): Promise<{ readyAt: string }>;
   /** Clears any approval this account left on a policy contract it no longer uses. */
   clearOldApprovals?(): Promise<void>;
+  /** Brings money held for the person on NEAR Intents home: signed by their own key, confirmed first. */
+  bringBackHeld?(source: 'tron-usdt' | 'solana-usdc'): Promise<void>;
   /** Records that these tax reserves were moved into savings. */
   markTaxReservesMoved?(ids: string[]): Promise<TaxReserve[]>;
 

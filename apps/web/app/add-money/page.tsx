@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, CreditCard, Landmark, ScanLine, type LucideIcon } from 'lucide-react';
+import { ArrowDownToLine, ChevronRight, CreditCard, Landmark, ScanLine, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
@@ -14,6 +14,7 @@ import { RelayError, type BankTransferOffer } from '@entole/core/relay-client';
 import { useStore } from '@entole/core/store';
 
 import { Amount } from '@/components/Amount';
+import { FromElsewhere, HeldElsewhereNotice } from '@/components/FromElsewhere';
 import { Header } from '@/components/Header';
 import { Keypad } from '@/components/Keypad';
 import { QrCode } from '@/components/QrCode';
@@ -41,7 +42,7 @@ type Phase =
   | { kind: 'failed'; message: string };
 
 /** How real money comes in. Test money has no choice to make. */
-type Way = 'choose' | 'another-app' | 'card' | 'bank';
+type Way = 'choose' | 'another-app' | 'elsewhere' | 'card' | 'bank';
 
 type Loaded<T> = { state: 'loading' } | { state: 'failed'; message: string } | { state: 'ready'; value: T };
 
@@ -215,13 +216,20 @@ function AddMoney() {
           <BalanceSkeleton />
         )}
 
+        {REAL_MONEY && owner ? <HeldElsewhereNotice owner={owner} /> : null}
+
         {choosing ? (
           <WaysToAdd
             disabled={!ready || !owner}
             onAnotherApp={() => setWay('another-app')}
+            onElsewhere={() => setWay('elsewhere')}
             onCard={() => void openCard()}
             onBank={() => setWay('bank')}
           />
+        ) : null}
+
+        {REAL_MONEY && way === 'elsewhere' && owner ? (
+          <FromElsewhere owner={owner} onArrived={() => void refresh().catch(() => undefined)} />
         ) : null}
 
         {REAL_MONEY && way === 'another-app' && !settled ? (
@@ -405,11 +413,13 @@ function WayRow({
 function WaysToAdd({
   disabled,
   onAnotherApp,
+  onElsewhere,
   onCard,
   onBank,
 }: {
   disabled: boolean;
   onAnotherApp: () => void;
+  onElsewhere: () => void;
   onCard: () => void;
   onBank: () => void;
 }) {
@@ -422,6 +432,13 @@ function WaysToAdd({
           title="From another app"
           hint="Send dollars you already hold somewhere else."
           onPick={onAnotherApp}
+          disabled={disabled}
+        />
+        <WayRow
+          icon={ArrowDownToLine}
+          title="From Tron or Solana"
+          hint="USDT on Tron or USDC on Solana."
+          onPick={onElsewhere}
           disabled={disabled}
         />
         <WayRow icon={CreditCard} title="Card" hint="Debit or credit card. $20 or more." onPick={onCard} disabled={disabled} />

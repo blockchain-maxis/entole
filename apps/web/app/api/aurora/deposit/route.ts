@@ -23,8 +23,9 @@ import { rateLimit } from '@/lib/server/sponsor';
  *    the person's own account, not to anyone else.
  * 2. Aurora, asked to deliver one deposit of the stated amount to that holding
  *    address. It answers with where to send on the other network. If Aurora
- *    cannot complete it, the money returns to the account the person named on
- *    that network.
+ *    cannot complete it, the money is held for the person in their own NEAR
+ *    Intents account, under their own address: nobody is asked for an account
+ *    on Tron or Solana. `/api/aurora/held` reads it and brings it back.
  *
  * The answer is an address. No screen may print it (hard rule), so it is
  * returned as `qrPayload`: something to draw as a scan code or copy with a
@@ -48,8 +49,6 @@ const bodySchema = z.object({
     .string()
     .regex(/^[1-9]\d{0,17}$/)
     .transform((value) => BigInt(value)),
-  /** Their account on the sending network, for a deposit that cannot be completed. */
-  returnAccount: z.string().trim().min(26).max(64),
 });
 
 function readAuroraConfig(): AuroraConfig | null {
@@ -70,7 +69,7 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await readJson(request));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
-  const { address, source, amountUnits, returnAccount } = parsed.data;
+  const { address, source, amountUnits } = parsed.data;
 
   const limit = await rateLimit(request, 'aurora-deposit', START_LIMIT_PER_MINUTE, address);
   if (!limit.ok) return limited(limit.retryAfterSeconds);
@@ -80,7 +79,7 @@ export async function POST(request: Request) {
     // the stated amount prices the conversion as it stands.
     const holding = await requestConversionAddress({ recipient: address, amountUnits }, { ...moneyIn, refundTo: address });
     const deposit = await requestAuroraDeposit(
-      { source, amountUnits, recipient: holding.depositAddress, returnAccount },
+      { source, amountUnits, recipient: holding.depositAddress, owner: address },
       aurora,
     );
     if (!deposit.depositAddress) return json({ error: 'partner_unavailable' }, 502);
@@ -100,9 +99,6 @@ export async function POST(request: Request) {
         { error: 'amount_too_small', ...(error.minimumDollars ? { minimumDollars: error.minimumDollars } : {}) },
         400,
       );
-    }
-    if (error instanceof AuroraError && error.code === 'bad_return_account') {
-      return json({ error: 'bad_return_account' }, 400);
     }
     return json({ error: 'partner_unavailable' }, 502);
   }
