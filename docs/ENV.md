@@ -18,11 +18,14 @@ Where things go:
 
 ## The policy contract
 
-`EntolePolicy` with `executeFor` (the assistant's gasless run) and the
-`createAllowance` hardening is deployed on Monad testnet at
-`0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` (9 Oct 2026, block 69645503), and both
-apps and the indexer config point at it. Allowances made on the earlier
-deployment do not exist on this one.
+`EntolePolicy` version 2, which holds the undo window on the network, is
+deployed on Monad testnet at `0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33` (15 Oct 2026,
+block 71293598), and both apps point at it (`NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS`
+in `apps/web/.env`, `extra.entole.contractAddress` in `apps/mobile/app.json`).
+The index reads it and the 9 October deployment, `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e`.
+Allowances made on earlier deployments do not exist on this one. If the Vercel
+project sets `NEXT_PUBLIC_ENTOLE_POLICY_ADDRESS` itself, it has to be changed
+there too.
 
 If the contract source changes again, redeploy it the same way:
 

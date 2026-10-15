@@ -27,7 +27,7 @@ const chain: Chain = {
   nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
   rpcUrls: { default: { http: [RPC] } },
 };
-const POLICY = '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e' as Address;
+const POLICY = '0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33' as Address;
 const TOKEN = '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC' as Address;
 const ROUTER = '0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01' as Address;
 const VAULT = '0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd' as Address;

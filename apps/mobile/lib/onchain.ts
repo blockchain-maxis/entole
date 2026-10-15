@@ -46,7 +46,10 @@ type ExtraConfig = {
 
 const extra = (Constants.expoConfig?.extra?.entole ?? {}) as ExtraConfig;
 
-const CONTRACT_ADDRESS = (extra.contractAddress ?? '0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e') as Address;
+const CONTRACT_ADDRESS = (extra.contractAddress ?? '0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33') as Address;
+/** Policy deployments this account may have used before. An approval left on
+ * one is offered to be cleared, once, on Home. */
+const PREVIOUS_POLICIES: Address[] = ['0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e'];
 const TOKEN_ADDRESS = (extra.tokenAddress ?? '0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC') as Address;
 /** Left unset (empty string in app.json) until `GrowthVault` is deployed —
  * see contracts/README.md's Status section. `undefined` here is what makes
@@ -224,6 +227,7 @@ export function useOnChainBackend(
       confirmMovement,
       ...(enabled && address ? { delegateAddress: address, getDelegateWalletClient } : {}),
       policyAddress: CONTRACT_ADDRESS,
+      previousPolicyAddresses: PREVIOUS_POLICIES,
       tokenAddress: TOKEN_ADDRESS,
       ...(GROWTH_VAULT_ADDRESS ? { growthVaultAddress: GROWTH_VAULT_ADDRESS } : {}),
       ...(SAVINGS_VAULT_ADDRESS

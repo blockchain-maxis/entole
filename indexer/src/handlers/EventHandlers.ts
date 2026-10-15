@@ -20,6 +20,7 @@ import { indexer } from 'envio';
 const NOT_A_PAYMENT = new Set([
   '0x26dfd3aa7601b57d8b7bb9e9555f5bdac60dab01', // EntoleRouter
   '0xee9c2ce4fc3a58f88d3e2fce9807cdca3a97ed3e', // EntolePolicy, 9 Oct 2026
+  '0x0d57a7713123c52f2bfa513f71ea811f61e67c33', // EntolePolicy version 2, 15 Oct 2026
   '0x9d904c6a9231f16913ad3a41563dcb07bf9d89bd', // GrowthVault, the one the apps use
   '0x49ea1846326b3398783001a26d303f0b82b0d9dc', // GrowthVault, the duplicate
 ]);

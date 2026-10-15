@@ -75,6 +75,7 @@ chains:
         start_block: 69645503 # 9 Oct 2026, the version with executeFor
         address:
           - "0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e"
+          - "0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33" # 15 Oct 2026, version 2: the undo window held on the network, block 71293598
       - name: SettlementToken
         start_block: 64113781
         address:

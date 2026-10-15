@@ -78,7 +78,7 @@
     },
     "extra": {
       "entole": {
-        "contractAddress": "0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e",
+        "contractAddress": "0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33",
         "apiBase": "https://entole.pro",
         "routerAddress": "0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01",
         "tokenAddress": "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC",

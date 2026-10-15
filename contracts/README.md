@@ -36,9 +36,22 @@ own `createAllowance` call already said it could.
   path" below for the exact transaction). That proof ran against the first
   deployment; it has not been repeated on the 9 Oct one.
 - Deployment — **live on Monad testnet**:
+  - `EntolePolicy` version 2: `0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33`, block 71293598, 15 Oct 2026,
+    [tx `0xa30e77…6553e`](https://testnet.monadscan.com/tx/0xa30e77e0555db5acff147403541a04ff690071d1a07e3271e69e7aaa9666553e).
+    **This is the one both apps are wired to.** It holds the undo window on the
+    network: an allowance with `undoSeconds` can only be spent through
+    `propose`, a wait, then `executePending`, and the owner or the assistant
+    can `cancel` until then. 47 policy tests pass (28 carried over, 19 new in
+    `EntolePolicyUndo.t.sol`). Proven live the same day with throwaway test
+    accounts and test eUSD: a direct `execute` was refused
+    (`UndoWindowRequired`), a cancelled run could not be carried out
+    (`NoSuchRun`), a run waited its 10 seconds and was carried out by another
+    account, and runs waiting together were held to the cap
+    (`OverPeriodCap`). Allowances made on earlier deployments do not exist on
+    it.
   - `EntolePolicy`: `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e`, block
     69645503, 9 Oct 2026, [tx `0x112439…2436b`](https://testnet.monadscan.com/tx/0x112439b431a232d439a5694c9a3c272e960776e43672103cc884377797e2436b).
-    This is the one both apps are wired to.
+    Superseded on 15 Oct 2026 by version 2; the index still reads it.
   - `EntolePolicy`, first deployment (superseded): `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7`, block
     63375345, 17 Sep 2026, [tx `0x577bdb…f37c6`](https://testnet.monadscan.com/tx/0x577bdb77dcfb669b9b6614b38c1775a29770cace44db5c6238cd04aacacf37c6).
     It predates `executeFor`. Allowances made on it do not exist on the new one.
@@ -88,7 +101,8 @@ Etherscan's Sourcify lookup) resolves the same source.
 
 | Contract | Address | Match |
 |---|---|---|
-| `EntolePolicy` | `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` | exact |
+| `EntolePolicy` version 2 | `0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33` | exact |
+| `EntolePolicy` (9 Oct) | `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` | exact |
 | `EntolePolicy` (superseded) | `0xd0c1099827e49C07f264927d0Dd3416eb29EA9b7` | exact |
 | `EntoleRouter` | `0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01` | exact |
 | `GrowthVault` (wired) | `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd` | exact |

@@ -44,7 +44,7 @@ already have an account") is built and not yet tried on real devices.
 
 | | Address |
 |---|---|
-| `EntolePolicy` (allowances, limits, pause) | `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` |
+| `EntolePolicy` (allowances, limits, pause, the undo window) | `0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33` |
 | `EntoleRouter` (payments and the fee) | `0x26dfd3aa7601B57d8b7BB9e9555f5Bdac60dAB01` |
 | `GrowthVault` (savings on the test network) | `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd` |
 | AUSD, Agora's own test deployment | `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC` |
@@ -82,9 +82,9 @@ docs/            Product, design, architecture, scope, security.
 What's real and tested:
 
 - **The policy contract, deployed to Monad testnet.**
-  `contracts/src/EntolePolicy.sol`, 28 passing tests, live at
-  `0xEE9C2cE4FC3a58f88D3E2FCE9807cDcA3A97Ed3e` (redeployed 9 October 2026
-  with `executeFor`, so the assistant's runs need no fee balance). Caps,
+  `contracts/src/EntolePolicy.sol`, 47 passing tests, live at
+  `0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33` (version 2, 15 October 2026: the undo
+  window is held by the contract, so a stolen assistant key cannot skip it). Caps,
   allow-list, per-transaction maximum, expiry, revocation (owner-signed or
   passkey-signed), pause. See [`docs/SECURITY.md`](docs/SECURITY.md).
 - **The consumer core**, phone and web: onboarding, send, receive by link,
