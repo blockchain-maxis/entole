@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -8,21 +8,45 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-/** Loading is a skeleton of the thing that is coming, never a spinner. */
+import { useThemeColors } from '@/lib/theme';
+
+/** How strong the fill is at the dim and the bright end of the pulse. */
+export const SKELETON_DIM = 0.38;
+export const SKELETON_BRIGHT = 0.68;
+
+/**
+ * Loading is a skeleton of the thing that is coming, never a spinner.
+ *
+ * It has to be seen. The track colour is only a shade off the paper (1.1 to 1),
+ * and the line colour, though better, still faded to almost nothing at the dim
+ * end of the pulse on the light paper, so a loading page looked empty rather
+ * than loading. It is drawn in the "mist" ink at about a third to two thirds of
+ * its strength, which stands clearly off the paper and off a card in both
+ * themes at every point of the pulse.
+ *
+ * The size and the rounding come from a plain view, which every screen already
+ * relies on; the fill is an animated layer inside it with its colour set
+ * directly, so nothing depends on a class name reaching an animated view.
+ */
 export function Skeleton({ className }: { className: string }) {
-  const pulse = useSharedValue(0.55);
+  const colors = useThemeColors();
+  const pulse = useSharedValue(SKELETON_DIM);
 
   useEffect(() => {
     pulse.value = withRepeat(
-      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      withTiming(SKELETON_BRIGHT, { duration: 900, easing: Easing.inOut(Easing.quad) }),
       -1,
       true,
     );
   }, [pulse]);
 
-  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  const fill = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
-  return <Animated.View accessibilityRole="progressbar" className={`bg-track ${className}`} style={style} />;
+  return (
+    <View accessibilityRole="progressbar" className={`overflow-hidden ${className}`}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.mist }, fill]} />
+    </View>
+  );
 }
 
 export function BalanceSkeleton() {

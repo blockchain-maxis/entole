@@ -16,10 +16,10 @@ import { Text } from '@/components/ui/Text';
 
 type Load = { state: 'loading' } | { state: 'failed' } | { state: 'ready'; list: Beneficiary[] };
 
-/** The small print under a name: who they are, where they are, what is on file. */
+/** The small print under a name: what you call them, where they are, what is on file. */
 function captionFor(beneficiary: Beneficiary): string {
   return [
-    beneficiary.nickname ? beneficiary.name : null,
+    beneficiary.nickname ? `Your “${beneficiary.nickname}”` : null,
     countryName(beneficiary.country) ?? null,
     beneficiary.bank ? 'Bank details saved' : null,
   ]

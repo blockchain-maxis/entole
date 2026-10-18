@@ -3,7 +3,7 @@ import { join, relative, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { themeCssVariables } from '@entole/tokens';
+import { darkToken, themeCssVariables, token } from '@entole/tokens';
 
 /**
  * The hard rules in CLAUDE.md are the product thesis, so they are checked here
@@ -1616,6 +1616,39 @@ describe('every movement of the person\'s own money is confirmed with a fingerpr
 describe('a loading list looks like the list', () => {
   const skeleton = stripComments(read(join(ROOT, 'components/ui/Skeleton.tsx')));
 
+  it('a skeleton can be seen: at the dim end of its pulse it still stands off the paper, in both themes', () => {
+    const channels = (hex: string) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)) as [number, number, number];
+    const luminance = ([r, g, b]: [number, number, number]) => {
+      const linear = (c: number) => ((c / 255) <= 0.03928 ? c / 255 / 12.92 : (((c / 255) + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+    };
+    /** The fill laid over the ground at this opacity, as the eye sees it. */
+    const over = (ground: string, ink: string, opacity: number) => {
+      const g = channels(ground);
+      const i = channels(ink);
+      return g.map((c, at) => c * (1 - opacity) + i[at]! * opacity) as [number, number, number];
+    };
+    const contrast = (a: [number, number, number], b: [number, number, number]) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    expect(skeleton).toMatch(/backgroundColor: colors\.mist/);
+    expect(skeleton).not.toMatch(/bg-track|bg-line/);
+    const dim = Number(/SKELETON_DIM = ([\d.]+)/.exec(skeleton)?.[1]);
+    for (const palette of [token, darkToken]) {
+      for (const ground of [palette.paper, palette.card]) {
+        // The track was 1.11 to 1 on the light paper; this is well clear of that.
+        expect(contrast(channels(ground), over(ground, palette.mist, dim))).toBeGreaterThanOrEqual(1.2);
+      }
+    }
+    expect(contrast(channels(token.paper), channels(token.track))).toBeLessThan(1.2);
+  });
+
+  it('takes its size from a plain view, with the fill laid inside it', () => {
+    expect(skeleton).toMatch(/<View accessibilityRole="progressbar" className=\{`overflow-hidden \$\{className\}`\}>/);
+    expect(skeleton).toMatch(/StyleSheet\.absoluteFill, \{ backgroundColor: colors\.mist \}/);
+  });
+
   it('row skeletons are ruled rows, not bordered boxes', () => {
     const row = /export function RowSkeleton[\s\S]*?\n}\n/.exec(skeleton)?.[0] ?? '';
     expect(row).toMatch(/border-b border-hairline/);
@@ -1834,12 +1867,58 @@ describe('the assistant works the app, and can never confirm for you', () => {
   });
 
   it('the voice conversation can no more confirm than the typed one', () => {
+    for (const file of ['lib/assistant-presence.tsx', 'lib/presence-engine.ts', 'lib/conversation.ts', 'lib/voice-offers.ts', 'components/ui/VoiceOffer.tsx']) {
+      const source = stripComments(read(join(ROOT, file)));
+      expect(source).not.toMatch(/store\.send\(|runProposal|payBill|depositGrow|withdrawGrow|saveAllowance/);
+      expect(source).not.toMatch(/confirmWithScreenLock|confirmMovement|LocalAuthentication|signMessage|signTypedData/);
+      expect(source).not.toMatch(/\.address\b|0x[0-9a-fA-F]{6,}/);
+    }
+    // It is done when something is ready to confirm: the next move is the person's.
+    expect(stripComments(read(join(ROOT, 'lib/conversation.ts')))).toMatch(/if \(outcome\.prepared \|\| turns >= MOST_TURNS\) \{\s*finish\(\);/);
+  });
+
+  it('a spoken yes only presses the review\'s own Send button, which still asks for the fingerprint', () => {
+    const sheet = stripComments(read(join(COMPONENTS, 'ui/ConfirmSendSheet.tsx')));
+    const sendScreen = stripComments(read(join(ROOT, 'app/send/index.tsx')));
+    const offer = stripComments(read(join(COMPONENTS, 'ui/VoiceOffer.tsx')));
+    // The offer is made by the sheet, from the quote it holds, and its yes is the same function Send calls.
+    expect(sheet).toMatch(/\{voice && ready && !short && !sending && !settled && !problem \? \(\s*<VoiceOffer/);
+    expect(sheet).toMatch(/yes=\{\(\) => void confirm\(\)\}/);
+    expect(sheet).toMatch(/reviewLine\(\{\s*name: contact\.name,\s*amountMinor: ready\.amountMinor,\s*feeMinor: ready\.feeMinor,\s*totalMinor: ready\.totalMinor/);
+    // The fingerprint prompt is raised by the gateway inside the send, as it always was.
+    expect(sheet).toMatch(/await store\.send\(\{/);
+    // The review opens on its own only when the assistant brought the person here by voice, and opening it sends nothing.
+    expect(sendScreen).toMatch(/const byVoice = params\.voice === '1';/);
+    expect(sendScreen).toMatch(/const reviewOpen = reviewing \|\| \(byVoice && canReview && closedFor !== voiceKey\);/);
+    expect(sendScreen).not.toMatch(/store\.send\(|confirmWithScreenLock|confirmMovement/);
+    // A question is withdrawn when its screen goes, so a yes cannot reach a sheet that is not there.
+    expect(offer).toMatch(/makeOffer\(\{/);
+    expect(offer).toMatch(/\[say, declined, hasNo\]/);
+  });
+
+  it('says the payment has gone and offers the receipt, and a yes shares it', () => {
+    const receipt = stripComments(read(join(ROOT, 'app/send/receipt.tsx')));
+    expect(receipt).toMatch(/\{voice === '1' \? \(\s*<VoiceOffer\s+say=\{sentLine\(\{ name: who, amountMinor: receipt\.amountMinor \}\)\}\s+yes=\{\(\) => void share\(\)\}/);
+    // And it only arrives there from a payment asked for by voice.
+    expect(stripComments(read(join(COMPONENTS, 'ui/ConfirmSendSheet.tsx')))).toMatch(/params: \{ receiptId: receipt\.id, \.\.\.\(voice \? \{ voice: '1' \} : \{\}\) \}/);
+  });
+
+  it('welcomes the person by name when it is turned on, and once when the app opens', () => {
     const presence = stripComments(read(join(ROOT, 'lib/assistant-presence.tsx')));
-    expect(presence).not.toMatch(/store\.send\(|runProposal|payBill|depositGrow|withdrawGrow|saveAllowance/);
-    expect(presence).not.toMatch(/confirmWithScreenLock|confirmMovement|LocalAuthentication|signMessage|signTypedData/);
-    expect(presence).not.toMatch(/\.address\b|0x[0-9a-fA-F]{6,}/);
-    // It stops when something is ready to confirm: the next move, and the microphone, are the person's.
-    expect(presence).toMatch(/if \(outcome\.prepared\) break;/);
+    expect(presence).toMatch(/welcomeLine\('launch', firstNameRef\.current, greetingFor\(\)\)/);
+    expect(presence).toMatch(/if \(on && talkingRef\.current && \(await presence\.ensureEars\(\)\)\) greet\('turned-on'\);/);
+    expect(stripComments(read(join(ROOT, 'app/assistant.tsx')))).toMatch(/presence\.greet\('talking-on'\)/);
+  });
+
+  it('is never silent when listening comes to nothing: it says why', () => {
+    const presence = stripComments(read(join(ROOT, 'lib/assistant-presence.tsx')));
+    const conversation = stripComments(read(join(ROOT, 'lib/conversation.ts')));
+    expect(presence).toMatch(/if \(why === 'not-allowed'\) \{\s*setTrouble\(MIC_OFF\)/);
+    expect(presence).toMatch(/setTrouble\(COULD_NOT_LISTEN\)/);
+    // Tapped, and nothing was said: it says so rather than closing on nobody.
+    expect(conversation).toMatch(/void say\(DIDNT_CATCH\)/);
+    // A greeting, thanks or "what can you do" is answered on the device, with no model to wait for.
+    expect(stripComments(read(join(ROOT, '../../packages/core/assistant-actions.ts')))).toMatch(/const chat = readSmallTalk\(lower\)/);
   });
 
   it('says that confirming is the person\'s before the phone asks, and keeps the microphone out of it', () => {
@@ -1847,9 +1926,11 @@ describe('the assistant works the app, and can never confirm for you', () => {
     const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
     expect(onchain).toMatch(/const answered = confirmationStarting\(\);[\s\S]*?confirmWithScreenLock\([\s\S]*?finally \{\s*answered\(\);/);
     expect(presence).toMatch(/onConfirmation\(/);
-    expect(presence).toMatch(/setCaption\(CONFIRM_LINE\);\s*void speakAndWait\(CONFIRM_LINE\)/);
+    expect(presence).toMatch(/presence\.conversation\.announce\(CONFIRM_LINE/);
+    // And what the microphone hears of that sentence is not taken for the person talking over it.
+    expect(stripComments(read(join(ROOT, 'lib/conversation.ts')))).toMatch(/if \(announcing \|\| !deps\.canInterrupt\(\) \|\| deps\.now\(\) < echoUntil\) return;/);
     // The product never says "signature" to a person; the line says confirm.
-    expect(read(join(ROOT, '../../packages/core/assistant-persona.ts'))).toMatch(/CONFIRM_LINE = 'I’ll need you to confirm this yourself\.'/);
+    expect(read(join(ROOT, '../../packages/core/assistant-persona.ts'))).toMatch(/CONFIRM_LINE = 'A quick fingerprint, and it’s done\.'/);
   });
 
   it('is called by name only when the person has turned that on, and shows when the microphone is open', () => {
@@ -1857,9 +1938,17 @@ describe('the assistant works the app, and can never confirm for you', () => {
     const capsule = stripComments(read(join(COMPONENTS, 'ui/AssistantPresence.tsx')));
     const session = stripComments(read(join(ROOT, 'lib/session.ts')));
     expect(session).toMatch(/export async function isWakeOn\(\): Promise<boolean> \{\s*return \(await SecureStore\.getItemAsync\(ASSISTANT_WAKE_KEY\)\) === 'true';/);
-    expect(presence).toMatch(/if \(!voiceReady \|\| !wake \|\| !talking \|\| !account \|\| !active \|\| conversing \|\| confirming\) return;/);
+    expect(presence).toMatch(/const live = voiceReady && talking && signedIn && active;/);
+    expect(presence).toMatch(/if \(!live \|\| !wake\) return;[\s\S]*?void presence\.ensureEars\(\)\.then\(/);
     expect(capsule).toMatch(/accessibilityLabel=\{`Listening for hey \$\{ASSISTANT_NAME\}`\}/);
     expect(stripComments(read(join(ROOT, 'app/assistant.tsx')))).toMatch(/presence\.setWake\(!presence\.wake\)/);
+  });
+
+  it('can be turned off from hearing itself, and shows what the microphone makes of the name', () => {
+    const settings = stripComments(read(join(ROOT, 'app/assistant.tsx')));
+    expect(settings).toMatch(/presence\.setInterrupt\(!presence\.interrupt\)/);
+    expect(settings).toMatch(/\{presence\.wake && presence\.canListen \? <HeadLine|\{presence\.wake && presence\.canListen \? <HeardLine \/> : null\}/);
+    expect(stripComments(read(join(ROOT, 'lib/session.ts')))).toMatch(/\(await SecureStore\.getItemAsync\(ASSISTANT_INTERRUPT_KEY\)\) !== 'false'/);
   });
 
   it('the accent comes from one list, and speaking and listening both read it', () => {

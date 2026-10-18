@@ -8,6 +8,8 @@ import { Header } from '@/components/ui/Header';
 import { ReceiptSlip, SlipFoot, SlipHead, SlipRow, SlipRows, SlipStatus } from '@/components/ui/ReceiptSlip';
 import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { VoiceOffer } from '@/components/ui/VoiceOffer';
+import { RECEIPT_LEFT_LINE, sentLine } from '@entole/core/assistant-voice-lines';
 import { useBackend } from '@entole/core/backend';
 import { countryName } from '@entole/core/countries';
 import { timeWithSeconds } from '@entole/core/format';
@@ -29,7 +31,7 @@ export default function Receipt() {
   const router = useRouter();
   const store = useStore();
   const backend = useBackend();
-  const { receiptId } = useLocalSearchParams<{ receiptId: string }>();
+  const { receiptId, voice } = useLocalSearchParams<{ receiptId: string; voice?: string }>();
   const receipt = store.receipt(receiptId);
   const contact = receipt ? store.contact(receipt.contactId) : undefined;
   // The same payment as it sits in activity: it has the note, and who made it.
@@ -83,6 +85,15 @@ export default function Receipt() {
 
   return (
     <Screen>
+      {/* Paid by voice: it says the payment has gone and offers the receipt; a spoken yes opens the share sheet. */}
+      {voice === '1' ? (
+        <VoiceOffer
+          say={sentLine({ name: who, amountMinor: receipt.amountMinor })}
+          yes={() => void share()}
+          declined={RECEIPT_LEFT_LINE}
+          no={() => undefined}
+        />
+      ) : null}
       <Header leading="close" onLeadingPress={() => router.replace('/(tabs)')} />
 
       <ScrollView

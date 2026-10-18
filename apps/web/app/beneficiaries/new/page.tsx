@@ -115,7 +115,7 @@ function NewBeneficiary() {
   const whoError = own
     ? "That's you. Save someone else."
     : duplicate
-      ? `You already have ${duplicate.nickname ?? duplicate.name} saved.`
+      ? `You already have ${duplicate.name} saved.`
       : looked === 'nobody'
         ? `Nobody on Entole has ${written} yet.`
         : typed && !sought && whoTouched

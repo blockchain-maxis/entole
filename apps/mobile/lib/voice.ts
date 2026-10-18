@@ -17,7 +17,7 @@
 
 import { requireOptionalNativeModule } from 'expo';
 
-import { ASSISTANT_NAME, accentFor, readWake, type Accent } from '@entole/core/assistant-persona';
+import { ASSISTANT_NAME, accentFor, type Accent } from '@entole/core/assistant-persona';
 
 type Subscription = { remove: () => void };
 
@@ -29,6 +29,7 @@ type RecognitionModule = {
     continuous: boolean;
     requiresOnDeviceRecognition?: boolean;
     contextualStrings?: string[];
+    androidIntentOptions?: Record<string, string | number | boolean>;
   }) => void;
   stop: () => void;
   supportsOnDeviceRecognition?: () => boolean;
@@ -102,6 +103,17 @@ export function canListen(): boolean {
   return loadRecognition() !== null;
 }
 
+/**
+ * Asks the phone's recogniser to wait longer in silence before it decides a
+ * sentence is over. Its default is about a second, which cut people off. The
+ * recogniser may ignore it, so the conversation also decides for itself when
+ * someone has finished (`endpointDelay` in `@entole/core/assistant-talk-flow`).
+ */
+const LET_ME_FINISH = {
+  EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 3000,
+  EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2500,
+} as const;
+
 /** Whether this build of the app can speak at all. */
 export function canSpeak(): boolean {
   return loadSpeech() !== null;
@@ -159,7 +171,13 @@ export async function listen(handlers: {
     // The chosen accent first (Nigerian English to begin with); the recogniser
     // falls back to its nearest where it has none. The name is given as a hint
     // so it is not heard as some other word.
-    module.start({ lang: accent.listen, interimResults: true, continuous: false, contextualStrings: [ASSISTANT_NAME] });
+    module.start({
+      lang: accent.listen,
+      interimResults: true,
+      continuous: false,
+      contextualStrings: [ASSISTANT_NAME],
+      androidIntentOptions: LET_ME_FINISH,
+    });
   } catch {
     end('failed');
     return null;
@@ -177,13 +195,20 @@ export async function listen(handlers: {
 
 /** A sentence as it should be said aloud: "₦5,000" is read as an amount of naira, not as a symbol. */
 export function speakable(text: string): string {
-  return text.replace(/₦\s?([\d,]+(?:\.\d+)?)/g, '$1 naira').replace(/@([a-z0-9_.]+)/gi, '$1');
+  return text
+    .replace(/₦\s?([\d,]+(?:\.\d+)?)/g, '$1 naira')
+    .replace(/@([a-z0-9_.]+)/gi, '$1')
+    // A voice reads "Ayo" as "AY-oh". It is said "EYE-yo", so it is spelled that way for the voice only.
+    .replace(/\bAyo\b/g, 'Eye-yo');
 }
 
 /** Says a sentence, in place of whatever was being said. Silent on a build with no voice. */
 export function speak(text: string): void {
   void speakAndWait(text);
 }
+
+/** How long the speaker keeps playing after the voice reports it has finished. */
+const SPEAKER_DRAIN_MS = 250;
 
 /**
  * Says a sentence and resolves when it has been said (or cut off, or could not
@@ -201,7 +226,8 @@ export function speakAndWait(text: string): Promise<void> {
       if (finished) return;
       finished = true;
       clearTimeout(giveUp);
-      resolve();
+      // The voice says it is done when it has handed over its last sound; the speaker is still playing it.
+      setTimeout(resolve, SPEAKER_DRAIN_MS);
     };
     // About 14 characters a second at an easy pace, plus slack.
     const giveUp = setTimeout(done, 1500 + (spoken.length / 14) * 1000);
@@ -224,35 +250,52 @@ export function stopSpeaking(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Waiting to be called.
+// Ears: one microphone session that stays open.
 // ---------------------------------------------------------------------------
 
-export type WakeTrouble = 'not-allowed' | 'failed';
+export type EarsTrouble = 'not-allowed' | 'failed';
+
+export type Ears = {
+  /** Closes the microphone session for good. */
+  stop: () => void;
+  /** Forgets everything heard so far, so the next words start a clean buffer. */
+  clear: () => void;
+};
 
 /**
- * Listens, while the app is open, for the assistant's name ("hey Ayo").
+ * Keeps the phone's speech recognition open and reports everything it hears as
+ * one running piece of text (`onText`), until `clear()` empties it. It does not
+ * decide what the words mean or when a sentence is over: that is the
+ * conversation's job (`lib/conversation.ts`). Its job is to be a microphone
+ * that does not blink.
  *
- * A phone cannot listen for one phrase on its own, so this runs the phone's
- * speech recognition continuously and looks for the name in what it writes
- * down. That has a cost the person is told about where they turn it on: while
- * it runs, the phone's speech service is listening. Where the phone can do it
- * without leaving the device it is asked to; where it cannot, it is not
- * pretended otherwise. Entole itself receives words, never sound, and nothing
- * is kept.
+ * Why one session instead of one per turn: every start and stop of the phone's
+ * recogniser is a visible, sometimes audible, event, and a gap in which the
+ * person is not heard. Here it is opened once and kept open, including while
+ * the assistant is speaking, so the person can be heard talking over it.
  *
- * It stops the moment it hears the name and hands over what was said after it
- * ("hey Ayo what's my balance" gives "what's my balance"; "hey Ayo" alone
- * gives nothing). Whoever called it then listens for the rest, and starts it
- * again when the conversation is over. Recognition sessions end by themselves
- * after a spell of quiet, so a session that ends is begun again, a few times
- * over if it keeps failing, and then it gives up and says so.
+ * What the phone does underneath, and what is done about it:
+ * - It breaks speech into segments, finishing one when it hears a pause, then
+ *   starting another. Segments are joined, so a pause in the middle of a
+ *   sentence loses nothing.
+ * - Partial results repeat the segment so far. After `clear()` the part already
+ *   seen is remembered and cut off, so words are not heard twice.
+ * - A session ends by itself after a long quiet or an error. It is begun again
+ *   straight away, with nothing reported, and gives up only after it has failed
+ *   several times running.
+ * - On Android 13 and later, continuous mode also silences the start-and-stop
+ *   beep. On older Androids continuous mode does not exist, so a session lasts
+ *   one utterance and the beep returns: the only difference there.
+ * - It asks to keep the sound on the device where the phone can; if that
+ *   language is not installed on the phone, it carries on without.
  *
- * Resolves to how to stop it, or `null` when this build cannot listen.
+ * Resolves to the handle, or `null` when this build cannot listen or the
+ * microphone is not allowed (then `onTrouble` says so).
  */
-export async function watchForWake(handlers: {
-  onWake: (rest: string) => void;
-  onTrouble: (why: WakeTrouble) => void;
-}): Promise<{ stop: () => void } | null> {
+export async function openEars(handlers: {
+  onText: (text: string) => void;
+  onTrouble: (why: EarsTrouble) => void;
+}): Promise<Ears | null> {
   const module = loadRecognition();
   if (!module) return null;
 
@@ -269,70 +312,83 @@ export async function watchForWake(handlers: {
 
   let stopped = false;
   let failures = 0;
+  let onDevice = module.supportsOnDeviceRecognition?.() === true;
   let restart: ReturnType<typeof setTimeout> | null = null;
   let subscriptions: Subscription[] = [];
 
-  const clear = () => {
+  /** Whole segments the phone has finished with since the last `clear()`. */
+  let committed: string[] = [];
+  /** The segment in progress, as the phone last wrote it, and without any part already cleared. */
+  let current = '';
+  let rawCurrent = '';
+  /** The part of the segment in progress that was there when `clear()` was called. */
+  let baseline = '';
+
+  const emit = () => handlers.onText([...committed, current].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim());
+
+  const withoutBaseline = (text: string) => {
+    if (baseline && text.toLowerCase().startsWith(baseline.toLowerCase())) return text.slice(baseline.length).trim();
+    baseline = '';
+    return text;
+  };
+
+  const release = () => {
     for (const subscription of subscriptions) subscription.remove();
     subscriptions = [];
-  };
-  const halt = () => {
-    stopped = true;
-    if (restart) clearTimeout(restart);
-    clear();
-    try {
-      module.stop();
-    } catch {
-      // Already stopped.
-    }
   };
 
   const begin = () => {
     if (stopped) return;
-    clear();
-    /** What came after the name, kept as the sentence firms up. `null` until the name is heard. */
-    let rest: string | null = null;
-    let handed = false;
-    const hand = () => {
-      if (handed || rest === null) return;
-      handed = true;
-      halt();
-      handlers.onWake(rest);
-    };
+    release();
+    current = '';
+    rawCurrent = '';
+    baseline = '';
 
     subscriptions.push(
       module.addListener('result', (event) => {
         failures = 0;
-        const heard = event.results[0]?.transcript ?? '';
-        const wake = readWake(heard);
-        if (wake.woke) {
-          rest = wake.rest;
-          // Nothing after the name: no point waiting for a sentence that is not coming.
-          // Something after it: wait for the sentence to be finished.
-          if (event.isFinal || rest === '') hand();
+        const written = event.results[0]?.transcript ?? '';
+        if (event.isFinal) {
+          const fresh = withoutBaseline(written);
+          if (fresh) committed.push(fresh);
+          current = '';
+          rawCurrent = '';
+          baseline = '';
+        } else {
+          rawCurrent = written;
+          current = withoutBaseline(written);
         }
+        emit();
       }),
       module.addListener('error', (event) => {
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          halt();
+          if (onDevice && event.error === 'service-not-allowed') {
+            onDevice = false;
+            return;
+          }
+          stopped = true;
+          release();
           handlers.onTrouble('not-allowed');
+          return;
+        }
+        if (event.error === 'language-not-supported' && onDevice) {
+          // The language is not installed on the phone: use the network instead.
+          onDevice = false;
           return;
         }
         // Quiet and aborted sessions are the ordinary way one ends.
         if (event.error !== 'no-speech' && event.error !== 'aborted') failures += 1;
       }),
       module.addListener('end', () => {
-        if (rest !== null) {
-          hand();
-          return;
-        }
         if (stopped) return;
-        if (failures >= 4) {
-          halt();
+        if (failures >= 5) {
+          stopped = true;
+          release();
           handlers.onTrouble('failed');
           return;
         }
-        restart = setTimeout(begin, failures > 0 ? 600 * failures : 250);
+        // Straight back on: nobody should be able to tell it ended.
+        restart = setTimeout(begin, failures > 0 ? 500 * failures : 40);
       }),
     );
 
@@ -341,16 +397,33 @@ export async function watchForWake(handlers: {
         lang: accent.listen,
         interimResults: true,
         continuous: true,
-        contextualStrings: [ASSISTANT_NAME, `Hey ${ASSISTANT_NAME}`],
-        // Off the network when the phone can manage it.
-        ...(module.supportsOnDeviceRecognition?.() ? { requiresOnDeviceRecognition: true } : {}),
+        contextualStrings: [ASSISTANT_NAME, `Hey ${ASSISTANT_NAME}`, 'Iyo', 'Hey Iyo'],
+        androidIntentOptions: LET_ME_FINISH,
+        ...(onDevice ? { requiresOnDeviceRecognition: true } : {}),
       });
     } catch {
       failures += 1;
-      restart = setTimeout(begin, 600 * failures);
+      restart = setTimeout(begin, 500 * failures);
     }
   };
 
   begin();
-  return { stop: halt };
+  return {
+    stop: () => {
+      stopped = true;
+      if (restart) clearTimeout(restart);
+      release();
+      try {
+        module.stop();
+      } catch {
+        // Already stopped.
+      }
+    },
+    clear: () => {
+      committed = [];
+      baseline = rawCurrent;
+      current = '';
+      emit();
+    },
+  };
 }

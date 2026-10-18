@@ -49,7 +49,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
       });
       if (!outcome.ok) {
         if (outcome.kind === 'already-saved') {
-          setDone({ id: outcome.as.id, name: outcome.as.nickname ?? outcome.as.name, already: true });
+          setDone({ id: outcome.as.id, name: outcome.as.name, already: true });
         } else {
           setProblem(outcome.kind === 'no-name' ? 'Enter their name.' : COULD_NOT_SAVE);
         }
@@ -58,7 +58,7 @@ export function SaveRecipient({ recipientId }: { recipientId: string }) {
       await source.saveBeneficiary(outcome.beneficiary);
       await store.refresh().catch(() => undefined);
       const saved = outcome.beneficiary;
-      setDone({ id: saved.id, name: saved.nickname ?? saved.name, already: false });
+      setDone({ id: saved.id, name: saved.name, already: false });
     } catch {
       setProblem(COULD_NOT_SAVE);
     } finally {

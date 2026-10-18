@@ -12,7 +12,7 @@ import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
-import { useAssistantPresence } from '@/lib/assistant-presence';
+import { useAssistantHeard, useAssistantPresence } from '@/lib/assistant-presence';
 import { useThemeColors } from '@/lib/theme';
 import { ASK_UNDO_SECONDS, proposeFromRequest } from '@entole/core/assistant-ask';
 import { ACCENTS, ASSISTANT_NAME } from '@entole/core/assistant-persona';
@@ -127,7 +127,11 @@ export default function AssistantSettings() {
                 variant={assistant.talking ? 'secondary' : 'primary'}
                 width="hug"
                 disabled={assistant.loading}
-                onPress={() => void (assistant.talking ? assistant.stopTalking() : assistant.startTalking())}
+                onPress={() =>
+                  void (assistant.talking
+                    ? assistant.stopTalking()
+                    : assistant.startTalking().then(() => presence.greet('talking-on')))
+                }
               />
             </View>
           </View>
@@ -155,6 +159,7 @@ export default function AssistantSettings() {
                     />
                   </View>
                 ) : null}
+                {presence.wake && presence.canListen ? <HeardLine /> : null}
               </View>
 
               <View className="border-b border-hairline py-4">
@@ -179,6 +184,27 @@ export default function AssistantSettings() {
                   })}
                 </View>
               </View>
+              {presence.canListen ? (
+                <View className="border-b border-hairline py-4">
+                  <View className="flex-row items-baseline justify-between gap-4">
+                    <Text className="font-strong text-ui text-ink">Hear me while {ASSISTANT_NAME} talks</Text>
+                    <AssistantTag>{presence.interrupt ? 'On' : 'Off'}</AssistantTag>
+                  </View>
+                  <Text className="mt-1 font-body text-note text-slate">
+                    {presence.interrupt
+                      ? `The microphone stays on while ${ASSISTANT_NAME} speaks, so you can cut in by saying “stop”, “wait” or ${ASSISTANT_NAME}’s name, or by talking over it. It works best with headphones: on a speaker, the microphone can hear ${ASSISTANT_NAME}’s own voice.`
+                      : `The microphone ignores everything while ${ASSISTANT_NAME} speaks, so it can never hear itself. You wait for it to finish.`}
+                  </Text>
+                  <View className="mt-3 flex-row">
+                    <Button
+                      label={presence.interrupt ? 'Turn off' : 'Turn on'}
+                      variant="secondary"
+                      width="hug"
+                      onPress={() => void presence.setInterrupt(!presence.interrupt)}
+                    />
+                  </View>
+                </View>
+              ) : null}
             </>
           ) : null}
 
@@ -324,6 +350,26 @@ function AskAssistant() {
           onPress={() => void ask()}
         />
       </View>
+    </View>
+  );
+}
+
+/**
+ * What the microphone is hearing, live, while "Hey Ayo" is on: so a person can
+ * see that it hears them and what it makes of the name, and so a problem can be
+ * told apart: nothing shown means the microphone is not delivering anything,
+ * words shown that are not the name mean the name is being misheard.
+ */
+function HeardLine() {
+  const heard = useAssistantHeard();
+  const { phase } = useAssistantPresence();
+  const open = phase !== 'off';
+  return (
+    <View className="mt-3 rounded-control border border-line bg-card px-3.5 py-3">
+      <Text className="font-strong text-note text-slate">{open ? 'The microphone is open. It hears:' : 'The microphone is not open yet'}</Text>
+      <Text numberOfLines={3} className="mt-1 font-body text-ui text-ink">
+        {heard ? `“${heard}”` : open ? `Nothing yet. Say “Hey ${ASSISTANT_NAME}”.` : 'Open the app’s settings to check the microphone.'}
+      </Text>
     </View>
   );
 }

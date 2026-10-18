@@ -4,10 +4,10 @@
   "main": "expo-router/entry",
   "private": true,
   "scripts": {
-    "start": "expo start",
+    "start": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=8000 expo start",
     "dev-client": "expo start --dev-client --offline",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=8000 expo start --android",
+    "ios": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=8000 expo start --ios",
     "test": "vitest run",
     "test:watch": "vitest",
     "typegen": "node scripts/typegen.mjs",

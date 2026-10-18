@@ -134,7 +134,8 @@ describe('records', () => {
 
   it('shows a beneficiary as a contact with no address in it', () => {
     const contact = toContact(beneficiary);
-    expect(contact.name).toBe('Mom');
+    expect(contact.name).toBe('Adaeze Okafor');
+    expect(contact.nickname).toBe('Mom');
     expect(JSON.stringify(contact)).not.toContain('0x');
     expect(beneficiaryAddress(beneficiary)).toBe(OTHER);
   });
@@ -256,5 +257,22 @@ describe('activity takes in payments that arrived', () => {
     const fresh = await records.activity.merge([at('in-1', '2026-10-12T16:00:00.000Z'), at('in-1', '2026-10-12T16:00:00.000Z')]);
     expect(fresh).toHaveLength(1);
     expect(await records.activity.list()).toHaveLength(1);
+  });
+});
+
+
+describe('a saved person is shown by their full name', () => {
+  it('keeps the nickname beside the name and never in its place', async () => {
+    const { toContact } = await import('./records');
+    const contact = toContact({ ...beneficiary, name: 'Ngozi Okafor', nickname: 'Mum' });
+    expect(contact.name).toBe('Ngozi Okafor');
+    expect(contact.nickname).toBe('Mum');
+    expect(contact.initials).toBe('NO');
+  });
+
+  it('has no nickname to carry when none was given', async () => {
+    const { toContact } = await import('./records');
+    const { nickname: _unused, ...plain } = { ...beneficiary, name: 'Ngozi Okafor' };
+    expect(toContact(plain)).not.toHaveProperty('nickname');
   });
 });

@@ -94,12 +94,18 @@ export const beneficiarySchema = z.object({
 
 export type Beneficiary = z.infer<typeof beneficiarySchema>;
 
+/**
+ * The person as every screen shows them: by their full name. A nickname the
+ * owner gave them stays with them (to be found by, and as small print), but it
+ * is never put in the name's place, so a payment, a receipt and a list always
+ * say who someone is.
+ */
 export function toContact(beneficiary: Beneficiary): Contact {
-  const shown = beneficiary.nickname ?? beneficiary.name;
   return {
     id: beneficiary.id,
-    name: shown,
-    initials: initialsFor(shown),
+    name: beneficiary.name,
+    ...(beneficiary.nickname ? { nickname: beneficiary.nickname } : {}),
+    initials: initialsFor(beneficiary.name),
     ...(beneficiary.country ? { place: beneficiary.country } : {}),
     tone: beneficiary.tone,
   };

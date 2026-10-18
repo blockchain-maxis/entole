@@ -34,7 +34,7 @@ describe('beneficiaries in the browser', () => {
   it('adding someone looks them up by username or number, and refuses yourself and a duplicate', () => {
     expect(add).toMatch(/findRecipient\(directory, sought\)/);
     expect(add).toMatch(/That's you\. Save someone else\./);
-    expect(add).toMatch(/You already have \$\{duplicate\.nickname \?\? duplicate\.name\} saved\./);
+    expect(add).toMatch(/You already have \$\{duplicate\.name\} saved\./);
     expect(add).toMatch(/beneficiarySchema\.safeParse\(/);
   });
 

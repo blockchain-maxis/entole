@@ -225,7 +225,8 @@ export function readPlainRequest(input: string): AssistantReply | null {
     .trim()
     .replace(/[.!?]+$/, '')
     .replace(/\s+/g, ' ');
-  if (!text) return null;
+  // Just the name, "hey Ayo": a greeting, and answered as one.
+  if (!text) return input.trim() ? { say: readSmallTalk('hello')!, actions: [] } : null;
   const lower = text.toLowerCase().replace(/^(?:please|hey entole|entole|ok|okay)[, ]+/, '');
   const offset = text.length - lower.length;
   const original = text.slice(offset);
@@ -306,6 +307,36 @@ export function readPlainRequest(input: string): AssistantReply | null {
   if (/^(?:pause|stop|hold)(?: the)? assistant$/.test(lower)) return { actions: [{ do: 'pause' }] };
   if (/^(?:resume|unpause|continue|start)(?: the)? assistant$/.test(lower)) return { actions: [{ do: 'resume' }] };
 
+  const chat = readSmallTalk(lower);
+  return chat ? { say: chat, actions: [] } : null;
+}
+
+/**
+ * The few things a person says to someone they are talking to that are not a
+ * request: hello, thanks, who are you, what can you do. Answered here, with no
+ * model and no network, so the assistant is never silent to a greeting even
+ * when the model is out of reach. Anything longer or odder goes to the model.
+ */
+export function readSmallTalk(lower: string): string | null {
+  const said = lower.replace(/[,.!?]/g, '').replace(/\s+/g, ' ').trim();
+  if (/^(?:hi|hello|hey|hiya|yo|good (?:morning|afternoon|evening)|how far|how you dey|wetin dey happen)(?: there| ayo)?$/.test(said)) {
+    return 'Hello. What do you need?';
+  }
+  if (/^(?:how are you|how are you doing|how is it going|how('s| is) your day|you good|are you there|you dey)$/.test(said)) {
+    return 'I’m good, thank you. What do you need?';
+  }
+  if (/^(?:thanks|thank you|thank you so much|thanks a lot|nice one|well done|good job|great|cool|perfect|okay thanks|ok thanks|i dey appreciate)$/.test(said)) {
+    return 'You’re welcome.';
+  }
+  if (/^(?:who are you|what is your name|what are you called|what('s| is) your name|introduce yourself)$/.test(said)) {
+    return 'I’m Ayo. I help you get around Entole and get payments ready for you to confirm.';
+  }
+  if (/^(?:help|help me|what can you do|what do you do|what can i say|what can i ask you|how do you work|how does this work)$/.test(said)) {
+    return 'I can open any screen, tell you your balance, and get a payment ready for you to confirm. Try saying: send five thousand to Ada.';
+  }
+  if (/^(?:bye|goodbye|good night|see you|see you later|that is all|that's all|nothing|never mind|nevermind|cancel|stop|stop listening)$/.test(said)) {
+    return 'Alright. I’m here if you need me.';
+  }
   return null;
 }
 
@@ -373,6 +404,8 @@ export type Payee =
 export function findSavedPayee(spoken: string, contacts: readonly Contact[]): Payee {
   const name = spoken.trim().replace(/^my\s+/i, '').toLowerCase();
   if (!name) return { kind: 'nobody' };
+  const calledThat = contacts.filter((contact) => contact.nickname?.toLowerCase() === name);
+  if (calledThat.length === 1) return { kind: 'saved', contact: calledThat[0]! };
   const exact = contacts.filter((contact) => contact.name.toLowerCase() === name);
   if (exact.length === 1) return { kind: 'saved', contact: exact[0]! };
   const close = (exact.length > 1 ? exact : contacts).filter((contact) => {
@@ -445,6 +478,8 @@ export async function planPayment(
     directory: HandleDirectory;
     resolveContactId?: (address: `0x${string}`) => string | undefined;
     now?: () => number;
+    /** The person is talking, not typing: the review opens on its own and the assistant reads it out. */
+    byVoice?: boolean;
   },
 ): Promise<AssistantStep[]> {
   const amountMinor = toMinor(action.amount);
@@ -492,8 +527,12 @@ export async function planPayment(
     {
       kind: 'say',
       text: amountWords
-        ? `${name}, ${amountWords}. Check it, then confirm it yourself.`
-        : `Here is ${name}. Enter the amount, then confirm it yourself.`,
+        ? deps.byVoice
+          ? `${name}, ${amountWords}. Let me pull up the details.`
+          : `${name}, ${amountWords}. Check it, then confirm it yourself.`
+        : deps.byVoice
+          ? `Here is ${name}. How much would you like to send?`
+          : `Here is ${name}. Enter the amount, then confirm it yourself.`,
     },
   ];
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ASSISTANT_SYSTEM_PROMPT,
@@ -170,5 +170,27 @@ describe('the reader on the device', () => {
     expect((await failed.reader.read('mumble mumble')).kind).toBe('not-understood');
     const empty = brain(() => Response.json({ reply: { actions: [] } }));
     expect((await empty.reader.read('mumble mumble')).kind).toBe('not-understood');
+  });
+});
+
+describe('a model that does not answer', () => {
+  it('is waited for only so long, then the plain grammar is all there is', async () => {
+    vi.useFakeTimers();
+    try {
+      const brain = createAssistantBrain({
+        baseUrl: 'https://example.test',
+        account: '0x1111111111111111111111111111111111111111',
+        sign: async () => '0xabc',
+        fetch: ((_url: unknown, init?: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          })) as unknown as typeof fetch,
+      });
+      const pending = brain.read('abeg tell me a story');
+      await vi.advanceTimersByTimeAsync(12_500);
+      expect(await pending).toEqual({ kind: 'grammar-only' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

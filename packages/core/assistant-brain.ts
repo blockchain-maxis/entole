@@ -29,6 +29,8 @@ import { askForJson, type ChatMessage, type LanguageModelConfig } from './langua
 
 export const TURN_TEXT_MAX = 300;
 export const TURN_HISTORY_MAX = 6;
+/** The longest the app waits for the model. Past it the plain grammar is all there is, and it says so: better than thinking for ever. */
+export const TURN_TIMEOUT_MS = 12_000;
 /** A request signature older than this is refused. A staleness window, not a replay window. */
 export const TURN_MAX_AGE_SECONDS = 300;
 
@@ -161,10 +163,13 @@ export function createAssistantBrain(options: {
 
       const timestampSeconds = Math.floor(Date.now() / 1000);
       let response: Response;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TURN_TIMEOUT_MS);
       try {
         const signature = await options.sign(buildTurnMessage({ account: options.account, timestampSeconds }));
         response = await fetchImpl(`${base}/api/assistant/turn`, {
           method: 'POST',
+          signal: controller.signal,
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             account: options.account,
@@ -177,6 +182,8 @@ export function createAssistantBrain(options: {
         });
       } catch {
         return { kind: 'grammar-only' };
+      } finally {
+        clearTimeout(timer);
       }
       // No model configured, or it has been asked too often for now: either
       // way only the plain grammar is working, and that is what is said.

@@ -402,6 +402,7 @@ export async function saveTalkOn(on: boolean): Promise<void> {
 
 const ASSISTANT_WAKE_KEY = 'entole.assistant-wake';
 const ASSISTANT_ACCENT_KEY = 'entole.assistant-accent';
+const ASSISTANT_INTERRUPT_KEY = 'entole.assistant-interrupt';
 
 /** Whether the app listens, while it is open, for the assistant's name. Off until the person turns it on. */
 export async function isWakeOn(): Promise<boolean> {
@@ -410,6 +411,15 @@ export async function isWakeOn(): Promise<boolean> {
 
 export async function saveWakeOn(on: boolean): Promise<void> {
   await SecureStore.setItemAsync(ASSISTANT_WAKE_KEY, on ? 'true' : 'false');
+}
+
+/** Whether the microphone stays on while the assistant speaks, so it can be talked over. On unless turned off. */
+export async function isInterruptOn(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(ASSISTANT_INTERRUPT_KEY)) !== 'false';
+}
+
+export async function saveInterruptOn(on: boolean): Promise<void> {
+  await SecureStore.setItemAsync(ASSISTANT_INTERRUPT_KEY, on ? 'true' : 'false');
 }
 
 /** The id of the accent the assistant sounds in, or `null` for the default. */

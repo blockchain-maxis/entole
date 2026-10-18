@@ -38,10 +38,19 @@ export default function Send() {
   const store = useStore();
   const backend = useBackend();
   // `reference` is the invoice an invoice link asks to be paid.
-  const params = useLocalSearchParams<{ contactId?: string; amount?: string; note?: string; reference?: string }>();
+  const params = useLocalSearchParams<{
+    contactId?: string;
+    amount?: string;
+    note?: string;
+    reference?: string;
+    /** Set when the assistant brought the person here by voice. */
+    voice?: string;
+  }>();
 
   const [entry, setEntry] = useState<AmountEntry>(() => entryFromParam(params.amount));
   const [reviewing, setReviewing] = useState(false);
+  /** Which voice payment the review was closed for, so closing it does not open it again. */
+  const [closedFor, setClosedFor] = useState('');
 
   const loading = store.status === 'loading';
   const rawContact = params.contactId ? store.contact(params.contactId) : undefined;
@@ -100,6 +109,12 @@ export default function Send() {
   const changeRecipient = () =>
     router.replace({ pathname: '/send/pick', params: defaultNote ? { note: defaultNote } : {} });
   const canReview = store.status === 'ready' && Boolean(contact) && check.ok;
+  // Asked for by voice: the review opens by itself, because the person is not touching the screen. Opening it
+  // authorises nothing. It reads the review aloud and waits for a spoken yes, which only presses Send, and Send
+  // still asks for the fingerprint.
+  const byVoice = params.voice === '1';
+  const voiceKey = `${params.contactId ?? ''}|${params.amount ?? ''}`;
+  const reviewOpen = reviewing || (byVoice && canReview && closedFor !== voiceKey);
 
   return (
     <View className="flex-1">
@@ -211,13 +226,17 @@ export default function Send() {
         </View>
       </Screen>
 
-      {reviewing && contact ? (
+      {reviewOpen && contact ? (
         <ConfirmSendSheet
           contact={contact}
           amountMinor={amount}
+          voice={byVoice}
           {...(defaultNote ? { defaultNote } : {})}
           {...(cleanReference(params.reference) ? { invoiceReference: cleanReference(params.reference)! } : {})}
-          onDismiss={() => setReviewing(false)}
+          onDismiss={() => {
+            setReviewing(false);
+            setClosedFor(voiceKey);
+          }}
         />
       ) : null}
     </View>

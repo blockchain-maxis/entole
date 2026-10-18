@@ -162,7 +162,6 @@ describe('the plain grammar reads what can only mean one thing', () => {
 
   it.each([
     '',
-    'hello there',
     'send 5000 to ada and 3000 to tunde',
     'open the pod bay doors',
     'what is the weather',
@@ -414,5 +413,68 @@ describe('figures are the app’s own, never the reader’s', () => {
     expect(await amounts(readPlainRequest('request 2.5k'))).toEqual([250_000]);
     // Too small to be a kobo: no amount, not an amount of nothing.
     expect(await amounts({ actions: [{ do: 'request', amount: 0.001 }] })).toEqual([undefined]);
+  });
+});
+
+describe('talking to it, with no model', () => {
+  it.each([
+    ['hello', /^Hello/],
+    ['Hey Ayo', /^Hello/],
+    ['good morning', /^Hello/],
+    ['how are you', /good, thank you/],
+    ['thank you', /welcome/],
+    ['thanks!', /welcome/],
+    ['who are you', /I’m Ayo/],
+    ['what can you do', /open any screen/],
+    ['help', /open any screen/],
+    ['bye', /Alright/],
+  ])('"%s" is answered at once, with words and no action', (said, answer) => {
+    const reply = readPlainRequest(said);
+    expect(reply?.actions).toEqual([]);
+    expect(reply?.say).toMatch(answer);
+  });
+
+  it('is turned into something to say, not into nothing', async () => {
+    const reply = readPlainRequest('thank you')!;
+    const noFacts: AssistantFacts = {
+      balanceMinor: 0,
+      activity: [],
+      allowances: [],
+      savingsMinor: null,
+      username: null,
+      contactName: () => undefined,
+    };
+    const steps = await planReply(reply, account(), noFacts, { directory: nobodyHome });
+    expect(steps).toEqual([{ kind: 'say', text: 'You’re welcome.' }]);
+  });
+
+  it('does not answer a request as if it were a greeting', () => {
+    expect(readPlainRequest('send 5000 to Ada')?.say).toBeUndefined();
+    expect(readPlainRequest('hello can you send money to Ada for me please')).toBeNull();
+  });
+
+  it('never says a word the product never says', () => {
+    const never = /\b(wallet|crypto\w*|blockchain|on-?chain|chain|gas|token|signature)\b/i;
+    for (const said of ['hello', 'how are you', 'thank you', 'who are you', 'what can you do', 'bye']) {
+      expect(readPlainRequest(said)?.say).not.toMatch(never);
+    }
+  });
+});
+
+
+describe('finding someone by what the owner calls them', () => {
+  const contacts = [
+    { id: 'c1', name: 'Ngozi Okafor', nickname: 'Mum', initials: 'NO', tone: 1 },
+    { id: 'c2', name: 'Tunde Bello', initials: 'TB', tone: 2 },
+  ] as never;
+
+  it('finds Ngozi Okafor when asked for "mum", and says her name', () => {
+    expect(findSavedPayee('mum', contacts)).toMatchObject({ kind: 'saved', contact: { id: 'c1', name: 'Ngozi Okafor' } });
+    expect(findSavedPayee('my mum', contacts)).toMatchObject({ kind: 'saved', contact: { id: 'c1' } });
+  });
+
+  it('still finds a person by their name', () => {
+    expect(findSavedPayee('Tunde', contacts)).toMatchObject({ kind: 'saved', contact: { id: 'c2' } });
+    expect(findSavedPayee('Ngozi', contacts)).toMatchObject({ kind: 'saved', contact: { id: 'c1' } });
   });
 });

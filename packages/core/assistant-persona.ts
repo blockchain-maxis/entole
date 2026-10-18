@@ -32,6 +32,78 @@ const WAKE = new RegExp(String.raw`(?:\b${GREETING}[\s,.!]+${NAME_HEARD}\b|^\s*$
 
 export type Wake = { woke: false } | { woke: true; rest: string };
 
+// ---------------------------------------------------------------------------
+// The name, as a recogniser tends to get it wrong.
+// ---------------------------------------------------------------------------
+
+const GREETING_WORDS = new Set(['hey', 'hay', 'hi', 'hello', 'hiya', 'okay', 'ok', 'yo', 'oh', 'heyy', 'hei']);
+
+/** Written the way it sounds, with no spaces: "a yo" and "iyo" and "i o" all end up here. */
+const NAME_SOUNDS = new Set([
+  'ayo', 'ayoh', 'ayyo', 'aiyo', 'iyo', 'eyo', 'ayu', 'aio', 'io', 'ioh', 'ayoo', 'aayo', 'ahyo', 'ahyou', 'ayou',
+  'eyoh', 'ayeo', 'ayew', 'aya', 'ayio', 'ioo', 'eio', 'yo',
+]);
+
+/** Sounds that pass for the name only straight after a greeting: on their own, "oh" is just a word. */
+const ONLY_AFTER_GREETING = new Set(['oh', 'o', 'ah', 'aw', 'ay', 'eh']);
+
+/**
+ * "Ayo" is said "EYE-yo", so a recogniser writes what it hears: "I yo", "I your",
+ * "eye you", "ai yo". Straight after a greeting, a vowel sound followed by a "yo"
+ * sound is taken as the name. On its own, at the start of a sentence, it is not:
+ * "I you" is too likely to be something else.
+ */
+const EYE_YO = /^(?:a|i|e|ai|ay|ey|eye|ah|eh)(?:y?o+h?|you|your|yor|yore|yoo|yaw)$/;
+
+/** A greeting and the name run together: "heyo", "hayo", "hiyo". */
+const FUSED = /^(?:h[ae]i?y?o|hiy?o|h[ae]i?yayo|heyayo|hiayo|hayayo)$/;
+
+function distance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, at) => at);
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = row[0]!;
+    row[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const above = row[j]!;
+      row[j] = Math.min(above + 1, row[j - 1]! + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diagonal = above;
+    }
+  }
+  return row[b.length]!;
+}
+
+/** Whether a word, or two run together, sounds enough like the name. */
+function soundsLikeName(candidate: string): boolean {
+  if (!candidate) return false;
+  return NAME_SOUNDS.has(candidate) || (candidate.length >= 2 && candidate.length <= 6 && distance(candidate, 'ayo') <= 1);
+}
+
+/**
+ * The fallback for what the pattern above misses: a recogniser that was never
+ * told the name writes "hey iyo", "hey a you", "heyo", "hey I O", "hi ayu". It
+ * looks at the words after a greeting (one, or two run together) and at the
+ * first word of the sentence, and wakes if they sound like the name.
+ */
+function fuzzyWake(heard: string): Wake {
+  const raw = heard.split(/\s+/).filter(Boolean);
+  const clean = raw.map((word) => word.toLowerCase().replace(/[^a-z']/g, ''));
+  const restFrom = (at: number) => ({ woke: true as const, rest: raw.slice(at).join(' ').replace(/^[\s,.!?]+/, '').trim() });
+
+  for (let at = 0; at < clean.length; at += 1) {
+    const word = clean[at]!;
+    if (FUSED.test(word)) return restFrom(at + 1);
+    if (!GREETING_WORDS.has(word)) continue;
+    for (const span of [1, 2]) {
+      const next = clean.slice(at + 1, at + 1 + span).join('');
+      if (soundsLikeName(next) || EYE_YO.test(next) || (span === 1 && ONLY_AFTER_GREETING.has(next))) return restFrom(at + 1 + span);
+    }
+  }
+  for (const span of [1, 2]) {
+    if (soundsLikeName(clean.slice(0, span).join(''))) return restFrom(span);
+  }
+  return { woke: false };
+}
+
 /**
  * Whether the assistant was called, and what was said after its name in the
  * same breath. "Hey Ayo, what's my balance" wakes it with "what's my balance";
@@ -39,12 +111,14 @@ export type Wake = { woke: false } | { woke: true; rest: string };
  */
 export function readWake(heard: string): Wake {
   const match = WAKE.exec(heard);
-  if (!match) return { woke: false };
-  const rest = heard
-    .slice(match.index + match[0].length)
-    .replace(/\s+/g, ' ')
-    .trim();
-  return { woke: true, rest };
+  if (match) {
+    const rest = heard
+      .slice(match.index + match[0].length)
+      .replace(/\s+/g, ' ')
+      .trim();
+    return { woke: true, rest };
+  }
+  return fuzzyWake(heard);
 }
 
 /** The name and the wake-up greeting taken off the front of a sentence, for the readers that don't need them. */
@@ -101,7 +175,23 @@ export function wakeReply(turn: number): string {
  * cannot confirm one: this is the moment it tells the person that part is
  * theirs. Not "signature", which the product never says to a person.
  */
-export const CONFIRM_LINE = 'I’ll need you to confirm this yourself.';
+export const CONFIRM_LINE = 'A quick fingerprint, and it’s done.';
+
+/**
+ * What it says when it has just been turned on, or when the app is opened with
+ * "Hey Ayo" on: a greeting by name, and how to reach it. It should feel like
+ * someone arriving, not like a setting changing.
+ */
+export function welcomeLine(kind: 'turned-on' | 'talking-on' | 'launch', firstName: string | null, greeting: string): string {
+  const name = firstName ? `, ${firstName}` : '';
+  if (kind === 'turned-on') {
+    return `Hi${name}. I’m ${ASSISTANT_NAME}. Say “Hey ${ASSISTANT_NAME}” whenever you need me, and I’ll take care of the rest. Just give me your fingerprint when it counts.`;
+  }
+  if (kind === 'talking-on') {
+    return `Hi${name}. I’m ${ASSISTANT_NAME}. Tap the microphone and tell me what you need. I can open anything, tell you your balance, and get a payment ready.`;
+  }
+  return `${greeting}${name}. I’m listening.`;
+}
 
 /** Said when it has got a payment ready and is stepping back. */
 export const READY_LINE = 'It’s ready. Check it, and I’ll need you to confirm.';

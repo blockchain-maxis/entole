@@ -70,7 +70,7 @@ describe('account source', () => {
     expect(s.resolveRecipient('b-mom')).toBe(MOM);
     expect(s.resolveContactId(MOM)).toBe('b-mom');
     const snapshot = await s.loadSnapshot();
-    expect(snapshot.contacts.map((c) => c.name)).toEqual(['Mom']);
+    expect(snapshot.contacts.map((c) => c.name)).toEqual(['Adaeze Okafor']);
     expect(JSON.stringify(snapshot)).not.toMatch(/0x[0-9a-fA-F]{40}/);
   });
 

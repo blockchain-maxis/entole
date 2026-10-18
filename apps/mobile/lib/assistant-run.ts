@@ -60,7 +60,10 @@ export type AssistantOutcome = {
 /** Screens where the person is part-way through something: asked a fact there, the assistant answers aloud and leaves them where they are. */
 const MID_TASK = [/^\/send(\/|$)/, /^\/bill\//, /^\/rules\/new/, /^\/business\/new-invoice/, /^\/add-money/, /^\/grow\/savings/];
 
-export function useAssistantRunner(): (text: string, history: TurnHistory) => Promise<AssistantOutcome> {
+/** How one request is made: by voice, the review opens by itself and the assistant reads it out. */
+export type RunOptions = { byVoice?: boolean };
+
+export function useAssistantRunner(): (text: string, history: TurnHistory, options?: RunOptions) => Promise<AssistantOutcome> {
   const router = useRouter();
   const pathname = usePathname();
   const store = useStore();
@@ -69,7 +72,7 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
   const { enabled } = useAssistant();
 
   return useCallback(
-    async (spoken, history) => {
+    async (spoken, history, options = {}) => {
       const text = spoken.replace(/\s+/g, ' ').trim();
       if (!text || !account) return { said: '', moved: false, prepared: false };
 
@@ -94,6 +97,7 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
           directory: backend.directory,
           resolveContactId: backend.source.resolveContactId,
           stay: MID_TASK.some((screen) => screen.test(pathname)),
+          byVoice: options.byVoice === true,
         },
       );
 
@@ -116,6 +120,8 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
               contactId: step.contactId,
               ...(step.amountMinor !== undefined ? { amount: String(step.amountMinor) } : {}),
               ...(step.note ? { note: step.note } : {}),
+              // Said aloud: the review opens on its own, and the person answers it with their voice.
+              ...(options.byVoice && step.amountMinor !== undefined ? { voice: '1' } : {}),
             },
           });
         } else if (step.kind === 'propose') {
@@ -152,7 +158,9 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
           words.push(step.paused ? 'The assistant is paused.' : 'The assistant is back on.');
         }
         if (step.kind !== 'say' && step.kind !== 'pause') moved = true;
-        if (step.kind === 'send' || step.kind === 'propose' || step.kind === 'savings' || step.kind === 'bill') prepared = true;
+        // A payment named without an amount is not ready yet: the conversation goes on to ask how much.
+        if (step.kind === 'send') prepared = !options.byVoice || step.amountMinor !== undefined;
+        else if (step.kind === 'propose' || step.kind === 'savings' || step.kind === 'bill') prepared = true;
       };
       for (const step of steps) await carryOut(step);
 

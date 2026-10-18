@@ -46,12 +46,21 @@ product: where it touches a screen, the screen says so plainly.
   help articles say "test money" in two places that must be rewritten on the
   switch to the main network (`apps/web/tests/legal-network.test.ts` covers
   them).
+- **A payment entirely by voice has not been tried on a phone (19 October
+  2026).** Saying the payment, hearing the review, saying yes, the fingerprint,
+  hearing that it has gone and sharing the receipt are written and the
+  conversation side is tested with fake time and a fake voice
+  (`tests/conversation.test.ts`), but not on a real device: how reliably "yes" is
+  heard over the fingerprint overlay, and whether the share sheet opens from a
+  spoken yes on every Android. The share sheet needs a touch to pick the app.
 - **Calling the assistant by name has not been tried on a phone.** "Hey Ayo"
-  (18 October 2026) is written, and its loop is tested against a fake
-  recogniser (`apps/mobile/tests/wake.test.ts`), but it needs a build made after
-  15 October 2026 and a try on a mid-range Android: how often the phone's speech
-  service ends a session and starts a beep, how much battery it costs, and how
-  often it mishears the name. Only the phone has it; the browser does not wait
+  (18 October 2026) is written, and the microphone session and the whole
+  conversation are tested against a fake recogniser and fake time
+  (`apps/mobile/tests/ears.test.ts`, `conversation.test.ts`), but it needs a try
+  on a mid-range Android: how well it tells its own voice from a person's on the
+  speaker (it compares words, which works best with headphones), whether the
+  phone's recogniser honours the longer silence it is asked for, how much
+  battery an open microphone costs, and how often it mishears the name. Only the phone has it; the browser does not wait
   for the name yet. The conversation, the capsule and the spoken line before the
   fingerprint prompt are on the same footing.
 - **Listening on the device in the browser has not been tried on a real

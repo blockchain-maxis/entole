@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NOT_SENT_LINE, notEnoughLine, reviewLine } from '@entole/core/assistant-voice-lines';
 import { countryName } from '@entole/core/countries';
 import type { SendQuote } from '@entole/core/gateway';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
@@ -17,6 +18,7 @@ import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Sheet, SheetLayer } from './Sheet';
+import { VoiceOffer, VoiceSay } from './VoiceOffer';
 import { Skeleton } from './Skeleton';
 import { Text } from './Text';
 
@@ -51,6 +53,7 @@ export function ConfirmSendSheet({
   amountMinor,
   defaultNote,
   invoiceReference,
+  voice = false,
   onDismiss,
 }: {
   contact: Contact;
@@ -59,6 +62,8 @@ export function ConfirmSendSheet({
   defaultNote?: string;
   /** The invoice this pays, carried in the payment so the business sees it paid. */
   invoiceReference?: string;
+  /** The payment was asked for by voice: the assistant reads this review out and takes a spoken yes or no. */
+  voice?: boolean;
   onDismiss: () => void;
 }) {
   const router = useRouter();
@@ -88,6 +93,8 @@ export function ConfirmSendSheet({
     height - insets.top - insets.bottom - chromeAboveScroll - footerHeight - 32 /* card's bottom padding + footer's own top margin */,
   );
   const [problem, setProblem] = useState<string | null>(null);
+  /** What went wrong, to say aloud when the payment was asked for by voice. */
+  const [spokenProblem, setSpokenProblem] = useState<string | null>(null);
   const requestId = useRef(0);
 
   // Asks for the quote. Only its answer sets state, so the first request can
@@ -146,10 +153,12 @@ export function ConfirmSendSheet({
       setSettled(true);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       show(`Sent to ${contact.name}`);
-      router.replace({ pathname: '/send/receipt', params: { receiptId: receipt.id } });
+      router.replace({ pathname: '/send/receipt', params: { receiptId: receipt.id, ...(voice ? { voice: '1' } : {}) } });
     } catch (error) {
       setSending(false);
-      setProblem(plainMessage(error, "That payment didn't go through. Nothing was taken."));
+      const message = plainMessage(error, "That payment didn't go through. Nothing was taken.");
+      setProblem(message);
+      setSpokenProblem(message);
       // If it did go through after all, the balance says so.
       void store.refresh().catch(() => undefined);
     }
@@ -157,6 +166,24 @@ export function ConfirmSendSheet({
 
   return (
     <SheetLayer>
+      {/* Asked for by voice: it reads the review out, and a spoken yes presses Send below. The fingerprint is still theirs. */}
+      {voice && ready && !short && !sending && !settled && !problem ? (
+        <VoiceOffer
+          say={reviewLine({
+            name: contact.name,
+            amountMinor: ready.amountMinor,
+            feeMinor: ready.feeMinor,
+            totalMinor: ready.totalMinor,
+          })}
+          yes={() => void confirm()}
+          no={onDismiss}
+          declined={NOT_SENT_LINE}
+        />
+      ) : null}
+      {voice && short && ready ? (
+        <VoiceSay text={notEnoughLine({ name: contact.name, totalMinor: ready.totalMinor, balanceMinor: store.balance })} />
+      ) : null}
+      {voice && spokenProblem && !sending ? <VoiceSay key={spokenProblem} text={spokenProblem} /> : null}
       <KeyboardAvoidingView behavior="padding" className="flex-1">
         <Sheet className="shrink" onDismiss={onDismiss} locked={sending} handleOnly>
           <ScrollView

@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ASSISTANT_NAME } from '@entole/core/assistant-persona';
 
 import { useAssistant } from '@/lib/assistant';
-import { useAssistantPresence, type Phase } from '@/lib/assistant-presence';
+import { useAssistantCaption, useAssistantPresence, type Phase } from '@/lib/assistant-presence';
 
 import { LogoLoader } from './LogoLoader';
 import { Text } from './Text';
@@ -37,7 +37,8 @@ import { Text } from './Text';
  */
 export function AssistantPresence() {
   const { talking } = useAssistant();
-  const { phase, caption, trouble, dismiss } = useAssistantPresence();
+  const { phase, trouble, dismiss } = useAssistantPresence();
+  const caption = useAssistantCaption();
   const insets = useSafeAreaInsets();
 
   if (!talking) return null;

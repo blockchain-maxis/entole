@@ -112,7 +112,7 @@ export default function NewBeneficiary() {
   const whoError = own
     ? "That's you. Add someone else."
     : duplicate
-      ? `You already have ${duplicate.nickname ?? duplicate.name} as a beneficiary.`
+      ? `You already have ${duplicate.name} as a beneficiary.`
       : looked === 'nobody'
         ? `Nobody on Entole has ${written} yet.`
         : typed && !sought && whoTouched

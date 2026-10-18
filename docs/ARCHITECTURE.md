@@ -81,15 +81,50 @@ that. Asking for a fact also takes the person to where it lives ("what's my
 balance" opens Home and says the figure), except part-way through a payment, a
 bill or an invoice, where it is only said.
 
-- **Waiting for the name** (`watchForWake` in `apps/mobile/lib/voice.ts`) runs
-  the phone's speech recognition continuously, only while the app is open and
-  the person has turned it on, and looks for the name in what it writes down.
-  A small dot shows at the top for as long as it runs. It asks the phone to
-  keep the sound on the device where the phone can. It is not an engine built
-  for one phrase, and the settings row says what it does.
+- **One microphone session, kept open** (`openEars` in `apps/mobile/lib/voice.ts`).
+  Starting and stopping the phone's recogniser for every turn was audible, left
+  gaps in which the person was not heard, and could not hear them while the
+  assistant spoke. Now the session is opened once, runs continuously, and is
+  restarted at once, without anything reported, if the phone ends it. It hands
+  the conversation one running piece of text. Waiting for the name keeps it open
+  while the app is open (and a dot shows); a conversation begun by a tap opens
+  it for the length of the conversation. On Android 13 and later continuous mode
+  also silences the phone's start-and-stop beep; on older Androids it does not
+  exist and the beep returns.
+- **The conversation** (`apps/mobile/lib/conversation.ts`, rules in
+  `packages/core/assistant-talk-flow.ts`) decides what the text means. It does
+  not take a sentence as finished when the phone does, which cut people off, but
+  after a quiet that depends on what was said: short for a request the app fully
+  understands, longer for anything else, longer still when the last word is
+  "and" or "to". The microphone stays on while the assistant speaks: its own
+  voice coming back from the speaker is recognised by its words and dropped, and
+  a person talking over it stops it and becomes the next request. It is tested
+  with fake time and a fake voice (`tests/conversation.test.ts`, `ears.test.ts`).
+- **A payment by voice, with only the fingerprint touched** (since 19 October
+  2026, phone only). "Hey Ayo, send 5,000 to Ada" gets the payment ready and opens
+  the review by itself (`voice=1` on `/send`). The review sheet reads itself out
+  from the quote it holds ("Sending ₦5,000 to Ada Eze. The fee is ₦250, so ₦5,250
+  leaves your account. Shall I send it?", `assistant-voice-lines.ts`) and a spoken
+  yes, no or "go ahead" (`readApproval`) answers it. A yes **presses the sheet's
+  own Send button and nothing else**; that button raises the fingerprint prompt
+  in the gateway (`confirmMovement`), which the assistant still cannot answer,
+  and the assistant says "a quick fingerprint, and it's done" while it is up.
+  When the payment has settled the receipt says so and offers to share it; a yes
+  opens the share sheet (the person still picks the app). What keeps this inside
+  the trust model:
+  - The assistant is never given a way to send or sign. A screen hands it a
+    question and a function to call on yes (`lib/voice-offers.ts`); that function
+    is the button's own, so the assistant sends nothing and signs nothing, and a
+    test keeps those files free of both.
+  - The words come from the screen's quote, never from the assistant or the model.
+  - A question lasts as long as its screen and is withdrawn when it closes, so a
+    yes cannot reach a sheet that is gone. It is answered once.
+  - The model's vocabulary still has no "confirm"; the yes is read on the device
+    from a fixed list of words, and a no anywhere in a reply wins.
+  - The worst a stray "yes" can do (the television, a passer-by) is make the
+    fingerprint prompt appear, which only the person can pass.
 - **Before the phone asks for the fingerprint, face or screen lock**, the
-  assistant says "I'll need you to confirm this yourself" and keeps the
-  microphone out of the way (`lib/confirm-announce.ts`, called by
+  assistant says "I'll need you to confirm this yourself" (`lib/confirm-announce.ts`, called by
   `confirmMovement`). It can say this; it cannot answer the prompt. The product
   never says "signature" to a person, so the line says confirm.
 - **Accents** are one list, `ACCENTS` in the same file. Nigerian English is the

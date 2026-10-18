@@ -13,7 +13,10 @@ export const avatarToneSchema = z.union([z.literal(1), z.literal(2), z.literal(3
 
 export const contactSchema = z.object({
   id: z.string().min(1),
+  /** Always the person's full name. */
   name: z.string().min(1),
+  /** What the owner calls them ("Mum"). Never shown in place of the name: kept for finding them, and as small print. */
+  nickname: z.string().min(1).optional(),
   initials: z.string().min(1).max(2),
   phone: z.string().optional(),
   /** "Lagos · Zenith Bank" — where the money lands, in the recipient's words. */

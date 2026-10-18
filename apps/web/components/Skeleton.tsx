@@ -1,6 +1,6 @@
 /** Loading states are skeletons in the shape of the thing, never spinners. */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div aria-hidden className={`animate-pulse rounded-control bg-press ${className}`} />;
+  return <div aria-hidden className={`animate-pulse rounded-control bg-mist/40 ${className}`} />;
 }
 
 export function BalanceSkeleton() {
