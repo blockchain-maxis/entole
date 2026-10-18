@@ -400,6 +400,27 @@ export async function saveTalkOn(on: boolean): Promise<void> {
   await SecureStore.setItemAsync(ASSISTANT_TALK_KEY, on ? 'true' : 'false');
 }
 
+const ASSISTANT_WAKE_KEY = 'entole.assistant-wake';
+const ASSISTANT_ACCENT_KEY = 'entole.assistant-accent';
+
+/** Whether the app listens, while it is open, for the assistant's name. Off until the person turns it on. */
+export async function isWakeOn(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(ASSISTANT_WAKE_KEY)) === 'true';
+}
+
+export async function saveWakeOn(on: boolean): Promise<void> {
+  await SecureStore.setItemAsync(ASSISTANT_WAKE_KEY, on ? 'true' : 'false');
+}
+
+/** The id of the accent the assistant sounds in, or `null` for the default. */
+export async function loadAccentId(): Promise<string | null> {
+  return SecureStore.getItemAsync(ASSISTANT_ACCENT_KEY);
+}
+
+export async function saveAccentId(id: string): Promise<void> {
+  await SecureStore.setItemAsync(ASSISTANT_ACCENT_KEY, id);
+}
+
 export async function clearAssistant(): Promise<void> {
   await Promise.all([
     SecureStore.deleteItemAsync(ASSISTANT_ENABLED_KEY),
@@ -436,6 +457,16 @@ export async function sessionIsFresh(): Promise<boolean> {
   if (!startedAt) return false;
   return Date.now() - Number(startedAt) < SESSION_MAX_AGE_MS;
 }
+
+/** When the current signing session began, or `null` when there is none. Said back to the person on Me. */
+export async function sessionStartedAt(): Promise<number | null> {
+  const startedAt = await SecureStore.getItemAsync(SESSION_KEY);
+  const when = startedAt ? Number(startedAt) : NaN;
+  return Number.isFinite(when) ? when : null;
+}
+
+/** How long a session lasts before the app asks for the fingerprint again. */
+export const SESSION_LENGTH_MS = SESSION_MAX_AGE_MS;
 
 export async function signOut(): Promise<void> {
   await SecureStore.deleteItemAsync(SESSION_KEY);

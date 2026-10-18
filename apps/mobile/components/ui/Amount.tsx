@@ -26,11 +26,15 @@ export function Figure({
   value,
   steady = false,
   caret = false,
+  hidden = false,
 }: {
   value: Naira;
   /** While an amount is being typed nothing may move, so it holds one size. */
   steady?: boolean;
   caret?: boolean;
+  /** The person has hidden it: dots stand where the digits were, at the same
+   * size, so the figure keeps its height and nothing below it moves. */
+  hidden?: boolean;
 }) {
   const digits = formatNairaDigits(value);
   const fit = steady
@@ -42,12 +46,16 @@ export function Figure({
         : FIGURE.longest;
 
   return (
-    <View className="flex-row items-baseline gap-0.5">
+    <View
+      className="flex-row items-baseline gap-0.5"
+      accessible={hidden}
+      accessibilityLabel={hidden ? 'Balance hidden' : undefined}
+    >
       <Text className={`font-display ${fit.symbol} text-ink`} style={{ transform: [{ translateY: fit.lift }] }}>
         ₦
       </Text>
       <Text tabular className={`font-display ${fit.digits} text-ink`}>
-        {digits}
+        {hidden ? '••••••' : digits}
       </Text>
       {caret ? <View className="ml-1 h-10 w-0.5 self-center rounded-sm bg-ink" /> : null}
     </View>

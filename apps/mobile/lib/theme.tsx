@@ -25,8 +25,9 @@ import { darkToken, themeCssVariables, themeTokens, token } from '@entole/tokens
  * kinds of colour disagreeing).
  *
  * The switch is a reveal: a circle in the new scheme's background grows from
- * where the person tapped until it covers the screen, `applied` flips
- * underneath, and the circle fades away to show the new theme.
+ * where the person tapped, `applied` flips underneath the moment the circle has
+ * reached the farthest corner (not when the sweep has finished), and the circle
+ * fades away to show the new theme.
  *
  * Nothing about *starting* the reveal waits on React. The circle is always
  * mounted and driven only by shared values, so the tap sets them and the UI
@@ -50,6 +51,37 @@ const FADE_MS = 240;
 const REDUCED_COVER_MS = 220;
 /** Never leave the screen under the veil if the commit somehow never lands. */
 const SAFETY_MS = 1500;
+/** Slack between the circle reaching the last corner and the flip starting, for
+ * the timer and the first frame of the sweep to line up. */
+const FLIP_SLACK_MS = 24;
+/** The veil lifts this long after the new scheme has committed. */
+const LIFT_AFTER_COMMIT_MS = 30;
+
+/** The circle is this wide (twice the screen's diagonal), so scale 1 reaches
+ * every corner from anywhere on screen. */
+function revealDiameter(width: number, height: number) {
+  return Math.ceil(Math.hypot(width, height) * 2);
+}
+
+/**
+ * How long after the tap the circle has reached the farthest corner, and so
+ * how soon the new scheme can be put underneath it without a flash at the
+ * edges. It used to be the whole length of the sweep; the sweep eases out, so
+ * the corners are covered in well under half of it, and the render that
+ * follows is what the person waits for.
+ */
+function coveredAfter(from: RevealOrigin, width: number, height: number, sweepMs: number) {
+  const reach = Math.max(
+    Math.hypot(from.x, from.y),
+    Math.hypot(width - from.x, from.y),
+    Math.hypot(from.x, height - from.y),
+    Math.hypot(width - from.x, height - from.y),
+  );
+  const scale = Math.min(1, reach / (revealDiameter(width, height) / 2));
+  // The sweep is `Easing.out(Easing.cubic)`: progress = 1 - (1 - t)^3.
+  const t = 1 - Math.pow(1 - scale, 1 / 3);
+  return Math.min(sweepMs, Math.ceil(t * sweepMs) + FLIP_SLACK_MS);
+}
 
 type ThemeControls = {
   preference: ThemePreference;
@@ -151,11 +183,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       veil.set(1);
       cover.set(withTiming(1, { duration: coverMs, easing: Easing.out(Easing.cubic) }));
 
+      // The new scheme goes underneath as soon as the circle has covered the
+      // screen's farthest corner, not when the sweep has finished.
+      const flipAfter = coveredAfter(from, width, height, coverMs);
       flipTimer.current = setTimeout(() => {
         if (__DEV__) console.log(`[theme] flip fired ${Date.now() - startedAt.current}ms after the tap`);
         setApplied(to);
         safetyTimer.current = setTimeout(lift, SAFETY_MS);
-      }, coverMs);
+      }, flipAfter);
     },
     [width, height, cover, veil, originX, originY, tint, lift],
   );
@@ -174,7 +209,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (pendingTo.current !== applied) return;
     pendingTo.current = null;
     if (__DEV__) console.log(`[theme] applied after ${Date.now() - startedAt.current}ms`);
-    liftTimer.current = setTimeout(lift, 50);
+    liftTimer.current = setTimeout(lift, LIFT_AFTER_COMMIT_MS);
     return () => {
       if (liftTimer.current) clearTimeout(liftTimer.current);
     };
@@ -212,7 +247,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Big enough that a circle centred anywhere on screen covers every corner.
-  const D = Math.ceil(Math.hypot(width, height) * 2);
+  const D = revealDiameter(width, height);
 
   return (
     <ControlsContext.Provider value={controls}>

@@ -21,6 +21,7 @@ import { describeMovement, MovementNotConfirmedError, type ConfirmMovement } fro
 import { createPaymentsFeedClient } from '@entole/core/payments-feed';
 
 import type { SignedInAccount } from './account';
+import { confirmationStarting } from './confirm-announce';
 import { deviceRecordStore } from './records-store';
 import { confirmWithScreenLock } from './session';
 
@@ -60,8 +61,14 @@ export const API_BASE = extra.apiBase ?? 'https://entole.pro';
 /** Before the person's own money moves, the phone asks for its fingerprint,
  * face or screen lock, and says what is about to happen. */
 const confirmMovement: ConfirmMovement = async (movement) => {
-  const confirmed = await confirmWithScreenLock(describeMovement(movement));
-  if (!confirmed.ok) throw new MovementNotConfirmedError(confirmed.reason);
+  // The assistant says this part is the person's before the phone asks.
+  const answered = confirmationStarting();
+  try {
+    const confirmed = await confirmWithScreenLock(describeMovement(movement));
+    if (!confirmed.ok) throw new MovementNotConfirmedError(confirmed.reason);
+  } finally {
+    answered();
+  }
 };
 /** Where a checkout link points: the same origin as the sponsor server, whose
  * `/pay/<code>` page is what opens for a payer who does not have the app. */

@@ -293,6 +293,17 @@ export function sessionIsFresh(): boolean {
   return Date.now() - Number(startedAt) < SESSION_MAX_AGE_MS;
 }
 
+/** When the current signing session began, or `null` when there is none. Said back to the person on Me. */
+export function sessionStartedAt(): number | null {
+  if (!storageAvailable()) return null;
+  const startedAt = window.localStorage.getItem(SESSION_KEY);
+  const when = startedAt ? Number(startedAt) : NaN;
+  return Number.isFinite(when) ? when : null;
+}
+
+/** How long a session lasts before the app asks for the passkey again. */
+export const SESSION_LENGTH_MS = SESSION_MAX_AGE_MS;
+
 export function signOut(): void {
   if (!storageAvailable()) return;
   window.localStorage.removeItem(SESSION_KEY);

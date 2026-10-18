@@ -105,8 +105,8 @@ export default function Beneficiaries() {
         />
       )}
 
-      <ActionBar>
-        <Button label="Add a beneficiary" onPress={() => router.push('/beneficiaries/new')} />
+      <ActionBar centered divided={false}>
+        <Button label="Add a beneficiary" width="hug" onPress={() => router.push('/beneficiaries/new')} />
       </ActionBar>
     </Screen>
   );

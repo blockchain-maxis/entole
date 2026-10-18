@@ -174,7 +174,7 @@ describe('home is written on paper: one figure, sentences, ruled rows', () => {
   const home = stripComments(read(join(ROOT, 'app/(tabs)/index.tsx')));
 
   it('the balance is the figure, in the display face, with no card around it', () => {
-    expect(home).toMatch(/<Figure value=\{store\.balance\} \/>/);
+    expect(home).toMatch(/<Figure value=\{store\.balance\} hidden=\{balance\.hidden\} \/>/);
     expect(home).not.toMatch(/height \* 0\.3|shadow-raised/);
     expect(stripComments(read(join(COMPONENTS, 'ui/Amount.tsx')))).toMatch(/<Text tabular className=\{`font-display /);
   });
@@ -191,6 +191,23 @@ describe('home is written on paper: one figure, sentences, ruled rows', () => {
     expect(row).toMatch(/cadenceWords\(allowance\.cadence\)/);
     expect(row).toMatch(/<Meter/);
     expect(row).not.toMatch(/border border-line bg-card/);
+  });
+
+  it('can hide the balance with an eye, keeps the choice, and never shows the figure before it is known', () => {
+    const privacy = stripComments(read(join(ROOT, 'lib/privacy.ts')));
+    expect(home).toMatch(/accessibilityLabel=\{balance\.hidden \? 'Show balance' : 'Hide balance'\}/);
+    expect(home).toMatch(/\{balance\.hidden \? <EyeOff|balance\.hidden \? \(\s*<EyeOff/);
+    expect(home).toMatch(/\$••••/);
+    expect(home).toMatch(/const loading = store\.status === 'loading' \|\| !balance\.ready/);
+    expect(privacy).toMatch(/SecureStore\.setItemAsync\(KEY/);
+    expect(stripComments(read(join(COMPONENTS, 'ui/Amount.tsx')))).toMatch(/\{hidden \? '••••••' : digits\}/);
+  });
+
+  it('loads as the page it will be: figure, actions, allowances and activity, in skeletons and nothing that turns', () => {
+    expect(home).toMatch(/\{loading \? \(\s*<FigureSkeleton \/>/);
+    expect(home).not.toMatch(/LogoLoader|ActivityIndicator/);
+    expect(home).toMatch(/\{loading \? <ActionsSkeleton \/> : null\}/);
+    expect(home).toMatch(/key=\{loading \? 'loading' : 'ready'\} entering=\{loading \? undefined : FadeIn\.duration\(320\)\}/);
   });
 
   it('rules its own rows: the list has no boxes and no gaps standing in for them', () => {
@@ -333,6 +350,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/ui/ActivityRow.tsx',
     'components/ui/AllowanceCard.tsx',
     'components/ui/AllowanceIntro.tsx',
+    // The capsule it speaks and listens in.
+    'components/ui/AssistantPresence.tsx',
     'components/ui/Badge.tsx',
     // The logo: a blue ring, the brand's own and not the assistant's.
     'components/ui/BrandMark.tsx',
@@ -496,6 +515,12 @@ describe('the bottom nav is legible and does not sit on a stray light rectangle'
     expect(theme).not.toMatch(/setReveal/);
   });
 
+  it('puts the new scheme underneath once the circle has covered the farthest corner, not after the whole sweep', () => {
+    expect(theme).toMatch(/const flipAfter = coveredAfter\(from, width, height, coverMs\)/);
+    expect(theme).toMatch(/flipTimer\.current = setTimeout\([\s\S]*?\}, flipAfter\)/);
+    expect(theme).not.toMatch(/\}, coverMs\);/);
+  });
+
   it('draws the bar with plain Views, never the library bar whose container collapses', () => {
     const layout = read(join(ROOT, 'app/(tabs)/_layout.tsx'));
     const bar = read(join(COMPONENTS, 'ui/FloatingTabBar.tsx'));
@@ -506,6 +531,103 @@ describe('the bottom nav is legible and does not sit on a stray light rectangle'
     // NativeWind's Pressable wrapper dropped a function `style`, packing the tabs left.
     expect(bar).not.toMatch(/style=\{\(\{\s*pressed/);
     expect(layout).toMatch(/lazy:\s*true/);
+  });
+});
+
+describe('each setting on Me is a card of its own', () => {
+  const me = stripComments(read(join(ROOT, 'app/(tabs)/me.tsx')));
+  const rows = stripComments(read(join(COMPONENTS, 'ui/Rows.tsx')));
+
+  it('has room inside it and rounded corners, with a gap between the cards', () => {
+    expect(rows).toMatch(/const BOXED_ROW = 'rounded-control border border-line bg-card px-4 py-4'/);
+    // Every setting line on Me opts in; none is left as a bare ruled line.
+    const lines = [...me.matchAll(/<(LinkRow|DetailRow)\b[\s\S]*?\/>/g)].map((match) => match[0]);
+    expect(lines.length).toBeGreaterThan(8);
+    for (const line of lines) expect(line).toMatch(/\bboxed\b/);
+    expect(me).toMatch(/<SettingRowSkeleton \/>/);
+  });
+});
+
+describe('the security rows say something a person can use', () => {
+  const me = stripComments(read(join(ROOT, 'app/(tabs)/me.tsx')));
+
+  it('says when the phone was unlocked and when it locks itself, not just "Active"', () => {
+    expect(me).toMatch(/label="Unlocked"/);
+    expect(me).toMatch(/label="Locks itself"/);
+    expect(me).not.toMatch(/label="Session"/);
+    expect(me).toMatch(/SESSION_LENGTH_MS/);
+  });
+});
+
+describe('the beneficiary action sits in the middle of its bar, not stretched across it', () => {
+  it('is a button that hugs its label, centred', () => {
+    const list = stripComments(read(join(ROOT, 'app/beneficiaries/index.tsx')));
+    expect(list).toMatch(/<ActionBar centered divided=\{false\}>\s*<Button label="Add a beneficiary" width="hug"/);
+    expect(stripComments(read(join(COMPONENTS, 'ui/Screen.tsx')))).toMatch(/centered \? 'justify-center' : ''/);
+  });
+});
+
+describe('feedback and help', () => {
+  const me = stripComments(read(join(ROOT, 'app/(tabs)/me.tsx')));
+  const help = stripComments(read(join(ROOT, 'app/help.tsx')));
+  const feedback = stripComments(read(join(COMPONENTS, 'ui/FeedbackSheet.tsx')));
+  const bot = stripComments(read(join(COMPONENTS, 'ui/HelpBot.tsx')));
+  const sheet = stripComments(read(join(COMPONENTS, 'ui/Sheet.tsx')));
+  const blur = stripComments(read(join(ROOT, 'lib/blur.tsx')));
+  const support = stripComments(read(join(ROOT, 'lib/support.ts')));
+
+  it('Me opens the help center and the feedback sheet, instead of a mail link', () => {
+    expect(me).toMatch(/label="Help center" onPress=\{\(\) => router\.push\('\/help'\)\}/);
+    expect(me).toMatch(/label="Send feedback" onPress=\{\(\) => setFeedbackOpen\(true\)\}/);
+    expect(me).not.toMatch(/mailto:/);
+  });
+
+  it('feedback is a glass bottom sheet that says thank you only once it has gone', () => {
+    expect(feedback).toMatch(/<Sheet glass onDismiss=\{close\}>/);
+    expect(feedback).toMatch(/if \(result\.ok\) \{\s*setPhase\('thanks'\);/);
+    expect(feedback).toMatch(/Thank you for your feedback/);
+    expect(feedback).toMatch(/<LogoLoader size=\{84\} once/);
+    // Said in the person's terms, with a way to reach us when mail is not set up.
+    expect(feedback).toMatch(/support@entole\.pro/);
+  });
+
+  it('what is sent leaves through the server, checked against the shape the server checks', () => {
+    expect(support).toMatch(/feedbackSchema\.safeParse\(body\)/);
+    expect(support).toMatch(/\/api\/feedback/);
+    expect(support).toMatch(/helpAnswerSchema\.safeParse/);
+    expect(support).not.toMatch(/RESEND|re_[A-Za-z0-9]{8,}/);
+  });
+
+  it('glass is a blurred pane with a wash, a sheen and a lit rim, and degrades to the same pane without the blur', () => {
+    expect(sheet).toMatch(/glass \? 'shadow-floating' : 'bg-card shadow-raised'/);
+    expect(sheet).toMatch(/<LinearGradient/);
+    expect(sheet).toMatch(/blurred \? 'bg-card\/50' : 'bg-card\/90'/);
+    expect(blur).toMatch(/requireOptionalNativeModule\('ExpoBlur'\)[\s\S]*?require\('expo-blur'\)/);
+    // The Android blur needs a target beside the sheet, which a screen gives it with a GlassHost.
+    expect(me).toMatch(/<GlassHost/);
+    expect(help).toMatch(/<GlassHost/);
+  });
+
+  it('the help center lists questions that open to answers, from the one set of articles the bot uses', () => {
+    expect(help).toMatch(/HELP_ARTICLES\.filter\(/);
+    expect(help).toMatch(/accessibilityState=\{\{ expanded \}\}/);
+    expect(help).toMatch(/rankArticles\(text, 12\)/);
+    expect(bot).toMatch(/askHelp\(text, history\)/);
+    expect(bot).toMatch(/helpArticle\(id\)/);
+  });
+
+  it('a help button floats at the bottom right and opens the support bot', () => {
+    expect(help).toMatch(/position: 'absolute', right: 20, bottom:/);
+    expect(help).toMatch(/accessibilityLabel="Ask for help"/);
+    expect(help).toMatch(/<MessageCircleQuestion/);
+    expect(help).toMatch(/setBotOpen\(true\)/);
+  });
+
+  it('the bot waits as a skeleton, can be rated, and admits when the help has no answer', () => {
+    expect(bot).toMatch(/<Skeleton /);
+    expect(bot).not.toMatch(/LogoLoader|ActivityIndicator/);
+    expect(bot).toMatch(/rateHelp\(turn\.id, helpful\)/);
+    expect(bot).toMatch(/Send us a message/);
   });
 });
 
@@ -1676,7 +1798,7 @@ describe('money that arrives is listed and said', () => {
     expect(announcer).toMatch(/clearArrivals\(\);/);
     expect(announcer).toMatch(/return null;/);
     expect(announcer).not.toMatch(/\.address\b|0x/);
-    expect(layout).toMatch(/<ArrivalAnnouncer \/>\s*<ToastHost \/>/);
+    expect(layout).toMatch(/<ArrivalAnnouncer \/>\s*<AssistantPresence \/>\s*<ToastHost \/>/);
   });
 });
 
@@ -1711,6 +1833,42 @@ describe('the assistant works the app, and can never confirm for you', () => {
     }
   });
 
+  it('the voice conversation can no more confirm than the typed one', () => {
+    const presence = stripComments(read(join(ROOT, 'lib/assistant-presence.tsx')));
+    expect(presence).not.toMatch(/store\.send\(|runProposal|payBill|depositGrow|withdrawGrow|saveAllowance/);
+    expect(presence).not.toMatch(/confirmWithScreenLock|confirmMovement|LocalAuthentication|signMessage|signTypedData/);
+    expect(presence).not.toMatch(/\.address\b|0x[0-9a-fA-F]{6,}/);
+    // It stops when something is ready to confirm: the next move, and the microphone, are the person's.
+    expect(presence).toMatch(/if \(outcome\.prepared\) break;/);
+  });
+
+  it('says that confirming is the person\'s before the phone asks, and keeps the microphone out of it', () => {
+    const presence = stripComments(read(join(ROOT, 'lib/assistant-presence.tsx')));
+    const onchain = stripComments(read(join(ROOT, 'lib/onchain.ts')));
+    expect(onchain).toMatch(/const answered = confirmationStarting\(\);[\s\S]*?confirmWithScreenLock\([\s\S]*?finally \{\s*answered\(\);/);
+    expect(presence).toMatch(/onConfirmation\(/);
+    expect(presence).toMatch(/setCaption\(CONFIRM_LINE\);\s*void speakAndWait\(CONFIRM_LINE\)/);
+    // The product never says "signature" to a person; the line says confirm.
+    expect(read(join(ROOT, '../../packages/core/assistant-persona.ts'))).toMatch(/CONFIRM_LINE = 'I’ll need you to confirm this yourself\.'/);
+  });
+
+  it('is called by name only when the person has turned that on, and shows when the microphone is open', () => {
+    const presence = stripComments(read(join(ROOT, 'lib/assistant-presence.tsx')));
+    const capsule = stripComments(read(join(COMPONENTS, 'ui/AssistantPresence.tsx')));
+    const session = stripComments(read(join(ROOT, 'lib/session.ts')));
+    expect(session).toMatch(/export async function isWakeOn\(\): Promise<boolean> \{\s*return \(await SecureStore\.getItemAsync\(ASSISTANT_WAKE_KEY\)\) === 'true';/);
+    expect(presence).toMatch(/if \(!voiceReady \|\| !wake \|\| !talking \|\| !account \|\| !active \|\| conversing \|\| confirming\) return;/);
+    expect(capsule).toMatch(/accessibilityLabel=\{`Listening for hey \$\{ASSISTANT_NAME\}`\}/);
+    expect(stripComments(read(join(ROOT, 'app/assistant.tsx')))).toMatch(/presence\.setWake\(!presence\.wake\)/);
+  });
+
+  it('the accent comes from one list, and speaking and listening both read it', () => {
+    expect(voice).toMatch(/lang: accent\.listen/);
+    expect(voice).toMatch(/language: accent\.speak/);
+    expect(voice).not.toMatch(/'en-NG'/);
+    expect(stripComments(read(join(ROOT, 'app/assistant.tsx')))).toMatch(/ACCENTS\.map\(/);
+  });
+
   it('a payment it gets ready opens Send with the person and amount, and stops there', () => {
     expect(run).toMatch(/pathname: '\/send',/);
     expect(run).toMatch(/amount: String\(step\.amountMinor\)/);
@@ -1727,7 +1885,7 @@ describe('the assistant works the app, and can never confirm for you', () => {
 
   it('off means off: no microphone in the header, and no sheet', () => {
     expect(button).toMatch(/if \(!talking\) return null;/);
-    expect(button).toMatch(/accessibilityLabel="Talk to the assistant"/);
+    expect(button).toMatch(/accessibilityLabel=\{`Talk to \$\{ASSISTANT_NAME\}`\}/);
     expect(talk).toMatch(/if \(!account \|\| !talking\) return <Redirect href="\/" \/>;/);
   });
 
@@ -1743,6 +1901,14 @@ describe('the assistant works the app, and can never confirm for you', () => {
     expect(voice).toMatch(/try \{[\s\S]*?require\('expo-speech-recognition'\)[\s\S]*?\} catch \{/);
     expect(voice).toMatch(/try \{[\s\S]*?require\('expo-speech'\)[\s\S]*?\} catch \{/);
     expect(voice).not.toMatch(/^import [^\n]*from 'expo-speech/m);
+  });
+
+  it('asks for the native half first, because Metro does not hand a top-level require\'s throw to a try', () => {
+    // A dev build made before the speech packages were added logged "Cannot
+    // find native module" instead of falling back to typing.
+    expect(voice).toMatch(/import \{ requireOptionalNativeModule \} from 'expo'/);
+    expect(voice).toMatch(/requireOptionalNativeModule\('ExpoSpeechRecognition'\)[\s\S]*?require\('expo-speech-recognition'\)/);
+    expect(voice).toMatch(/requireOptionalNativeModule\('ExpoSpeech'\)[\s\S]*?require\('expo-speech'\)/);
   });
 });
 

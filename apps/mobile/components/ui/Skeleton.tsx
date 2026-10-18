@@ -60,12 +60,35 @@ export function RowSkeleton() {
   );
 }
 
+/** A setting before it is known: the same card the setting will be, so the list
+ * does not change shape when it arrives. */
+export function SettingRowSkeleton() {
+  return (
+    <View className="flex-row items-center justify-between gap-4 rounded-control border border-line bg-card px-4 py-4">
+      <Skeleton className="h-4 w-28 rounded-md" />
+      <Skeleton className="h-4 w-16 rounded-md" />
+    </View>
+  );
+}
+
 /** The figure a screen is about, before it is known. Never a zero. */
 export function FigureSkeleton() {
   return (
     <View className="pt-1.5">
       <Skeleton className="h-[60px] w-56 rounded-control" />
       <Skeleton className="mt-3 h-4 w-40 rounded-md" />
+    </View>
+  );
+}
+
+/** Send, Add money and Receive, before the page they sit on is known. Same
+ * height as the buttons, so they do not push anything down when they arrive. */
+export function ActionsSkeleton() {
+  return (
+    <View className="mt-7 flex-row gap-2.5">
+      <Skeleton className="h-[53px] flex-1 rounded-control" />
+      <Skeleton className="h-[53px] flex-1 rounded-control" />
+      <Skeleton className="h-[53px] flex-1 rounded-control" />
     </View>
   );
 }

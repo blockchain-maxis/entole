@@ -36,6 +36,24 @@ product: where it touches a screen, the screen says so plainly.
 - **The phone listens and speaks from its next build.** The packages are
   installed and the recognition plugin is in `app.json` (15 October 2026); the
   build itself has not been made. Until it is, the talk sheet is typed to.
+- **Feedback email, the support bot and the glass sheets have not been seen on
+  a device (18 October 2026).** The routes are tested with a stubbed mail
+  service and model, and the screens are checked against their source. Not yet
+  done with real keys: `RESEND_API_KEY` and `FEEDBACK_TO_EMAIL` (without them
+  the sheet tells the person to email support@entole.pro), a first message
+  actually arriving, `KIMI_API_KEY` on the bot, and the Android blur: it follows
+  the library's documented target-and-sibling arrangement but has not run. The
+  help articles say "test money" in two places that must be rewritten on the
+  switch to the main network (`apps/web/tests/legal-network.test.ts` covers
+  them).
+- **Calling the assistant by name has not been tried on a phone.** "Hey Ayo"
+  (18 October 2026) is written, and its loop is tested against a fake
+  recogniser (`apps/mobile/tests/wake.test.ts`), but it needs a build made after
+  15 October 2026 and a try on a mid-range Android: how often the phone's speech
+  service ends a session and starts a beep, how much battery it costs, and how
+  often it mishears the name. Only the phone has it; the browser does not wait
+  for the name yet. The conversation, the capsule and the spoken line before the
+  fingerprint prompt are on the same footing.
 - **Listening on the device in the browser has not been tried on a real
   phone.** It is written and its pieces are tested; the first download and a
   spoken request on a mid-range Android in Firefox, and in the iPhone

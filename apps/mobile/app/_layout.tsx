@@ -17,11 +17,13 @@ import { StoreProvider } from '@entole/core/store';
 
 import { AccountProvider, useAccount } from '@/lib/account';
 import { AssistantProvider, useAssistant } from '@/lib/assistant';
+import { AssistantPresenceProvider } from '@/lib/assistant-presence';
 import { DISPLAY_FONTS } from '@/lib/fonts';
 import { useOnChainBackend } from '@/lib/onchain';
 import { ThemeProvider, useThemeColors } from '@/lib/theme';
 import { ToastProvider } from '@/lib/toast';
 import { ArrivalAnnouncer } from '@/components/ui/ArrivalAnnouncer';
+import { AssistantPresence } from '@/components/ui/AssistantPresence';
 import { Intro } from '@/components/ui/Intro';
 import { ToastHost } from '@/components/ui/Toast';
 
@@ -99,6 +101,7 @@ function ThemedStack() {
         />
       </Stack>
       <ArrivalAnnouncer />
+      <AssistantPresence />
       <ToastHost />
       <Intro />
     </>
@@ -128,7 +131,9 @@ export default function RootLayout() {
             <AccountProvider>
               <AssistantProvider>
                 <OnChainStoreProvider>
-                  <ThemedStack />
+                  <AssistantPresenceProvider>
+                    <ThemedStack />
+                  </AssistantPresenceProvider>
                 </OnChainStoreProvider>
               </AssistantProvider>
             </AccountProvider>

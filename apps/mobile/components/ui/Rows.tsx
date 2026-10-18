@@ -8,20 +8,28 @@ import { useThemeColors } from '@/lib/theme';
 import { Avatar } from './Avatar';
 import { Text } from './Text';
 
-/** "Amount   ₦75,000": a labelled value, as a ruled line on the page. Rows
- * in this file carry a hairline under them and no box around them; a border
- * round every row made every row equally important, and so none. */
+/** The two looks of a settings line. On the page a row is a ruled line: a
+ * hairline under it and no box around it, because a border round every row made
+ * every row equally important, and so none. On Me each setting is its own
+ * thing to read and to press, so `boxed` gives it a card of its own, with room
+ * inside and rounded corners, and the list puts a gap between the cards. */
+const RULED_ROW = 'border-b border-hairline py-3.5';
+const BOXED_ROW = 'rounded-control border border-line bg-card px-4 py-4';
+
+/** "Amount   ₦75,000": a labelled value, as a ruled line on the page. */
 export function DetailRow({
   label,
   value,
   tabular = true,
+  boxed = false,
 }: {
   label: string;
   value: string;
   tabular?: boolean;
+  boxed?: boolean;
 }) {
   return (
-    <View className="flex-row items-center justify-between gap-4 border-b border-hairline py-3.5">
+    <View className={`flex-row items-center justify-between gap-4 ${boxed ? BOXED_ROW : RULED_ROW}`}>
       <Text className="font-body text-ui text-slate">{label}</Text>
       <Text tabular={tabular} className="flex-shrink text-right font-strong text-ui text-ink">
         {value}
@@ -39,18 +47,20 @@ export function LinkRow({
   value,
   onPress,
   tone = 'default',
+  boxed = false,
 }: {
   label: string;
   value?: string;
   onPress?: () => void;
   tone?: 'default' | 'danger';
+  boxed?: boolean;
 }) {
   const colors = useThemeColors();
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className="flex-row items-center justify-between gap-4 border-b border-hairline py-3.5 active:bg-press"
+      className={`flex-row items-center justify-between gap-4 active:bg-press ${boxed ? BOXED_ROW : RULED_ROW}`}
     >
       <Text className={`font-strong text-ui ${tone === 'danger' ? 'text-halt' : 'text-ink'}`}>{label}</Text>
       <View className="flex-row items-center gap-1.5">

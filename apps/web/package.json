@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "telegram:webhook": "node scripts/set-telegram-webhook.mjs",
+    "help-log": "node scripts/help-log.mjs",
     "lint": "eslint ."
   },
   "dependencies": {

@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Redirect, useRouter } from 'expo-router';
 import { Gauge, Hand, ShieldCheck, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { AssistantTag } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,8 +12,10 @@ import { ActionBar, Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
+import { useAssistantPresence } from '@/lib/assistant-presence';
 import { useThemeColors } from '@/lib/theme';
 import { ASK_UNDO_SECONDS, proposeFromRequest } from '@entole/core/assistant-ask';
+import { ACCENTS, ASSISTANT_NAME } from '@entole/core/assistant-persona';
 import { useBackend } from '@entole/core/backend';
 import { useStore } from '@entole/core/store';
 
@@ -52,6 +54,7 @@ export default function AssistantSettings() {
   const router = useRouter();
   const store = useStore();
   const assistant = useAssistant();
+  const presence = useAssistantPresence();
   const colors = useThemeColors();
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -99,11 +102,12 @@ export default function AssistantSettings() {
         showsVerticalScrollIndicator={false}
       >
         <Text className="font-display text-subhead text-ink">
-          {anyOn ? 'Your assistant' : 'An assistant that works the app for you'}
+          {anyOn ? `Your assistant, ${ASSISTANT_NAME}` : `${ASSISTANT_NAME}, an assistant that works the app for you`}
         </Text>
         <Text className="mt-2.5 font-body text-ui text-slate">
-          Say or type what you need. It opens the screen, picks the person and fills in the amount. Anything that
-          moves your money, you confirm yourself, unless it is inside an allowance you wrote.
+          Talk to {ASSISTANT_NAME} like a person. Ask for your balance and it takes you there and tells you. Say you
+          want to send money and it opens Send. Anything that moves your money, you confirm yourself, unless it is
+          inside an allowance you wrote.
         </Text>
 
         <View className="mt-6 border-t border-hairline">
@@ -114,7 +118,7 @@ export default function AssistantSettings() {
             </View>
             <Text className="mt-1 font-body text-note text-slate">
               {assistant.talking
-                ? 'The microphone is beside the assistant’s control at the top of every screen.'
+                ? `Tap the microphone at the top of any screen and talk. Hold it to type instead.`
                 : 'Turning this on asks for nothing. It cannot move money by talking.'}
             </Text>
             <View className="mt-3 flex-row">
@@ -127,6 +131,56 @@ export default function AssistantSettings() {
               />
             </View>
           </View>
+
+          {assistant.talking ? (
+            <>
+              <View className="border-b border-hairline py-4">
+                <View className="flex-row items-baseline justify-between gap-4">
+                  <Text className="font-strong text-ui text-ink">Say “Hey {ASSISTANT_NAME}”</Text>
+                  <AssistantTag>{presence.wake ? 'On' : 'Off'}</AssistantTag>
+                </View>
+                <Text className="mt-1 font-body text-note text-slate">
+                  {presence.canListen
+                    ? `While Entole is open, your phone’s speech service listens for ${ASSISTANT_NAME}’s name, and a small dot shows at the top. Nothing is kept, and it stops when you leave the app.`
+                    : 'This version of the app cannot listen yet, so use the microphone or type.'}
+                </Text>
+                {presence.trouble ? <Text className="mt-1.5 font-body text-note text-halt">{presence.trouble}</Text> : null}
+                {presence.canListen ? (
+                  <View className="mt-3 flex-row">
+                    <Button
+                      label={presence.wake ? 'Stop listening for the name' : `Listen for “Hey ${ASSISTANT_NAME}”`}
+                      variant={presence.wake ? 'secondary' : 'primary'}
+                      width="hug"
+                      onPress={() => void presence.setWake(!presence.wake)}
+                    />
+                  </View>
+                ) : null}
+              </View>
+
+              <View className="border-b border-hairline py-4">
+                <Text className="font-strong text-ui text-ink">Voice</Text>
+                <Text className="mt-1 font-body text-note text-slate">
+                  How {ASSISTANT_NAME} sounds, and the English it listens for.
+                </Text>
+                <View className="mt-3 flex-row flex-wrap gap-2">
+                  {ACCENTS.map((accent) => {
+                    const chosen = accent.id === presence.accent.id;
+                    return (
+                      <Pressable
+                        key={accent.id}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: chosen }}
+                        onPress={() => void presence.setAccent(accent.id)}
+                        className={`rounded-control border px-4 py-2.5 ${chosen ? 'border-ink bg-ink' : 'border-line bg-card'}`}
+                      >
+                        <Text className={`font-strong text-note ${chosen ? 'text-paper' : 'text-slate'}`}>{accent.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          ) : null}
 
           <View className="border-b border-hairline py-4">
             <View className="flex-row items-baseline justify-between gap-4">

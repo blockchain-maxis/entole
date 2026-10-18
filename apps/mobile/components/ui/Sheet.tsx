@@ -1,4 +1,5 @@
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   FadeIn,
@@ -10,6 +11,10 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { NativeBlur, useGlassTarget } from '@/lib/blur';
+import { withAlpha } from '@/lib/color';
+import { useResolvedScheme, useThemeColors } from '@/lib/theme';
 
 /** Sheet motion, from the design: spring, damping 20, stiffness 220. */
 export const SHEET_SPRING = { damping: 20, stiffness: 220, mass: 1 } as const;
@@ -28,14 +33,18 @@ type Props = {
   /** Only the grabber drags the sheet. For a sheet that holds a scrolling
    * list, where a drag on the list has to scroll it instead of closing. */
   handleOnly?: boolean;
+  /** Frosted glass instead of a solid card: what is behind shows through, blurred, with a lit edge. */
+  glass?: boolean;
 };
 
 /**
  * Bottom sheet, not a modal. Dismissible by gesture, operable one-handed, and
  * anchored so its primary action sits under the thumb.
  */
-export function Sheet({ children, onDismiss, locked = false, topInset, className, handleOnly = false }: Props) {
+export function Sheet({ children, onDismiss, locked = false, topInset, className, handleOnly = false, glass = false }: Props) {
   const insets = useSafeAreaInsets();
+  const scheme = useResolvedScheme();
+  const colors = useThemeColors();
   const { height: windowHeight } = useWindowDimensions();
   // A hard ceiling, not just `flexShrink`: content taller than the screen has
   // been seen rendering past the bottom edge instead of shrinking to fit, on
@@ -87,18 +96,22 @@ export function Sheet({ children, onDismiss, locked = false, topInset, className
           style={[sheetStyle]}
         >
           <View
-            className="bg-card shadow-raised"
-            style={{
-              flexShrink: 1,
-              maxHeight: maxSheetHeight,
-              overflow: 'hidden',
-              borderTopLeftRadius: 26,
-              borderTopRightRadius: 26,
-              paddingHorizontal: 22,
-              paddingTop: 22,
-              paddingBottom: Math.max(insets.bottom, 12),
-            }}
+            className={glass ? 'shadow-floating' : 'bg-card shadow-raised'}
+            style={[
+              {
+                flexShrink: 1,
+                maxHeight: maxSheetHeight,
+                overflow: 'hidden',
+                borderTopLeftRadius: glass ? 32 : 26,
+                borderTopRightRadius: glass ? 32 : 26,
+                paddingHorizontal: 22,
+                paddingTop: 22,
+                paddingBottom: Math.max(insets.bottom, 12),
+              },
+              glass ? glassEdge(scheme, colors.card) : null,
+            ]}
           >
+            {glass ? <GlassBackdrop /> : null}
             <DragZone enabled={handleOnly} gesture={pan}>
               <View className={handleOnly ? '-mt-3 pb-5 pt-3' : 'pb-5'}>
                 <View className="mx-auto h-1 w-10 rounded-pill bg-line" />
@@ -138,4 +151,46 @@ export function SheetLayer({ children }: { children: React.ReactNode }) {
 /** The same grabber used by sheets that are part of a screen rather than pushed. */
 export function SheetGrabber() {
   return <View className="mx-auto mb-[18px] h-1 w-10 rounded-pill bg-line" />;
+}
+
+/** The lit rim of a glass sheet: a thin bright line along the top and sides, as light catches the edge of the pane. */
+function glassEdge(scheme: 'light' | 'dark', card: string) {
+  const rim = withAlpha(card, scheme === 'dark' ? 0.2 : 0.9);
+  return {
+    borderTopWidth: 1,
+    borderLeftWidth: StyleSheet.hairlineWidth * 2,
+    borderRightWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: rim,
+  };
+}
+
+/**
+ * The pane itself: the screen behind, blurred where the build can blur it; a
+ * wash of the card colour over it so text stays readable; and a soft sheen from
+ * the top edge, brightest where the light would hit. Without the blur it is the
+ * same pane, more opaque, rather than a different design.
+ */
+function GlassBackdrop() {
+  const scheme = useResolvedScheme();
+  const colors = useThemeColors();
+  const target = useGlassTarget();
+  // On Android the blur needs the view it blurs; without one it would draw nothing, so the wash is the pane.
+  const blurred = NativeBlur !== null && (Platform.OS !== 'android' || target !== null);
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {NativeBlur && blurred ? (
+        <NativeBlur
+          intensity={scheme === 'dark' ? 60 : 80}
+          tint={scheme === 'dark' ? 'dark' : 'light'}
+          {...(Platform.OS === 'android' && target ? { blurTarget: target, blurMethod: 'dimezisBlurViewSdk31Plus' as const } : {})}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <View className={blurred ? 'bg-card/50' : 'bg-card/90'} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={[withAlpha(colors.card, scheme === 'dark' ? 0.16 : 0.75), withAlpha(colors.card, 0)]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 110 }}
+      />
+    </View>
+  );
 }

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type { AllowanceView } from './allowance';
 import { ASK_UNDO_SECONDS } from './assistant-ask';
+import { withoutName } from './assistant-persona';
 import { relativeMoment } from './format';
 import type { HandleDirectory } from './handle';
 import { formatNaira, kobo } from './money';
@@ -219,7 +220,8 @@ function readBillRequest(original: string): AssistantAction | null {
  * naira; this one either knows or stays quiet.
  */
 export function readPlainRequest(input: string): AssistantReply | null {
-  const text = input
+  // The assistant's name and the greeting that wakes it are not part of the request.
+  const text = withoutName(input)
     .trim()
     .replace(/[.!?]+$/, '')
     .replace(/\s+/g, ' ');
@@ -251,6 +253,17 @@ export function readPlainRequest(input: string): AssistantReply | null {
   const payNoAmount = /^(?:pay|send money to|send to)\s+(.+)$/i.exec(original);
   if (payNoAmount && !/\d/.test(payNoAmount[1]!) && !/\s(?:and|then)\s/i.test(payNoAmount[1]!)) {
     return { actions: [{ do: 'pay', to: payNoAmount[1]!.trim() }] };
+  }
+
+  // "send money", "I want to send money": no one named yet, so Send opens on the people to pick from.
+  if (/^(?:(?:i (?:want|wanna|need|would like) to|i'd like to|let me|can i|let's|lets|help me)\s+)?(?:send(?: some)? money|make a payment|pay someone|pay somebody|send a payment)$/.test(lower)) {
+    return { actions: [{ do: 'open', screen: 'send' }] };
+  }
+  if (/^(?:take me|go|carry me|bring me)(?: back)? home$/.test(lower)) return { actions: [{ do: 'open', screen: 'home' }] };
+
+  // "show my balance" is a fact asked for, not a screen named.
+  if (/^(?:show|check|tell|read)(?: me)?(?: out)? (?:my |the )?balance$|^how much (?:money )?do i have$/.test(lower)) {
+    return { actions: [{ do: 'tell', about: 'balance' }] };
   }
 
   const opened = /^(?:open|go to|show me|show|take me to|bring up)\s+(.+)$/.exec(lower);
@@ -371,6 +384,19 @@ export function findSavedPayee(spoken: string, contacts: readonly Contact[]): Pa
   return readRecipient(spoken) ? { kind: 'look-up' } : { kind: 'nobody' };
 }
 
+/**
+ * Where a fact lives. Asking for one takes the person there, so "what's my
+ * balance" lands on Home with the figure in front of them as well as in their
+ * ear.
+ */
+const FACT_SCREEN: Record<Extract<AssistantAction, { do: 'tell' }>['about'], AssistantScreen> = {
+  balance: 'home',
+  recent: 'activity',
+  allowances: 'home',
+  savings: 'savings',
+  username: 'receive',
+};
+
 /** What the app does next. Each app turns these into its own navigation. */
 export type AssistantStep =
   | { kind: 'say'; text: string }
@@ -481,12 +507,18 @@ export async function planReply(
   reply: AssistantReply,
   account: AssistantAccount,
   facts: AssistantFacts,
-  deps: Parameters<typeof planPayment>[2],
+  deps: Parameters<typeof planPayment>[2] & {
+    /** The person is part-way through something (a payment being filled in, say). A fact is then only said, and they are not moved. */
+    stay?: boolean;
+  },
 ): Promise<AssistantStep[]> {
   const steps: AssistantStep[] = [];
   for (const action of reply.actions) {
     if (action.do === 'open') steps.push({ kind: 'open', screen: action.screen });
-    else if (action.do === 'tell') steps.push({ kind: 'say', text: tellAbout(action.about, facts) });
+    else if (action.do === 'tell') {
+      if (!deps.stay) steps.push({ kind: 'open', screen: FACT_SCREEN[action.about] });
+      steps.push({ kind: 'say', text: tellAbout(action.about, facts) });
+    }
     else if (action.do === 'pay') steps.push(...(await planPayment(action, account, deps)));
     else if (action.do === 'request') {
       const amountMinor = toMinor(action.amount);

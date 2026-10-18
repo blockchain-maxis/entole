@@ -1,4 +1,4 @@
-import { useRouter, type Href } from 'expo-router';
+import { usePathname, useRouter, type Href } from 'expo-router';
 import { useCallback } from 'react';
 
 import {
@@ -53,10 +53,16 @@ export type AssistantOutcome = {
   said: string;
   /** Whether the person was taken to another screen. */
   moved: boolean;
+  /** Whether something was got ready for the person to confirm (a payment, a saving, a bill). The conversation stops there: the next move is theirs. */
+  prepared: boolean;
 };
+
+/** Screens where the person is part-way through something: asked a fact there, the assistant answers aloud and leaves them where they are. */
+const MID_TASK = [/^\/send(\/|$)/, /^\/bill\//, /^\/rules\/new/, /^\/business\/new-invoice/, /^\/add-money/, /^\/grow\/savings/];
 
 export function useAssistantRunner(): (text: string, history: TurnHistory) => Promise<AssistantOutcome> {
   const router = useRouter();
+  const pathname = usePathname();
   const store = useStore();
   const backend = useBackend();
   const { account } = useAccount();
@@ -65,11 +71,11 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
   return useCallback(
     async (spoken, history) => {
       const text = spoken.replace(/\s+/g, ' ').trim();
-      if (!text || !account) return { said: '', moved: false };
+      if (!text || !account) return { said: '', moved: false, prepared: false };
 
       const heard = await backend.brain.read(text, { history });
       if (heard.kind !== 'reply') {
-        return { said: heard.kind === 'grammar-only' ? GRAMMAR_ONLY_HINT : NOT_UNDERSTOOD, moved: false };
+        return { said: heard.kind === 'grammar-only' ? GRAMMAR_ONLY_HINT : NOT_UNDERSTOOD, moved: false, prepared: false };
       }
 
       const facts: AssistantFacts = {
@@ -84,7 +90,11 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
         heard.reply,
         { contacts: store.contacts, allowances: store.allowances, canSpend: enabled, paused: store.paused },
         facts,
-        { directory: backend.directory, resolveContactId: backend.source.resolveContactId },
+        {
+          directory: backend.directory,
+          resolveContactId: backend.source.resolveContactId,
+          stay: MID_TASK.some((screen) => screen.test(pathname)),
+        },
       );
 
       // The sheet this was said in is put away first, so what opens is on top of the app and not of it.
@@ -94,6 +104,7 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
       };
 
       let moved = false;
+      let prepared = false;
       const words: string[] = [];
       const carryOut = async (step: AssistantStep) => {
         if (step.kind === 'say') words.push(step.text);
@@ -141,11 +152,12 @@ export function useAssistantRunner(): (text: string, history: TurnHistory) => Pr
           words.push(step.paused ? 'The assistant is paused.' : 'The assistant is back on.');
         }
         if (step.kind !== 'say' && step.kind !== 'pause') moved = true;
+        if (step.kind === 'send' || step.kind === 'propose' || step.kind === 'savings' || step.kind === 'bill') prepared = true;
       };
       for (const step of steps) await carryOut(step);
 
-      return { said: words.join(' '), moved };
+      return { said: words.join(' '), moved, prepared };
     },
-    [account, backend, enabled, router, store],
+    [account, backend, enabled, pathname, router, store],
   );
 }

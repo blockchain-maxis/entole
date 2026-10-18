@@ -50,13 +50,16 @@ export function Screen({ children, edges, keyboard = false, className }: Props) 
 export function ActionBar({
   children,
   divided = true,
+  centered = false,
 }: {
   children: React.ReactNode;
   divided?: boolean;
+  /** For a single action that hugs its label: it sits in the middle of the bar instead of at one end. */
+  centered?: boolean;
 }) {
   return (
     <View
-      className={`flex-none flex-row gap-2.5 px-gutter pb-2.5 pt-3 ${
+      className={`flex-none flex-row gap-2.5 px-gutter pb-2.5 pt-3 ${centered ? 'justify-center' : ''} ${
         divided ? 'border-t border-hairline' : ''
       }`}
     >

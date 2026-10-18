@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { HELP_ARTICLES } from '@entole/core/help';
 import { PRIVACY, TERMS, type LegalDocument } from '@entole/core/legal';
 import { ONRAMP_CHAIN_ID } from '@entole/core/onramp';
 
@@ -30,6 +31,8 @@ describe('the words match the network this deployment runs on', () => {
     ['the terms', words(TERMS)],
     ['the privacy notice', words(PRIVACY)],
     ['the first page', readFileSync(join(ROOT, 'components/Landing.tsx'), 'utf8')],
+    // `packages/core/help.ts`: "Is the money in the app real?", "How do I add money?", "How do savings work?".
+    ['the help center', HELP_ARTICLES.map((article) => `${article.question} ${article.answer}`).join('\n')],
   ])('%s: says test money exactly while the money is test money', (_name, text) => {
     if (realMoney) expect(text).not.toMatch(TEST_WORDS);
     else expect(text).toMatch(TEST_WORDS);

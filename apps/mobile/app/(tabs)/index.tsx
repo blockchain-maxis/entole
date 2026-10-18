@@ -1,8 +1,9 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Eye, EyeOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { ActivityRow, byAssistant } from '@/components/ui/ActivityRow';
 import { AllowanceCard } from '@/components/ui/AllowanceCard';
@@ -14,7 +15,12 @@ import { OldAllowancesNotice } from '@/components/ui/OldAllowancesNotice';
 import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
 import { Screen } from '@/components/ui/Screen';
-import { ActivityRowSkeleton, AllowanceRowSkeleton, FigureSkeleton } from '@/components/ui/Skeleton';
+import {
+  ActionsSkeleton,
+  ActivityRowSkeleton,
+  AllowanceRowSkeleton,
+  FigureSkeleton,
+} from '@/components/ui/Skeleton';
 import { Text } from '@/components/ui/Text';
 import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
@@ -22,6 +28,7 @@ import { formatDollars } from '@entole/core/money';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 import { useAssistant } from '@/lib/assistant';
+import { useBalanceHidden } from '@/lib/privacy';
 import { useLiveRefresh } from '@/lib/reload';
 import { useThemeColors } from '@/lib/theme';
 
@@ -39,7 +46,10 @@ export default function Home() {
   // The device's own clock. The name is not repeated here: it is already in
   // the header, a line above.
   const greeting = greetingFor();
-  const loading = store.status === 'loading';
+  const balance = useBalanceHidden();
+  // The page is not known until the account has been read and the person's
+  // choice about showing the figure has been too.
+  const loading = store.status === 'loading' || !balance.ready;
   const failed = store.status === 'failed';
   const announced = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,7 +107,9 @@ export default function Home() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <View>
+          // Remounted when the read finishes, so what was a skeleton is
+          // replaced by the page fading in rather than snapping into place.
+          <Animated.View key={loading ? 'loading' : 'ready'} entering={loading ? undefined : FadeIn.duration(320)}>
             {store.paused ? (
               // A paused assistant is said first, with the way back beside it.
               <View className="mb-2 mt-1 flex-row items-center gap-3 rounded-control bg-halt-wash px-4 py-3">
@@ -137,10 +149,25 @@ export default function Home() {
               </View>
             ) : (
               <View className="pt-1.5">
-                <Figure value={store.balance} />
-                <Text tabular className="mt-2 font-body text-ui text-slate">
-                  Available · about {formatDollars(toDollars(store.balance, store.rate))}
-                </Text>
+                <Figure value={store.balance} hidden={balance.hidden} />
+                <View className="mt-2 flex-row items-center justify-between gap-3">
+                  <Text tabular numberOfLines={1} className="flex-1 font-body text-ui text-slate">
+                    Available · about {balance.hidden ? '$••••' : formatDollars(toDollars(store.balance, store.rate))}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={balance.hidden ? 'Show balance' : 'Hide balance'}
+                    hitSlop={8}
+                    onPress={balance.toggle}
+                    className="-mr-2 h-10 w-10 items-center justify-center rounded-pill active:bg-press"
+                  >
+                    {balance.hidden ? (
+                      <EyeOff size={20} strokeWidth={1.75} color={colors.slate} />
+                    ) : (
+                      <Eye size={20} strokeWidth={1.75} color={colors.slate} />
+                    )}
+                  </Pressable>
+                </View>
               </View>
             )}
 
@@ -162,6 +189,8 @@ export default function Home() {
                 <Button label="Receive" variant="secondary" onPress={() => router.push('/receive')} />
               </View>
             ) : null}
+
+            {loading ? <ActionsSkeleton /> : null}
 
             {failed ? null : (
               <>
@@ -221,7 +250,7 @@ export default function Home() {
                 ) : null}
               </>
             )}
-          </View>
+          </Animated.View>
         }
         ListFooterComponent={
           !loading && !failed && store.activity.length === 0 ? (

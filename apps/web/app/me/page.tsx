@@ -18,6 +18,7 @@ import { useStore } from '@entole/core/store';
 import { USERNAME_TAKEN, useUsernameCheck } from '@entole/core/username-check';
 
 import { Avatar } from '@/components/Avatar';
+import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { Header } from '@/components/Header';
 import { UsernameTakenNotice } from '@/components/UsernameTakenNotice';
 import { useAccount } from '@/lib/account';
@@ -26,7 +27,8 @@ import { useProfile } from '@/lib/profile';
 import {
   forgetEverything,
   hasStoredCredential,
-  sessionIsFresh,
+  SESSION_LENGTH_MS,
+  sessionStartedAt,
   signOut,
   storeProfile,
 } from '@/lib/session';
@@ -60,7 +62,9 @@ function Me() {
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [credentialKnown, setCredentialKnown] = useState<boolean | null>(null);
-  const [sessionFresh, setSessionFresh] = useState<boolean | null>(null);
+  const [sessionStart, setSessionStart] = useState<number | null | undefined>(undefined);
+  const [now, setNow] = useState(() => Date.now());
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const profile = useProfile();
   const assistant = useAssistant();
   const [editing, setEditing] = useState(false);
@@ -79,9 +83,11 @@ function Me() {
   useEffect(() => {
     function check() {
       setCredentialKnown(hasStoredCredential());
-      setSessionFresh(sessionIsFresh());
+      setSessionStart(sessionStartedAt());
     }
     check();
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
   }, []);
 
   function startEditing() {
@@ -153,10 +159,6 @@ function Me() {
     setAccount(null);
     setResetting(false);
     router.push('/');
-  }
-
-  function contactSupport(subject: string) {
-    window.location.href = `mailto:support@entole.pro?subject=${encodeURIComponent(subject)}`;
   }
 
   return (
@@ -268,7 +270,8 @@ function Me() {
             label="Passkey"
             value={credentialKnown === null ? 'Checking' : credentialKnown ? 'Registered in this browser' : 'Not registered'}
           />
-          <Row label="Session" value={sessionFresh === null ? 'Checking' : sessionFresh ? 'Active' : 'Expired'} />
+          <Row label="Unlocked" value={unlockedWords(sessionStart, now)} />
+          <Row label="Locks itself" value={locksWords(sessionStart, now)} />
           {confirmingReset ? (
             <div className="rounded-card border border-halt bg-halt-wash px-4 py-3.5">
               <p className="font-strong text-ui text-ink">Sign out and forget this browser?</p>
@@ -323,8 +326,8 @@ function Me() {
 
         <SectionLabel>Support</SectionLabel>
         <div className="flex flex-col gap-2">
-          <LinkRow label="Help center" onClick={() => contactSupport('Help')} />
-          <LinkRow label="Send feedback" onClick={() => contactSupport('Feedback')} />
+          <LinkRow label="Help center" onClick={() => router.push('/help')} />
+          <LinkRow label="Send feedback" onClick={() => setFeedbackOpen(true)} />
         </div>
 
         <SectionLabel>Legal</SectionLabel>
@@ -354,12 +357,35 @@ function Me() {
           {locking ? 'Locking' : 'Lock'}
         </button>
       </div>
+      {feedbackOpen ? (
+        <FeedbackDialog
+          person={profile ? { username: profile.username, name: profile.fullName } : null}
+          onDismiss={() => setFeedbackOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <h2 className="pb-3 pt-8 font-display text-subhead text-ink">{children}</h2>;
+}
+
+/** "Just now", "6 min ago": how long ago the passkey was last used, in a person's words. */
+function unlockedWords(startedAt: number | null | undefined, now: number): string {
+  if (startedAt === undefined) return 'Checking';
+  if (startedAt === null || now - startedAt >= SESSION_LENGTH_MS) return 'Locked';
+  const minutes = Math.floor((now - startedAt) / 60_000);
+  if (minutes < 1) return 'Just now';
+  return minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ${minutes % 60} min ago`;
+}
+
+/** "In 24 min": how long until the page asks for the passkey again. */
+function locksWords(startedAt: number | null | undefined, now: number): string {
+  if (startedAt === undefined) return 'Checking';
+  if (startedAt === null || now - startedAt >= SESSION_LENGTH_MS) return 'Unlock to continue';
+  const minutes = Math.ceil((SESSION_LENGTH_MS - (now - startedAt)) / 60_000);
+  return minutes <= 1 ? 'In under a minute' : `In ${minutes} min`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

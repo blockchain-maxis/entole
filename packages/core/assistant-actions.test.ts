@@ -141,6 +141,21 @@ describe('the plain grammar reads what can only mean one thing', () => {
     expect(readPlainRequest(said)).toEqual({ actions: [action] });
   });
 
+  it.each([
+    ['send money', { do: 'open', screen: 'send' }],
+    ['I want to send money', { do: 'open', screen: 'send' }],
+    ['let me pay someone', { do: 'open', screen: 'send' }],
+    ['take me home', { do: 'open', screen: 'home' }],
+    ['go home', { do: 'open', screen: 'home' }],
+    ['show my balance', { do: 'tell', about: 'balance' }],
+    ['how much do I have', { do: 'tell', about: 'balance' }],
+    ['Hey Ayo, what is my balance', { do: 'tell', about: 'balance' }],
+    ['hey ayo send 5000 to Ada', { do: 'pay', to: 'Ada', amount: 5000 }],
+    ['Ayo open receive', { do: 'open', screen: 'receive' }],
+  ])('"%s" is read without a model', (said, action) => {
+    expect(readPlainRequest(said)).toEqual({ actions: [action] });
+  });
+
   it('five k is five thousand, never five naira', () => {
     expect(readPlainRequest('pay 5k to Ada')!.actions[0]).toMatchObject({ amount: 5000 });
   });
@@ -151,7 +166,6 @@ describe('the plain grammar reads what can only mean one thing', () => {
     'send 5000 to ada and 3000 to tunde',
     'open the pod bay doors',
     'what is the weather',
-    'send money',
   ])('stays quiet about "%s" rather than guess', (said) => {
     expect(readPlainRequest(said)).toBeNull();
   });
@@ -309,7 +323,32 @@ describe('figures are the app’s own, never the reader’s', () => {
       facts,
       { directory: nobodyHome },
     );
+    // Asking for a fact takes the person to where it lives, and says the real figure.
+    expect(steps).toEqual([
+      { kind: 'open', screen: 'home' },
+      { kind: 'say', text: 'You have ₦12,500.72.' },
+    ]);
+  });
+
+  it('only says a fact, and does not move the person, when they are part-way through something', async () => {
+    const steps = await planReply(
+      { actions: [{ do: 'tell', about: 'balance' }] },
+      account(),
+      facts,
+      { directory: nobodyHome, stay: true },
+    );
     expect(steps).toEqual([{ kind: 'say', text: 'You have ₦12,500.72.' }]);
+  });
+
+  it.each([
+    ['balance', 'home'],
+    ['recent', 'activity'],
+    ['allowances', 'home'],
+    ['savings', 'savings'],
+    ['username', 'receive'],
+  ] as const)('a question about %s opens %s', async (about, screen) => {
+    const steps = await planReply({ actions: [{ do: 'tell', about }] }, account(), facts, { directory: nobodyHome });
+    expect(steps[0]).toEqual({ kind: 'open', screen });
   });
 
   it('opens screens, and says the reader’s words only when the app has none of its own', async () => {

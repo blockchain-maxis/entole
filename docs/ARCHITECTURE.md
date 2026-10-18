@@ -68,6 +68,36 @@ The trust model above is unchanged, and three things keep it so.
   left: that becomes a proposal, waits out its undo window, and is held to its
   limit by the contract, exactly as before.
 
+**Ayo.** The assistant has a name, `ASSISTANT_NAME` in
+`packages/core/assistant-persona.ts`, and everything that says or listens for it
+reads it from there. It is a presence, not a screen (since 18 October 2026): on
+the phone, tapping the microphone, or saying "Hey Ayo" when the person has
+turned that on, starts a spoken conversation. A capsule hangs from the top of
+the screen while it listens, works and speaks, with the words in it; the rest of
+the app is the interface. A conversation is a loop (listen, act, speak, listen
+once more for a follow-up) that stops when the person goes quiet or when
+something has been got ready for them to confirm, so the microphone is free for
+that. Asking for a fact also takes the person to where it lives ("what's my
+balance" opens Home and says the figure), except part-way through a payment, a
+bill or an invoice, where it is only said.
+
+- **Waiting for the name** (`watchForWake` in `apps/mobile/lib/voice.ts`) runs
+  the phone's speech recognition continuously, only while the app is open and
+  the person has turned it on, and looks for the name in what it writes down.
+  A small dot shows at the top for as long as it runs. It asks the phone to
+  keep the sound on the device where the phone can. It is not an engine built
+  for one phrase, and the settings row says what it does.
+- **Before the phone asks for the fingerprint, face or screen lock**, the
+  assistant says "I'll need you to confirm this yourself" and keeps the
+  microphone out of the way (`lib/confirm-announce.ts`, called by
+  `confirmMovement`). It can say this; it cannot answer the prompt. The product
+  never says "signature" to a person, so the line says confirm.
+- **Accents** are one list, `ACCENTS` in the same file. Nigerian English is the
+  first; the settings row, the voice and the listening all read the list.
+- **The model's brief** is the same: it is sent the words, the screen and the
+  last turns, never the account, and its manner (warm, short, a light Nigerian
+  turn of phrase) is in `ASSISTANT_SYSTEM_PROMPT`.
+
 Listening and speaking are the browser's or the phone's own, or a model on the
 device. Entole receives words, never sound.
 
@@ -90,6 +120,41 @@ device. Entole receives words, never sound.
 - **Speaking** is the browser's or the phone's own voice. On an iPhone the
   browser's voice is woken inside the tap that opens the sheet, so the reply,
   which comes after waiting on the network, can still be heard.
+
+## Help and feedback
+
+Both live in Me (Support), on the phone and in the browser, and both are words
+in, words out: nothing in them touches the account or money.
+
+- **The help center** (`packages/core/help.ts`, `app/help` on both apps) is a
+  list of questions that open to answers, grouped by topic, with a search box
+  and a help button floating at the bottom right. The articles are typed
+  content in `help.ts`, reviewed like code, with the same ban on the words the
+  product never says to a person (a test enforces it).
+- **The support bot** is that same set of articles with a way to ask in your own
+  words. For a question, the few best-fitting articles are found
+  (`rankArticles`) and a model (`/api/help/ask`, the same Kimi key as the
+  assistant) is told to answer only from them; with no key, or past its daily
+  budget, the best article answers for itself. A question none of them covers
+  is answered "I'm not sure", with the way to reach a person. It does not
+  learn: it is grounded. It sees no account and can do nothing but answer.
+- **How the help improves.** Each question is kept in Redis (`help:log`) with
+  anything that looks like a person taken out (emails, usernames, numbers,
+  addresses), how it was answered and whether the person marked the answer
+  helpful. `pnpm --filter @entole/web help-log` lists the ones nothing covered
+  and the ones marked unhelpful: those are the articles to write next.
+- **Feedback** (`/api/feedback`) is emailed to the owner through Resend
+  (`lib/server/mail.ts`): `RESEND_API_KEY` and `FEEDBACK_TO_EMAIL`, listed in
+  `docs/ENV.md`. The email is plain text only, carries the person's name and
+  username (said in the sheet) and an optional reply address, and never an
+  account address. Counted per caller and per day, because it is open to the
+  app without an account.
+- **Glass.** The feedback and support sheets are frosted glass: a blurred pane
+  with a wash, a sheen and a lit rim. In the browser it is `backdrop-filter`.
+  On the phone it is `expo-blur`, loaded only where the build has it; on
+  Android the blur needs a target next to the sheet, which `GlassHost`
+  (`apps/mobile/lib/blur.tsx`) gives a screen. Without the blur it is the same
+  pane, more opaque.
 
 ## Records that follow the account
 
