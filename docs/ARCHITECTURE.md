@@ -123,6 +123,23 @@ bill or an invoice, where it is only said.
     from a fixed list of words, and a no anywhere in a reply wins.
   - The worst a stray "yes" can do (the television, a passer-by) is make the
     fingerprint prompt appear, which only the person can pass.
+- **Nigerian names** (`packages/core/nigerian-names.ts`) are handled in three
+  places, because a voice and a recogniser built for English get them wrong in
+  both directions. *Saying*: a name in the list ("Chukwuemeka", "Ngozi",
+  "Adaeze", "Ayo") is respelled for the voice ("Chook-woo-eh-meh-kah"), and a name
+  made wholly of known pieces is put together from them; anything else is left to
+  the voice, because a wrong guess is worse than an English reading. *Finding*:
+  what a recogniser writes for a spoken name ("a day zay", "chuck wemeka") is
+  matched to the person saved by letters and by sound, so "pay a day zay five
+  thousand" finds Adaeze Okafor; the review read-back is the check on a wrong
+  match. *Hearing*: the person's saved people, then common names, are given to the
+  recogniser as hints (it takes a short list), and are renewed when they change.
+  The respellings are written by ear and are the part most worth correcting; they
+  are two tables in that file.
+- **Active, then background.** After it is called, or has answered, the assistant
+  keeps listening without needing its name for ninety seconds of silence
+  (`FOLLOW_UP_MS`), then goes back to listening for the name alone, without a
+  word. A tap on the microphone waits fifteen seconds for a first word.
 - **Before the phone asks for the fingerprint, face or screen lock**, the
   assistant says "I'll need you to confirm this yourself" (`lib/confirm-announce.ts`, called by
   `confirmMovement`). It can say this; it cannot answer the prompt. The product

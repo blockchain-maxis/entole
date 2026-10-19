@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { QUIET_COMPLETE_MS } from '@entole/core/assistant-talk-flow';
 
-import { ECHO_TAIL_MS, FIRST_WORDS_MS, FOLLOW_UP_MS, createConversation, type Outcome, type Phase } from '../lib/conversation';
+import { ECHO_TAIL_MS, ECHO_VERDICT_MS, FIRST_WORDS_MS, FOLLOW_UP_MS, TAP_WAIT_MS, createConversation, type Outcome, type Phase } from '../lib/conversation';
 
 /**
  * A whole spoken conversation, driven by hand: what the microphone hears is fed
@@ -150,6 +150,53 @@ describe('being called by name alone', () => {
     expect(t.spokenLines).toHaveLength(1);
     expect(t.deps.run).not.toHaveBeenCalled();
     expect(t.deps.doneWithEars).toHaveBeenCalled();
+  });
+});
+
+describe('staying with the person, then going into the background', () => {
+  it('keeps listening, with no need for the name, for ninety seconds of silence after an answer', async () => {
+    const t = harness({ said: 'Hello. What do you need?' });
+    t.conversation.hear('hey ayo hello');
+    await t.wait(COMPLETE + 1_000);
+    await t.endSpeech();
+    expect(t.phases.at(-1)).toBe('listening');
+    await t.wait(60_000);
+    expect(t.phases.at(-1)).toBe('listening');
+    // Still there a minute later: they just say what they want.
+    await t.wait(ECHO_TAIL_MS);
+    t.conversation.hear('what is my balance');
+    await t.wait(COMPLETE);
+    expect(t.asked.at(-1)).toBe('what is my balance');
+  });
+
+  it('after ninety seconds of silence it goes back to listening for the name alone, without a word', async () => {
+    const t = harness({ said: 'Hello. What do you need?' });
+    t.conversation.hear('hey ayo hello');
+    await t.wait(COMPLETE + 1_000);
+    await t.endSpeech();
+    await t.wait(FOLLOW_UP_MS + 500);
+    expect(t.phases.at(-1)).toBe('off');
+    expect(t.spokenLines).toHaveLength(1);
+    // And now it needs its name again.
+    t.conversation.hear('what is my balance');
+    await t.wait(5_000);
+    expect(t.asked).toEqual(['hello']);
+    t.conversation.hear('hey ayo what is my balance');
+    await t.wait(COMPLETE);
+    expect(t.asked.at(-1)).toBe('what is my balance');
+  });
+
+  it('starts the ninety seconds again after every answer', async () => {
+    const t = harness({ said: 'You have ₦12,500.' });
+    t.conversation.hear('hey ayo what is my balance');
+    await t.wait(COMPLETE);
+    await t.endSpeech();
+    await t.wait(80_000);
+    t.conversation.hear('and my savings');
+    await t.wait(2_600);
+    await t.endSpeech();
+    await t.wait(80_000);
+    expect(t.phases.at(-1)).toBe('listening');
   });
 });
 
@@ -305,7 +352,7 @@ describe('its last words, coming back late', () => {
     expect(t.asked.at(-1)).toBe('open receive');
   });
 
-  it('closes after the quiet if nothing but its own echo was heard', async () => {
+  it('goes back to the background after the quiet if nothing but its own echo was heard', async () => {
     const t = harness({ said: 'You have ₦12,500. Anything else I can do for you?' });
     t.conversation.hear('hey ayo what is my balance');
     await t.wait(COMPLETE);
@@ -313,6 +360,9 @@ describe('its last words, coming back late', () => {
     await t.wait(ECHO_TAIL_MS + 1_000);
     t.conversation.hear('else I can do for you');
     await t.wait(8_000);
+    // Heard nothing it would act on, so it is still just waiting for the person.
+    expect(t.phases.at(-1)).toBe('listening');
+    await t.wait(FOLLOW_UP_MS);
     expect(t.phases.at(-1)).toBe('off');
     expect(t.asked).toHaveLength(1);
   });
@@ -343,7 +393,7 @@ describe('the microphone button', () => {
   it('says so when it heard nothing after a tap', async () => {
     const t = harness();
     await t.conversation.summon();
-    await t.wait(FIRST_WORDS_MS + 100);
+    await t.wait(TAP_WAIT_MS + 100);
     expect(t.spokenLines).toEqual(['Sorry, I didn’t catch that.']);
     await t.endSpeech();
     expect(t.phases.at(-1)).toBe('off');
@@ -425,6 +475,43 @@ describe('asking a question about the screen', () => {
     expect(t.phases.at(-1)).toBe('listening');
   });
 
+  it('does not take the end of its own question, coming back through the speaker, as a yes', async () => {
+    const { t, yes, offer } = asked();
+    void t.conversation.offer(offer);
+    await vi.advanceTimersByTimeAsync(0);
+    await t.endSpeech();
+    // The recogniser writes down the last of her voice well after she has stopped.
+    await t.wait(ECHO_TAIL_MS + 800);
+    t.conversation.hear('shall I send it');
+    await t.wait(1000);
+    t.conversation.hear('shall I send it send it');
+    await t.wait(2000);
+    expect(yes).not.toHaveBeenCalled();
+    expect(t.deps.run).not.toHaveBeenCalled();
+  });
+
+  it('takes "send it" as a yes once her echo has had time to die away', async () => {
+    const { t, yes, offer } = asked();
+    void t.conversation.offer(offer);
+    await vi.advanceTimersByTimeAsync(0);
+    await t.endSpeech();
+    await t.wait(ECHO_VERDICT_MS + 100);
+    t.conversation.hear('send it');
+    await t.wait(900);
+    expect(yes).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes a "yes" at once, even though her echo may be arriving beside it', async () => {
+    const { t, yes, offer } = asked();
+    void t.conversation.offer(offer);
+    await vi.advanceTimersByTimeAsync(0);
+    await t.endSpeech();
+    await t.wait(ECHO_TAIL_MS + 800);
+    t.conversation.hear('yes');
+    await t.wait(900);
+    expect(yes).toHaveBeenCalledTimes(1);
+  });
+
   it('calls yes on a spoken yes, once the person has stopped, and nothing before', async () => {
     const { t, yes, offer } = asked();
     void t.conversation.offer(offer);
@@ -439,7 +526,7 @@ describe('asking a question about the screen', () => {
     expect(t.deps.run).not.toHaveBeenCalled();
   });
 
-  it.each(['go ahead', 'send it', 'abeg do it', 'okay'])('takes "%s" as a yes', async (said) => {
+  it.each(['go ahead', 'abeg do it', 'okay'])('takes "%s" as a yes', async (said) => {
     const { t, yes, offer } = asked();
     void t.conversation.offer(offer);
     await vi.advanceTimersByTimeAsync(0);
@@ -518,6 +605,7 @@ describe('asking a question about the screen', () => {
     await t.endSpeech();
     await t.wait(15_100);
     await t.endSpeech();
+    await t.wait(ECHO_VERDICT_MS + 100);
     t.conversation.hear('hey ayo yes');
     await t.wait(900);
     expect(yes).toHaveBeenCalledTimes(1);

@@ -59,10 +59,17 @@ export type ConversationDeps = {
   now: () => number;
 };
 
-/** How long to wait for the first words after being called, and for a follow-up after an answer. */
-export const FIRST_WORDS_MS = 9000;
-export const FOLLOW_UP_MS = 7000;
-export const MOST_TURNS = 8;
+/**
+ * How long the assistant stays actively listening, with no need to say its name
+ * again, after it has been called and after each answer. Ninety seconds of
+ * silence returns it to listening for the name alone, in the background. A tap
+ * on the microphone is shorter: someone who tapped and said nothing was not
+ * mid-conversation.
+ */
+export const FIRST_WORDS_MS = 90_000;
+export const FOLLOW_UP_MS = 90_000;
+export const TAP_WAIT_MS = 15_000;
+export const MOST_TURNS = 40;
 /** How long it waits for a yes or a no to a question about a payment, and how long a yes or no must be followed by quiet. */
 export const APPROVAL_WAIT_MS = 15_000;
 export const APPROVAL_QUIET_MS = 800;
@@ -75,6 +82,13 @@ export const ECHO_TAIL_MS = 1500;
  * so the end of a sentence can arrive well after the sentence is over.
  */
 export const ECHO_MEMORY_MS = 10_000;
+/**
+ * The same, for a yes. Her question ends in the words that answer it ("shall I send
+ * it?"), so its late echo reads as a yes. A yes made only of her own words is
+ * ignored for this long after she stops; a yes with a word of its own ("yes",
+ * "okay") counts at once.
+ */
+export const ECHO_VERDICT_MS = 6000;
 
 type Mode = 'idle' | 'capturing' | 'thinking' | 'speaking';
 
@@ -183,8 +197,8 @@ export function createConversation(deps: ConversationDeps) {
   }
 
   /** Whether this is only the end of what it last said, coming back through the speaker late. */
-  function isLateEcho(command: string): boolean {
-    return lastSpoken !== null && deps.now() - lastSpoken.at < ECHO_MEMORY_MS && isEcho(command, lastSpoken.text);
+  function isLateEcho(command: string, within = ECHO_MEMORY_MS): boolean {
+    return lastSpoken !== null && deps.now() - lastSpoken.at < within && isEcho(command, lastSpoken.text);
   }
 
   /**
@@ -286,8 +300,11 @@ export function createConversation(deps: ConversationDeps) {
     // While the end of its own voice may still be arriving, only what it did not say counts.
     const command = tail ? [seed, novelWords(commandOnly(heard), tail.spoken).join(' ')].filter(Boolean).join(' ') : commandIn(heard);
     // Only the end of its own last sentence, arriving late: not a request. Forget it and carry on listening.
-    // (A yes to its question is the one thing that may share its words: "send it" answers "shall I send it?")
-    if (!tail && !seed && command && !(approval || standing ? readApproval(command) : null) && isLateEcho(commandOnly(heard))) {
+    // A yes to its question may share its words ("send it" answers "shall I send it?"), which is also exactly
+    // what its echo sounds like, so a yes made only of its own words has to wait out a longer echo window.
+    const asking = approval !== null || standing !== null;
+    const echoWindow = asking && readApproval(command) ? ECHO_VERDICT_MS : ECHO_MEMORY_MS;
+    if (!tail && !seed && command && isLateEcho(commandOnly(heard), echoWindow)) {
       emptyEars();
       deps.setCaption('');
       return;
@@ -398,7 +415,7 @@ export function createConversation(deps: ConversationDeps) {
       }
       if (!(await deps.needEars())) return;
       begin('tap');
-      listenFor(FIRST_WORDS_MS);
+      listenFor(TAP_WAIT_MS);
     },
 
     /** Stops listening and speaking, and puts everything away. */

@@ -54,6 +54,7 @@ export function createPresenceEngine() {
   let watching = 0;
   let lastLogged = '';
   let greeted = false;
+  let vocabulary: readonly string[] = [];
   let ears: Ears | null = null;
   let opening: Promise<boolean> | null = null;
 
@@ -67,6 +68,7 @@ export function createPresenceEngine() {
   function ensureEars(): Promise<boolean> {
     if (ears) return Promise.resolve(true);
     opening ??= openEars({
+      vocabulary,
       onText: (text) => {
         if (watching > 0) sinks.setHeard(text);
         if (__DEV__ && text && text !== lastLogged) {
@@ -138,6 +140,19 @@ export function createPresenceEngine() {
     /** What carries out a request. */
     setRunner(next: typeof run) {
       run = next;
+    },
+    /**
+     * The names to lean the recogniser towards. It takes them when it opens, so a
+     * changed list reopens it, but only while nothing is being said, and only if
+     * the list really changed.
+     */
+    setVocabulary(next: readonly string[]) {
+      if (next.join('|') === vocabulary.join('|')) return;
+      vocabulary = next;
+      if (ears && !conversation.busy) {
+        closeEars();
+        if (waiting) void ensureEars();
+      }
     },
     /** Whether the person may talk over the assistant. */
     setInterruptible(on: boolean) {

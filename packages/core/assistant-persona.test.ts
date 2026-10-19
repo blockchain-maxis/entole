@@ -32,6 +32,7 @@ describe('being woken', () => {
   it.each([
     'hey iyo', 'hey ayoh', 'hey a yo', 'hey ayyo', 'hey aayo', 'hi eyo', 'heyo', 'hayo', 'hiyo', 'hey I O', 'hey, ayu',
     'hello ayoo', 'okay a you', 'hey I your', 'hey I yo', 'hey eye yo', 'hey I you', 'hi I-yo', 'hey ai yo', 'hello eye your', 'okay I yore', 'hey ahyo', 'hey io', 'Hey Ayo.', 'hey  ayo', 'yo ayo', 'hay oh', 'hey ayeo', 'iyo',
+    'hey are you', 'here are you', 'hey, are you', 'hi are you', 'hear are you', 'hey ar you', 'hey are u',
   ])('hears the name as "%s"', (heard) => {
     expect(readWake(heard).woke).toBe(true);
   });
@@ -49,6 +50,9 @@ describe('being woken', () => {
     'hey there',
     'send money to Ayodele',
     'hello, how are you',
+    'how are you',
+    'are you there',
+    'who are you',
     'I said hey to my brother',
     'the layout was ayo',
     'hey there how are you',

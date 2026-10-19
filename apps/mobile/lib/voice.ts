@@ -18,6 +18,7 @@
 import { requireOptionalNativeModule } from 'expo';
 
 import { ASSISTANT_NAME, accentFor, type Accent } from '@entole/core/assistant-persona';
+import { sayNigerianNames } from '@entole/core/nigerian-names';
 
 type Subscription = { remove: () => void };
 
@@ -195,11 +196,12 @@ export async function listen(handlers: {
 
 /** A sentence as it should be said aloud: "₦5,000" is read as an amount of naira, not as a symbol. */
 export function speakable(text: string): string {
-  return text
+  const said = text
     .replace(/₦\s?([\d,]+(?:\.\d+)?)/g, '$1 naira')
-    .replace(/@([a-z0-9_.]+)/gi, '$1')
-    // A voice reads "Ayo" as "AY-oh". It is said "EYE-yo", so it is spelled that way for the voice only.
-    .replace(/\bAyo\b/g, 'Eye-yo');
+    .replace(/@([a-z0-9_.]+)/gi, '$1');
+  // A voice reading English says "Ayo" as "AY-oh" and "Chukwuemeka" as it is spelled. Nigerian names are
+  // respelled for the voice only (`@entole/core/nigerian-names`); the words on screen are untouched.
+  return sayNigerianNames(said);
 }
 
 /** Says a sentence, in place of whatever was being said. Silent on a build with no voice. */
@@ -253,6 +255,10 @@ export function stopSpeaking(): void {
 // Ears: one microphone session that stays open.
 // ---------------------------------------------------------------------------
 
+/** Failures in a row before the microphone gives up and says so, and the longest wait between tries. About a minute of trying. */
+const GIVE_UP_AFTER = 20;
+const MAX_RETRY_MS = 3000;
+
 export type EarsTrouble = 'not-allowed' | 'failed';
 
 export type Ears = {
@@ -295,6 +301,8 @@ export type Ears = {
 export async function openEars(handlers: {
   onText: (text: string) => void;
   onTrouble: (why: EarsTrouble) => void;
+  /** Names and words to lean towards (the person's saved people and common Nigerian names). The assistant's own name is always among them. */
+  vocabulary?: readonly string[];
 }): Promise<Ears | null> {
   const module = loadRecognition();
   if (!module) return null;
@@ -377,18 +385,24 @@ export async function openEars(handlers: {
           return;
         }
         // Quiet and aborted sessions are the ordinary way one ends.
-        if (event.error !== 'no-speech' && event.error !== 'aborted') failures += 1;
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          failures += 1;
+          if (typeof __DEV__ !== 'undefined' && __DEV__) console.log(`[ears] error ${event.error} (${failures} in a row)`);
+          // A dropped connection: the phone's own recogniser can carry on without one, where it has the language.
+          if (event.error === 'network' && !onDevice && module.supportsOnDeviceRecognition?.() === true) onDevice = true;
+        }
       }),
       module.addListener('end', () => {
         if (stopped) return;
-        if (failures >= 5) {
+        if (failures >= GIVE_UP_AFTER) {
           stopped = true;
           release();
           handlers.onTrouble('failed');
           return;
         }
-        // Straight back on: nobody should be able to tell it ended.
-        restart = setTimeout(begin, failures > 0 ? 500 * failures : 40);
+        // Straight back on: nobody should be able to tell it ended. A session that keeps failing is
+        // retried more slowly, but it keeps being retried: a dropped connection comes back.
+        restart = setTimeout(begin, failures > 0 ? Math.min(500 * failures, MAX_RETRY_MS) : 40);
       }),
     );
 
@@ -397,13 +411,13 @@ export async function openEars(handlers: {
         lang: accent.listen,
         interimResults: true,
         continuous: true,
-        contextualStrings: [ASSISTANT_NAME, `Hey ${ASSISTANT_NAME}`, 'Iyo', 'Hey Iyo'],
+        contextualStrings: [...new Set([ASSISTANT_NAME, `Hey ${ASSISTANT_NAME}`, 'Iyo', 'Hey Iyo', ...(handlers.vocabulary ?? [])])],
         androidIntentOptions: LET_ME_FINISH,
         ...(onDevice ? { requiresOnDeviceRecognition: true } : {}),
       });
     } catch {
       failures += 1;
-      restart = setTimeout(begin, 500 * failures);
+      restart = setTimeout(begin, Math.min(500 * failures, MAX_RETRY_MS));
     }
   };
 

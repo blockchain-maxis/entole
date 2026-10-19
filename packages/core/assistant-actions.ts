@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AllowanceView } from './allowance';
 import { ASK_UNDO_SECONDS } from './assistant-ask';
 import { withoutName } from './assistant-persona';
+import { bestNameMatch } from './nigerian-names';
 import { relativeMoment } from './format';
 import type { HandleDirectory } from './handle';
 import { formatNaira, kobo } from './money';
@@ -414,6 +415,10 @@ export function findSavedPayee(spoken: string, contacts: readonly Contact[]): Pa
   });
   if (close.length === 1) return { kind: 'saved', contact: close[0]! };
   if (close.length > 1) return { kind: 'several', names: close.map((contact) => contact.name).slice(0, 4) };
+  // Not said the way it is saved: a recogniser writes "a day zay" for Adaeze. Match by sound before looking elsewhere.
+  const alike = bestNameMatch(name, contacts);
+  if (alike && 'match' in alike) return { kind: 'saved', contact: alike.match };
+  if (alike) return { kind: 'several', names: alike.several.map((contact) => contact.name).slice(0, 4) };
   return readRecipient(spoken) ? { kind: 'look-up' } : { kind: 'nobody' };
 }
 

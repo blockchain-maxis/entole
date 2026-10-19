@@ -4,6 +4,8 @@ import { AppState } from 'react-native';
 
 import { ACCENTS, CONFIRM_LINE, DEFAULT_ACCENT_ID, welcomeLine, type Accent } from '@entole/core/assistant-persona';
 import { greetingFor } from '@entole/core/format';
+import { recognitionVocabulary } from '@entole/core/nigerian-names';
+import { useStore } from '@entole/core/store';
 
 import { useAccount } from './account';
 import { useAssistant } from './assistant';
@@ -71,6 +73,7 @@ export function AssistantPresenceProvider({ children }: { children: React.ReactN
   const { account } = useAccount();
   const { talking } = useAssistant();
   const run = useAssistantRunner();
+  const store = useStore();
   const signedIn = Boolean(account);
 
   const [conversationPhase, setConversationPhase] = useState<Phase>('off');
@@ -114,6 +117,11 @@ export function AssistantPresenceProvider({ children }: { children: React.ReactN
   useEffect(() => {
     presence.setRunner(run);
   }, [run]);
+  // The people the person has saved, and common Nigerian names, are what the microphone leans towards.
+  const contacts = store.contacts;
+  useEffect(() => {
+    presence.setVocabulary(recognitionVocabulary(contacts));
+  }, [contacts]);
   useEffect(() => {
     presence.setWaiting(wake);
   }, [wake]);

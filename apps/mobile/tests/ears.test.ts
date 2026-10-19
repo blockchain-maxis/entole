@@ -64,6 +64,15 @@ describe('the microphone that does not blink', () => {
     expect(phone.started[0]!.androidIntentOptions).toMatchObject({ EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 3000 });
   });
 
+  it('leans towards the names it is given, as well as its own', async () => {
+    const phone = fakePhone();
+    provideRecognitionForTests(phone.module);
+    await openEars({ onText: vi.fn(), onTrouble: vi.fn(), vocabulary: ['Adaeze Okafor', 'Chukwuemeka', 'Ayo'] });
+    const hints = (phone.started[0] as { contextualStrings: string[] }).contextualStrings;
+    expect(hints).toEqual(expect.arrayContaining(['Ayo', 'Hey Ayo', 'Adaeze Okafor', 'Chukwuemeka']));
+    expect(hints.filter((hint) => hint === 'Ayo')).toHaveLength(1);
+  });
+
   it('reports everything as one running text, joining the pieces the phone breaks speech into', async () => {
     const phone = fakePhone();
     const { heard } = await open(phone);
@@ -116,15 +125,16 @@ describe('the microphone that does not blink', () => {
     expect(heard.at(-1)).toBe('send five thousand to Ada');
   });
 
-  it('gives up, and says so, when it keeps failing, and not before', async () => {
+  it('keeps trying when the connection drops, slowly, and gives up only after a long run of failures', async () => {
     const phone = fakePhone();
     const { trouble } = await open(phone);
-    for (let round = 0; round < 4; round += 1) {
+    for (let round = 0; round < 19; round += 1) {
       phone.emit('error', { error: 'network' });
       phone.emit('end');
       await vi.advanceTimersByTimeAsync(3000);
     }
     expect(trouble).not.toHaveBeenCalled();
+    expect(phone.started).toHaveLength(20);
     phone.emit('error', { error: 'network' });
     phone.emit('end');
     await vi.advanceTimersByTimeAsync(3000);
@@ -132,6 +142,24 @@ describe('the microphone that does not blink', () => {
     const begun = phone.started.length;
     await vi.advanceTimersByTimeAsync(20_000);
     expect(phone.started).toHaveLength(begun);
+  });
+
+  it('is back on when the connection returns, and starts counting again', async () => {
+    const phone = fakePhone();
+    const { trouble, heard } = await open(phone);
+    for (let round = 0; round < 10; round += 1) {
+      phone.emit('error', { error: 'network' });
+      phone.emit('end');
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    phone.partial('hey ayo');
+    expect(heard.at(-1)).toBe('hey ayo');
+    for (let round = 0; round < 10; round += 1) {
+      phone.emit('error', { error: 'network' });
+      phone.emit('end');
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    expect(trouble).not.toHaveBeenCalled();
   });
 
   it('asks to stay on the device when it can, and falls back to the network when that language is not installed', async () => {

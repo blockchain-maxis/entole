@@ -46,6 +46,13 @@ product: where it touches a screen, the screen says so plainly.
   help articles say "test money" in two places that must be rewritten on the
   switch to the main network (`apps/web/tests/legal-network.test.ts` covers
   them).
+- **How Nigerian names are said and heard has not been checked by ear
+  (19 October 2026).** The lexicon, the phonetic matching and the recogniser's
+  hints are written and tested as text. Whether the phone's voice says
+  "Chook-woo-eh-meh-kah" the way a Nigerian would, and whether the recogniser
+  leans towards the hints (Android only honours them from version 13), needs a
+  listener from the place. Yoruba, Igbo and Hausa as spoken languages are not
+  recognised: the recogniser is Nigerian English.
 - **A payment entirely by voice has not been tried on a phone (19 October
   2026).** Saying the payment, hearing the review, saying yes, the fingerprint,
   hearing that it has gone and sharing the receipt are written and the

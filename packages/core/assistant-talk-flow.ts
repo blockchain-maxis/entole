@@ -160,11 +160,17 @@ const SOFTENERS = new Set(['abeg', 'please', 'pls', 'just', 'now', 'then', 'o'])
 
 /** Words that can be a yes, alone or together. */
 const YES_CORE = new Set([
-  'yes', 'yeah', 'yep', 'yup', 'ya', 'sure', 'ok', 'okay', 'alright', 'fine', 'correct', 'right', 'proceed', 'confirm',
-  'confirmed', 'approve', 'approved', 'send', 'oya', 'ehen', 'sharp', 'perfect', 'good', 'great', 'thing',
+  'yes', 'yeah', 'yep', 'yup', 'ya', 'sure', 'ok', 'okay', 'alright', 'correct', 'proceed', 'confirm',
+  'confirmed', 'approve', 'approved', 'send', 'oya', 'ehen', 'sharp', 'perfect',
 ]);
+/**
+ * Words that agree only beside a yes ("yes, that's right"). Alone they are what a
+ * garbled echo of the assistant's own voice or a passing remark is made of, and a
+ * payment is not to be sent on those.
+ */
+const YES_WITH_ANOTHER = new Set(['fine', 'right', 'good', 'great']);
 /** Words that may sit beside those in a yes ("yes go ahead", "send it", "that is correct"). */
-const YES_TOKENS = new Set([...YES_CORE, 'go', 'ahead', 'it', 'do', 'on', 'that', 'is', 'thats', 'na', 'lets', 'let', 'us', 'and']);
+const YES_TOKENS = new Set([...YES_CORE, ...YES_WITH_ANOTHER, 'go', 'ahead', 'it', 'do', 'on', 'that', 'is', 'thats', 'na', 'lets', 'let', 'us', 'and']);
 /** Yes, said without any of the words above on their own. */
 const YES_PHRASES = new Set(['doit', 'goahead', 'goon', 'letsgo', 'oyago', 'letusgo']);
 

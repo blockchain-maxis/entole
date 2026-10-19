@@ -98,6 +98,15 @@ describe('saying yes', () => {
     expect(readApproval(said)).toBe('yes');
   });
 
+  it.each(['fine', 'good', 'right', 'great'])('"%s" on its own is not a yes: it is what a garbled echo is made of', (said) => {
+    expect(readApproval(said)).toBeNull();
+  });
+
+  it('takes those beside a yes', () => {
+    expect(readApproval('yes that is right')).toBe('yes');
+    expect(readApproval('okay good')).toBe('yes');
+  });
+
   it.each(['no', 'No.', 'nope', 'cancel', 'cancel it', 'stop', "don't", 'do not send it', 'no wait', 'wait', 'never mind', 'no go', 'abeg stop'])(
     '"%s" is a no',
     (said) => {

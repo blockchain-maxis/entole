@@ -478,3 +478,32 @@ describe('finding someone by what the owner calls them', () => {
     expect(findSavedPayee('Ngozi', contacts)).toMatchObject({ kind: 'saved', contact: { id: 'c1' } });
   });
 });
+
+
+describe('finding someone said the way a recogniser writes them', () => {
+  const contacts = [
+    { id: 'c1', name: 'Adaeze Okafor', nickname: 'Mum', initials: 'AO', tone: 1 },
+    { id: 'c2', name: 'Chukwuemeka Obi', initials: 'CO', tone: 2 },
+    { id: 'c3', name: 'Tunde Bello', initials: 'TB', tone: 3 },
+  ] as never;
+
+  it.each([
+    ['a day zay', 'c1'],
+    ['adaeze okafo', 'c1'],
+    ['chuck wemeka', 'c2'],
+    ['chukwu emeka obi', 'c2'],
+    ['tonde', 'c3'],
+  ])('"%s" is found', (heard, id) => {
+    expect(findSavedPayee(heard, contacts)).toMatchObject({ kind: 'saved', contact: { id } });
+  });
+
+  it('does not turn a stranger into someone saved', () => {
+    expect(findSavedPayee('Olamide', contacts)).not.toMatchObject({ kind: 'saved' });
+  });
+
+  it('pays the right person when it was said that way', async () => {
+    const steps = await planPayment({ do: 'pay', to: 'a day zay', amount: 5000 }, account({ contacts }), { directory: nobodyHome });
+    expect(steps[0]).toMatchObject({ kind: 'send', contactId: 'c1', amountMinor: 500_000 });
+    expect(steps[1]).toMatchObject({ kind: 'say', text: expect.stringContaining('Adaeze Okafor') });
+  });
+});

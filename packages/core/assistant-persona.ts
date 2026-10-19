@@ -36,7 +36,11 @@ export type Wake = { woke: false } | { woke: true; rest: string };
 // The name, as a recogniser tends to get it wrong.
 // ---------------------------------------------------------------------------
 
-const GREETING_WORDS = new Set(['hey', 'hay', 'hi', 'hello', 'hiya', 'okay', 'ok', 'yo', 'oh', 'heyy', 'hei']);
+const GREETING_WORDS = new Set([
+  'hey', 'hay', 'hi', 'hello', 'hiya', 'okay', 'ok', 'yo', 'oh', 'heyy', 'hei',
+  // What "hey" turns into when the name after it is a surprise to the recogniser.
+  'here', 'hear', 'high', 'heya', 'hearing',
+]);
 
 /** Written the way it sounds, with no spaces: "a yo" and "iyo" and "i o" all end up here. */
 const NAME_SOUNDS = new Set([
@@ -45,7 +49,11 @@ const NAME_SOUNDS = new Set([
 ]);
 
 /** Sounds that pass for the name only straight after a greeting: on their own, "oh" is just a word. */
-const ONLY_AFTER_GREETING = new Set(['oh', 'o', 'ah', 'aw', 'ay', 'eh']);
+const ONLY_AFTER_GREETING = new Set([
+  'oh', 'o', 'ah', 'aw', 'ay', 'eh',
+  // "Hey Ayo" written as "hey are you", the commonest way a recogniser hears it.
+  'areyou', 'aryou', 'areu', 'areyo', 'arryou', 'ayare', 'ayou',
+]);
 
 /**
  * "Ayo" is said "EYE-yo", so a recogniser writes what it hears: "I yo", "I your",
@@ -95,7 +103,7 @@ function fuzzyWake(heard: string): Wake {
     if (!GREETING_WORDS.has(word)) continue;
     for (const span of [1, 2]) {
       const next = clean.slice(at + 1, at + 1 + span).join('');
-      if (soundsLikeName(next) || EYE_YO.test(next) || (span === 1 && ONLY_AFTER_GREETING.has(next))) return restFrom(at + 1 + span);
+      if (soundsLikeName(next) || EYE_YO.test(next) || ONLY_AFTER_GREETING.has(next)) return restFrom(at + 1 + span);
     }
   }
   for (const span of [1, 2]) {
