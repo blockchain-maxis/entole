@@ -41,11 +41,15 @@ type RecognitionModule = {
   };
 };
 
+type InstalledVoice = { identifier: string; language: string; quality?: string };
+
 type SpeechModule = {
+  getAvailableVoicesAsync?: () => Promise<InstalledVoice[]>;
   speak: (
     text: string,
     options?: {
       language?: string;
+      voice?: string;
       rate?: number;
       onDone?: () => void;
       onStopped?: () => void;
@@ -57,8 +61,10 @@ type SpeechModule = {
 
 /** How the assistant sounds and listens. Set from the saved choice when the app opens (see `lib/assistant-presence.tsx`). */
 let accent: Accent = accentFor(null);
+let chosenVoice: Promise<{ id?: string; nigerian: boolean }> | null = null;
 export function setVoiceAccent(id: string | null | undefined): void {
   accent = accentFor(id);
+  chosenVoice = null;
 }
 
 let recognition: RecognitionModule | null | undefined;
@@ -194,14 +200,38 @@ export async function listen(handlers: {
   };
 }
 
-/** A sentence as it should be said aloud: "₦5,000" is read as an amount of naira, not as a symbol. */
-export function speakable(text: string): string {
+/**
+ * A sentence as it should be said aloud: "₦5,000" is read as an amount of naira,
+ * not as a symbol. Names are respelled for the voice (`@entole/core/nigerian-names`)
+ * unless the voice is itself a Nigerian one, which knows them better than a
+ * respelling does; the assistant's own name is always said the way it is said.
+ */
+export function speakable(text: string, options: { nigerianVoice?: boolean } = {}): string {
   const said = text
     .replace(/₦\s?([\d,]+(?:\.\d+)?)/g, '$1 naira')
     .replace(/@([a-z0-9_.]+)/gi, '$1');
-  // A voice reading English says "Ayo" as "AY-oh" and "Chukwuemeka" as it is spelled. Nigerian names are
-  // respelled for the voice only (`@entole/core/nigerian-names`); the words on screen are untouched.
-  return sayNigerianNames(said);
+  // A voice reading English says "Ayo" as "AY-oh" and "Chukwuemeka" as it is spelled. The words on screen are untouched.
+  return options.nigerianVoice ? said.replace(/\bayo\b/gi, 'Eye-yo') : sayNigerianNames(said);
+}
+
+const sameLanguage = (language: string, wanted: string) => language.toLowerCase().replace('_', '-').startsWith(wanted.toLowerCase().replace('_', '-'));
+
+/**
+ * The voice to speak with: a Nigerian English one if the phone has it (the best of
+ * them), otherwise the phone's default for the language. Looked up once.
+ */
+function chooseVoice(module: SpeechModule): Promise<{ id?: string; nigerian: boolean }> {
+  chosenVoice ??= (async () => {
+    try {
+      const voices = (await module.getAvailableVoicesAsync?.()) ?? [];
+      const ours = voices.filter((voice) => sameLanguage(voice.language, accent.speak));
+      const best = ours.find((voice) => voice.quality === 'Enhanced') ?? ours.find((voice) => !/local|compact|lite/i.test(voice.identifier)) ?? ours[0];
+      return best ? { id: best.identifier, nigerian: /[-_]ng$/i.test(best.language) } : { nigerian: false };
+    } catch {
+      return { nigerian: false };
+    }
+  })();
+  return chosenVoice;
 }
 
 /** Says a sentence, in place of whatever was being said. Silent on a build with no voice. */
@@ -218,10 +248,11 @@ const SPEAKER_DRAIN_MS = 250;
  * it is still talking, or it hears itself. A voice that never reports back is
  * waited on for no longer than the sentence could take to say.
  */
-export function speakAndWait(text: string): Promise<void> {
+export async function speakAndWait(text: string): Promise<void> {
   const module = loadSpeech();
-  if (!module || !text.trim()) return Promise.resolve();
-  const spoken = speakable(text);
+  if (!module || !text.trim()) return;
+  const voice = await chooseVoice(module);
+  const spoken = speakable(text, { nigerianVoice: voice.nigerian });
   return new Promise<void>((resolve) => {
     let finished = false;
     const done = () => {
@@ -235,7 +266,14 @@ export function speakAndWait(text: string): Promise<void> {
     const giveUp = setTimeout(done, 1500 + (spoken.length / 14) * 1000);
     try {
       void module.stop();
-      module.speak(spoken, { language: accent.speak, rate: 1, onDone: done, onStopped: done, onError: done });
+      module.speak(spoken, {
+        language: accent.speak,
+        ...(voice.id ? { voice: voice.id } : {}),
+        rate: 1,
+        onDone: done,
+        onStopped: done,
+        onError: done,
+      });
     } catch {
       // Nothing is lost: the same words are on the screen.
       done();

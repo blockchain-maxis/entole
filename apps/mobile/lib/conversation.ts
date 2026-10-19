@@ -368,6 +368,31 @@ export function createConversation(deps: ConversationDeps) {
     finish();
   }
 
+  /**
+   * Says hello, and then really is listening: the window is open for the person to
+   * answer, as it is after a wake-up, with no need to say the name. (Saying "I'm
+   * listening" and then listening only for the name was a lie.) It can be talked over.
+   */
+  async function greet(text: string) {
+    token += 1;
+    stopTimers();
+    byName = true;
+    followUp = true;
+    seed = '';
+    history = [];
+    turns = 0;
+    announcing = false;
+    const mine = token;
+    const hears = await deps.needEars();
+    if (mine !== token) return;
+    await say(text, 'speaking');
+    if (mine !== token || (mode as Mode) !== 'speaking') return;
+    // No microphone to listen with: it has said hello, and that is all.
+    if (!hears) return finish();
+    listenFor(FIRST_WORDS_MS);
+    startTail(text);
+  }
+
   function dismiss() {
     token += 1;
     deps.stopSpeaking();
@@ -454,6 +479,9 @@ export function createConversation(deps: ConversationDeps) {
         dismiss();
       }
     },
+
+    /** Says hello and stays listening for the person to answer. */
+    greet,
 
     /** Says something with no answer expected, then goes back to waiting. */
     tell: (text: string) => announce(text, () => undefined, 'speaking'),

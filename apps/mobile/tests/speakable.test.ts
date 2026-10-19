@@ -19,3 +19,10 @@ describe('what the voice is given to say', () => {
     expect(speakable('Sent. ₦12,500 has gone to @ada.')).toBe('Sent. 12,500 naira has gone to ada.');
   });
 });
+
+describe('with a Nigerian voice', () => {
+  it('leaves names to the voice, which knows them, and still says its own name its way', () => {
+    expect(speakable('Hi Ngozi. I’m Ayo.', { nigerianVoice: true })).toBe('Hi Ngozi. I’m Eye-yo.');
+    expect(speakable('Sent. ₦5,000 has gone to Chukwuemeka Obi.', { nigerianVoice: true })).toBe('Sent. 5,000 naira has gone to Chukwuemeka Obi.');
+  });
+});

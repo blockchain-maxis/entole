@@ -184,7 +184,7 @@ export function AssistantPresenceProvider({ children }: { children: React.ReactN
   );
 
   const greet = useCallback((kind: 'turned-on' | 'talking-on') => {
-    void presence.conversation.tell(welcomeLine(kind, firstNameRef.current, greetingFor()));
+    void presence.conversation.greet(welcomeLine(kind, firstNameRef.current, greetingFor()));
   }, []);
 
   const setWake = useCallback(

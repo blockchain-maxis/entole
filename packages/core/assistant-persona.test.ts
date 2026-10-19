@@ -104,13 +104,13 @@ describe('welcoming the person', () => {
   it('greets them by name, and says how to reach it', () => {
     expect(welcomeLine('turned-on', 'Ngozi', 'Good evening')).toMatch(/^Hi, Ngozi\. I’m Ayo\./);
     expect(welcomeLine('turned-on', 'Ngozi', 'Good evening')).toMatch(/Hey Ayo/);
-    expect(welcomeLine('talking-on', 'Ngozi', 'Good evening')).toMatch(/Tap the microphone/);
-    expect(welcomeLine('launch', 'Ngozi', 'Good evening')).toBe('Good evening, Ngozi. I’m listening.');
+    expect(welcomeLine('talking-on', 'Ngozi', 'Good evening')).toMatch(/What do you need\?/);
+    expect(welcomeLine('launch', 'Ngozi', 'Good evening')).toBe('Good evening, Ngozi. What can I do for you?');
   });
 
   it('copes with not knowing a name', () => {
     expect(welcomeLine('turned-on', null, 'Good evening')).toMatch(/^Hi\. I’m Ayo\./);
-    expect(welcomeLine('launch', null, 'Good morning')).toBe('Good morning. I’m listening.');
+    expect(welcomeLine('launch', null, 'Good morning')).toBe('Good morning. What can I do for you?');
   });
 
   it('never says a word the product never says', () => {

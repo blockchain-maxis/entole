@@ -655,3 +655,47 @@ describe('asking a question about the screen', () => {
     expect(t.phases.at(-1)).toBe('off');
   });
 });
+
+describe('saying hello', () => {
+  it('then really is listening, with no need for the name, for the whole window', async () => {
+    const t = harness({ said: 'You have ₦12,500.' });
+    void t.conversation.greet('Good morning, Ada. What can I do for you?');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.phases.at(-1)).toBe('speaking');
+    await t.endSpeech();
+    expect(t.phases.at(-1)).toBe('listening');
+    await t.wait(ECHO_TAIL_MS + 50);
+    t.conversation.hear('what is my balance');
+    await t.wait(COMPLETE);
+    expect(t.asked).toEqual(['what is my balance']);
+  });
+
+  it('goes quiet after the window, and waits for the name again', async () => {
+    const t = harness();
+    void t.conversation.greet('Good morning.');
+    await vi.advanceTimersByTimeAsync(0);
+    await t.endSpeech();
+    await t.wait(FIRST_WORDS_MS + 100);
+    expect(t.phases.at(-1)).toBe('off');
+    expect(t.deps.doneWithEars).toHaveBeenCalled();
+  });
+
+  it('says hello and stops when there is no microphone to listen with', async () => {
+    const t = harness();
+    t.deps.needEars.mockResolvedValue(false);
+    void t.conversation.greet('Hi.');
+    await vi.advanceTimersByTimeAsync(0);
+    await t.endSpeech();
+    expect(t.phases.at(-1)).toBe('off');
+  });
+
+  it('does not hear its own greeting as a request', async () => {
+    const t = harness();
+    void t.conversation.greet('Good morning, Ada. What can I do for you?');
+    await vi.advanceTimersByTimeAsync(0);
+    await t.endSpeech();
+    t.conversation.hear('what can I do for you');
+    await t.wait(ECHO_TAIL_MS + COMPLETE + 3000);
+    expect(t.asked).toEqual([]);
+  });
+});

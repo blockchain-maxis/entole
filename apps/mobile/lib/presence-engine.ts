@@ -126,7 +126,7 @@ export function createPresenceEngine() {
     greetOnce(text: string) {
       if (greeted) return;
       greeted = true;
-      void conversation.tell(text);
+      void conversation.greet(text);
     },
     /** Whether the assistant is on at all: talking, signed in, the app in front. */
     setEnabled(on: boolean) {

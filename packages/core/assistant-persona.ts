@@ -193,12 +193,12 @@ export const CONFIRM_LINE = 'A quick fingerprint, and it’s done.';
 export function welcomeLine(kind: 'turned-on' | 'talking-on' | 'launch', firstName: string | null, greeting: string): string {
   const name = firstName ? `, ${firstName}` : '';
   if (kind === 'turned-on') {
-    return `Hi${name}. I’m ${ASSISTANT_NAME}. Say “Hey ${ASSISTANT_NAME}” whenever you need me, and I’ll take care of the rest. Just give me your fingerprint when it counts.`;
+    return `Hi${name}. I’m ${ASSISTANT_NAME}. Say “Hey ${ASSISTANT_NAME}” any time. What do you need?`;
   }
   if (kind === 'talking-on') {
-    return `Hi${name}. I’m ${ASSISTANT_NAME}. Tap the microphone and tell me what you need. I can open anything, tell you your balance, and get a payment ready.`;
+    return `Hi${name}. I’m ${ASSISTANT_NAME}. What do you need?`;
   }
-  return `${greeting}${name}. I’m listening.`;
+  return `${greeting}${name}. What can I do for you?`;
 }
 
 /** Said when it has got a payment ready and is stepping back. */
