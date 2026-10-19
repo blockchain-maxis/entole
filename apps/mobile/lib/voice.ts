@@ -444,6 +444,7 @@ export async function openEars(handlers: {
       }),
     );
 
+    if (typeof __DEV__ !== 'undefined' && __DEV__) console.log(`[ears] listening in ${accent.listen}, ${onDevice ? 'on the phone' : 'over the network'}`);
     try {
       module.start({
         lang: accent.listen,
