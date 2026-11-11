@@ -4,6 +4,7 @@ import { answerHelpQuestion, HELP_QUESTION_MAX, helpHistorySchema } from '@entol
 
 import { newHelpId, recordQuestion } from '@/lib/server/help-log';
 import { json, preflight, readJson } from '@/lib/server/http';
+import { modelConfig } from '@/lib/server/model';
 import { dailyBudget, rateLimit } from '@/lib/server/sponsor';
 
 /**
@@ -40,23 +41,13 @@ export async function POST(request: Request) {
   const { question, history } = parsed.data;
 
   // A day's budget is only spent when the model is actually going to be asked.
-  const apiKey = process.env.KIMI_API_KEY?.trim();
+  const config = modelConfig('help');
   const configured = Number(process.env.HELP_DAILY_QUESTIONS?.trim());
-  const budget = apiKey
+  const budget = config
     ? await dailyBudget('help-asks', Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_PER_DAY)
     : { ok: false as const, retryAfterSeconds: 0 };
 
-  const result = await answerHelpQuestion(
-    question,
-    apiKey && budget.ok
-      ? {
-          apiKey,
-          model: process.env.ASSISTANT_MODEL?.trim() || undefined,
-          apiUrl: process.env.ASSISTANT_API_URL?.trim() || undefined,
-        }
-      : null,
-    history,
-  );
+  const result = await answerHelpQuestion(question, config && budget.ok ? config : null, history);
 
   const id = newHelpId();
   await recordQuestion({ id, question, by: result.by, articles: result.articles });

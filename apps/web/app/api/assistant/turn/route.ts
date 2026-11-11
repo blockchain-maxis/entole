@@ -11,6 +11,7 @@ import {
 } from '@entole/core/assistant-brain';
 
 import { json, preflight, readJson } from '@/lib/server/http';
+import { modelConfig } from '@/lib/server/model';
 import { dailyBudget, rateLimit } from '@/lib/server/sponsor';
 
 /**
@@ -67,8 +68,8 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const apiKey = process.env.KIMI_API_KEY?.trim();
-  if (!apiKey) return json({ error: 'not_configured' }, 501);
+  const config = modelConfig('assistant');
+  if (!config) return json({ error: 'not_configured' }, 501);
 
   const limit = await rateLimit(request, 'assistant-turn', TURN_LIMIT_PER_MINUTE);
   if (!limit.ok) return tooMany(limit);
@@ -92,17 +93,16 @@ export async function POST(request: Request) {
   const today = await dailyBudget('assistant-turns', turnsPerDay());
   if (!today.ok) return tooMany(today);
 
-  const reply = await readWithModel(
-    text,
-    {
-      apiKey,
-      model: process.env.ASSISTANT_MODEL?.trim() || undefined,
-      apiUrl: process.env.ASSISTANT_API_URL?.trim() || undefined,
-    },
-    { screen, history },
-  );
-  if (!reply) return json({ error: 'not_understood' }, 502);
-  return json({ reply });
+  const read = await readWithModel(text, config, { screen, history });
+  if (read.ok) return json({ reply: read.reply });
+  // The model's own state, not the sentence: the app falls back to its plain
+  // grammar for both, and says only that it can follow simple requests.
+  if (read.why === 'busy') {
+    return read.failure === 'rate_limited'
+      ? json({ error: 'model_busy' }, 429, { 'Retry-After': '60' })
+      : json({ error: 'model_unavailable' }, 503);
+  }
+  return json({ error: 'not_understood' }, 502);
 }
 
 export function OPTIONS() {

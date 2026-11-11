@@ -9,7 +9,7 @@ import {
   type AssistantScreen,
 } from './assistant-actions';
 import { ASSISTANT_NAME, withoutName } from './assistant-persona';
-import { askForJson, type ChatMessage, type LanguageModelConfig } from './language-model';
+import { askModel, type ChatMessage, type LanguageModelConfig, type ModelFailure } from './language-model';
 
 /**
  * Reading what someone said to the assistant.
@@ -97,17 +97,28 @@ function cleanSay(value: string | undefined): string | undefined {
 }
 
 /**
- * Asks the model what the person meant. `null` on any failure: no answer, an
- * answer that is not JSON, or one outside the vocabulary. An action the model
- * made up is not an action; the whole reply is dropped rather than half done.
+ * What the model made of it. "busy" is the model's own state (rate limited,
+ * too slow, down, key refused) and says nothing about the sentence, so the
+ * app falls back to its plain grammar rather than telling the person it did
+ * not understand them. "not_understood" is an answer that was empty, not
+ * JSON, or outside the vocabulary.
+ */
+export type ModelRead =
+  | { ok: true; reply: AssistantReply }
+  | { ok: false; why: 'busy'; failure: Exclude<ModelFailure, 'no_json'> }
+  | { ok: false; why: 'not_understood' };
+
+/**
+ * Asks the model what the person meant. An action the model made up is not
+ * an action; the whole reply is dropped rather than half done.
  */
 export async function readWithModel(
   text: string,
   config: AssistantModelConfig,
   context: TurnContext = {},
-): Promise<AssistantReply | null> {
+): Promise<ModelRead> {
   const said = text.replace(/\s+/g, ' ').trim().slice(0, TURN_TEXT_MAX);
-  if (!said) return null;
+  if (!said) return { ok: false, why: 'not_understood' };
 
   const messages: ChatMessage[] = [
     { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
@@ -119,10 +130,14 @@ export async function readWithModel(
     { role: 'user', content: said },
   ];
 
-  const parsed = assistantReplySchema.safeParse(await askForJson(messages, config));
-  if (!parsed.success) return null;
+  const answer = await askModel(messages, config);
+  if (!answer.ok) {
+    return answer.failure === 'no_json' ? { ok: false, why: 'not_understood' } : { ok: false, why: 'busy', failure: answer.failure };
+  }
+  const parsed = assistantReplySchema.safeParse(answer.json);
+  if (!parsed.success) return { ok: false, why: 'not_understood' };
   const say = cleanSay(parsed.data.say);
-  return { actions: parsed.data.actions, ...(say ? { say } : {}) };
+  return { ok: true, reply: { actions: parsed.data.actions, ...(say ? { say } : {}) } };
 }
 
 // ---------------------------------------------------------------------------
@@ -185,9 +200,10 @@ export function createAssistantBrain(options: {
       } finally {
         clearTimeout(timer);
       }
-      // No model configured, or it has been asked too often for now: either
-      // way only the plain grammar is working, and that is what is said.
-      if (response.status === 501 || response.status === 429) return { kind: 'grammar-only' };
+      // No model configured (501), asked too often (429), or the model itself
+      // busy or down (503): only the plain grammar is working, and that is
+      // what is said. None of them is a sentence it could not follow.
+      if (response.status === 501 || response.status === 429 || response.status === 503) return { kind: 'grammar-only' };
       if (!response.ok) return { kind: 'not-understood' };
       try {
         const parsed = z.object({ reply: assistantReplySchema }).safeParse(await response.json());

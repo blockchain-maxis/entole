@@ -70,15 +70,16 @@ describe('what the model may answer', () => {
   it('a reply in the vocabulary is taken', async () => {
     const { fetchImpl } = model('{"say":"Getting it ready.","actions":[{"do":"pay","to":"Tunde","amount":2000,"note":"fuel"}]}');
     expect(await readWithModel('abeg send Tunde 2k for fuel', { apiKey: 'k', fetch: fetchImpl })).toEqual({
-      say: 'Getting it ready.',
-      actions: [{ do: 'pay', to: 'Tunde', amount: 2000, note: 'fuel' }],
+      ok: true,
+      reply: { say: 'Getting it ready.', actions: [{ do: 'pay', to: 'Tunde', amount: 2000, note: 'fuel' }] },
     });
   });
 
   it('reads a reply wrapped in a code fence', async () => {
     const { fetchImpl } = model('```json\n{"say":"","actions":[{"do":"tell","about":"balance"}]}\n```');
     expect(await readWithModel('wetin be my balance', { apiKey: 'k', fetch: fetchImpl })).toEqual({
-      actions: [{ do: 'tell', about: 'balance' }],
+      ok: true,
+      reply: { actions: [{ do: 'tell', about: 'balance' }] },
     });
   });
 
@@ -91,23 +92,43 @@ describe('what the model may answer', () => {
     ['nothing at all', ''],
   ])('%s is thrown away whole', async (_what, content) => {
     const { fetchImpl } = model(content);
-    expect(await readWithModel('do something', { apiKey: 'k', fetch: fetchImpl })).toBeNull();
+    expect(await readWithModel('do something', { apiKey: 'k', fetch: fetchImpl })).toEqual({ ok: false, why: 'not_understood' });
   });
 
   it('a sentence with a word the product never uses is dropped, the action kept', async () => {
     const { fetchImpl } = model('{"say":"Opening your wallet.","actions":[{"do":"open","screen":"home"}]}');
     expect(await readWithModel('go home', { apiKey: 'k', fetch: fetchImpl })).toEqual({
-      actions: [{ do: 'open', screen: 'home' }],
+      ok: true,
+      reply: { actions: [{ do: 'open', screen: 'home' }] },
     });
   });
 
-  it('a model that is down, or errors, is no answer rather than a wrong one', async () => {
-    expect(await readWithModel('hi', { apiKey: 'k', fetch: model('{}', 500).fetchImpl })).toBeNull();
+  it('a model that is down, or errors, is busy rather than a wrong answer', async () => {
+    expect(await readWithModel('hi', { apiKey: 'k', fetch: model('{}', 500).fetchImpl })).toEqual({
+      ok: false,
+      why: 'busy',
+      failure: 'unavailable',
+    });
     const thrown = (async () => {
       throw new Error('offline');
     }) as unknown as typeof fetch;
-    expect(await readWithModel('hi', { apiKey: 'k', fetch: thrown })).toBeNull();
-    expect(await readWithModel('   ', { apiKey: 'k', fetch: model('{}').fetchImpl })).toBeNull();
+    expect(await readWithModel('hi', { apiKey: 'k', fetch: thrown })).toMatchObject({ ok: false, why: 'busy' });
+    expect(await readWithModel('   ', { apiKey: 'k', fetch: model('{}').fetchImpl })).toEqual({ ok: false, why: 'not_understood' });
+  });
+
+  // 11 November 2026: the account's cap of three a minute was reached, and
+  // "put 20k inside savings" was answered "I didn't get that".
+  it('a model at its request cap is busy, never "did not understand"', async () => {
+    const capped = (async () =>
+      new Response(
+        JSON.stringify({ error: { message: 'request reached organization max RPM: 3, please try again after 30 seconds' } }),
+        { status: 429 },
+      )) as unknown as typeof fetch;
+    expect(await readWithModel('put 20k inside savings', { apiKey: 'k', fetch: capped })).toEqual({
+      ok: false,
+      why: 'busy',
+      failure: 'rate_limited',
+    });
   });
 });
 
@@ -161,6 +182,11 @@ describe('the reader on the device', () => {
   it('treats a model that has been asked too often as no model, not as a sentence it could not follow', async () => {
     const limited = brain(() => new Response(JSON.stringify({ error: 'rate_limited', retryAfterSeconds: 30 }), { status: 429 }));
     expect((await limited.reader.read('abeg send Tunde 2k')).kind).toBe('grammar-only');
+  });
+
+  it('treats a model that is busy or down on the server as no model too', async () => {
+    const down = brain(() => new Response(JSON.stringify({ error: 'model_unavailable' }), { status: 503 }));
+    expect((await down.reader.read('abeg send Tunde 2k')).kind).toBe('grammar-only');
   });
 
   it('a server answer outside the vocabulary is not understood, never acted on', async () => {

@@ -1215,7 +1215,7 @@ describe('the assistant works the app, and can never confirm for you', () => {
   });
 
   it('the model is asked only by a signed-in account, and is sent no account data', () => {
-    expect(route).toMatch(/if \(!apiKey\) return json\(\{ error: 'not_configured' \}, 501\)/);
+    expect(route).toMatch(/if \(!config\) return json\(\{ error: 'not_configured' \}, 501\)/);
     expect(route).toMatch(/verifyMessage\(\{/);
     expect(route.indexOf("return json({ error: 'invalid_signature' }, 401)")).toBeLessThan(route.indexOf('readWithModel('));
     expect(route).toMatch(/rateLimit\(request, 'assistant-turn'/);

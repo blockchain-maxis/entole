@@ -166,4 +166,54 @@ describe('POST /api/assistant/turn', () => {
     expect(model).not.toHaveBeenCalled();
     expect((await turn(await said(person(7)))).status).toBe(200);
   });
+
+  // 11 November 2026: the model account's cap of three a minute was reached,
+  // and the route answered 502 "not understood", so the app told people it had
+  // not followed "put 20k inside savings". A busy model is now said to be busy.
+  it('says the model is busy when it is at its cap, which the app reads as "simple requests only"', async () => {
+    model.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ error: { message: 'max RPM: 3, please try again after 30 seconds' } }), { status: 429 }),
+    );
+    const response = await turn(await said(person(8)));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: 'model_busy' });
+  });
+
+  it('says the model is unavailable when it is down or refuses the key', async () => {
+    model.mockImplementation(async () => new Response('{}', { status: 500 }));
+    expect((await turn(await said(person(9)))).status).toBe(503);
+    model.mockImplementation(async () => new Response('{}', { status: 401 }));
+    expect((await turn(await said(person(10)))).status).toBe(503);
+  });
+
+  it('asks the backup model when the first is at its cap', async () => {
+    process.env.ASSISTANT_FALLBACK_API_KEY = 'backup-key';
+    process.env.ASSISTANT_FALLBACK_API_URL = 'https://backup.test/v1/chat/completions';
+    try {
+      model.mockImplementation(async (url: string) =>
+        url.startsWith('https://backup.test')
+          ? answer()
+          : new Response(JSON.stringify({ error: { message: 'try again after 30 seconds' } }), { status: 429 }),
+      );
+      const response = await turn(await said(person(11)));
+      expect(response.status).toBe(200);
+      expect(model.mock.calls.map(([url]) => String(url))).toEqual([
+        'https://api.moonshot.ai/v1/chat/completions',
+        'https://backup.test/v1/chat/completions',
+      ]);
+    } finally {
+      delete process.env.ASSISTANT_FALLBACK_API_KEY;
+      delete process.env.ASSISTANT_FALLBACK_API_URL;
+    }
+  });
+
+  it('still answers "not understood" for a reply outside the vocabulary', async () => {
+    model.mockImplementation(
+      async () => new Response(JSON.stringify({ choices: [{ message: { content: '{"actions":[{"do":"confirm"}]}' } }] }), { status: 200 }),
+    );
+    const response = await turn(await said(person(12)));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'not_understood' });
+  });
 });

@@ -2,6 +2,7 @@ import { parseTelegramMessageWithAssistant } from '@entole/core/telegram-intake'
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { modelConfig } from '@/lib/server/model';
 import { tryGetServerStore } from '@/lib/server/store';
 import { hasTelegramSecret, sendTelegramMessage } from '@/lib/server/telegram';
 
@@ -96,18 +97,7 @@ export async function POST(request: Request) {
   }
 
   const contacts = await store.contactsFor(accountId);
-  const modelKey = process.env.KIMI_API_KEY?.trim();
-  const parsed = await parseTelegramMessageWithAssistant(
-    text,
-    contacts,
-    modelKey
-      ? {
-          apiKey: modelKey,
-          model: process.env.ASSISTANT_MODEL?.trim() || undefined,
-          apiUrl: process.env.ASSISTANT_API_URL?.trim() || undefined,
-        }
-      : undefined,
-  );
+  const parsed = await parseTelegramMessageWithAssistant(text, contacts, modelConfig('telegram') ?? undefined);
 
   if (!parsed.ok) {
     await reply(parsed.reason);
