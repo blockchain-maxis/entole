@@ -188,8 +188,16 @@ const BILL_WORDS: [RegExp, BillKind][] = [
   [/^(?:internet|wifi|wi-fi|spectranet|smile|broadband)$/, 'internet'],
 ];
 
+/** Words that make a "recipient" a bill: no one saved as "my light bill" is being paid. */
+const BILL_NAMED = /\bbills?\b/i;
+
 function billKind(words: string): BillKind | null {
-  const cleaned = words.toLowerCase().replace(/^(?:for\s+)?(?:my|the)\s+/, '').replace(/\s+bill$/, '').trim();
+  const cleaned = words
+    .toLowerCase()
+    .replace(/[\s,;:]+$/, '')
+    .replace(/^(?:for\s+)?(?:my|the)\s+/, '')
+    .replace(/\s+bills?$/, '')
+    .trim();
   for (const [pattern, kind] of BILL_WORDS) if (pattern.test(cleaned)) return kind;
   return null;
 }
@@ -247,7 +255,8 @@ export function readPlainRequest(input: string): AssistantReply | null {
   if (paid) {
     const amount = parseSpokenAmount(paid.amount);
     const to = paid.to.trim();
-    if (amount && to && !/\s(?:and|then)\s/i.test(to)) {
+    // A "person" named after a bill is a bill this grammar could not read: the model's to read, never a payment.
+    if (amount && to && !/\s(?:and|then)\s/i.test(to) && !BILL_NAMED.test(to)) {
       return { actions: [{ do: 'pay', to, amount, ...(paid.note ? { note: paid.note.trim().slice(0, 80) } : {}) }] };
     }
     return null;

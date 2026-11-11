@@ -187,8 +187,19 @@ describe('bills, read before people', () => {
     ['top up my data', { do: 'bill', kind: 'airtime-data' }],
     ['renew my gotv subscription', { do: 'bill', kind: 'cable-tv' }],
     ['pay spectranet 15,000 naira', { do: 'bill', kind: 'internet', amount: 15000 }],
+    // 11 November 2026, from the eval set: the comma kept "bill" on the end,
+    // the bill reader missed it, and the payment grammar paid "my NEPA bill,".
+    ['pay my NEPA bill, 15k', { do: 'bill', kind: 'electricity', amount: 15000 }],
+    ['pay my light bill, 5000', { do: 'bill', kind: 'electricity', amount: 5000 }],
   ])('%s', (said, action) => {
     expect(readPlainRequest(said)).toEqual({ actions: [action] });
+  });
+
+  it('never pays a person whose name is a bill it could not read', () => {
+    for (const said of ['pay my electricity bill: 3k', 'pay the bills 5000', 'send 2k to my light bill']) {
+      const actions = readPlainRequest(said)?.actions ?? [];
+      expect(actions.some((action) => action.do === 'pay'), said).toBe(false);
+    }
   });
 
   it('leaves a person called anything else to the payment grammar', () => {
