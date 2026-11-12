@@ -182,7 +182,7 @@ One word for each thing, everywhere a person reads.
 
 | Route (phone / browser) | What it is |
 |---|---|
-| `(tabs)/index` / `/` | The balance as the figure, three actions, allowances as sentences, activity as ruled rows |
+| `(tabs)/index` / `/` | Safe to spend today as the figure once a statement is read (the balance under it), otherwise the balance; three actions, allowances as sentences, activity as ruled rows |
 | `rules/new` / `/rules/new` | The allowance sentence |
 | `rules/[id]` / `/rules/[id]` | Meter, what is left, its payments, revoke |
 | `send`, `send/pick` / `/transfer/send` | Beneficiaries first, keypad, review sheet |
@@ -190,11 +190,12 @@ One word for each thing, everywhere a person reads.
 | the public receipt page, `/receipt/[reference]` | The same slip, for whoever is sent the link: who paid whom, how much, when |
 | `receive` / `/receive` | Link and scan code, no app needed |
 | `add-money` / `/add-money` | The balance as a line on paper, then the ways to add |
-| `(tabs)/grow` / `/grow` | Savings raised; your money, stocks and earning as ruled sections |
-| `(tabs)/business` / `/business` | Services as ruled rows, then invoices |
+| `(tabs)/money` / `/money` | The balance as a line, pockets (dollars, euros, pounds) as ruled rows with add and change-currency sheets, savings raised, stocks. `/grow` still opens |
+| `(tabs)/plan` / `/plan` | The financial friend: read a statement (password sheet, the turning mark while it reads, the proof panel and the balance check), then safe to spend, money in and out, subscriptions, small leaks, how long money lasts, can I afford it, tax estimate, suggestions |
+| `business` / `/business` | Off the tab bar since 12 November 2026, reached from Me and Pay. Services as ruled rows, then invoices, each showing where it was paid from |
 | `pause` | Stopping the assistant |
 | `onboarding` / the account gate | The first screen: what Entole is, one button |
-| the public pay page, `/pay/[code]` | For someone who is not a user: who, how much, the way that works first |
+| the public pay page, `/pay/[code]` | For someone who is not a user: who, how much, the way that works first. An invoice can be paid from another app: the one-time code only as a scan code with a copy button (decided 12 November 2026) |
 | the assistant's undo window | Blue ink, a continuous countdown, one way to stop it |
 
 Grow (savings, stocks) and Business follow the same patterns. The stock list
