@@ -490,6 +490,42 @@ because the renderer cannot ask a font for a feature
 (`apps/web/assets/receipt/make-fonts.py` makes them, the letter widths the
 picture measures lines with, and the word's outline).
 
+## NEAR: pockets, invoices from any network, and the private statement reader
+
+Added 12 November 2026 for the NEAR hackathon (`docs/VISION.md`). The account
+still lives on Monad; NEAR does three jobs beside it.
+
+- **Currency pockets** (`packages/core/intents-pockets.ts`). Dollars, euros and
+  pounds are balances in the person's own NEAR Intents account, whose id is
+  their Entole owner address in lower case. Read with `mt_batch_balance_of` on
+  `intents.near` (public). Adding is a 1Click quote ORIGIN_CHAIN → INTENTS with
+  refunds into the same account (nobody is asked for an address elsewhere).
+  Swapping is INTENTS → INTENTS: 1Click writes one `transfer` intent to its
+  quote's deposit address, `checkSwapIntent` verifies signer, contract, deadline,
+  receiver and the exact amount, the person confirms (`confirmMovement`, kind
+  `swap`) and their owner key signs it ERC-191; the server checks that signature
+  before handing it on. The server never signs and holds no key.
+- **Invoices from any network** (`packages/core/invoice-pay.ts`,
+  `/api/invoice/pay`). The payer's quote is EXACT_OUTPUT USDC into the business's
+  Intents account, priced at the live naira rate; the server resolves the
+  username and keeps only `invoicepay:<deposit address>` → account and invoice
+  (30 days). The business's app asks, signed, which payments its open invoices
+  received and settles one only on 1Click's `SUCCESS`, recording `paidVia`.
+- **The statement reader** (`lib/server/near-ai.ts`, `statement-read.ts`,
+  `/api/statement/read`, rules in `packages/core/tee-proof.ts`). Order: fresh
+  nonce → attestation report → Intel TDX quote verified (`@phala/dcap-qvl`,
+  `UpToDate` only, debug off) for the gateway and the model → report data binds
+  signing address and nonce → MRCONFIGID = sha256(app_compose) → RTMR3 replay →
+  NVIDIA NRAS GPU verdict → only then the PDF's text, in chunks, to the model,
+  with exact request and response bytes kept → each answer's stamp fetched and
+  recovered to a checked key. A failed hardware check sends nothing. The model
+  copies amounts as printed; `parseMajorAmount` turns them into kobo and
+  `reconcile` balances opening + in − out against closing. Nothing is stored or
+  logged on the server; the lines go to the device's sealed records
+  (`statement`, `statement-reads`). The money picture (`money-picture.ts`) and
+  Ayo's answers about it are computed on the device; the talking model still
+  never sees a figure.
+
 ## Optional integrations, in priority order
 
 Add only if the core is done. Each is a self-contained bounty claim.
