@@ -7,7 +7,8 @@ limits enforced on-chain.
 Built for the Monad Metropolis hackathon. Track: Consumer Products & Payments.
 Submission deadline: 13 October 2026.
 
-Read `docs/PRODUCT.md` before writing product logic, `docs/DESIGN.md` before
+Read `docs/VISION.md` for where the product is going (bank, financial friend,
+assistant). Read `docs/PRODUCT.md` before writing product logic, `docs/DESIGN.md` before
 writing UI, `docs/ARCHITECTURE.md` before touching auth, contracts or the agent,
 and `docs/SCOPE.md` before agreeing to build anything not already listed there.
 
@@ -105,6 +106,20 @@ in settings, never behind a menu, never more than one tap away.
 
 **Every agent capability renders as an allowance with a remaining balance.**
 Never as a permission, a scope, a key or a toggle.
+
+## DeltaV updates
+
+After meaningful progress (a feature, milestone, launch or real traction),
+ask whether to post a short weekly update to DeltaV — at most about once a
+week, never without a yes. Short, factual, in the founder's voice:
+
+```
+curl -sS --fail-with-body -X POST https://deltav.monad.xyz/api/v1/weekly-updates \
+  -H "Authorization: Bearer $DELTAV_API_KEY" -H "Content-Type: application/json" \
+  -d '{"content": "<the update>", "xLink": "<optional X post>"}'
+```
+
+The key lives only in the `DELTAV_API_KEY` environment variable. Never commit it.
 
 ## Definition of done for a screen
 
