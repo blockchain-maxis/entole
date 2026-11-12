@@ -87,3 +87,19 @@ export function useMoneyPicture(): MoneyPictureState {
     forget,
   };
 }
+
+/**
+ * The same picture, read once, outside a component: for the assistant, which
+ * builds its facts at the moment it answers. Null until a statement is read.
+ */
+export async function readMoneyPicture(
+  backend: Pick<ReturnType<typeof useBackend>, 'statement'>,
+  store: Pick<ReturnType<typeof useStore>, 'activity' | 'contacts' | 'balance' | 'status'>,
+): Promise<MoneyPicture | null> {
+  const [lines, reads] = await Promise.all([backend.statement.lines(), backend.statement.reads()]);
+  if (!lines.length) return null;
+  const entole = activityToLines(store.activity, (id) => store.contacts.find((contact) => contact.id === id)?.name ?? 'Entole');
+  const bank = reads[0]?.closingMinor;
+  const balanceMinor = store.status === 'ready' ? store.balance + (bank ?? 0) : bank ?? null;
+  return buildMoneyPicture({ lines: [...lines, ...entole], balanceMinor, today: today(), settings: DEFAULT_PICTURE_SETTINGS });
+}

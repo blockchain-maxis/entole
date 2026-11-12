@@ -6,6 +6,8 @@ import { withoutName } from './assistant-persona';
 import { bestNameMatch } from './nigerian-names';
 import { relativeMoment } from './format';
 import type { HandleDirectory } from './handle';
+import { formatPocketAmount, type PocketCurrency } from './intents-pockets';
+import { affordCheck, type MoneyPicture } from './money-picture';
 import { formatNaira, kobo } from './money';
 import { oneOffId } from './one-off';
 import { findRecipient, readRecipient } from './recipient';
@@ -51,6 +53,8 @@ export const ASSISTANT_SCREENS = [
   'new-allowance',
   'assistant',
   'me',
+  'money',
+  'plan',
 ] as const;
 
 export type AssistantScreen = (typeof ASSISTANT_SCREENS)[number];
@@ -72,7 +76,24 @@ const SCREEN_NAMES: Record<AssistantScreen, string> = {
   'new-allowance': 'a new allowance',
   assistant: 'the assistant',
   me: 'your profile',
+  money: 'Money',
+  plan: 'your plan',
 };
+
+/** Facts the app can say. The figures come from its own books, never the reader. */
+export const TELL_ABOUT = [
+  'balance',
+  'recent',
+  'allowances',
+  'savings',
+  'username',
+  'safe-to-spend',
+  'leaks',
+  'subscriptions',
+  'picture',
+  'tax',
+  'pockets',
+] as const;
 
 /** Whole naira, as a person says it. Kobo are worked out here, never by the reader. */
 const spokenAmount = z.number().positive().max(1_000_000_000);
@@ -96,7 +117,9 @@ export const assistantActionSchema = z.discriminatedUnion('do', [
     amount: spokenAmount.optional(),
   }),
   /** Say something the app knows. The app supplies the facts, never the reader. */
-  z.object({ do: z.literal('tell'), about: z.enum(['balance', 'recent', 'allowances', 'savings', 'username']) }),
+  z.object({ do: z.literal('tell'), about: z.enum(TELL_ABOUT) }),
+  /** "Can I afford ₦200k?" The app answers from the person's own money picture. */
+  z.object({ do: z.literal('afford'), amount: spokenAmount }),
   z.object({ do: z.literal('pause') }),
   z.object({ do: z.literal('resume') }),
 ]);
@@ -363,10 +386,75 @@ export type AssistantFacts = {
   savingsMinor: number | null;
   username: string | null;
   contactName: (contactId: string) => string | undefined;
+  /** The money picture from the person's own statements and activity; null until one is read. */
+  picture?: MoneyPicture | null;
+  /** Currency pockets, when they have been read. */
+  pockets?: readonly { currency: PocketCurrency; cents: number; words: string }[] | null;
 };
+
+const NO_PICTURE = 'I can work that out once you read a bank statement in Plan. It stays on your phone.';
+
+function dayWords(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  return `${date.getUTCDate()} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][date.getUTCMonth()]}`;
+}
+
+/** The money picture, in a sentence or two. Every figure is the person's own. */
+function tellPicture(about: 'safe-to-spend' | 'leaks' | 'subscriptions' | 'picture' | 'tax', picture: MoneyPicture | null | undefined): string {
+  if (!picture) return NO_PICTURE;
+  const naira = (minor: number) => formatNaira(kobo(minor));
+  if (about === 'safe-to-spend') {
+    const safe = picture.safeToSpend;
+    if (!safe) return 'I need at least four weeks of statements to say what is safe to spend.';
+    const until = safe.untilIncome && picture.income.nextExpected ? `until ${dayWords(picture.income.nextExpected)}, when money usually comes in` : 'until the end of the month';
+    return `About ${naira(safe.todayMinor)} a day is safe to spend ${until}, with your bills, savings and tax set aside.`;
+  }
+  if (about === 'leaks') {
+    const leaks = picture.leaks;
+    if (!leaks.count) return 'No small payments stand out in your last month.';
+    const share = leaks.shareOfIncomeBps !== null ? `, about ${Math.round(leaks.shareOfIncomeBps / 100)}% of a month's income` : '';
+    const top = leaks.top[0] ? ` Most of it went to ${leaks.top[0].name}.` : '';
+    return `In the last ${leaks.days} days, ${leaks.count} small payments added up to ${naira(leaks.totalMinor)}${share}.${top}`;
+  }
+  if (about === 'subscriptions') {
+    const subs = picture.subscriptions;
+    if (!subs.count) return 'I do not see any monthly subscriptions in your statements.';
+    const names = subs.items.slice(0, 3).map((item) => item.name).join(', ');
+    return `You pay ${subs.count} ${subs.count === 1 ? 'subscription' : 'subscriptions'}, ${naira(subs.monthlyMinor)} a month: ${names}.`;
+  }
+  if (about === 'tax') {
+    if (!picture.tax) return 'I need a few weeks of income in your statements to estimate tax.';
+    return `On this income, tax comes to about ${naira(picture.tax.monthlyTaxMinor)} a month under the 2026 rules. That is an estimate, not a filing.`;
+  }
+  const runway = picture.runwayMonths !== null ? ` Your money would last about ${picture.runwayMonths} months at your usual spending.` : '';
+  return `About ${naira(picture.income.monthlyMinor)} comes in and ${naira(picture.out.monthlyMinor)} goes out in a usual month.${runway}`;
+}
+
+/** "Can I afford it?", answered from the picture. */
+export function tellAfford(amountMinor: number, picture: MoneyPicture | null | undefined): string {
+  if (!picture) return NO_PICTURE;
+  const check = affordCheck(picture, amountMinor);
+  if (!check) return 'I need at least four weeks of statements to answer that.';
+  const amount = formatNaira(kobo(amountMinor));
+  if (check.verdict === 'not-now') {
+    return `Not right now. ${amount} would eat into ${formatNaira(kobo(check.shortByMinor))} you need for bills and savings before money comes in.`;
+  }
+  const back = check.daysToEarnBack !== null ? ` You would earn it back in about ${check.daysToEarnBack} days.` : '';
+  if (check.verdict === 'tight') return `You can, but it is tight: your money would last about ${check.runwayAfter} months after it.${back}`;
+  return `Yes. After ${amount} your money still lasts about ${check.runwayAfter} months.${back}`;
+}
 
 /** A fact, in a sentence a person would say. Every figure is the app's own. */
 export function tellAbout(about: Extract<AssistantAction, { do: 'tell' }>['about'], facts: AssistantFacts, now = new Date()): string {
+  if (about === 'safe-to-spend' || about === 'leaks' || about === 'subscriptions' || about === 'picture' || about === 'tax') {
+    return tellPicture(about, facts.picture);
+  }
+  if (about === 'pockets') {
+    const held = (facts.pockets ?? []).filter((pocket) => pocket.cents > 0);
+    if (!facts.pockets) return 'I could not read your currency pockets just now.';
+    if (!held.length) return 'Your currency pockets are empty.';
+    return `You hold ${held.map((pocket) => formatPocketAmount(pocket.cents, pocket.currency)).join(', ')}.`;
+  }
   if (about === 'balance') return `You have ${formatNaira(kobo(facts.balanceMinor))}.`;
   if (about === 'username') return facts.username ? `Your username is @${facts.username}.` : 'You have not chosen a username yet.';
   if (about === 'savings') {
@@ -442,6 +530,12 @@ const FACT_SCREEN: Record<Extract<AssistantAction, { do: 'tell' }>['about'], Ass
   allowances: 'home',
   savings: 'savings',
   username: 'receive',
+  'safe-to-spend': 'plan',
+  leaks: 'plan',
+  subscriptions: 'plan',
+  picture: 'plan',
+  tax: 'plan',
+  pockets: 'money',
 };
 
 /** What the app does next. Each app turns these into its own navigation. */
@@ -572,6 +666,10 @@ export async function planReply(
       if (!deps.stay) steps.push({ kind: 'open', screen: FACT_SCREEN[action.about] });
       steps.push({ kind: 'say', text: tellAbout(action.about, facts) });
     }
+    else if (action.do === 'afford') {
+      if (!deps.stay) steps.push({ kind: 'open', screen: 'plan' });
+      steps.push({ kind: 'say', text: tellAfford(Math.round(action.amount * 100), facts.picture) });
+    }
     else if (action.do === 'pay') steps.push(...(await planPayment(action, account, deps)));
     else if (action.do === 'request') {
       const amountMinor = toMinor(action.amount);
@@ -620,4 +718,10 @@ export async function planReply(
     if (words) steps.unshift({ kind: 'say', text: words });
   }
   return steps;
+}
+
+/** Whether a reply needs the money picture, so it is only built when it is asked about. */
+export function asksPicture(reply: AssistantReply): boolean {
+  return reply.actions.some((action) =>
+    action.do === 'afford' || (action.do === 'tell' && ['safe-to-spend', 'leaks', 'subscriptions', 'picture', 'tax'].includes(action.about)));
 }

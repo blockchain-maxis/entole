@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "telegram:webhook": "node scripts/set-telegram-webhook.mjs",
     "help-log": "node scripts/help-log.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "near:check": "tsx scripts/near-check.ts"
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",

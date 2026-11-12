@@ -2,6 +2,7 @@ import { usePathname, useRouter, type Href } from 'expo-router';
 import { useCallback } from 'react';
 
 import {
+  asksPicture,
   planReply,
   type AssistantFacts,
   type AssistantScreen,
@@ -9,6 +10,7 @@ import {
 } from '@entole/core/assistant-actions';
 import { GRAMMAR_ONLY_HINT, NOT_UNDERSTOOD, type TurnHistory } from '@entole/core/assistant-brain';
 import { useBackend } from '@entole/core/backend';
+import { readMoneyPicture } from '@entole/core/money-picture-hook';
 import { useStore } from '@entole/core/store';
 
 import { useAccount } from './account';
@@ -40,12 +42,14 @@ const ROUTES: Record<AssistantScreen, Href> = {
   savings: '/grow/savings',
   stocks: '/grow/stocks',
   bills: '/bill',
-  business: '/(tabs)/business',
+  business: '/business',
   invoice: '/business/new-invoice',
   people: '/beneficiaries',
   'new-allowance': '/rules/new',
   assistant: '/assistant',
   me: '/(tabs)/me',
+  money: '/(tabs)/money',
+  plan: '/(tabs)/plan',
 };
 
 export type AssistantOutcome = {
@@ -88,6 +92,11 @@ export function useAssistantRunner(): (text: string, history: TurnHistory, optio
         savingsMinor: store.growPosition?.balanceMinor ?? null,
         username: account.username || null,
         contactName: (id) => store.contact(id)?.name,
+        // The money picture is built here, on the device, only when a reply asks about it.
+        picture: asksPicture(heard.reply) ? await readMoneyPicture(backend, store).catch(() => null) : null,
+        pockets: heard.reply.actions.some((action) => action.do === 'tell' && action.about === 'pockets')
+          ? await backend.near.pockets().catch(() => null)
+          : null,
       };
       const steps = await planReply(
         heard.reply,

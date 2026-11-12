@@ -8,7 +8,10 @@ import { getRedis } from './redis';
  * The one place the server decides which language model each reader asks,
  * and where every ask is written down. Server only: the keys never leave it.
  *
- * - `KIMI_API_KEY` is the first model. `ASSISTANT_MODEL` and
+ * - `NEARAI_API_KEY`, when set, makes Kimi through NEAR AI Cloud the first
+ *   model (`NEARAI_ASSISTANT_MODEL`, `NEARAI_CHAT_URL` change it), with
+ *   `KIMI_API_KEY` (Moonshot direct) as its backup.
+ * - Otherwise `KIMI_API_KEY` is the first model. `ASSISTANT_MODEL` and
  *   `ASSISTANT_API_URL` change which one.
  * - `ASSISTANT_FALLBACK_API_KEY` with `ASSISTANT_FALLBACK_API_URL` (and
  *   optionally `ASSISTANT_FALLBACK_MODEL`) is a second, OpenAI-compatible
@@ -26,17 +29,36 @@ const env = (name: string) => process.env[name]?.trim() || undefined;
 /** Thirty days of counts, so a month can be looked back over. */
 const KEEP_SECONDS = 30 * 24 * 60 * 60;
 
+/** Kimi as NEAR AI Cloud serves it: the same model, through NEAR. */
+export const NEAR_AI_CHAT_URL = 'https://cloud-api.near.ai/v1/chat/completions';
+export const NEAR_AI_KIMI = 'moonshotai/kimi-k2.6';
+
 export function modelConfig(agent: ModelAgent): LanguageModelConfig | null {
-  const apiKey = env('KIMI_API_KEY');
-  if (!apiKey) return null;
+  const nearKey = env('NEARAI_API_KEY');
+  const kimiKey = env('KIMI_API_KEY');
   const fallbackKey = env('ASSISTANT_FALLBACK_API_KEY');
   const fallbackUrl = env('ASSISTANT_FALLBACK_API_URL');
+  const configuredFallback =
+    fallbackKey && fallbackUrl ? { apiKey: fallbackKey, apiUrl: fallbackUrl, model: env('ASSISTANT_FALLBACK_MODEL') } : undefined;
+
+  // With a NEAR AI key, Kimi is asked through NEAR AI Cloud first and
+  // Moonshot's own service is the backup (decided 12 November 2026).
+  if (nearKey) {
+    return {
+      apiKey: nearKey,
+      model: env('NEARAI_ASSISTANT_MODEL') ?? NEAR_AI_KIMI,
+      apiUrl: env('NEARAI_CHAT_URL') ?? NEAR_AI_CHAT_URL,
+      fallback: kimiKey ? { apiKey: kimiKey, apiUrl: env('ASSISTANT_API_URL'), model: env('ASSISTANT_MODEL') } : configuredFallback,
+      agent,
+      onCall: recordModelCall,
+    };
+  }
+  if (!kimiKey) return null;
   return {
-    apiKey,
+    apiKey: kimiKey,
     model: env('ASSISTANT_MODEL'),
     apiUrl: env('ASSISTANT_API_URL'),
-    fallback:
-      fallbackKey && fallbackUrl ? { apiKey: fallbackKey, apiUrl: fallbackUrl, model: env('ASSISTANT_FALLBACK_MODEL') } : undefined,
+    fallback: configuredFallback,
     agent,
     onCall: recordModelCall,
   };
