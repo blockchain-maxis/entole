@@ -1,13 +1,14 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
-import { formatDollars } from '@entole/core/money';
+import { formatDollars, formatNaira } from '@entole/core/money';
+import { useMoneyPicture } from '@entole/core/money-picture-hook';
 import { useStore } from '@entole/core/store';
 
 import { ActivityList } from '@/components/ActivityRow';
@@ -19,14 +20,16 @@ import { ButtonLink } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
 import { OldAllowancesNotice } from '@/components/OldAllowancesNotice';
+import { SafeToSpendFigure } from '@/components/SafeToSpend';
 import { SectionHeading } from '@/components/SectionHeading';
 import { ActivityRowSkeleton, AllowanceRowSkeleton, FigureSkeleton } from '@/components/Skeleton';
 import { UsernameTakenNotice } from '@/components/UsernameTakenNotice';
 import { useAssistant } from '@/lib/assistant';
 
 /**
- * Home, as a page that has been written on. The balance is the one figure,
- * set large on the paper with no card around it. Under it, what the assistant
+ * Home, as a page that has been written on. The one figure, set large on the
+ * paper with no card around it, is what is safe to spend today once a
+ * statement has been read (the balance under it), and the balance until then. Under it, what the assistant
  * may do for you, each allowance a sentence in the assistant's blue. Then what
  * has happened, as ruled rows. Everything you do yourself is ink.
  */
@@ -37,6 +40,11 @@ export default function Home() {
   const greeting = greetingFor();
   const loading = store.status === 'loading';
   const failed = store.status === 'failed';
+  // The person's own picture, read on this device. Until it is known the
+  // figure waits as a skeleton, so it never swaps from one figure to another.
+  const money = useMoneyPicture();
+  const picture = money.picture;
+  const safe = picture?.safeToSpend ?? null;
 
   // The assistant is a setting: nothing is announced until it is turned on.
   const router = useRouter();
@@ -70,7 +78,7 @@ export default function Home() {
 
           <h1 className="truncate pt-3 font-body text-ui text-slate">{greeting}</h1>
 
-          {loading ? (
+          {loading || money.status === 'loading' ? (
             <FigureSkeleton />
           ) : failed ? (
             // No figure at all: a zero here would read as the balance.
@@ -88,12 +96,27 @@ export default function Home() {
               </button>
             </section>
           ) : (
-            <section aria-label="Your balance" className="pt-1.5">
-              <Figure value={store.balance} />
-              <p className="tabular mt-2 font-body text-ui text-slate">
-                Available · about {formatDollars(toDollars(store.balance, store.rate))}
-              </p>
-            </section>
+            <>
+              {picture && safe ? (
+                <section aria-label="Safe to spend today" className="pt-1.5">
+                  <SafeToSpendFigure picture={picture} safe={safe} />
+                  <Link
+                    href="/money"
+                    className="tabular mt-3 flex items-center gap-1.5 font-body text-ui text-ink transition-colors hover:text-slate"
+                  >
+                    Entole balance {formatNaira(store.balance)}
+                    <span className="text-slate">· about {formatDollars(toDollars(store.balance, store.rate))}</span>
+                  </Link>
+                </section>
+              ) : (
+                <section aria-label="Your balance" className="pt-1.5">
+                  <Figure value={store.balance} />
+                  <p className="tabular mt-2 font-body text-ui text-slate">
+                    Available · about {formatDollars(toDollars(store.balance, store.rate))}
+                  </p>
+                </section>
+              )}
+            </>
           )}
 
           <div className="mt-7 flex gap-2.5">
@@ -101,6 +124,18 @@ export default function Home() {
             <ButtonLink href="/add-money" label="Add money" variant="secondary" size="compact" />
             <ButtonLink href="/receive" label="Receive" variant="secondary" size="compact" />
           </div>
+
+          {!loading && !failed && money.status !== 'loading' && !safe ? (
+            <Link
+              href="/plan"
+              className="mt-4 flex min-h-12 items-center gap-3 border-y border-hairline py-3 transition-colors hover:bg-press active:translate-y-px"
+            >
+              <span className="min-w-0 flex-1 font-body text-ui text-ink">
+                See what&apos;s safe to spend <span className="text-slate">· Read a statement</span>
+              </span>
+              <ChevronRight size={18} strokeWidth={1.5} aria-hidden className="flex-none text-mist" />
+            </Link>
+          ) : null}
 
           {failed ? null : (
             <>

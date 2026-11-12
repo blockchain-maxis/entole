@@ -1,17 +1,22 @@
 'use client';
 
-import { Briefcase, House, SendHorizontal, Sprout, User, type LucideIcon } from 'lucide-react';
+import { Banknote, Compass, House, SendHorizontal, User, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { BrandGlyph } from './Header';
 
-/** Same 5 tabs, same order, same icons as `apps/mobile/app/(tabs)/_layout.tsx`. */
-const TABS: { href: string; label: string; icon: LucideIcon }[] = [
+/**
+ * Same 5 tabs, same order as `apps/mobile/app/(tabs)/_layout.tsx`: Home, Pay,
+ * Money, Plan, Me (decided 12 November). Business left the bar; it is a row on
+ * Me and a shortcut on Pay, so Pay stays lit there. Grow's content moved into
+ * Money, and its old pages still open, under Money.
+ */
+const TABS: { href: string; label: string; icon: LucideIcon; also?: string[] }[] = [
   { href: '/', label: 'Home', icon: House },
-  { href: '/transfer', label: 'Pay', icon: SendHorizontal },
-  { href: '/business', label: 'Business', icon: Briefcase },
-  { href: '/grow', label: 'Grow', icon: Sprout },
+  { href: '/transfer', label: 'Pay', icon: SendHorizontal, also: ['/business'] },
+  { href: '/money', label: 'Money', icon: Banknote, also: ['/grow'] },
+  { href: '/plan', label: 'Plan', icon: Compass },
   { href: '/me', label: 'Me', icon: User },
 ];
 
@@ -42,8 +47,8 @@ export function BottomNav() {
         <BrandGlyph size={24} />
         <span className="font-display text-subhead text-ink">Entole</span>
       </Link>
-      {TABS.map(({ href, label, icon: Icon }) => {
-        const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+      {TABS.map(({ href, label, icon: Icon, also = [] }) => {
+        const active = href === '/' ? pathname === '/' : [href, ...also].some((prefix) => pathname.startsWith(prefix));
         return (
           <Link
             key={href}

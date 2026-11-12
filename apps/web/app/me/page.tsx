@@ -262,6 +262,11 @@ function Me() {
             onClick={() => router.push('/assistant')}
           />
           <LinkRow label="Connections" onClick={() => router.push('/connections')} />
+          <LinkRow
+            label="Business"
+            value={store.status === 'ready' && store.invoices.length > 0 ? `${store.invoices.length} ${store.invoices.length === 1 ? 'invoice' : 'invoices'}` : undefined}
+            onClick={() => router.push('/business')}
+          />
         </div>
 
         <SectionLabel>Security</SectionLabel>

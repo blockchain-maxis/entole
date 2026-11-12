@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { formatRate } from '@entole/core/fx';
+import { MOVEMENT_WORDS } from '@entole/core/intents-pockets';
 import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
@@ -13,6 +14,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Header } from '@/components/Header';
 import { TaxReserveCard } from '@/components/TaxReserveCard';
 import { AllowanceCardSkeleton, RowSkeleton } from '@/components/Skeleton';
+import { paidFromWords, useInvoicePayments } from '@/lib/invoice-follow';
 
 type Service = { label: string; hint: string; Icon: LucideIcon; href: string };
 
@@ -27,7 +29,10 @@ const SERVICES: Service[] = [
 /**
  * Services on top, invoices below. Only what really happens is on this page:
  * an invoice is a request with a link, and paying a supplier is an ordinary
- * payment. Mirrors `apps/mobile/app/(tabs)/business.tsx`.
+ * payment. An invoice paid from another app is marked paid only once that
+ * payment has arrived, and says where it was paid from. Business left the tab
+ * bar on 12 November; it opens from Me and from Pay.
+ * Mirrors `apps/mobile/app/business/index.tsx`.
  */
 export default function BusinessPage() {
   const store = useStore();
@@ -35,6 +40,8 @@ export default function BusinessPage() {
   const [checkingId, setCheckingId] = useState<string | null>(null);
   /** What the last check of a held invoice found, said beside that invoice. */
   const [checked, setChecked] = useState<{ id: string; text: string } | null>(null);
+  /** Payments from another app still under way, by invoice. */
+  const underWay = useInvoicePayments();
 
   /** The invoices as a spreadsheet, with the rate at the day each was paid. */
   function exportInvoices() {
@@ -63,7 +70,7 @@ export default function BusinessPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
-      <Header title="Business" />
+      <Header title="Business" back="/transfer" />
 
       <div className="flex-1 px-gutter pb-28">
         {loading ? (
@@ -125,6 +132,13 @@ export default function BusinessPage() {
                       {formatNaira(kobo(invoice.amountMinor))}
                     </p>
                     <p className="mt-0.5 font-body text-note text-slate">{invoice.note}</p>
+                    {invoice.status === 'paid' && invoice.paidVia ? (
+                      <p className="mt-1.5 font-body text-note text-settled">Paid from {invoice.paidVia.source}</p>
+                    ) : underWay[invoice.id] ? (
+                      <p role="status" className="mt-1.5 font-body text-note text-slate">
+                        From {paidFromWords(underWay[invoice.id]!.source)}: {MOVEMENT_WORDS[underWay[invoice.id]!.state].toLowerCase()}
+                      </p>
+                    ) : null}
                     {invoice.releaseCondition ? (
                       <p className="mt-1.5 font-body text-note text-slate">
                         Releases at{' '}

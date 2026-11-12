@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowDownLeft, ChevronRight, Globe, Plus, Receipt, type LucideIcon } from 'lucide-react';
+import { ArrowDownLeft, Briefcase, ChevronRight, Globe, Plus, Receipt, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { useStore } from '@entole/core/store';
@@ -14,6 +14,7 @@ const OTHER_WAYS: { label: string; caption: string; icon: LucideIcon; href: stri
   { label: 'Get paid', caption: 'Share your payment link', icon: ArrowDownLeft, href: '/receive' },
   { label: 'Pay a bill', caption: 'Power, airtime, TV', icon: Receipt, href: '/transfer/bill' },
   { label: 'Send abroad', caption: 'Pick a country first', icon: Globe, href: '/transfer/abroad' },
+  { label: 'Invoices and business', caption: 'Bill a client, pay a supplier', icon: Briefcase, href: '/business' },
 ];
 
 const ROW =

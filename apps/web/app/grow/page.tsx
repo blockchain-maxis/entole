@@ -1,85 +1,21 @@
 'use client';
 
-import { ChevronRight, Sprout, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
-
-import { formatNaira, kobo } from '@entole/core/money';
-import { savingsEarning } from '@entole/core/savings';
-import { useStore } from '@entole/core/store';
-
 import { Header } from '@/components/Header';
-import { BalanceSkeleton } from '@/components/Skeleton';
+import { SavingsCard, StocksRow } from '@/components/SavingsCard';
 
 /**
- * The Grow hub — two products, each a card into its own flow. Savings is the
- * owner's own money set aside, earning only where it is really held somewhere
- * that pays; Stocks is buying and selling shares. Mirrors
- * `apps/mobile/app/(tabs)/grow.tsx`.
+ * The Grow page, kept so the links into it still open. Its content now lives
+ * on Money, beside the balance and the pockets; this is the same savings card
+ * and stocks row, on their own. Mirrors `apps/mobile/app/(tabs)/grow.tsx`.
  */
 export default function GrowHubPage() {
-  const store = useStore();
-  const loading = store.status === 'loading';
-  const savings = store.growPosition;
-  // Only ever a rate read from where the money is held. Null means it earns nothing.
-  const earning = savingsEarning(savings);
-  const holdingsValue = store.stockPositions.reduce((sum, p) => sum + p.currentValueMinor, 0);
-
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col">
-      <Header title="Grow" />
+      <Header title="Grow" back="/money" />
 
-      <div className="flex-1 px-gutter pb-28">
-        {loading || !savings ? (
-          <BalanceSkeleton />
-        ) : (
-          <div className="flex flex-col">
-            <Link href="/grow/savings" aria-label="Savings" className="block rounded-card bg-card p-5 shadow-raised">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Sprout size={20} strokeWidth={1.5} className="text-settled" />
-                  <span className="font-strong text-ui text-ink">Savings</span>
-                </div>
-                <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />
-              </div>
-              <p className="tabular mt-4 font-display text-figure-sm text-ink">{formatNaira(kobo(savings.balanceMinor))}</p>
-              <p className="mt-1 font-body text-note text-slate">
-                {!earning
-                  ? "Money set aside, separate from what you spend. It doesn't earn interest yet."
-                  : earning.earnedMinor > 0
-                    ? `+ ${formatNaira(kobo(earning.earnedMinor))} earned so far`
-                    : `Earning about ${earning.rate} a year.`}
-              </p>
-            </Link>
-
-            <Link
-              href="/grow/stocks"
-              aria-label="Stocks"
-              className="mt-4 block border-b border-hairline px-1 py-5 transition-colors hover:bg-press"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <TrendingUp size={20} strokeWidth={1.5} className="text-ink" />
-                  <span className="font-strong text-ui text-ink">Stocks</span>
-                </div>
-                <ChevronRight size={18} strokeWidth={1.5} className="text-mist" />
-              </div>
-              {store.stocksAvailable ? (
-                <>
-                  <p className="tabular mt-3 font-display text-subhead text-ink">{formatNaira(kobo(holdingsValue))}</p>
-                  <p className="mt-1 font-body text-note text-slate">
-                    {store.stockPositions.length > 0
-                      ? `${store.stockPositions.length} ${store.stockPositions.length === 1 ? 'holding' : 'holdings'}`
-                      : 'Buy your first share.'}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-pretty font-body text-note text-slate">
-                  See the companies and funds you will be able to buy, with live prices. Buying opens soon.
-                </p>
-              )}
-            </Link>
-          </div>
-        )}
+      <div className="flex flex-1 flex-col px-gutter pb-28">
+        <SavingsCard />
+        <StocksRow />
       </div>
     </main>
   );

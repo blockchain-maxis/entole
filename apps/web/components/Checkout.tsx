@@ -15,6 +15,7 @@ import {
 
 import { Figure } from './Amount';
 import { Avatar } from './Avatar';
+import { PayFromAnotherApp } from './PayFromAnotherApp';
 
 /**
  * The two faces of a checkout link. Both are plain server-rendered markup:
@@ -183,9 +184,14 @@ const QUIET =
  * someone who already has it. Until a partner exists, bank and card stay on
  * the page as a button that cannot be pressed and says so, below the ways
  * that work; it is never a link that pretends.
+ *
+ * An invoice in naira, with a reference and a username, can also be paid from
+ * an app the payer already uses (dollars or euros on another network): a
+ * one-time scan code with a copy button, never the code as text.
  */
 export function PaymentOptions({ checkout, onrampUrl }: { checkout: Checkout; onrampUrl: string | null }) {
   const recipientAccount = checkout.payee ? `${checkout.payee}'s Entole account` : 'their Entole account';
+  const fromAnotherApp = invoicePayableFromAnotherApp(checkout);
 
   return (
     <section aria-labelledby="pay-options" className="pt-10">
@@ -206,6 +212,14 @@ export function PaymentOptions({ checkout, onrampUrl }: { checkout: Checkout; on
         <a href={appLinkFor(checkout)} className={onrampUrl ? QUIET : SECONDARY}>
           Open in the Entole app
         </a>
+        {fromAnotherApp ? (
+          <PayFromAnotherApp
+            username={fromAnotherApp.username}
+            reference={fromAnotherApp.reference}
+            amountMinor={fromAnotherApp.amountMinor}
+            className={SECONDARY}
+          />
+        ) : null}
         {onrampUrl ? null : (
           <button
             type="button"
@@ -233,6 +247,17 @@ export function PaymentOptions({ checkout, onrampUrl }: { checkout: Checkout; on
       </Notice>
     </section>
   );
+}
+
+/** What paying from another app needs: an invoice in naira, its number, whose it is, and at least ₦100. */
+function invoicePayableFromAnotherApp(checkout: Checkout): { username: string; reference: string; amountMinor: number } | null {
+  if (checkout.kind !== 'invoice' || (checkout.currency ?? 'NGN') !== 'NGN') return null;
+  // The reference is the invoice's own number (`INV-0001`): anything else is not one this way can follow.
+  if (!checkout.username || !/^[A-Za-z0-9-]{1,40}$/.test(checkout.reference ?? '')) return null;
+  if (checkout.amountMinor === undefined || checkout.amountMinor < 10_000) {
+    return null;
+  }
+  return { username: checkout.username, reference: checkout.reference!, amountMinor: checkout.amountMinor };
 }
 
 // ---------------------------------------------------------------------------
