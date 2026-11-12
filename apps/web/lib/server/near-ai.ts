@@ -58,7 +58,7 @@ type QuoteVerifier = (quote: Uint8Array) => Promise<QuoteFields>;
 /** Intel's verdict on a quote, through `@phala/dcap-qvl` and its collateral service. */
 export const verifyQuote: QuoteVerifier = async (quote) => {
   const verified = await getCollateralAndVerify(quote);
-  const report = verified.report.asTd10() ?? verified.report.asTd15();
+  const report = verified.report.asTd10() ?? verified.report.asTd15()?.base;
   if (!report) throw new Error('not a TDX quote');
   return {
     status: verified.status,
