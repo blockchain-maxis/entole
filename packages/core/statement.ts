@@ -345,3 +345,22 @@ export function mergeStatements(kept: readonly StatementLine[], incoming: readon
   const cutoff = new Date(Date.parse(`${today}T00:00:00Z`) - KEEP_STATEMENT_DAYS * 86_400_000).toISOString().slice(0, 10);
   return [...kept, ...out].filter((line) => line.date >= cutoff).sort((a, b) => a.date.localeCompare(b.date));
 }
+
+// ----------------------------------------------------------- the request
+
+/** At most 5 MB of PDF, sent as base64. */
+export const STATEMENT_MAX_BYTES = 5 * 1024 * 1024;
+export const STATEMENT_MAX_AGE_SECONDS = 300;
+
+/**
+ * The exact text a statement reading is signed over. It names the file by
+ * its digest, so a signature for one file cannot be used to read another.
+ */
+export function buildStatementMessage(input: { account: string; timestampSeconds: number; digest: string }): string {
+  return [
+    'Entole statement reading',
+    `account: ${input.account.toLowerCase()}`,
+    `file: ${input.digest.toLowerCase()}`,
+    `timestamp: ${input.timestampSeconds}`,
+  ].join('\n');
+}
