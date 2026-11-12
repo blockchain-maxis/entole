@@ -47,3 +47,7 @@ apps/mobile/android/
 
 # Entole
 .env*.local
+
+# Local research notes, never committed
+reports/
+research_notes/
