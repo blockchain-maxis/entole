@@ -5,13 +5,17 @@
  * Bands, per year of taxable income (Fourth Schedule):
  *   first ₦800,000 at 0%, next ₦2,200,000 at 15%, next ₦9,000,000 at 18%,
  *   next ₦13,000,000 at 21%, next ₦25,000,000 at 23%, above ₦50,000,000 at 25%.
- * The first four bands were checked against published summaries on
- * 12 November 2026 (mondaq.com "Understanding Personal Income Tax Under the
- * Nigerian Tax Act 2025"; guardian.ng explainer); the 23% and 25% thresholds
- * are from the Act as widely reported and are flagged for the compliance
- * review before anything is filed on them (`TAX_BANDS_CONFIRMED`).
+ * Checked against the Act's own text on 12 November 2026 (Act No. 7, Gazette
+ * No. 117 Vol. 112, Fourth Schedule, s.58): "First N800,000 at 0%; Next
+ * N2,200,000 at 15%; Next N9,000,000 at 18%; Next N13,000,000 at 21%; Next
+ * N25,000,000 at 23%; and Above N50,000,000 at 25%."
  *
- * Rent relief: 20% of annual rent paid, at most ₦500,000.
+ * Eligible deductions before the bands (s.30(2)(a)): contributions under the
+ * National Housing Fund, the National Health Insurance Scheme and the Pension
+ * Reform Act, life assurance premiums, interest on a loan for an owner-occupied
+ * home, and rent relief of 20% of annual rent paid, at most ₦500,000. A
+ * resident is taxed on income wherever it arises (s.12), so a freelancer's
+ * foreign client income is in. Research for a lawyer, not legal advice.
  */
 
 export type TaxBand = { uptoMinor: number | null; rateBps: number };
@@ -27,8 +31,8 @@ export const NIGERIA_PIT_BANDS: readonly TaxBand[] = [
   { uptoMinor: null, rateBps: 2500 },
 ];
 
-/** False until the compliance review has read the Act's own schedule. */
-export const TAX_BANDS_CONFIRMED = false;
+/** Read against the Act's Fourth Schedule on 12 November 2026. */
+export const TAX_BANDS_CONFIRMED = true;
 
 export const RENT_RELIEF_BPS = 2000;
 export const RENT_RELIEF_MAX_MINOR = naira(500_000);
@@ -46,10 +50,15 @@ export type TaxEstimate = {
 };
 
 /** Integer kobo throughout: each band's tax is floored to the kobo. */
-export function estimateIncomeTax(input: { yearlyIncomeMinor: number; yearlyRentMinor?: number }): TaxEstimate {
+export function estimateIncomeTax(input: {
+  yearlyIncomeMinor: number;
+  yearlyRentMinor?: number;
+  /** Pension, NHF, NHIS and life assurance paid in the year, as the person states them. */
+  yearlyDeductionsMinor?: number;
+}): TaxEstimate {
   const yearlyIncomeMinor = Math.max(0, Math.round(input.yearlyIncomeMinor));
   const reliefMinor = Math.min(RENT_RELIEF_MAX_MINOR, Math.floor(((input.yearlyRentMinor ?? 0) * RENT_RELIEF_BPS) / 10_000));
-  const taxableMinor = Math.max(0, yearlyIncomeMinor - reliefMinor);
+  const taxableMinor = Math.max(0, yearlyIncomeMinor - reliefMinor - Math.max(0, Math.round(input.yearlyDeductionsMinor ?? 0)));
   let tax = 0;
   let floor = 0;
   let topRateBps = 0;

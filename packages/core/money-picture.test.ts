@@ -137,6 +137,10 @@ describe('income tax estimate', () => {
     expect(tax.monthlyTaxMinor).toBe(naira(180_000));
   });
 
+  it('takes pension, NHF, NHIS and life assurance off before the bands', () => {
+    expect(estimateIncomeTax({ yearlyIncomeMinor: naira(3_000_000), yearlyDeductionsMinor: naira(240_000) }).taxableMinor).toBe(naira(2_760_000));
+  });
+
   it('takes rent relief off, capped at ₦500,000', () => {
     expect(estimateIncomeTax({ yearlyIncomeMinor: naira(3_000_000), yearlyRentMinor: naira(1_000_000) }).reliefMinor).toBe(naira(200_000));
     expect(estimateIncomeTax({ yearlyIncomeMinor: naira(30_000_000), yearlyRentMinor: naira(9_000_000) }).reliefMinor).toBe(naira(500_000));
