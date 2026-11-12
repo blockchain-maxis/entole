@@ -5,7 +5,9 @@ import { emptyProposalSlot, type ProposalSlot } from './assistant-ask';
 import { silentBrain, type AssistantBrain } from './assistant-brain';
 import type { AssistantInboxClient } from './assistant-inbox';
 import type { DirectoryClient } from './directory';
+import { pendingNearClient, type NearClient } from './near-client';
 import type { PaymentsFeed } from './payments-feed';
+import type { Records } from './records';
 import type { RelayClient } from './relay-client';
 
 /**
@@ -32,6 +34,11 @@ export type Backend = {
   /** What reads a sentence said to the assistant into things the app can do.
    * It has no key and no account; see `assistant-brain.ts`. */
   brain: AssistantBrain;
+  /** Currency pockets, swaps, invoice payments from other networks and the
+   * statement reader, all built on NEAR (`near-client.ts`). */
+  near: NearClient;
+  /** Bank statement lines read so far, sealed on the device like every record. */
+  statement: Records['statement'];
   /** `PAY-XXXX-…` — how this account is named to others. Null until signed in. */
   paymentCode: string | null;
 };
@@ -43,6 +50,13 @@ export const pendingBackend: Backend = {
   paymentCode: null,
   proposals: emptyProposalSlot,
   brain: silentBrain,
+  near: pendingNearClient,
+  statement: {
+    lines: async () => [],
+    reads: async () => [],
+    add: notSignedIn,
+    clear: notSignedIn,
+  },
   source: {
     loadSnapshot: notSignedIn,
     resolveRecipient: () => {

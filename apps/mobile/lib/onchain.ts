@@ -16,6 +16,7 @@ import type { EntoleKeyAccount } from '@entole/core/passkey';
 import { encodePaymentCode } from '@entole/core/payment-code';
 import { createRecordSync } from '@entole/core/record-sync';
 import { createRecords } from '@entole/core/records';
+import { createNearClient } from '@entole/core/near-client';
 import { createEnsureGas, createRelayClient } from '@entole/core/relay-client';
 import { describeMovement, MovementNotConfirmedError, type ConfirmMovement } from '@entole/core/movement';
 import { createPaymentsFeedClient } from '@entole/core/payments-feed';
@@ -276,6 +277,14 @@ export function useOnChainBackend(
       account: owner.viemAccount.address,
       sign: (message) => owner.viemAccount.signMessage({ message }),
     });
+    // Pockets, swaps and the statement reader. A pocket moves only after the
+    // same confirmation as any other movement, then the person's own key signs.
+    const near = createNearClient({
+      baseUrl: API_BASE,
+      account: owner.viemAccount.address,
+      sign: (message) => owner.viemAccount.signMessage({ message }),
+      confirm: confirmMovement,
+    });
     const backend: Backend = {
       source,
       relay,
@@ -284,6 +293,8 @@ export function useOnChainBackend(
       payments,
       proposals,
       brain,
+      near,
+      statement: records.statement,
       paymentCode: encodePaymentCode(owner.viemAccount.address),
     };
     return { gateway, backend };

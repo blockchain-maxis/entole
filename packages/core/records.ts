@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { decodePaymentCode } from './payment-code';
 import { initialsFor } from './profile';
+import { mergeStatements, statementLineSchema, type StatementLine } from './statement';
 import { RECORD_COLLECTIONS, type RecordCollection, type RecordSync } from './record-sync';
 import {
   activitySchema,
@@ -138,6 +139,20 @@ export type Staff = z.infer<typeof staffSchema>;
 const ACTIVITY_LIMIT = 200;
 
 export type Records = ReturnType<typeof createRecords>;
+
+/** One statement reading, kept beside its lines. No file and no password: only what was read. */
+export const statementReadSchema = z.object({
+  at: z.string(),
+  from: z.string(),
+  to: z.string(),
+  lines: z.number().int().nonnegative(),
+  status: z.enum(['balanced', 'off', 'unknown']),
+  differenceMinor: z.number().int().optional(),
+  closingMinor: z.number().int().optional(),
+  proven: z.boolean(),
+  model: z.string(),
+});
+export type StatementRead = z.infer<typeof statementReadSchema>;
 
 async function readList<T>(store: RecordStore, key: string, schema: z.ZodType<T>): Promise<T[]> {
   const raw = await store.get(key);
@@ -349,6 +364,22 @@ export function createRecords(store: RecordStore, owner: Address, sync?: RecordS
         const current = await read('tax-reserves', taxReserveSchema);
         const exists = current.some((item) => item.id === entry.id);
         await write('tax-reserves', exists ? current.map((item) => (item.id === entry.id ? entry : item)) : [entry, ...current]);
+      },
+    },
+    statement: {
+      /** Bank statement lines read so far, oldest first; the newest six months. */
+      lines: () => read('statement', statementLineSchema),
+      /** Each reading, newest first: when, what period, whether it balanced and was proven. */
+      reads: () => read('statement-reads', statementReadSchema),
+      async add(lines: StatementLine[], reading: StatementRead, today: string) {
+        const kept = await read('statement', statementLineSchema);
+        await write('statement', mergeStatements(kept, lines.map((line) => statementLineSchema.parse(line)), today));
+        const reads = await read('statement-reads', statementReadSchema);
+        await write('statement-reads', [statementReadSchema.parse(reading), ...reads].slice(0, 24));
+      },
+      async clear() {
+        await write('statement', []);
+        await write('statement-reads', []);
       },
     },
     beneficiaries: {

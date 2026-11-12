@@ -251,6 +251,17 @@ export type Reconciliation = {
   skipped: number;
 };
 
+export const reconciliationSchema = z.object({
+  status: z.enum(['balanced', 'off', 'unknown']),
+  openingMinor: z.number().int().optional(),
+  closingMinor: z.number().int().optional(),
+  inMinor: z.number().int().nonnegative(),
+  outMinor: z.number().int().nonnegative(),
+  differenceMinor: z.number().int().optional(),
+  runningBreaks: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+});
+
 export function reconcile(input: {
   lines: readonly StatementLine[];
   openingMinor?: number;
@@ -312,19 +323,6 @@ export function joinChunks(chunks: readonly ModelChunk[]): { lines: StatementLin
 /** What is kept on the device (sealed in the person's records), newest six months. */
 export const KEEP_STATEMENT_DAYS = 186;
 
-export const storedStatementSchema = z.object({
-  importedAt: z.string(),
-  from: z.string(),
-  to: z.string(),
-  lines: z.array(statementLineSchema),
-  reconciliation: z.object({
-    status: z.enum(['balanced', 'off', 'unknown']),
-    differenceMinor: z.number().int().optional(),
-    closingMinor: z.number().int().optional(),
-  }),
-  proven: z.boolean(),
-});
-export type StoredStatement = z.infer<typeof storedStatementSchema>;
 
 /** Merges a new statement into what is kept: same day + description + amount is one line. */
 export function mergeStatements(kept: readonly StatementLine[], incoming: readonly StatementLine[], today: string): StatementLine[] {

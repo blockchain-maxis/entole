@@ -1,3 +1,4 @@
+import { formatPocketAmount, type PocketCurrency } from './intents-pockets';
 import { formatNaira, kobo } from './money';
 
 /**
@@ -18,7 +19,9 @@ export type Movement =
   | { kind: 'take-out'; amountMinor: number }
   | { kind: 'allowance'; limitMinor: number }
   /** Money held for the person elsewhere, brought into the account. */
-  | { kind: 'bring-in'; amountMinor: number };
+  | { kind: 'bring-in'; amountMinor: number }
+  /** One currency pocket into another, in the first pocket's cents. */
+  | { kind: 'swap'; cents: number; from: string; to: string };
 
 /** What the confirmation prompt says is about to happen. */
 export function describeMovement(movement: Movement): string {
@@ -37,6 +40,8 @@ export function describeMovement(movement: Movement): string {
       return `Let the assistant spend up to ${formatNaira(kobo(movement.limitMinor))}`;
     case 'bring-in':
       return `Bring about ${formatNaira(kobo(movement.amountMinor))} into your account`;
+    case 'swap':
+      return `Change ${formatPocketAmount(movement.cents, movement.from as PocketCurrency)} into ${movement.to === 'USD' ? 'dollars' : movement.to === 'EUR' ? 'euros' : 'pounds'}`;
   }
 }
 

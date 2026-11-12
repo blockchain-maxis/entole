@@ -36,6 +36,8 @@ export const RECORD_COLLECTIONS = [
   'invoices',
   'beneficiaries',
   'tax-reserves',
+  'statement',
+  'statement-reads',
 ] as const;
 
 export type RecordCollection = (typeof RECORD_COLLECTIONS)[number];

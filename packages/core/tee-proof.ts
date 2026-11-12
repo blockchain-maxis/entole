@@ -269,6 +269,18 @@ export function stampMatches(input: {
   return input.checkedModelAddresses.filter((address) => address.toLowerCase() === signer).length === 1;
 }
 
+export const proofSummarySchema = z.object({
+  proven: z.boolean(),
+  checks: z.array(z.object({
+    id: z.enum(['hardware', 'not-debug', 'fresh', 'bound', 'software', 'events', 'gpu', 'answers']),
+    part: z.enum(['gateway', 'model', 'answers']),
+    passed: z.boolean(),
+    detail: z.string(),
+  })),
+  model: z.string(),
+  checkedAt: z.string(),
+});
+
 export type ProofSummary = {
   /** Every check ran and passed. Anything less is shown as not proven. */
   proven: boolean;
