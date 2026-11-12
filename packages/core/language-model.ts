@@ -25,6 +25,8 @@ export const KIMI_MODEL = 'kimi-k2.6';
 
 /** The longest one ask may take, retries and backup included. The app stops waiting at 12 s. */
 export const MODEL_DEADLINE_MS = 10_000;
+/** The share of the deadline the first model may use when a backup stands behind it. */
+const FIRST_SHARE = 0.6;
 /** A rate limit asking for a longer wait than this is not waited out: someone is talking. */
 export const MODEL_RETRY_WAIT_MAX_MS = 2_000;
 
@@ -161,7 +163,8 @@ export async function askModel(
   const fetchImpl = config.fetch ?? fetch;
   const sleep = config.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const started = Date.now();
-  const deadline = started + (config.deadlineMs ?? MODEL_DEADLINE_MS);
+  const total = config.deadlineMs ?? MODEL_DEADLINE_MS;
+  const deadline = started + total;
   const left = () => deadline - Date.now();
 
   const endpoints: ModelEndpoint[] = [config, ...(config.fallback ? [config.fallback] : [])];
@@ -169,16 +172,18 @@ export async function askModel(
   let last: Attempt & { ok: false } = { ok: false, failure: 'timeout', status: undefined };
   let model = config.model ?? KIMI_MODEL;
 
-  for (const endpoint of endpoints) {
+  for (const [index, endpoint] of endpoints.entries()) {
     model = endpoint.model ?? KIMI_MODEL;
-    let result = await attempt(endpoint, messages, maxTokens, fetchImpl, left());
+    // With a backup still to ask, the first model gets most of the time, not all of it.
+    const budget = () => (index < endpoints.length - 1 ? Math.min(left(), total * FIRST_SHARE) : left());
+    let result = await attempt(endpoint, messages, maxTokens, fetchImpl, budget());
     attempts += 1;
     // A short rate limit is waited out once, if there is time to ask again after it.
     if (!result.ok && result.failure === 'rate_limited' && result.waitMs != null) {
       const wait = result.waitMs;
       if (wait <= MODEL_RETRY_WAIT_MAX_MS && left() - wait > 1_000) {
         await sleep(wait);
-        result = await attempt(endpoint, messages, maxTokens, fetchImpl, left());
+        result = await attempt(endpoint, messages, maxTokens, fetchImpl, budget());
         attempts += 1;
       }
     }
@@ -186,7 +191,7 @@ export async function askModel(
       return report(config, { ok: true, json: result.json, model, attempts, ms: Date.now() - started });
     }
     last = result;
-    if (!CAPACITY.includes(result.failure) || left() <= 1_000) break;
+    if (!CAPACITY.includes(result.failure) || left() <= Math.min(1_000, total * 0.2)) break;
   }
 
   return report(config, {

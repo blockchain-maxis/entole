@@ -111,6 +111,20 @@ describe('asking the model', () => {
     ]);
   });
 
+  // 11 November 2026: a third of the live asks stalled past ten seconds. A
+  // first model that hangs must leave the backup time to answer.
+  it('leaves the backup time when the first model hangs', async () => {
+    const { fetchImpl, asked } = endpoint('hang', answer('{"ok":1}'));
+    const result = await askModel(MESSAGES, {
+      apiKey: 'first',
+      fetch: fetchImpl,
+      deadlineMs: 2_000,
+      fallback: { apiKey: 'second', model: 'backup-1' },
+    });
+    expect(result).toMatchObject({ ok: true, model: 'backup-1', attempts: 2 });
+    expect(asked).toHaveLength(2);
+  });
+
   it('does not ask the backup about an answer the first model did give', async () => {
     const { fetchImpl, asked } = endpoint(answer('no json here'));
     const result = await askModel(MESSAGES, { apiKey: 'k', fetch: fetchImpl, fallback: { apiKey: 'b', model: 'b' } });
