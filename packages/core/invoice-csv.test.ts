@@ -44,16 +44,21 @@ describe('invoicesToCsv', () => {
   it('writes a header and one row per invoice, with the rate and the dollar value at receipt', () => {
     const lines = invoicesToCsv([paid, open]).trimEnd().split('\r\n');
     expect(lines[0]).toBe(
-      'Reference,Client,Description,Status,Due date,Paid at,Amount (NGN),Rate at receipt (NGN per USD),Amount at receipt (USD)',
+      'Reference,Client,Description,Status,Due date,Paid at,Amount (NGN),Rate at receipt (NGN per USD),Amount at receipt (USD),Paid from,Received (USD),Payment reference',
     );
     expect(lines[1]).toBe(
-      'INV-0001,Bello Foods,September deliveries,Paid,2026-10-14,2026-10-02,15000.00,1500.00,10.00',
+      'INV-0001,Bello Foods,September deliveries,Paid,2026-10-14,2026-10-02,15000.00,1500.00,10.00,,,',
     );
   });
 
   it('leaves the receipt columns empty for an invoice that has not been paid', () => {
     const line = invoicesToCsv([open]).trimEnd().split('\r\n')[1];
-    expect(line).toBe('INV-0002,Bello Foods,September deliveries,Sent,2026-10-14,,15000.00,,');
+    expect(line).toBe('INV-0002,Bello Foods,September deliveries,Sent,2026-10-14,,15000.00,,,,,');
+  });
+
+  it('says where an invoice paid from another network came from, and what arrived', () => {
+    const line = invoicesToCsv([{ ...paid, paidVia: { source: 'USDT on Tron', receivedCents: 1_002, reference: 'c-123' } }]).trimEnd().split('\r\n')[1];
+    expect(line).toBe('INV-0001,Bello Foods,September deliveries,Paid,2026-10-14,2026-10-02,15000.00,1500.00,10.00,USDT on Tron,10.02,c-123');
   });
 
   it('never lets what a person typed run as a formula', () => {

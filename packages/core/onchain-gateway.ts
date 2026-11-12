@@ -2156,6 +2156,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
     async settleInvoice(
       invoiceId: string,
       taxFraction = DEFAULT_TAX_FRACTION,
+      paidVia?: Invoice['paidVia'],
     ): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }> {
       const records = requireRecords(config);
       const found = (await records.invoices.list()).find((entry) => entry.id === invoiceId);
@@ -2166,6 +2167,7 @@ export function createOnChainGateway(input: OnChainGatewayConfig): PaymentsGatew
         status: 'paid',
         paidAt: new Date().toISOString(),
         koboPerDollar: config.rate.koboPerDollar,
+        ...(paidVia ? { paidVia } : {}),
       });
       await records.invoices.upsert(invoice);
       return { invoice, taxReserve: await setAsideForTax(records, invoice, taxFraction) };

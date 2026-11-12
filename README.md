@@ -7,6 +7,110 @@ app.
 Built for the Monad Metropolis hackathon, track: Consumer Products &
 Payments. Full product thesis in [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
+## NEAR HACKATHON
+
+Tracks: **Real-World Money** and **Privacy & Private AI**.
+
+**The problem.** A Nigerian developer earns in dollars from clients abroad,
+spends in naira, and is afraid of money in two opposite ways: every big
+payment feels like a mistake, while dozens of small ones (rides, snacks, data,
+subscriptions to AI tools) quietly empty the account. Banks show a list of
+debits, not where you stand. Clients abroad struggle to pay a Nigerian
+invoice at all. And reading someone's bank statement is about the most
+private thing a "financial assistant" can ask to do.
+
+**What NEAR adds to Entole (all built in the hackathon window):**
+
+1. **A private statement reader (NEAR AI Cloud, TEE).** Upload your bank's
+   PDF statement, locked with its password the way Nigerian banks send them.
+   It is read by a model running in sealed hardware on NEAR AI Cloud, and the
+   app proves it before sending anything: a fresh nonce; Intel's verdict on
+   the TDX quotes of the gateway and the model; the signing key and nonce
+   bound in the quote's report data; the measured configuration (MRCONFIGID)
+   and the replayed start-up log (RTMR3); NVIDIA's verdict on the GPU; and
+   afterwards, every answer's ECDSA stamp over the exact request and response
+   bytes, recovered to a key that was checked. If any check fails, nothing is
+   sent. The server keeps nothing: no file, no password, no lines, no logs (a
+   test enforces this). The lines go back to the phone, sealed with a key only
+   the person's passkey can make. The model only copies; the arithmetic is
+   done in code and the statement is balanced against its own opening and
+   closing figures to the kobo, so a dropped line shows up as a gap, not a
+   confident wrong answer.
+2. **The financial friend, from your own numbers.** Safe to spend today
+   (balance minus rent, bills and subscriptions due before your next income,
+   savings and tax set aside, divided by the days to that income), small
+   leaks (many small payments and their share of income), subscriptions found
+   by pattern, how long your money lasts, "can I afford this?", and a tax
+   estimate under the Nigeria Tax Act 2025 bands. Ayo, the voice assistant,
+   answers these out loud, still without the talking model ever seeing a
+   figure: it chooses "tell safe-to-spend", the phone computes the sentence.
+3. **Currency pockets on NEAR Intents.** Dollars, euros and pounds held side
+   by side in the person's own NEAR Intents account (named by their Entole
+   address; only their passkey-made key can move it). Add to a pocket from any
+   app on Tron, Solana, Base, Arbitrum, Ethereum or Gnosis with a one-time
+   scan code; swap between pockets at a 1Click quote. The intent 1Click writes
+   is checked to move exactly that amount to exactly that quote before the
+   person confirms and signs it (ERC-191).
+4. **Invoices any client can pay.** An Entole invoice link now offers "Pay
+   from another app": the client picks what they hold ("USDT on Tron"), gets
+   a scan code for exactly the invoice's value, and 1Click delivers USDC into
+   the freelancer's Dollars pocket. The invoice is marked paid only when 1Click
+   says the money arrived, and the CSV export says where it came from.
+5. **Ayo runs on Kimi through NEAR AI Cloud**, with Moonshot's own service as
+   the backup.
+
+**Try it** ([entole.pro](https://entole.pro), or locally below):
+
+- **Statement → picture.** Sign up (fingerprint or passkey), open **Plan**,
+  tap "Try a sample statement" (or upload
+  [`samples/statements/adaeze-3-months-locked.pdf`](samples/statements);
+  password `entole2026`). You see the proof panel tick through each check,
+  "Balanced to the kobo", then safe to spend, small leaks (Bolt rides),
+  subscriptions (Netflix, Claude), runway and a tax estimate. Ask Ayo "how much
+  can I spend today?" or "can I afford a 200k laptop?".
+- **Pockets.** **Money** → Add to a pocket → Dollars → "USDC on Base", $5 →
+  you get a scan code; send from any app and watch it go from waiting to
+  arrived. Then Change currency → Dollars to Euros → see what arrives and the
+  least it can be → confirm. Real money on NEAR's main network: there is no
+  test network for NEAR Intents.
+- **Invoice paid from another network.** Business → new invoice → open its
+  link in another browser → "Pay from another app" → "USDT on Tron" → scan
+  code for the exact amount; when it arrives the invoice turns paid.
+- **Check the NEAR side yourself, no account needed:**
+  `pnpm --filter @entole/web near:check` prints every hardware check against
+  NEAR AI Cloud live, and a dry 1Click quote. With `NEARAI_API_KEY` set it
+  also sends one completion and verifies its stamp.
+
+**Run it locally.** `pnpm install`, then in `apps/web/.env.local` set
+`NEARAI_API_KEY` (from cloud.near.ai) and optionally `ONECLICK_API_KEY`
+(partners.near-intents.org; without it 1Click still answers, at +25 bps).
+`pnpm dev`, open http://localhost:3000. Tests: `pnpm test` (the NEAR pieces:
+`packages/core/{tee-proof,statement,money-picture,intents-pockets,assistant-picture}.test.ts`,
+`apps/web/tests/{statement-read,pockets-routes,model-config}.test.ts`; the
+statement test reads the real sample PDFs, locked and unlocked).
+
+**What existed before, and what is new.** Entole was started for Monad
+Metropolis; that work is the baseline, tagged
+[`pre-hackathon`](https://github.com/blockchain-maxis/entole/tree/pre-hackathon).
+It already had passkey accounts, payments and allowances on Monad, Ayo, and a
+first NEAR Intents use from 15 October (a failed Tron/Solana deposit is held in
+the person's Intents account; `aurora-intents.ts`, `intents-held.ts`), which
+predates this hackathon and is not part of the entry. Everything in the diff
+[`pre-hackathon...hackathon-submission`](https://github.com/blockchain-maxis/entole/compare/pre-hackathon...hackathon-submission)
+is the hackathon work. The main new files: `packages/core/{tee-proof,
+statement,money-picture,tax-ng,intents-pockets,invoice-pay,near-client,
+money-picture-hook}.ts`, `apps/web/lib/server/{near-ai,statement-read,
+pockets}.ts`, `apps/web/app/api/{statement,pockets,invoice}/`, the Money and
+Plan screens in both apps, `apps/web/scripts/near-check.ts` and
+`samples/statements/make.py`.
+
+**Libraries and help.** `unpdf` (PDF text, password-protected files),
+`@phala/dcap-qvl` (Intel TDX quote verification), `viem` (signature
+recovery), `@noble/hashes`, `zod`. NVIDIA NRAS for the GPU verdict. 1Click for
+quotes and intents. The code was written with Claude Code (AI-assisted), and
+reviewed and tested here; the sample statements are fictional, made by
+`samples/statements/make.py` with no third-party packages.
+
 ## Try it
 
 **[entole.pro](https://entole.pro)**, in a phone browser or on a desktop. On a

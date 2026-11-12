@@ -25,6 +25,9 @@ export const INVOICE_CSV_COLUMNS = [
   'Amount (NGN)',
   'Rate at receipt (NGN per USD)',
   'Amount at receipt (USD)',
+  'Paid from',
+  'Received (USD)',
+  'Payment reference',
 ] as const;
 
 /** Integer minor units as a plain two-decimal string. Never a float. */
@@ -78,6 +81,9 @@ export function invoicesToCsv(invoices: readonly Invoice[], options: { bom?: boo
         minorToDecimal(invoice.amountMinor),
         received ? minorToDecimal(invoice.koboPerDollar!) : '',
         received ? minorToDecimal(usdCents(invoice.amountMinor, invoice.koboPerDollar!)) : '',
+        invoice.paidVia?.source ?? '',
+        invoice.paidVia ? minorToDecimal(invoice.paidVia.receivedCents) : '',
+        invoice.paidVia?.reference ?? '',
       ]),
     );
   }

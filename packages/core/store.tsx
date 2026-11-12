@@ -86,7 +86,7 @@ type Store = {
   saveSeat(draft: SeatDraft): Promise<void>;
   revokeSeat(id: string): Promise<void>;
   createInvoice(draft: InvoiceDraft): Promise<Invoice>;
-  settleInvoice(invoiceId: string, taxFraction?: number): Promise<void>;
+  settleInvoice(invoiceId: string, taxFraction?: number, paidVia?: Invoice['paidVia']): Promise<void>;
   /** Moves what is set aside for tax and not yet moved into savings, as one
    * savings deposit, confirmed like any other. */
   moveTaxReserveToSavings(): Promise<void>;
@@ -310,8 +310,8 @@ export function StoreProvider({
   );
 
   const settleInvoice = useCallback(
-    async (invoiceId: string, taxFraction = DEFAULT_TAX_FRACTION) => {
-      const { invoice, taxReserve } = await gateway.settleInvoice(invoiceId, taxFraction);
+    async (invoiceId: string, taxFraction = DEFAULT_TAX_FRACTION, paidVia?: Invoice['paidVia']) => {
+      const { invoice, taxReserve } = await gateway.settleInvoice(invoiceId, taxFraction, paidVia);
       setSnapshot((current) => {
         if (!current) return current;
         return {

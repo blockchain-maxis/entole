@@ -70,6 +70,7 @@ export interface PaymentsGateway {
   settleInvoice(
     invoiceId: string,
     taxFraction: number,
+    paidVia?: Invoice['paidVia'],
   ): Promise<{ invoice: Invoice; taxReserve: TaxReserve | null }>;
   /** Checks a held invoice's own `releaseCondition` against `observedRate`,
    * itself, never trusting the caller's verdict (see

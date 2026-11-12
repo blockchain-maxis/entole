@@ -114,6 +114,12 @@ export const invoiceSchema = z.object({
   koboPerDollar: z.number().int().positive().optional(),
   paidAt: isoDate.optional(),
   releaseCondition: releaseConditionSchema.optional(),
+  /** Paid from another network through NEAR Intents: what it came as, what arrived, and 1Click's reference. */
+  paidVia: z.object({
+    source: z.string().min(1).max(40),
+    receivedCents: z.number().int().nonnegative(),
+    reference: z.string().max(80).nullable(),
+  }).optional(),
 });
 
 export const procurementItemSchema = z.object({
