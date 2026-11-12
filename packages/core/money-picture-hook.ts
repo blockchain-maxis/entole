@@ -41,8 +41,21 @@ export function useMoneyPicture(): MoneyPictureState {
   }, [backend]);
 
   useEffect(() => {
-    void reload().catch(() => setLines([]));
-  }, [reload]);
+    let alive = true;
+    Promise.all([backend.statement.lines(), backend.statement.reads()]).then(
+      ([kept, history]) => {
+        if (!alive) return;
+        setLines(kept);
+        setReads(history);
+      },
+      () => {
+        if (alive) setLines([]);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [backend]);
 
   const latest = reads[0] ?? null;
   const picture = useMemo(() => {
