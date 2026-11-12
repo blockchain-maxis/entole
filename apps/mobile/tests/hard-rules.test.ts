@@ -210,6 +210,20 @@ describe('home is written on paper: one figure, sentences, ruled rows', () => {
     expect(home).toMatch(/key=\{loading \? 'loading' : 'ready'\} entering=\{loading \? undefined : FadeIn\.duration\(320\)\}/);
   });
 
+  // Decided 12 November 2026: once Plan has a picture, what is safe to spend
+  // today is the figure and the balance sits under it; without one the balance
+  // stays the figure, and a quiet row leads to Plan.
+  it('leads with safe to spend when the picture has it, and otherwise keeps the balance with a quiet row to Plan', () => {
+    expect(home).toMatch(/const moneyPicture = useMoneyPicture\(\)/);
+    expect(home).toMatch(/const safe = moneyPicture\.picture\?\.safeToSpend \?\? null/);
+    expect(home).toMatch(/Safe to spend today/);
+    expect(home).toMatch(/<Figure value=\{kobo\(safe\.todayMinor\)\} hidden=\{balance\.hidden\} \/>/);
+    expect(home).toMatch(/See what&apos;s safe to spend/);
+    expect(home).toMatch(/router\.push\('\/\(tabs\)\/plan'\)/);
+    // Which figure leads is not known until the picture has been read: no swap after it shows.
+    expect(home).toMatch(/moneyPicture\.status === 'loading'/);
+  });
+
   it('rules its own rows: the list has no boxes and no gaps standing in for them', () => {
     expect(home).not.toMatch(/ItemSeparatorComponent/);
     expect(home).toMatch(/ruled=\{Boolean\(previous\) && !byAssistant\(item\) && !byAssistant\(previous!\)\}/);
@@ -318,6 +332,8 @@ describe('money amounts never use the system keyboard', () => {
     'app/grow/stock/[symbol].tsx',
     // app/business/pay-supplier.tsx was removed: paying a supplier goes through the ordinary Send flow.
     'app/bill/pay.tsx',
+    // Adding to a pocket and changing currency (12 November 2026).
+    'components/ui/Pockets.tsx',
   ];
 
   it.each(amountScreens)('%s enters digits through the custom keypad', (path) => {
@@ -981,6 +997,8 @@ describe('sending works without a saved beneficiary', () => {
   });
 });
 
+// Grow's savings and stocks moved onto the Money tab on 12 November 2026
+// (founder's decision); its rules moved with them, to the same file.
 describe('Grow shows only what is real', () => {
   // Savings earn only where they are really held somewhere that pays (decided
   // 10 October 2026: on the main network that is a lending market). So Grow may
@@ -989,7 +1007,7 @@ describe('Grow shows only what is real', () => {
   // never show a payout date, a figure written into the screen, a ticker or a
   // holding that did not come from the store.
   const growFiles = [
-    'app/(tabs)/grow.tsx',
+    'app/(tabs)/money.tsx',
     'app/grow/savings.tsx',
     'app/grow/stocks.tsx',
     'app/grow/stock/[symbol].tsx',
@@ -999,7 +1017,7 @@ describe('Grow shows only what is real', () => {
     'lib/savings.ts',
   ];
   const growSource = growFiles.map((path) => [path, stripComments(read(join(ROOT, path)))] as const);
-  const hub = stripComments(read(join(ROOT, 'app/(tabs)/grow.tsx')));
+  const hub = stripComments(read(join(ROOT, 'app/(tabs)/money.tsx')));
   const savings = stripComments(read(join(ROOT, 'app/grow/savings.tsx')));
   const sheet = stripComments(read(join(ROOT, 'components/ui/SavingsSheet.tsx')));
   const stocks = stripComments(read(join(ROOT, 'app/grow/stocks.tsx')));
@@ -1081,9 +1099,11 @@ describe('Grow shows only what is real', () => {
   });
 
   it('Earn is one calm sentence and not a button', () => {
-    const earn = hub.slice(hub.indexOf('>Earn<') - 200);
-    expect(earn).toMatch(/Interest on savings is planned for when Entole goes live/);
-    expect(hub.slice(hub.indexOf('>Earn<'))).not.toMatch(/<Button/);
+    // Found by its heading: the page no longer ends with it, now that Money's sheets sit after it.
+    const earn = hub.slice(hub.indexOf('<SectionHeading title="Earn" />'));
+    expect(hub.indexOf('<SectionHeading title="Earn" />')).toBeGreaterThan(-1);
+    expect(earn.slice(0, 400)).toMatch(/Interest on savings is planned for when Entole goes live/);
+    expect(earn.slice(0, earn.indexOf('</ScrollView>'))).not.toMatch(/<Button/);
   });
 
   it('until a broker is connected, stocks can be looked at and not bought', () => {
@@ -1305,8 +1325,10 @@ describe('Me is ordered Profile, Account, Preferences, Security, Support, Legal'
   });
 });
 
-describe('the Business tab is plain jobs, not seats and templates', () => {
-  const business = stripComments(read(join(ROOT, 'app/(tabs)/business.tsx')));
+// Business left the tab bar on 12 November 2026 (founder's decision): it is a
+// screen of its own at /business, reached from Me and from Pay.
+describe('Business is plain jobs, not seats and templates', () => {
+  const business = stripComments(read(join(ROOT, 'app/business/index.tsx')));
   const businessScreens = walk(join(SCREENS, 'business')).map((file) => rel(file));
 
   it('order supplies, the supplier form and seats are gone, and nothing points at them', () => {
@@ -1332,7 +1354,7 @@ describe('the Business tab is plain jobs, not seats and templates', () => {
   });
 
   it('says nothing about seats, presets, templates, roles or spending power', () => {
-    const copy = userFacingCopy(read(join(SCREENS, '(tabs)/business.tsx'))).join(' | ');
+    const copy = userFacingCopy(read(join(SCREENS, 'business/index.tsx'))).join(' | ');
     expect(copy).not.toMatch(/\b(seat|seats|preset|presets|template|templates|role|roles|spending power|permission|scope)\b/i);
     for (const path of businessScreens) {
       const words = userFacingCopy(read(join(ROOT, path))).join(' | ');
@@ -1349,7 +1371,7 @@ describe('the Business tab is plain jobs, not seats and templates', () => {
   });
 
   it('every business screen is a real record or a real payment: no fixtures, no demo gateway, no address', () => {
-    for (const path of ['app/(tabs)/business.tsx', ...businessScreens]) {
+    for (const path of businessScreens) {
       const source = stripComments(read(join(ROOT, path)));
       expect(source, path).not.toMatch(/fixtures|demoGateway|address-book|procurement|saveSeat|revokeSeat/);
       expect(source, path).not.toMatch(/0x[0-9a-fA-F]{6,}|\.address\b|shortAddress/);
@@ -1419,6 +1441,21 @@ describe('invoices carry a real checkout link', () => {
     expect(detail).toMatch(/<ConfirmSheet/);
     expect(detail).toMatch(/no money moves/);
     expect(detail).toMatch(/marked paid automatically/);
+  });
+
+  it('a payment from another app marks an invoice paid only once it has arrived, and says where it came from', () => {
+    const follow = stripComments(read(join(ROOT, 'lib/invoice-payments.ts')));
+    const hub = stripComments(read(join(ROOT, 'app/business/index.tsx')));
+    expect(follow).toMatch(/near\.invoicePayments\(/);
+    expect(follow).toMatch(/const arrived = settlingPayment\(/);
+    expect(follow).toMatch(/if \(!arrived\) continue;/);
+    expect(follow).toMatch(/settleInvoice\(invoice\.id, undefined, \{/);
+    expect(follow).toMatch(/useFocusEffect/);
+    expect(follow).toMatch(/FOLLOW_EVERY_MS = 20_000/);
+    expect(hub).toMatch(/useInvoicePayments\(invoicesToFollow\(store\.invoices\)\)/);
+    expect(detail).toMatch(/useInvoicePayments\(/);
+    expect(detail).toMatch(/Paid from \{invoice\.paidVia\.source\}/);
+    expect(detail).toMatch(/MOVEMENT_WORDS\[following\.state\]/);
   });
 
   it('status is Sent, Paid or Overdue, worked out from the due date', () => {
@@ -1519,15 +1556,16 @@ describe('the rest of the screens are written on paper too', () => {
     expect(amount).not.toMatch(/font-(strong|heavy)/);
   });
 
-  it.each(['app/add-money.tsx', 'app/receive.tsx', 'app/(tabs)/grow.tsx', 'components/ui/HoldingRow.tsx'])(
+  it.each(['app/add-money.tsx', 'app/receive.tsx', 'app/(tabs)/money.tsx', 'app/(tabs)/plan.tsx', 'components/ui/Pockets.tsx', 'components/ui/HoldingRow.tsx'])(
     '%s rules its rows and draws no bordered box',
     (path) => {
       expect(stripComments(read(join(ROOT, path)))).not.toMatch(/border border-line bg-card/);
     },
   );
 
-  it('Grow keeps one raised surface and names the rest with section headings', () => {
-    const hub = stripComments(read(join(ROOT, 'app/(tabs)/grow.tsx')));
+  it('Money keeps Grow\'s one raised surface and names the rest with section headings', () => {
+    const hub = stripComments(read(join(ROOT, 'app/(tabs)/money.tsx')));
+    expect(hub).toMatch(/<SectionHeading title="Pockets" \/>/);
     expect(hub).toMatch(/<SectionHeading title="Your money" \/>/);
     expect(hub).toMatch(/<SectionHeading title="Stocks" \/>/);
     expect(hub).toMatch(/<SectionHeading title="Earn" \/>/);
@@ -2083,5 +2121,124 @@ describe('a receipt is a slip, and is shared as a picture of it', () => {
   it('shows the mark on the button while it works, never a spinner', () => {
     expect(receipt).toMatch(/<Button label="Share receipt" variant="secondary" busy=\{sharing\} onPress=\{\(\) => void share\(\)\} \/>/);
     expect(receipt).not.toMatch(/ActivityIndicator/);
+  });
+});
+
+// Decided 12 November 2026 (founder): the tabs are Home, Pay, Money, Plan and
+// Me. Business left the bar and Grow's content moved onto Money; every route
+// that pointed at either still lands somewhere.
+describe('the tabs are Home, Pay, Money, Plan and Me', () => {
+  const layout = read(join(ROOT, 'app/(tabs)/_layout.tsx'));
+  const bar = read(join(COMPONENTS, 'ui/FloatingTabBar.tsx'));
+
+  it('in that order, with Business and Grow off the bar', () => {
+    const names = [...layout.matchAll(/<MaterialTopTabs\.Screen name="([^"]+)"/g)].map((match) => match[1]);
+    expect(names).toEqual(['index', 'transfer', 'money', 'plan', 'me']);
+    for (const name of names) expect(bar, name).toMatch(new RegExp(`\\b${name}: \\{ icon:`));
+    expect(bar).not.toMatch(/business:|grow:/);
+    expect(existsSync(join(ROOT, 'app/(tabs)/business.tsx'))).toBe(false);
+    expect(existsSync(join(ROOT, 'app/(tabs)/grow.tsx'))).toBe(false);
+  });
+
+  it('Business is one tap from Me and from Pay, and an old /grow link lands on Money', () => {
+    expect(existsSync(join(ROOT, 'app/business/index.tsx'))).toBe(true);
+    expect(stripComments(read(join(ROOT, 'app/(tabs)/me.tsx')))).toMatch(/label="Business"[\s\S]{0,80}?router\.push\('\/business'\)/);
+    expect(stripComments(read(join(ROOT, 'app/(tabs)/transfer.tsx')))).toMatch(/label: 'Invoices and business'[^}]*href: '\/business'/);
+    expect(read(join(ROOT, 'app/grow/index.tsx'))).toMatch(/<Redirect href="\/\(tabs\)\/money" \/>/);
+  });
+});
+
+describe('pockets: a scan code to add, a quote before a change, and nothing shown before it has arrived', () => {
+  const pockets = stripComments(read(join(COMPONENTS, 'ui/Pockets.tsx')));
+  const money = stripComments(read(join(ROOT, 'app/(tabs)/money.tsx')));
+
+  it('the one-time code is drawn as a scan code with a copy button, and never as text', () => {
+    expect(pockets).toMatch(/<QRCode value=\{step\.deposit\.qrPayload\}/);
+    expect(pockets).toMatch(/Clipboard\.setStringAsync\(step\.deposit\.qrPayload\)/);
+    // Not in any text a person reads or hears.
+    expect(pockets).not.toMatch(/<Text\b[^>]*>[^<]*qrPayload/);
+    expect(pockets).not.toMatch(/accessibilityLabel=\{[^}]*qrPayload/);
+    // Its type, following where it has got to, the scan code and the copy button: nowhere else.
+    expect((pockets.match(/qrPayload/g) ?? []).length).toBe(4);
+    for (const source of [pockets, money]) {
+      expect(source).not.toMatch(/\.address\b|0x[0-9a-fA-F]{4,}|shortAddress/);
+    }
+  });
+
+  it('a change is quoted first, with what arrives, the least and the rate, and only then confirmed', () => {
+    expect(pockets).toMatch(/near\.prepareSwap\(/);
+    for (const label of ['About this arrives', 'At least', 'Rate']) expect(pockets).toContain(`label="${label}"`);
+    expect(pockets).toMatch(/near\.confirmSwap\(prepared/);
+  });
+
+  it('a movement is followed until it finishes, and says arrived only when it has', () => {
+    expect(pockets).toMatch(/near\.swapState\(/);
+    expect(pockets).toMatch(/near\.pocketDepositState\(/);
+    expect(pockets).toMatch(/MOVEMENT_WORDS\[state\]/);
+    expect(pockets).not.toMatch(/optimistic|setPockets/i);
+  });
+
+  it('loads as ruled rows in skeleton, and a failed read says so and offers another try', () => {
+    expect(pockets).toMatch(/export function PocketRowsSkeleton/);
+    expect(pockets).toMatch(/Nothing has changed in them/);
+    expect(pockets).toMatch(/label="Try again"/);
+    expect(pockets).not.toMatch(/ActivityIndicator|border border-line bg-card/);
+  });
+});
+
+describe('Plan reads a statement in sealed hardware, shows the proof, and invents nothing', () => {
+  const plan = stripComments(read(join(ROOT, 'app/(tabs)/plan.tsx')));
+  const proof = stripComments(read(join(COMPONENTS, 'ui/ProofPanel.tsx')));
+  const picker = stripComments(read(join(ROOT, 'lib/pick-file.ts')));
+  const words = stripComments(read(join(ROOT, 'lib/plan-words.ts')));
+
+  it('loads the document picker inside a try, asks for a PDF, and says so on a build without it', () => {
+    expect(picker).toMatch(/try \{[^}]*require\('expo-document-picker'\)[^}]*\} catch/);
+    expect(picker).toMatch(/type: 'application\/pdf'/);
+    expect(picker).toMatch(/readFileBytes\(/);
+    expect(plan).toMatch(/Reading a statement needs the updated app/);
+  });
+
+  it('a locked statement asks for its password in a sheet', () => {
+    expect(plan).toMatch(/error\.code === 'needs_password' \|\| error\.code === 'wrong_password'/);
+    expect(plan).toMatch(/<PasswordSheet/);
+  });
+
+  it('while it reads the mark turns and says where; the page itself loads as a skeleton', () => {
+    expect(plan).toMatch(/<LogoLoader/);
+    expect(plan).toMatch(/Reading in sealed hardware…/);
+    expect(plan).toMatch(/<PlanSkeleton \/>/);
+    expect(plan).not.toMatch(/ActivityIndicator/);
+  });
+
+  it('the proof lists every check with a tick or a cross, says when it was not proven, and the balance check is plain', () => {
+    expect(proof).toMatch(/proofLines\(proof\)/);
+    expect(proof).toMatch(/in sealed hardware · proof checked/);
+    expect(proof).toMatch(/did not fully check/);
+    expect(proof).toMatch(/Balanced to the kobo/);
+    expect(proof).toMatch(/a line may be missing; figures may be off/);
+    expect(proof).toMatch(/No opening or closing figure to check against/);
+  });
+
+  it('a figure that cannot be worked out says why instead of showing one', () => {
+    expect(plan).toMatch(/THIN_WORDS/);
+    expect(words).toMatch(/Read at least four weeks of statements/);
+    expect(plan).toMatch(/picture\.tax \? \(/);
+    expect(plan).toMatch(/picture\.runwayMonths !== null \? \(/);
+  });
+
+  it('"Can I afford it?" is typed on the keypad and answered from the person\'s own picture', () => {
+    expect(plan).toMatch(/<AmountSheet/);
+    expect(plan).toMatch(/affordCheck\(picture, amountMinor\)/);
+    expect(plan).not.toMatch(/\bTextInput\b/);
+  });
+
+  it('the tax figure says it is an estimate, not a filing', () => {
+    expect(plan).toMatch(/Estimate under the 2026 rules, not a filing/);
+  });
+
+  it('forgetting the statements asks first, in a sheet', () => {
+    expect(plan).toMatch(/<ConfirmSheet[\s\S]*?onConfirm=\{\(\) => void forget\(\)\}/);
+    expect(plan).toMatch(/await money\.forget\(\)/);
   });
 });

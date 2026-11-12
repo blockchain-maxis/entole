@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Share, View } from 'react-native';
 
 import { dueDateLabel, INVOICE_STATUS_LABEL, invoiceDisplayStatus } from '@entole/core/invoices';
 import { invoiceCsvFilename, invoicesToCsv } from '@entole/core/invoice-csv';
+import { invoicesToFollow, type InvoicePaymentState } from '@entole/core/invoice-pay';
 import { formatNaira, kobo } from '@entole/core/money';
 import type { Invoice } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
@@ -11,13 +12,13 @@ import { useStore } from '@entole/core/store';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Header } from '@/components/ui/Header';
-import { PauseButton } from '@/components/ui/PauseButton';
 import { SectionHeading } from '@/components/ui/Rows';
 import { TaxReserveCard } from '@/components/ui/TaxReserveCard';
 import { Screen } from '@/components/ui/Screen';
 import { RowSkeleton } from '@/components/ui/Skeleton';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { Text } from '@/components/ui/Text';
+import { useInvoicePayments } from '@/lib/invoice-payments';
 import { cadenceWord, useStaff } from '@/lib/staff';
 import { useThemeColors } from '@/lib/theme';
 import { initialsFor } from '@entole/core/profile';
@@ -56,8 +57,18 @@ function HubRow({ hub, note, onPress }: { hub: Hub; note?: string | null; onPres
   );
 }
 
-function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => void }) {
+function InvoiceRow({
+  invoice,
+  payments,
+  onPress,
+}: {
+  invoice: Invoice;
+  payments: InvoicePaymentState[];
+  onPress: () => void;
+}) {
   const status = invoiceDisplayStatus(invoice);
+  // A payment from another app that has been seen and has not arrived yet.
+  const moving = invoice.status !== 'paid' && payments.some((payment) => payment.state === 'waiting' || payment.state === 'on_its_way');
   return (
     <Pressable
       accessibilityRole="button"
@@ -72,7 +83,13 @@ function InvoiceRow({ invoice, onPress }: { invoice: Invoice; onPress: () => voi
           </Text>
           <Text numberOfLines={1} className="mt-0.5 font-body text-note text-slate">
             {invoice.reference ? `${invoice.reference} · ` : ''}
-            {status === 'paid' ? 'Paid' : `Due ${dueDateLabel(invoice.dueAt)}`}
+            {status === 'paid'
+              ? invoice.paidVia
+                ? `Paid from ${invoice.paidVia.source}`
+                : 'Paid'
+              : moving
+                ? 'A payment is on its way'
+                : `Due ${dueDateLabel(invoice.dueAt)}`}
           </Text>
         </View>
         <View className="items-end gap-1.5">
@@ -115,6 +132,8 @@ export default function Business() {
   const router = useRouter();
   const store = useStore();
   const team = useStaff();
+  // Invoices a client may be paying from another app: asked after while this is open.
+  const { paymentsFor } = useInvoicePayments(invoicesToFollow(store.invoices));
 
   const loading = store.status === 'loading';
   const owed = store.invoices.filter((invoice) => invoice.status !== 'paid');
@@ -146,7 +165,7 @@ export default function Business() {
   if (loading) {
     return (
       <Screen edges={{ bottom: false }}>
-        <Header title="Business" leading="none" trailing={<PauseButton />} />
+        <Header title="Business" />
         <View className="gap-2.5 px-5 pt-2">
           <RowSkeleton />
           <RowSkeleton />
@@ -159,7 +178,7 @@ export default function Business() {
 
   return (
     <Screen edges={{ bottom: false }}>
-      <Header title="Business" leading="none" trailing={<PauseButton />} />
+      <Header title="Business" />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         <View className="gap-2.5">
@@ -199,6 +218,7 @@ export default function Business() {
               <InvoiceRow
                 key={invoice.id}
                 invoice={invoice}
+                payments={paymentsFor(invoice)}
                 onPress={() => router.push({ pathname: '/business/invoice/[id]', params: { id: invoice.id } })}
               />
             ))

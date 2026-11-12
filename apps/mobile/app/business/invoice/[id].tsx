@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Share, View } from 'react-native';
 
 import { buildPayLink, parsePayLink } from '@entole/core/checkout-link';
+import { MOVEMENT_WORDS } from '@entole/core/intents-pockets';
 import { dueDateLabel, INVOICE_STATUS_LABEL, invoiceDisplayStatus, localDay } from '@entole/core/invoices';
 import { formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
@@ -18,6 +19,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
+import { paymentSourceWords, useInvoicePayments } from '@/lib/invoice-payments';
 import { CHECKOUT_BASE } from '@/lib/onchain';
 import { usePayUsername } from '@/lib/pay-username';
 import { plainMessage } from '@/lib/send';
@@ -27,8 +29,10 @@ const TONE = { sent: 'neutral', paid: 'settled', overdue: 'halt', draft: 'neutra
 /**
  * One invoice, with the link a client pays through. The QR and the link are the
  * same thing: whoever opens it lands on an invoice-style checkout for exactly
- * this amount. "Mark as paid" is a manual mark and says so — payments to the
- * link arrive in the balance; nothing here watches for them yet.
+ * this amount. A client who pays from another app (USDT on Tron and the like)
+ * is followed from here: the invoice is marked paid when that payment has
+ * arrived, and says where it came from. "Mark as paid" stays for everything
+ * else, a manual mark that says so.
  */
 export default function InvoiceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,6 +41,7 @@ export default function InvoiceDetail() {
   const { account } = useAccount();
   const payee = account?.displayName.trim() ?? '';
   const invoice = store.invoice(String(id));
+  const { paymentsFor } = useInvoicePayments(invoice ? [invoice] : []);
 
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -121,6 +126,8 @@ export default function InvoiceDetail() {
 
   const status = invoiceDisplayStatus(invoice);
   const paid = invoice.status === 'paid';
+  // The newest payment from another app toward this invoice, while it has not settled it.
+  const following = paid ? null : (paymentsFor(invoice)[0] ?? null);
 
   return (
     <View className="flex-1">
@@ -142,10 +149,35 @@ export default function InvoiceDetail() {
             <Text className="mt-2 font-body text-ui text-slate">{invoice.note}</Text>
             <Text tabular className="mt-1 font-body text-ui text-slate">
               {paid && invoice.paidAt
-                ? `Marked as paid on ${dueDateLabel(invoice.paidAt)}`
+                ? invoice.paidVia
+                  ? `Paid on ${dueDateLabel(invoice.paidAt)}`
+                  : `Marked as paid on ${dueDateLabel(invoice.paidAt)}`
                 : `Due ${dueDateLabel(invoice.dueAt)}`}
             </Text>
+            {paid && invoice.paidVia ? (
+              <Text className="mt-1 font-strong text-ui text-settled">Paid from {invoice.paidVia.source}</Text>
+            ) : null}
           </View>
+
+          {following ? (
+            <View
+              accessibilityRole="summary"
+              accessibilityLiveRegion="polite"
+              className="mt-5 flex-row items-center gap-2.5 border-y border-hairline px-1 py-3.5"
+            >
+              <View
+                className={`h-2.5 w-2.5 rounded-pill ${
+                  following.state === 'failed' || following.state === 'returned' ? 'bg-halt' : 'bg-caution'
+                }`}
+              />
+              <View className="min-w-0 flex-1">
+                <Text className="font-strong text-ui text-ink">{MOVEMENT_WORDS[following.state]}</Text>
+                <Text className="mt-0.5 font-body text-note text-slate">
+                  From {paymentSourceWords(following.source)}. Marked paid once it has arrived.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           <View className="mt-6 items-center rounded-card bg-card px-gutter py-7 shadow-raised">
             {link ? (
@@ -177,9 +209,9 @@ export default function InvoiceDetail() {
             <View className="mt-7 border-b border-hairline py-4">
               <Text className="font-strong text-ui text-ink">Been paid already?</Text>
               <Text className="mt-1 font-body text-note text-slate">
-                Entole doesn&apos;t match payments to invoices yet, so this is a mark you make yourself. It
-                only updates this list — no money moves. Once activity syncing is on, invoices will be
-                marked paid automatically.
+                A client who pays through the link from another app has it marked paid automatically once
+                the money arrives. For anything else, this is a mark you make yourself. It only updates this
+                list — no money moves.
               </Text>
               <View className="mt-3 flex-row">
                 <Button

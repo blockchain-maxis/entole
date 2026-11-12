@@ -1,4 +1,4 @@
-import { Briefcase, House, SendHorizontal, Sprout, User, type LucideIcon } from 'lucide-react-native';
+import { Banknote, Compass, House, SendHorizontal, User, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,8 +23,8 @@ const TAB_BAR_INSET = 41;
 const TABS: Record<string, { icon: LucideIcon; label: string }> = {
   index: { icon: House, label: 'Home' },
   transfer: { icon: SendHorizontal, label: 'Pay' },
-  business: { icon: Briefcase, label: 'Business' },
-  grow: { icon: Sprout, label: 'Grow' },
+  money: { icon: Banknote, label: 'Money' },
+  plan: { icon: Compass, label: 'Plan' },
   me: { icon: User, label: 'Me' },
 };
 

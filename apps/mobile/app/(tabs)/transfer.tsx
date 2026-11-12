@@ -1,5 +1,5 @@
 import { useRouter, type Href } from 'expo-router';
-import { ArrowDownLeft, ChevronRight, Landmark, Plus, type LucideIcon } from 'lucide-react-native';
+import { ArrowDownLeft, Briefcase, ChevronRight, Landmark, Plus, type LucideIcon } from 'lucide-react-native';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { Header } from '@/components/ui/Header';
@@ -36,6 +36,8 @@ const SOMEONE_NEW: Action = {
 const OTHER_WAYS: Action[] = [
   { label: 'Receive', caption: 'Share your link or QR code', icon: ArrowDownLeft, href: '/receive' },
   { label: 'Send to a bank account', caption: 'Opens with a payment partner soon', icon: Landmark, href: '/send/bank' },
+  // Business left the tab bar; paying staff and billing clients start here and on Me.
+  { label: 'Invoices and business', caption: 'Bill a client, pay your staff', icon: Briefcase, href: '/business' },
 ];
 
 function ActionRow({ action, onPress }: { action: Action; onPress: () => void }) {

@@ -143,8 +143,8 @@ export default function TabsLayout() {
     >
       <MaterialTopTabs.Screen name="index" options={{ title: 'Home' }} />
       <MaterialTopTabs.Screen name="transfer" options={{ title: 'Pay' }} />
-      <MaterialTopTabs.Screen name="business" options={{ title: 'Business' }} />
-      <MaterialTopTabs.Screen name="grow" options={{ title: 'Grow' }} />
+      <MaterialTopTabs.Screen name="money" options={{ title: 'Money' }} />
+      <MaterialTopTabs.Screen name="plan" options={{ title: 'Plan' }} />
       <MaterialTopTabs.Screen name="me" options={{ title: 'Me' }} />
     </MaterialTopTabs>
   );

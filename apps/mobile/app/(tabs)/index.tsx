@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { ArrowRight, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowRight, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -24,19 +24,24 @@ import {
 import { Text } from '@/components/ui/Text';
 import { greetingFor } from '@entole/core/format';
 import { toDollars } from '@entole/core/fx';
-import { formatDollars } from '@entole/core/money';
+import { useMoneyPicture } from '@entole/core/money-picture-hook';
+import { formatDollars, formatNaira, kobo } from '@entole/core/money';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
 import { useAssistant } from '@/lib/assistant';
+import { safeUntilWords } from '@/lib/plan-words';
 import { useBalanceHidden } from '@/lib/privacy';
 import { useLiveRefresh } from '@/lib/reload';
 import { useThemeColors } from '@/lib/theme';
 
 /**
- * Home, as a page that has been written on. The balance is the one figure,
- * set large on the paper with no card around it. Under it, what the assistant
- * may do for you, each allowance a sentence in the assistant's blue. Then what
- * has happened, as ruled rows. Everything you do yourself is ink.
+ * Home, as a page that has been written on. The one figure is what is safe to
+ * spend today, once Plan has a picture to work it out from, with the balance
+ * under it; until then the balance is the figure, and a quiet row leads to
+ * Plan. Either way it is set large on the paper with no card around it. Under
+ * it, what the assistant may do for you, each allowance a sentence in the
+ * assistant's blue. Then what has happened, as ruled rows. Everything you do
+ * yourself is ink.
  */
 export default function Home() {
   const router = useRouter();
@@ -47,9 +52,11 @@ export default function Home() {
   // the header, a line above.
   const greeting = greetingFor();
   const balance = useBalanceHidden();
+  const moneyPicture = useMoneyPicture();
   // The page is not known until the account has been read and the person's
-  // choice about showing the figure has been too.
-  const loading = store.status === 'loading' || !balance.ready;
+  // choice about showing the figure has been too, and until it is known which
+  // figure leads.
+  const loading = store.status === 'loading' || !balance.ready || moneyPicture.status === 'loading';
   const failed = store.status === 'failed';
   const announced = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,6 +93,8 @@ export default function Home() {
   const hasAllowances = store.allowances.length > 0;
   const waiting = !loading && assistant.enabled && Boolean(store.proposal);
   const recent = loading || failed ? [] : store.activity.slice(0, 5);
+  // Safe to spend leads only when the picture can say it honestly.
+  const safe = moneyPicture.picture?.safeToSpend ?? null;
 
   useEffect(() => {
     // The assistant is a setting: nothing is announced until it is turned on.
@@ -147,6 +156,38 @@ export default function Home() {
                   />
                 </View>
               </View>
+            ) : safe && moneyPicture.picture ? (
+              <View className="pt-1.5">
+                <Text className="font-strong text-note text-slate">Safe to spend today</Text>
+                <Figure value={kobo(safe.todayMinor)} hidden={balance.hidden} />
+                <Text className="mt-1 font-body text-ui text-slate">A day, {safeUntilWords(moneyPicture.picture)}.</Text>
+                <View className="mt-2 flex-row items-center justify-between gap-3">
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="See how this is worked out"
+                    onPress={() => router.push('/(tabs)/plan')}
+                    className="flex-1"
+                  >
+                    <Text tabular numberOfLines={1} className="font-body text-ui text-slate">
+                      Balance {balance.hidden ? '₦••••' : formatNaira(kobo(store.balance))} · about{' '}
+                      {balance.hidden ? '$••••' : formatDollars(toDollars(store.balance, store.rate))}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={balance.hidden ? 'Show balance' : 'Hide balance'}
+                    hitSlop={8}
+                    onPress={balance.toggle}
+                    className="-mr-2 h-10 w-10 items-center justify-center rounded-pill active:bg-press"
+                  >
+                    {balance.hidden ? (
+                      <EyeOff size={20} strokeWidth={1.75} color={colors.slate} />
+                    ) : (
+                      <Eye size={20} strokeWidth={1.75} color={colors.slate} />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
             ) : (
               <View className="pt-1.5">
                 <Figure value={store.balance} hidden={balance.hidden} />
@@ -168,6 +209,20 @@ export default function Home() {
                     )}
                   </Pressable>
                 </View>
+                {firstRun ? null : (
+                  // No picture yet: a quiet way to one, never a second figure.
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="See what's safe to spend. Read a statement"
+                    onPress={() => router.push('/(tabs)/plan')}
+                    className="mt-3 min-h-[44px] flex-row items-center gap-2 border-y border-hairline py-2.5 active:bg-press"
+                  >
+                    <Text className="flex-1 font-body text-ui text-ink">
+                      See what&apos;s safe to spend <Text className="text-slate">· Read a statement</Text>
+                    </Text>
+                    <ChevronRight size={16} strokeWidth={1.5} color={colors.mist} />
+                  </Pressable>
+                )}
               </View>
             )}
 
