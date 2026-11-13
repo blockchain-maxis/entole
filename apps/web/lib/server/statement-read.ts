@@ -67,7 +67,11 @@ export async function pdfTextItems(bytes: Uint8Array, password?: string): Promis
   }
 }
 
-const READ_CONCURRENCY = 4;
+// Every chunk at once: a reading is as slow as its slowest chunk, about a
+// minute for three months of lines (measured 13 Nov 2026).
+const READ_CONCURRENCY = STATEMENT_MAX_CHUNKS;
+// The route stops at 120 s; past this the person hears "too long", not a timeout.
+export const READ_DEADLINE_MS = 105_000;
 
 async function inTurns<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -103,6 +107,7 @@ export async function readStatement(
     hardware?: typeof checkHardware;
     ask?: typeof askSealed;
     answers?: typeof checkAnswers;
+    deadlineMs?: number;
   },
 ): Promise<StatementReading> {
   const { items, pages } = await pdfTextItems(input.pdf, input.password);
@@ -123,12 +128,13 @@ export async function readStatement(
   if (!hardware.modelAddresses.length || !hardware.gatewayAddress) throw new StatementReadError('not_proven');
 
   const ask = deps.ask ?? askSealed;
+  const signal = AbortSignal.timeout(deps.deadlineMs ?? READ_DEADLINE_MS);
   let answers: SealedAnswer[];
   try {
     answers = await inTurns(chunks, READ_CONCURRENCY, (chunk) =>
-      ask(config, { model, system: STATEMENT_SYSTEM_PROMPT, user: chunk, maxTokens: 8000 }));
+      ask(config, { model, system: STATEMENT_SYSTEM_PROMPT, user: chunk, maxTokens: 8000, signal }));
   } catch {
-    throw new StatementReadError('model_unavailable');
+    throw new StatementReadError(signal.aborted ? 'too_long' : 'model_unavailable');
   }
   const stamped = await (deps.answers ?? checkAnswers)(config, model, answers, hardware);
 

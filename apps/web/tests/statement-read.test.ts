@@ -112,6 +112,12 @@ describe('reading a statement', () => {
     expect(reading.reconciliation.status).toBe('off');
     expect(reading.reconciliation.differenceMinor).not.toBe(0);
   });
+
+  it('says the statement is too long, not that the reader failed, when reading runs past its time', async () => {
+    const slow = (_c: NearAiConfig, input: { signal?: AbortSignal }) =>
+      new Promise<never>((_resolve, reject) => input.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+    await expect(readStatement({ pdf: plain }, config, { ...deps, ask: slow, deadlineMs: 20 })).rejects.toMatchObject({ reason: 'too_long' });
+  });
 });
 
 describe('the statement route keeps nothing', () => {

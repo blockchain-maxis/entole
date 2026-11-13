@@ -67,7 +67,7 @@ export function rowsFromItems(items: readonly TextItem[]): string[] {
 }
 
 /** Rows split into pieces small enough for one model call each. */
-export function chunkRows(rows: readonly string[], maxChars = 5000): string[] {
+export function chunkRows(rows: readonly string[], maxChars = 1200): string[] {
   const chunks: string[] = [];
   let current = '';
   for (const row of rows) {

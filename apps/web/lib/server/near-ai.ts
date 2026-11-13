@@ -28,7 +28,9 @@ import {
  */
 
 export const NEAR_AI_BASE = 'https://cloud-api.near.ai/v1';
-export const DEFAULT_STATEMENT_MODEL = 'z-ai/glm-5.3-flash';
+// Runs in NEAR's own sealed hardware and answers without a thinking step:
+// about 21 s for 20 lines where GLM 5.3 Flash took 62 s (measured 13 Nov 2026).
+export const DEFAULT_STATEMENT_MODEL = 'deepseek-ai/DeepSeek-V4.1-Flash-1017';
 const NRAS_URL = 'https://nras.attestation.nvidia.com/v3/attest/gpu';
 
 export type NearAiConfig = { apiKey: string; base: string; statementModel: string; fetch: typeof fetch };
