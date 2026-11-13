@@ -56,8 +56,18 @@ private thing a "financial assistant" can ask to do.
    a scan code for exactly the invoice's value, and 1Click delivers USDC into
    the freelancer's Dollars pocket. The invoice is marked paid only when 1Click
    says the money arrived, and the CSV export says where it came from.
-5. **Ayo runs on Kimi through NEAR AI Cloud**, with Moonshot's own service as
-   the backup.
+5. **Ayo listens inside sealed hardware, and became a friend.** Ayo's model is
+   DeepSeek V4.1 Flash on NEAR AI Cloud, run by NEAR in sealed hardware with
+   its thinking off (median answer about 2 s), with Moonshot's Kimi as the
+   backup; the sheet says what was said was heard inside sealed hardware only when
+   the sealed model answered. It still never sees a figure: the device takes them out of the
+   history before it goes back. New in the window: a memory kept sealed on the
+   device (goals, payday, savings share, reply style, reminders), nudges worked
+   out on the device (income landed, a renewal coming, leaks rising, money
+   running short, an invoice overdue, a goal behind), a monthly check-in,
+   checked explanations (the 2026 tax bands, rent relief, pockets), and pockets
+   by voice ("change $20 to euros"). Ayo only gets each one ready; the person
+   confirms with their passkey. Scored live: 91 of 91 test conversations.
 
 **Try it** ([entole.pro](https://entole.pro), or locally below):
 
@@ -86,7 +96,7 @@ private thing a "financial assistant" can ask to do.
 `NEARAI_API_KEY` (from cloud.near.ai) and optionally `ONECLICK_API_KEY`
 (partners.near-intents.org; without it 1Click still answers, at +25 bps).
 `pnpm dev`, open http://localhost:3000. Tests: `pnpm test` (the NEAR pieces:
-`packages/core/{tee-proof,statement,money-picture,intents-pockets,assistant-picture}.test.ts`,
+`packages/core/{tee-proof,statement,money-picture,intents-pockets,assistant-picture,ayo-memory,ayo-nudges,ayo-friend,ayo-actions}.test.ts`,
 `apps/web/tests/{statement-read,pockets-routes,model-config}.test.ts`; the
 statement test reads the real sample PDFs, locked and unlocked).
 
@@ -100,7 +110,8 @@ predates this hackathon and is not part of the entry. Everything in the diff
 [`pre-hackathon...hackathon-submission`](https://github.com/blockchain-maxis/entole/compare/pre-hackathon...hackathon-submission)
 is the hackathon work. The main new files: `packages/core/{tee-proof,
 statement,money-picture,tax-ng,intents-pockets,invoice-pay,near-client,
-money-picture-hook}.ts`, `apps/web/lib/server/{near-ai,statement-read,
+money-picture-hook,pockets-link,ayo-voice,ayo-memory,ayo-nudges,ayo-checkin,
+ayo-knowledge,ayo-hook}.ts`, `apps/web/lib/server/{near-ai,statement-read,
 pockets}.ts`, `apps/web/app/api/{statement,pockets,invoice}/`, the Money and
 Plan screens in both apps, `apps/web/scripts/near-check.ts` and
 `samples/statements/make.py`.
@@ -115,8 +126,10 @@ reviewed and tested here; the sample statements are fictional, made by
 ## Try it
 
 **[entole.pro](https://entole.pro)**, in a phone browser or on a desktop. On a
-phone it can be added to the home screen and then opens like any other app. It
-runs on Monad's test network with test money; nothing in it is real money.
+phone it can be added to the home screen and then opens like any other app.
+Payments, allowances and savings run on Monad's test network with test money.
+Currency pockets, and invoices paid from another app (the NEAR section above),
+are real money on NEAR's main network.
 
 1. **Make an account.** Type a name, then confirm with your fingerprint, face
    or screen lock. That is all of it: no email, no password, nothing to write
@@ -187,7 +200,7 @@ docs/            Product, design, architecture, scope, security.
 What's real and tested:
 
 - **The policy contract, deployed to Monad testnet.**
-  `contracts/src/EntolePolicy.sol`, 47 passing tests, live at
+  `contracts/src/EntolePolicy.sol`, 48 passing tests, live at
   `0x0d57a7713123C52f2Bfa513F71Ea811f61e67C33` (version 2, 15 October 2026: the undo
   window is held by the contract, so a stolen assistant key cannot skip it). Caps,
   allow-list, per-transaction maximum, expiry, revocation (owner-signed or
@@ -217,7 +230,7 @@ What's real and tested:
   writes the proposal to a server-side inbox that runs the same undo window
   as an in-app assistant action. Unset `TELEGRAM_BOT_TOKEN` still returns
   501, the honest default. See `apps/web/app/api/telegram/webhook/route.ts`.
-- **Grow (savings and stocks).** Backed by `GrowthVault`, live on Monad
+- **Savings and stocks (on Money; once called Grow).** Backed by `GrowthVault`, live on Monad
   testnet at `0x9D904c6a9231F16913ad3A41563dCB07bF9d89bd`, 8 passing tests.
   It holds a real deposit balance and sits outside `EntolePolicy` by design;
   only the depositor can withdraw, and there is no delegate or allowance path
@@ -248,11 +261,11 @@ What's real and tested:
   a server, so the passkey alone opens it again, on the same device or
   another. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)'s "Accounts
   and auth."
-- 2346 tests passing: `packages/core` (696, plus five skipped), `apps/mobile`
-  (749), `apps/web` (839), `contracts` (54, plus four that self-skip
-  honestly; see `contracts/README.md`) and `indexer` (8), via `pnpm test`,
-  `forge test` and `pnpm --filter @entole/indexer test:handlers`. Counted on
-  13 October 2026.
+- 3322 tests passing: `packages/core` (1241, plus nine skipped),
+  `apps/mobile` (921), `apps/web` (1074), `contracts` (73, plus four that
+  self-skip honestly; see `contracts/README.md`) and `indexer` (13), via
+  `pnpm test`, `forge test` and `pnpm --filter @entole/indexer test:handlers`.
+  Counted on 13 November 2026.
 
 What's disclosed as not finished, the same way the NGN off-ramp always was:
 
@@ -264,9 +277,12 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   brings the account, its money and its payments (read from the index, so
   without the notes people wrote); saved people and allowances stay on the
   device they were made on.
-- **Everything runs on the test network.** Adding real money, savings that
-  earn and money in from other networks are written for the main network and
-  have not been used with real money.
+- **Payments run on the test network.** Adding real money, savings that earn
+  and money in from other networks are written for Monad's main network and
+  have not been used with real money. The NEAR pockets and invoice payments
+  are on NEAR's main network (it has no test network for this); dry quotes are
+  checked live, and a first real deposit, swap and invoice payment are still
+  to be made by hand.
 - **Chainlink CRE condition-gated release is wired end to end** against the
   server store: the callback route re-validates the payload, recomputes the
   FX condition itself through `releaseConditionalInvoice` (never trusting the
@@ -277,8 +293,9 @@ What's disclosed as not finished, the same way the NGN off-ramp always was:
   to a live account.
 - **Aurora Intents** — money in from USDT on Tron and USDC on Solana. The
   server side is written against the live service
-  (`packages/core/aurora-intents.ts`, `/api/aurora/deposit`); no screen offers
-  it yet and nothing has been sent through it. Main network only.
+  (`packages/core/aurora-intents.ts`, `/api/aurora/deposit`). Add money offers
+  it only in a main-network build, so entole.pro (test network) does not show
+  it, and nothing has been sent through it.
 
 ## Running it
 

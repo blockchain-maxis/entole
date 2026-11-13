@@ -29,10 +29,11 @@ product: where it touches a screen, the screen says so plainly.
   app is closed before the window ends, the run goes stale after fifteen
   minutes and nothing moves.
 - **The assistant needs a model key to understand free speech.** Without
-  `KIMI_API_KEY` it follows only the plain requests its grammar knows, and says
-  so. The model path is written and tested against the answer shapes, and has
-  not been run against the live model from this repo: there was no key to run
-  it with. `assistant-brain.live.test.ts` runs it the day there is.
+  `NEARAI_API_KEY` or `KIMI_API_KEY` it follows only the plain requests its
+  grammar knows, and says so. The live eval set was run against DeepSeek on
+  NEAR AI Cloud on 13 November 2026: 91 of 91, median 2.0 s
+  (`assistant-evals.live.test.ts`). `NEARAI_API_KEY` is not yet in Vercel, so
+  entole.pro does not use the sealed model until it is.
 - **The phone listens and speaks from its next build.** The packages are
   installed and the recognition plugin is in `app.json` (15 October 2026); the
   build itself has not been made. Until it is, the talk sheet is typed to.

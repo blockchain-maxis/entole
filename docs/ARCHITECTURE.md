@@ -218,8 +218,9 @@ in, words out: nothing in them touches the account or money.
   product never says to a person (a test enforces it).
 - **The support bot** is that same set of articles with a way to ask in your own
   words. For a question, the few best-fitting articles are found
-  (`rankArticles`) and a model (`/api/help/ask`, the same Kimi key as the
-  assistant) is told to answer only from them; with no key, or past its daily
+  (`rankArticles`) and a model (`/api/help/ask`, the same model as the
+  assistant: DeepSeek on NEAR AI Cloud when `NEARAI_API_KEY` is set, Kimi
+  otherwise) is told to answer only from them; with no key, or past its daily
   budget, the best article answers for itself. A question none of them covers
   is answered "I'm not sure", with the way to reach a person. It does not
   learn: it is grounded. It sees no account and can do nothing but answer.

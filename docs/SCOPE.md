@@ -170,7 +170,7 @@ Track: Consumer Products & Payments ($30,000).
 | Chainlink CRE | $3,000 | Condition-gated payment workflow |
 | Envio | $1,000 | HyperIndex for activity |
 | Alchemy (open to this track) | not recorded here | Network fees paid through Alchemy's bundler and Gas Manager instead of a funded sponsor key. Not built, so not claimed |
-| Kimi (open to this track) | credits | Assistant intent parsing. Claimed: since 15 October 2026 the assistant's reader and Telegram's ask Kimi (`packages/core/language-model.ts`, `kimi-k2.6` with thinking off) |
+| Kimi (open to this track) | credits | Assistant intent parsing. Claimed: since 15 October 2026 the assistant's reader and Telegram's ask Kimi (`packages/core/language-model.ts`, `kimi-k2.6` with thinking off). Since 13 November 2026 Kimi is the backup when `NEARAI_API_KEY` is set (DeepSeek on NEAR AI Cloud first) |
 | ~~Qwen~~, ~~Hunyuan~~ | credits | Not open to this track (Qwen is Track 04, Hunyuan Track 03). The reader asked Qwen until 15 October 2026; Kimi replaced it |
 
 Bounties are additive to the track prize. Claim only what is genuinely

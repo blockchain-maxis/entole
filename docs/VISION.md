@@ -142,14 +142,15 @@ Every part of the project, what it is today, and what the revamp does to it.
 | 5 | Currencies | One (AUSD) | New: pockets on NEAR Intents, swap at a 1Click quote |
 | 6 | Grow | Aave savings (env unset), `GrowthVault`, stocks browse | Folded into the friend: saving and investing driven by your numbers |
 | 7 | Business | Invoices, pay supplier, payroll import/run, flat 20% tax reserve, CSV, Chainlink CRE FX gate | Keep; invoices payable from any network via 1Click; real tax bands |
-| 8 | Ayo | Brain, actions, persona, voice, evals, inbox, Kimi, rules, Telegram intake, help bot | Gains memory and the financial profile; private model (NEAR AI Cloud, TEE) to weigh |
+| 8 | Ayo | Brain, actions, persona, voice, evals, inbox, Kimi, rules, Telegram intake, help bot | Gains memory and the financial profile; private model (NEAR AI Cloud, TEE). Done 13 Nov: DeepSeek in sealed hardware, Kimi behind it; memory, nudges, check-in, explain, pockets by voice |
 | 9 | Financial friend | Does not exist | New: PDF statement import, categories, money picture, safe to spend, small leaks, big-payment check, adaptive saving, tax, check-in |
 | 10 | Sponsor leftovers | Nansen corridor line, Chainlink CRE, Agora, Envio | Each kept only if it does a real job; Nansen's line is the weakest |
 | 11 | Surfaces | Expo phone app, web PWA, Telegram | Push notifications missing: needed for reminders |
 
-Navigation today: Home, Pay, Business, Grow, Me. Proposed: Home (safe to
-spend + Ayo), Money (pockets, add, cash out), Pay, Plan (the friend: picture,
-savings, investing, tax), Me (business switch inside). Designed before built.
+Navigation was Home, Pay, Business, Grow, Me. Since 12 November 2026 it is
+Home (safe to spend + Ayo), Pay, Money (balance, pockets, savings and stocks;
+`/grow/*` links still work), Plan (the statement, the money picture, leaks,
+"can I afford it", tax) and Me (Business inside, also reached from Pay).
 
 ### NEAR hackathon cut (see memory `near-hackathon`)
 
