@@ -1,7 +1,11 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+
 import { toDollars } from '@entole/core/fx';
 import { formatDollars } from '@entole/core/money';
+import { pocketsOpeningFrom } from '@entole/core/pockets-link';
 import { useStore } from '@entole/core/store';
 
 import { Amount } from '@/components/Amount';
@@ -52,7 +56,9 @@ export default function MoneyPage() {
           </section>
         )}
 
-        <PocketsSection />
+        <Suspense fallback={<PocketsSection />}>
+          <PocketsFromLink />
+        </Suspense>
 
         <SectionHeading title="Savings and stocks" />
         <SavingsCard />
@@ -60,4 +66,13 @@ export default function MoneyPage() {
       </div>
     </main>
   );
+}
+
+/** Pockets, with a sheet opened and filled in when the link asks for one (Ayo's "change 100 dollars to euros"). */
+function PocketsFromLink() {
+  const query = useSearchParams();
+  const link = query.toString();
+  // Keyed by the link, so asking again while already here opens the sheet again.
+  const params = new URLSearchParams(link);
+  return <PocketsSection key={link} opening={pocketsOpeningFrom((key) => params.get(key))} />;
 }

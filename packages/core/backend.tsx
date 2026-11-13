@@ -39,6 +39,8 @@ export type Backend = {
   near: NearClient;
   /** Bank statement lines read so far, sealed on the device like every record. */
   statement: Records['statement'];
+  /** What Ayo remembers: goals, preferences, nudges put away, reminders. A record like any other. */
+  memory: Records['memory'];
   /** `PAY-XXXX-…` — how this account is named to others. Null until signed in. */
   paymentCode: string | null;
 };
@@ -56,6 +58,10 @@ export const pendingBackend: Backend = {
     reads: async () => [],
     add: notSignedIn,
     clear: notSignedIn,
+  },
+  memory: {
+    list: async () => [],
+    write: notSignedIn,
   },
   source: {
     loadSnapshot: notSignedIn,

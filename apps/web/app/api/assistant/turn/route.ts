@@ -5,13 +5,14 @@ import { ASSISTANT_SCREENS } from '@entole/core/assistant-actions';
 import {
   buildTurnMessage,
   readWithModel,
+  replyStyleSchema,
   turnHistorySchema,
   TURN_MAX_AGE_SECONDS,
   TURN_TEXT_MAX,
 } from '@entole/core/assistant-brain';
 
 import { json, preflight, readJson } from '@/lib/server/http';
-import { modelConfig } from '@/lib/server/model';
+import { answeredInSealedHardware, modelConfig } from '@/lib/server/model';
 import { dailyBudget, rateLimit } from '@/lib/server/sponsor';
 
 /**
@@ -23,6 +24,10 @@ import { dailyBudget, rateLimit } from '@/lib/server/sponsor';
  * fixed vocabulary (`packages/core/assistant-actions.ts`), checked here before
  * it is returned and again on the device before anything is done. The model
  * has no key and no account: it cannot move money, and it cannot confirm.
+ *
+ * With NEAR AI Cloud configured, the model that reads it runs in sealed
+ * hardware NEAR operates, and the answer says so (`sealed`) only when that
+ * model, not its backup, answered.
  *
  * Signed by the account, so the model is not open to the whole internet. A
  * signature only proves someone holds a key, and keys are free, so what the
@@ -65,6 +70,8 @@ const requestSchema = z.object({
   text: z.string().trim().min(1).max(TURN_TEXT_MAX),
   screen: z.enum(ASSISTANT_SCREENS).optional(),
   history: turnHistorySchema.optional(),
+  /** How the person asked to be answered: english, pidgin or short. A preference, nothing about their money. */
+  style: replyStyleSchema.optional(),
 });
 
 export async function POST(request: Request) {
@@ -76,7 +83,7 @@ export async function POST(request: Request) {
 
   const parsed = requestSchema.safeParse(await readJson(request));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);
-  const { account, timestampSeconds, signature, text, screen, history } = parsed.data;
+  const { account, timestampSeconds, signature, text, screen, history, style } = parsed.data;
 
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestampSeconds) > TURN_MAX_AGE_SECONDS) return json({ error: 'stale' }, 422);
@@ -93,8 +100,9 @@ export async function POST(request: Request) {
   const today = await dailyBudget('assistant-turns', turnsPerDay());
   if (!today.ok) return tooMany(today);
 
-  const read = await readWithModel(text, config, { screen, history });
-  if (read.ok) return json({ reply: read.reply });
+  const read = await readWithModel(text, config, { screen, history, style });
+  // "Heard inside sealed hardware" is said only when it is true of the model that answered, not of a backup.
+  if (read.ok) return json({ reply: read.reply, ...(answeredInSealedHardware(config, read.model) ? { sealed: true } : {}) });
   // The model's own state, not the sentence: the app falls back to its plain
   // grammar for both, and says only that it can follow simple requests.
   if (read.why === 'busy') {

@@ -3,15 +3,21 @@ import { z } from 'zod';
 import type { AllowanceView } from './allowance';
 import { ASK_UNDO_SECONDS } from './assistant-ask';
 import { withoutName } from './assistant-persona';
+import { buildCheckin, checkinWords } from './ayo-checkin';
+import { EXPLAIN_TOPICS, explain } from './ayo-knowledge';
+import { changeMemory, EMPTY_MEMORY, PREFERENCE_KEYS, readMemory, type MemoryEntry, type ReplyStyle } from './ayo-memory';
+import { buildNudges, goalProgress, nudgeLine, type Nudge } from './ayo-nudges';
+import { dayWords, firstNameOf, lagosToday, monthsWords, pick, whenWords } from './ayo-voice';
 import { bestNameMatch } from './nigerian-names';
 import { relativeMoment } from './format';
 import type { HandleDirectory } from './handle';
-import { formatPocketAmount, type PocketCurrency } from './intents-pockets';
+import { formatPocketAmount, POCKETS, type PocketCurrency, type PocketId } from './intents-pockets';
 import { affordCheck, type MoneyPicture } from './money-picture';
 import { formatNaira, kobo } from './money';
 import { oneOffId } from './one-off';
 import { findRecipient, readRecipient } from './recipient';
-import type { Activity, Contact, Proposal } from './schemas';
+import type { Activity, Contact, Invoice, Proposal } from './schemas';
+import type { StatementLine } from './statement';
 
 /**
  * What the assistant can do in the app, and how a sentence becomes it.
@@ -93,7 +99,13 @@ export const TELL_ABOUT = [
   'picture',
   'tax',
   'pockets',
+  'goals',
+  'reminders',
+  'whats-new',
 ] as const;
+
+/** The pockets a currency change or a top-up can name. */
+const POCKET_NAMES = ['usd', 'eur', 'gbp'] as const satisfies readonly PocketId[];
 
 /** Whole naira, as a person says it. Kobo are worked out here, never by the reader. */
 const spokenAmount = z.number().positive().max(1_000_000_000);
@@ -122,6 +134,30 @@ export const assistantActionSchema = z.discriminatedUnion('do', [
   z.object({ do: z.literal('afford'), amount: spokenAmount }),
   z.object({ do: z.literal('pause') }),
   z.object({ do: z.literal('resume') }),
+  /** Something they are saving towards: a name, the amount they said, and by when if they said. */
+  z.object({
+    do: z.literal('goal'),
+    name: z.string().trim().min(1).max(40),
+    amount: spokenAmount,
+    by: z.string().trim().min(1).max(30).optional(),
+  }),
+  /** One of a fixed few preferences: payday (day of the month), savings-share (a percentage), reply-style. */
+  z.object({ do: z.literal('prefer'), key: z.enum(PREFERENCE_KEYS), value: z.string().trim().min(1).max(20) }),
+  /** A reminder, said back when the app is opened on the day. "when" is resolved on the device. */
+  z.object({ do: z.literal('remind'), what: z.string().trim().min(1).max(80), when: z.string().trim().min(1).max(30) }),
+  z.object({ do: z.literal('forget'), what: z.string().trim().min(1).max(60) }),
+  /** The monthly check-in, worked out on the device from their own lines. */
+  z.object({ do: z.literal('checkin') }),
+  /** How something works, from a fixed, checked set of explanations. Never advice. */
+  z.object({ do: z.literal('explain'), topic: z.enum(EXPLAIN_TOPICS) }),
+  /** Change between currency pockets: the sheet opens filled in, quoted first, confirmed by the person. Amount in the "from" currency. */
+  z.object({
+    do: z.literal('swap'),
+    from: z.enum(POCKET_NAMES),
+    to: z.enum(POCKET_NAMES),
+    amount: z.number().positive().max(10_000_000).optional(),
+  }),
+  z.object({ do: z.literal('add-to-pocket'), pocket: z.enum(POCKET_NAMES).optional() }),
 ]);
 
 export type AssistantAction = z.infer<typeof assistantActionSchema>;
@@ -300,6 +336,11 @@ export function readPlainRequest(input: string): AssistantReply | null {
     return { actions: [{ do: 'tell', about: 'balance' }] };
   }
 
+  // Asked of Ayo, not screens: these come before "show …" is read as a screen.
+  if (/^(?:(?:give me |do |start )?(?:my |the |a )?(?:monthly )?check[- ]?in)$/.test(lower)) return { actions: [{ do: 'checkin' }] };
+  if (/^(?:what(?:'s| is) new|anything new|what(?:'s| is) new with my money)$/.test(lower)) return { actions: [{ do: 'tell', about: 'whats-new' }] };
+  if (/^(?:(?:show |show me |what are )?my goals)$/.test(lower)) return { actions: [{ do: 'tell', about: 'goals' }] };
+  if (/^(?:(?:show |show me |what are )?my reminders)$/.test(lower)) return { actions: [{ do: 'tell', about: 'reminders' }] };
   const opened = /^(?:open|go to|show me|show|take me to|bring up)\s+(.+)$/.exec(lower);
   if (opened) {
     const screen = screenFor(opened[1]!);
@@ -362,10 +403,10 @@ export function readSmallTalk(lower: string): string | null {
     return 'You’re welcome.';
   }
   if (/^(?:who are you|what is your name|what are you called|what('s| is) your name|introduce yourself)$/.test(said)) {
-    return 'I’m Ayo. I help you get around Entole and get payments ready for you to confirm.';
+    return 'I’m Ayo. I keep an eye on your money with you, and get things ready for you to confirm.';
   }
   if (/^(?:help|help me|what can you do|what do you do|what can i say|what can i ask you|how do you work|how does this work)$/.test(said)) {
-    return 'I can open any screen, tell you your balance, and get a payment ready for you to confirm. Try saying: send five thousand to Ada.';
+    return 'I can tell you where your money stands, keep your goals and reminders, and get payments ready for you to confirm. Try saying: what\'s new, or send five thousand to Ada.';
   }
   if (/^(?:bye|goodbye|good night|see you|see you later|that is all|that's all|nothing|never mind|nevermind|cancel|stop|stop listening)$/.test(said)) {
     return 'Alright. I’m here if you need me.';
@@ -388,82 +429,201 @@ export type AssistantFacts = {
   contactName: (contactId: string) => string | undefined;
   /** The money picture from the person's own statements and activity; null until one is read. */
   picture?: MoneyPicture | null;
+  /** The lines the picture was built from, for the check-in and the nudges. */
+  lines?: readonly StatementLine[] | null;
   /** Currency pockets, when they have been read. */
   pockets?: readonly { currency: PocketCurrency; cents: number; words: string }[] | null;
+  /** What Ayo remembers (`ayo-memory.ts`), as kept. Undefined when it was not read; null when it could not be. */
+  memory?: readonly MemoryEntry[] | null;
+  invoices?: readonly Invoice[];
+  /** The person's own name, as they gave it. Only the first word is ever said. */
+  displayName?: string | null;
+  /** Which turn of the conversation this is: picks between ways of saying the same thing. */
+  turn?: number;
 };
 
-const NO_PICTURE = 'I can work that out once you read a bank statement in Plan. It stays on your phone.';
+const NO_PICTURE = 'I can work that out once you read a bank statement in Plan. It stays private to you.';
+const naira = (minor: number) => formatNaira(kobo(minor));
 
-function dayWords(day: string): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  return `${date.getUTCDate()} ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][date.getUTCMonth()]}`;
+/** How the person likes to be answered, from what Ayo remembers. */
+function styleOf(facts: AssistantFacts): ReplyStyle | null {
+  return facts.memory ? readMemory(facts.memory).replyStyle : null;
+}
+
+/** The first sentence alone for someone who asked for short answers; all of it otherwise. */
+function said(facts: AssistantFacts, ...sentences: (string | null | false | undefined)[]): string {
+  const kept = sentences.filter((sentence): sentence is string => Boolean(sentence));
+  return (styleOf(facts) === 'short' ? kept.slice(0, 1) : kept).join(' ');
+}
+
+/** Who usually pays, when one source pays monthly: "Brightloop". */
+function payer(picture: MoneyPicture): string | null {
+  const source = picture.income.sources.find((each) => each.monthly);
+  return source?.name || null;
+}
+
+/** "until 25 November, when Brightloop usually pays", or the month's end without a payday. */
+function untilWords(picture: MoneyPicture): string {
+  if (!picture.safeToSpend?.untilIncome || !picture.income.nextExpected) return 'until the end of the month';
+  const who = payer(picture);
+  return `until ${dayWords(picture.income.nextExpected)}, when ${who ? `${who} usually pays` : 'money usually comes in'}`;
 }
 
 /** The money picture, in a sentence or two. Every figure is the person's own. */
-function tellPicture(about: 'safe-to-spend' | 'leaks' | 'subscriptions' | 'picture' | 'tax', picture: MoneyPicture | null | undefined): string {
+function tellPicture(about: 'safe-to-spend' | 'leaks' | 'subscriptions' | 'picture' | 'tax', facts: AssistantFacts): string {
+  const picture = facts.picture;
+  const turn = facts.turn ?? 0;
   if (!picture) return NO_PICTURE;
-  const naira = (minor: number) => formatNaira(kobo(minor));
   if (about === 'safe-to-spend') {
     const safe = picture.safeToSpend;
-    if (!safe) return 'I need at least four weeks of statements to say what is safe to spend.';
-    const until = safe.untilIncome && picture.income.nextExpected ? `until ${dayWords(picture.income.nextExpected)}, when money usually comes in` : 'until the end of the month';
-    return `About ${naira(safe.todayMinor)} a day is safe to spend ${until}, with your bills, savings and tax set aside.`;
+    if (!safe) return 'I need at least four weeks of statements before I can say what is safe to spend.';
+    const day = naira(safe.todayMinor);
+    const until = untilWords(picture);
+    return said(
+      facts,
+      pick([`About ${day} a day is safe to spend ${until}.`, `You can spend about ${day} a day ${until}.`, `Keep it to about ${day} a day ${until} and you're fine.`], turn),
+      'That is after your bills, savings and tax are set aside.',
+    );
   }
   if (about === 'leaks') {
     const leaks = picture.leaks;
-    if (!leaks.count) return 'No small payments stand out in your last month.';
+    if (!leaks.count) return 'No small payments stand out in your last month. Nice and tidy.';
     const share = leaks.shareOfIncomeBps !== null ? `, about ${Math.round(leaks.shareOfIncomeBps / 100)}% of a month's income` : '';
-    const top = leaks.top[0] ? ` Most of it went to ${leaks.top[0].name}.` : '';
-    return `In the last ${leaks.days} days, ${leaks.count} small payments added up to ${naira(leaks.totalMinor)}${share}.${top}`;
+    const top = leaks.top[0] ? pick([`Most of it went to ${leaks.top[0].name}.`, `${leaks.top[0].name} took the most.`], turn) : null;
+    return said(
+      facts,
+      pick(
+        [
+          `In the last ${leaks.days} days, ${leaks.count} small payments added up to ${naira(leaks.totalMinor)}${share}.`,
+          `${leaks.count} small payments in ${leaks.days} days came to ${naira(leaks.totalMinor)}${share}.`,
+        ],
+        turn,
+      ),
+      top,
+    );
   }
   if (about === 'subscriptions') {
     const subs = picture.subscriptions;
     if (!subs.count) return 'I do not see any monthly subscriptions in your statements.';
-    const names = subs.items.slice(0, 3).map((item) => item.name).join(', ');
-    return `You pay ${subs.count} ${subs.count === 1 ? 'subscription' : 'subscriptions'}, ${naira(subs.monthlyMinor)} a month: ${names}.`;
+    if (subs.count === 1) return `You pay for one subscription, ${subs.items[0]!.name}, about ${naira(subs.monthlyMinor)} a month.`;
+    const names = subs.items.slice(0, 3).map((item) => item.name);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+    return said(facts, `You pay for ${subs.count} subscriptions, ${naira(subs.monthlyMinor)} a month together.`, `The biggest are ${list}.`);
   }
   if (about === 'tax') {
     if (!picture.tax) return 'I need a few weeks of income in your statements to estimate tax.';
-    return `On this income, tax comes to about ${naira(picture.tax.monthlyTaxMinor)} a month under the 2026 rules. That is an estimate, not a filing.`;
+    return said(
+      facts,
+      `On this income, tax comes to about ${naira(picture.tax.monthlyTaxMinor)} a month under the 2026 rules, around ${Math.round(picture.tax.effectiveBps / 100)}% of what you earn.`,
+      'It is an estimate to plan with, not a filing.',
+    );
   }
-  const runway = picture.runwayMonths !== null ? ` Your money would last about ${picture.runwayMonths} months at your usual spending.` : '';
-  return `About ${naira(picture.income.monthlyMinor)} comes in and ${naira(picture.out.monthlyMinor)} goes out in a usual month.${runway}`;
+  const net = picture.netMonthlyMinor;
+  const kept = net >= 0 ? `so you keep about ${naira(net)}` : `so about ${naira(-net)} more goes out than comes in`;
+  const runway = picture.runwayMonths !== null ? `At that pace, what you have lasts ${monthsWords(picture.runwayMonths)}.` : null;
+  return said(facts, `In a usual month about ${naira(picture.income.monthlyMinor)} comes in and ${naira(picture.out.monthlyMinor)} goes out, ${kept}.`, runway);
 }
 
 /** "Can I afford it?", answered from the picture. */
-export function tellAfford(amountMinor: number, picture: MoneyPicture | null | undefined): string {
+export function tellAfford(amountMinor: number, picture: MoneyPicture | null | undefined, turn = 0): string {
   if (!picture) return NO_PICTURE;
   const check = affordCheck(picture, amountMinor);
   if (!check) return 'I need at least four weeks of statements to answer that.';
   const amount = formatNaira(kobo(amountMinor));
+  const back = check.daysToEarnBack !== null ? ` You'd earn it back in about ${check.daysToEarnBack} days.` : '';
   if (check.verdict === 'not-now') {
-    return `Not right now. ${amount} would eat into ${formatNaira(kobo(check.shortByMinor))} you need for bills and savings before money comes in.`;
+    const wait = picture.income.nextExpected ? ` If it can wait until ${dayWords(picture.income.nextExpected)}, it gets much easier.` : '';
+    return `Not right now. ${amount} would dip into ${formatNaira(kobo(check.shortByMinor))} you need for bills and savings before money comes in.${wait}`;
   }
-  const back = check.daysToEarnBack !== null ? ` You would earn it back in about ${check.daysToEarnBack} days.` : '';
-  if (check.verdict === 'tight') return `You can, but it is tight: your money would last about ${check.runwayAfter} months after it.${back}`;
-  return `Yes. After ${amount} your money still lasts about ${check.runwayAfter} months.${back}`;
+  const runway = check.runwayAfter !== null ? monthsWords(check.runwayAfter) : null;
+  if (check.verdict === 'tight') {
+    return `You can, but it's tight.${runway ? ` After it, your money lasts ${runway}.` : ''}${back}`;
+  }
+  return `${pick(['Yes, you can.', 'Yes, that is fine.'], turn)}${runway ? ` After ${amount} your money still lasts ${runway}.` : ''}${back}`;
+}
+
+/** Goals, each with how far along it is when savings can say. */
+function tellGoals(facts: AssistantFacts, today: string): string {
+  const goals = readMemory(facts.memory ?? []).goals;
+  if (!goals.length) return 'You have not set a goal yet. Tell me what you are saving for and by when, and I will keep track.';
+  return goals
+    .slice(0, 3)
+    .map((goal) => {
+      const by = goal.by ? `, by ${dayWords(goal.by)}` : '';
+      if (facts.savingsMinor === null) return `${goal.name}: ${naira(goal.amountMinor)}${by}.`;
+      const progress = goalProgress(goal, facts.savingsMinor, today);
+      if (progress.reached) return `${goal.name}: all ${naira(goal.amountMinor)} put aside. Done.`;
+      return `${goal.name}: ${naira(progress.savedMinor)} of ${naira(goal.amountMinor)}${by}.`;
+    })
+    .join(' ');
+}
+
+function tellReminders(facts: AssistantFacts, today: string): string {
+  const open = readMemory(facts.memory ?? [])
+    .reminders.filter((reminder) => !reminder.done)
+    .sort((a, b) => a.due.localeCompare(b.due));
+  if (!open.length) return 'No reminders right now.';
+  const each = open.slice(0, 3).map((reminder) => `${reminder.what}, ${whenWords(reminder.due, today)}`);
+  const more = open.length > 3 ? ` And ${open.length - 3} more.` : '';
+  return `${open.length === 1 ? 'One reminder' : `${open.length} reminders`}: ${each.join('; ')}.${more}`;
+}
+
+/** The nudges for today, from everything the facts hold. */
+export function nudgesFrom(facts: AssistantFacts, now = new Date()): Nudge[] {
+  return buildNudges({
+    today: lagosToday(now),
+    picture: facts.picture ?? null,
+    lines: facts.lines ?? null,
+    balanceMinor: facts.balanceMinor,
+    savingsMinor: facts.savingsMinor,
+    invoices: facts.invoices ?? [],
+    memory: facts.memory ? readMemory(facts.memory) : EMPTY_MEMORY,
+  });
 }
 
 /** A fact, in a sentence a person would say. Every figure is the app's own. */
 export function tellAbout(about: Extract<AssistantAction, { do: 'tell' }>['about'], facts: AssistantFacts, now = new Date()): string {
+  const turn = facts.turn ?? 0;
+  const today = lagosToday(now);
   if (about === 'safe-to-spend' || about === 'leaks' || about === 'subscriptions' || about === 'picture' || about === 'tax') {
-    return tellPicture(about, facts.picture);
+    return tellPicture(about, facts);
+  }
+  if (about === 'goals') return tellGoals(facts, today);
+  if (about === 'reminders') return tellReminders(facts, today);
+  if (about === 'whats-new') {
+    const nudges = nudgesFrom(facts, now);
+    if (!nudges.length) return pick(['Nothing needs you right now. You are all good.', 'All quiet. Nothing needs you today.'], turn);
+    const name = firstNameOf(facts.displayName);
+    const lead = nudges.length > 1 ? `${name ? `${name}, ` : ''}${nudges.length === 2 ? 'Two' : 'Three'} things.` : null;
+    // The offer, when there is one, is the first nudge's, asked last so a yes answers it.
+    const [first, ...rest] = nudges;
+    return said(facts, lead, ...rest.map((nudge) => nudge.text), nudgeLine(first!));
   }
   if (about === 'pockets') {
     const held = (facts.pockets ?? []).filter((pocket) => pocket.cents > 0);
     if (!facts.pockets) return 'I could not read your currency pockets just now.';
-    if (!held.length) return 'Your currency pockets are empty.';
-    return `You hold ${held.map((pocket) => formatPocketAmount(pocket.cents, pocket.currency)).join(', ')}.`;
+    if (!held.length) return 'Your currency pockets are empty. Say add dollars and I will open it.';
+    const amounts = held.map((pocket) => formatPocketAmount(pocket.cents, pocket.currency));
+    const list = amounts.length > 1 ? `${amounts.slice(0, -1).join(', ')} and ${amounts.at(-1)}` : amounts[0];
+    return pick([`You hold ${list}.`, `In your pockets: ${list}.`], turn);
   }
-  if (about === 'balance') return `You have ${formatNaira(kobo(facts.balanceMinor))}.`;
-  if (about === 'username') return facts.username ? `Your username is @${facts.username}.` : 'You have not chosen a username yet.';
+  if (about === 'balance') {
+    const amount = formatNaira(kobo(facts.balanceMinor));
+    const first = pick([`You have ${amount}.`, `You've got ${amount} in your account.`, `${amount}, right now.`], turn);
+    const safe = facts.picture?.safeToSpend;
+    const relate = safe && facts.picture ? `About ${naira(safe.todayMinor)} a day of it is safe to spend ${untilWords(facts.picture)}.` : null;
+    return said(facts, first, relate);
+  }
+  if (about === 'username') return facts.username ? `Your username is @${facts.username}. People can pay you with it.` : 'You have not chosen a username yet.';
   if (about === 'savings') {
-    return facts.savingsMinor && facts.savingsMinor > 0
-      ? `You have ${formatNaira(kobo(facts.savingsMinor))} in savings.`
-      : 'There is nothing in savings yet.';
+    if (!facts.savingsMinor || facts.savingsMinor <= 0) return 'There is nothing in savings yet. Say save five thousand and I will open it.';
+    const goal = readMemory(facts.memory ?? []).goals.find((each) => each.by) ?? null;
+    const progress = goal ? goalProgress(goal, facts.savingsMinor, today) : null;
+    const relate = goal && progress && !progress.reached ? `${naira(progress.savedMinor)} of that is towards ${goal.name}.` : null;
+    return said(facts, pick([`You have ${naira(facts.savingsMinor)} in savings.`, `${naira(facts.savingsMinor)} is put aside in savings.`], turn), relate);
   }
   if (about === 'allowances') {
-    if (facts.allowances.length === 0) return 'The assistant has no allowance yet, so it cannot pay anyone on its own.';
+    if (facts.allowances.length === 0) return 'I have no allowance yet, so I cannot pay anyone on my own. Everything waits for you.';
     return facts.allowances
       .slice(0, 3)
       .map((allowance) => {
@@ -482,7 +642,7 @@ export function tellAbout(about: Extract<AssistantAction, { do: 'tell' }>['about
       const when = relativeMoment(entry.at, now);
       if (entry.direction === 'in') return `${who} sent you ${amount}, ${when}.`;
       return entry.initiatedBy === 'assistant'
-        ? `The assistant sent ${amount} to ${who}, ${when}.`
+        ? `I paid ${who} ${amount} from their allowance, ${when}.`
         : `You sent ${amount} to ${who}, ${when}.`;
     })
     .join(' ');
@@ -524,7 +684,7 @@ export function findSavedPayee(spoken: string, contacts: readonly Contact[]): Pa
  * balance" lands on Home with the figure in front of them as well as in their
  * ear.
  */
-const FACT_SCREEN: Record<Extract<AssistantAction, { do: 'tell' }>['about'], AssistantScreen> = {
+const FACT_SCREEN: Record<Extract<AssistantAction, { do: 'tell' }>['about'], AssistantScreen | null> = {
   balance: 'home',
   recent: 'activity',
   allowances: 'home',
@@ -536,6 +696,10 @@ const FACT_SCREEN: Record<Extract<AssistantAction, { do: 'tell' }>['about'], Ass
   picture: 'plan',
   tax: 'plan',
   pockets: 'money',
+  // Said where the person is: the conversation goes on, and a yes can follow.
+  goals: null,
+  reminders: null,
+  'whats-new': null,
 };
 
 /** What the app does next. Each app turns these into its own navigation. */
@@ -549,7 +713,20 @@ export type AssistantStep =
   | { kind: 'request'; amountMinor?: number }
   | { kind: 'savings'; mode: 'deposit' | 'withdraw'; amountMinor?: number }
   | { kind: 'bill'; category?: string; amountMinor?: number }
-  | { kind: 'pause'; paused: boolean };
+  | { kind: 'pause'; paused: boolean }
+  /** Money's Change currency sheet, filled in. It quotes first; the person confirms. Amount in the "from" pocket's cents. */
+  | { kind: 'swap'; from: PocketId; to: PocketId; amountCents?: number }
+  | { kind: 'add-to-pocket'; pocket?: PocketId }
+  /** What Ayo remembers, as it now stands: the app keeps this list (`backend.memory.write`). */
+  | { kind: 'remember'; entries: MemoryEntry[] }
+  /**
+   * Something offered, not done: the app holds it, and a yes on the next turn
+   * carries it out (`answerOffer`). A no puts the nudge away.
+   */
+  | { kind: 'offer'; step: AssistantStep; nudgeId: string | null };
+
+/** A question Ayo asked and is waiting on: "Want me to put ₦50,000 aside?" */
+export type PendingOffer = { step: AssistantStep; nudgeId: string | null };
 
 export type AssistantAccount = {
   contacts: readonly Contact[];
@@ -645,6 +822,137 @@ export async function planPayment(
   ];
 }
 
+const pocketWords = (id: PocketId) => POCKETS.find((pocket) => pocket.id === id)!.words.toLowerCase();
+const pocketCurrency = (id: PocketId) => POCKETS.find((pocket) => pocket.id === id)!.currency;
+
+/** What is said for a step when nothing truer was said: someone talking is not looking. */
+export function stepWords(step: AssistantStep, turn = 0): string | null {
+  if (step.kind === 'open') return pick([`Opening ${SCREEN_NAMES[step.screen]}.`, `Here's ${SCREEN_NAMES[step.screen]}.`], turn);
+  if (step.kind === 'request') {
+    return step.amountMinor !== undefined ? `Here is your link, asking for ${formatNaira(kobo(step.amountMinor))}.` : 'Here is how you get paid.';
+  }
+  if (step.kind === 'savings') {
+    const filled = step.amountMinor !== undefined ? `, with ${formatNaira(kobo(step.amountMinor))} filled in` : '';
+    return step.mode === 'deposit' ? `Here is savings${filled}. You confirm what goes in.` : `Here is savings${filled}. You confirm what comes out.`;
+  }
+  if (step.kind === 'bill') {
+    if (!step.category) return 'Here are your bills.';
+    return step.amountMinor !== undefined
+      ? `Here is that bill, for ${formatNaira(kobo(step.amountMinor))}. Add the account number, then confirm it yourself.`
+      : 'Here is that bill. Add the account number and the amount, then confirm it yourself.';
+  }
+  if (step.kind === 'swap') {
+    const amount = step.amountCents !== undefined ? `, for ${formatPocketAmount(step.amountCents, pocketCurrency(step.from))}` : '';
+    return `Here is the change from ${pocketWords(step.from)} to ${pocketWords(step.to)}${amount}. You will see the quote first, then you confirm it.`;
+  }
+  if (step.kind === 'add-to-pocket') {
+    return step.pocket
+      ? `Here is Add to a pocket, for ${pocketWords(step.pocket)}. Pick where it is coming from and you get a code to pay in.`
+      : 'Here is Add to a pocket. Pick the currency and where it is coming from.';
+  }
+  return null;
+}
+
+/** A yes or a no to something Ayo just offered, in English or Pidgin. Null for anything else. */
+export function readAnswer(text: string): 'yes' | 'no' | null {
+  const said = withoutName(text).toLowerCase().replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/^(?:yes|yeah|yep|yup|sure|ok|okay|alright|go ahead|do it|please do|yes please|yes do it|ok do it|okay do it|sure go ahead|abeg do am|do am|oya|oya do am|make we do am|sharp|why not|let's do it|lets do it|go on)$/.test(said)) return 'yes';
+  if (/^(?:no|nope|nah|not now|later|maybe later|no thanks|no thank you|leave it|skip|skip it|don't|do not|abeg no|no be now|leave am|no o|not today)$/.test(said)) return 'no';
+  return null;
+}
+
+/** What a yes or a no to an offer comes to. A yes only opens or gets ready, like anything else; a no keeps the nudge away. */
+export function answerOffer(
+  answer: 'yes' | 'no',
+  offer: PendingOffer,
+  context: { memory?: readonly MemoryEntry[] | null; now?: Date; turn?: number } = {},
+): AssistantStep[] {
+  const turn = context.turn ?? 0;
+  if (answer === 'yes') return [offer.step, { kind: 'say', text: stepWords(offer.step, turn) ?? 'Here it is.' }];
+  const steps: AssistantStep[] = [];
+  if (offer.nudgeId && context.memory) {
+    const outcome = changeMemory(context.memory, { kind: 'dismiss', id: offer.nudgeId }, {
+      now: context.now ?? new Date(),
+      today: lagosToday(context.now ?? new Date()),
+      savingsMinor: null,
+    });
+    if (outcome.ok) steps.push({ kind: 'remember', entries: outcome.entries });
+  }
+  steps.push({ kind: 'say', text: pick(['Okay, I will leave it.', 'No problem. I will not bring it up again.', 'Alright, another time.'], turn) });
+  return steps;
+}
+
+const ordinal = (day: number) => `${day}${day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'}`;
+
+type MemoryAction = Extract<AssistantAction, { do: 'goal' | 'prefer' | 'remind' | 'forget' }>;
+
+/** One memory action, kept, and what Ayo says about it. */
+function planMemory(action: MemoryAction, memory: readonly MemoryEntry[], facts: AssistantFacts, now: Date): { entries: MemoryEntry[] | null; text: string } {
+  const today = lagosToday(now);
+  const context = { now, today, savingsMinor: facts.savingsMinor };
+  if (action.do === 'goal') {
+    const amountMinor = toMinor(action.amount);
+    if (amountMinor === undefined) return { entries: null, text: 'How much is the goal?' };
+    const outcome = changeMemory(memory, { kind: 'goal', name: action.name, amountMinor, by: action.by }, context);
+    if (!outcome.ok) {
+      if (outcome.why === 'bad-when') return { entries: null, text: 'By when? Say a month or a date, like by March.' };
+      if (outcome.why === 'too-many') return { entries: null, text: 'You have a lot of goals already. Let go of one first, then I can add this.' };
+      return { entries: null, text: 'I could not keep that name. Say it another way?' };
+    }
+    if (outcome.kept !== 'goal') return { entries: null, text: '' };
+    const goal = outcome.goal;
+    const amount = formatNaira(kobo(goal.amountMinor));
+    if (!goal.by) return { entries: outcome.entries, text: `Got it: ${goal.name}, ${amount}. I will keep track of it.` };
+    const progress = facts.savingsMinor !== null ? goalProgress(goal, facts.savingsMinor, today) : null;
+    const monthly = progress?.monthlyNeedMinor && progress.monthsLeft !== null && progress.monthsLeft >= 1
+      ? ` That is about ${formatNaira(kobo(progress.monthlyNeedMinor))} a month.`
+      : '';
+    return { entries: outcome.entries, text: `Got it: ${goal.name}, ${amount} by ${dayWords(goal.by)}.${monthly} I will keep track.` };
+  }
+  if (action.do === 'prefer') {
+    const outcome = changeMemory(memory, { kind: 'prefer', key: action.key, value: action.value }, context);
+    if (!outcome.ok) {
+      return {
+        entries: null,
+        text: action.key === 'payday'
+          ? 'Which day of the month does your pay usually come in?'
+          : action.key === 'savings-share'
+            ? 'Say a share between 1 and 50 percent.'
+            : 'I can answer in plain English, in Pidgin, or short.',
+      };
+    }
+    if (outcome.kept !== 'pref') return { entries: null, text: '' };
+    const value = outcome.value;
+    const text = action.key === 'payday'
+      ? `Okay, payday is the ${ordinal(value as number)}. I will plan around it.`
+      : action.key === 'savings-share'
+        ? `Okay. When money comes in, I will offer ${(value as number) / 100}% of it to savings.`
+        : value === 'pidgin'
+          ? 'No wahala. I will talk Pidgin where I can, and keep the figures plain.'
+          : value === 'short'
+            ? 'Okay, I will keep it short.'
+            : 'Okay, plain English it is.';
+    return { entries: outcome.entries, text };
+  }
+  if (action.do === 'remind') {
+    const outcome = changeMemory(memory, { kind: 'remind', what: action.what, when: action.when }, context);
+    if (!outcome.ok) {
+      if (outcome.why === 'bad-when') return { entries: null, text: 'When should I remind you? Say a day, like tomorrow or Friday.' };
+      if (outcome.why === 'too-many') return { entries: null, text: 'You have a lot of reminders open. Clear one first.' };
+      return { entries: null, text: 'I could not keep that one. Say it another way?' };
+    }
+    if (outcome.kept !== 'reminder') return { entries: null, text: '' };
+    const { reminder } = outcome;
+    return { entries: outcome.entries, text: `Okay. I will bring it up when you open Entole ${whenWords(reminder.due, today)}: ${reminder.what}.` };
+  }
+  const outcome = changeMemory(memory, { kind: 'forget', what: action.what }, context);
+  if (!outcome.ok) {
+    if (outcome.why === 'several') return { entries: null, text: `Which one: ${(outcome.names ?? []).join(' or ')}?` };
+    return { entries: null, text: 'I do not have anything saved by that name.' };
+  }
+  return { entries: outcome.entries, text: `Done. I have let go of ${outcome.kept === 'forgot' ? outcome.names.join(' and ') : 'it'}.` };
+}
+
 /**
  * Everything a reply asks for, as steps, in order. Facts are spoken from
  * `facts`; a payment is planned against the account as it stands. What the
@@ -660,15 +968,28 @@ export async function planReply(
   },
 ): Promise<AssistantStep[]> {
   const steps: AssistantStep[] = [];
+  const now = new Date((deps.now ?? Date.now)());
+  const turn = facts.turn ?? 0;
+  // Memory changes in this reply build on each other.
+  let memory = facts.memory;
+  /** The facts as they stand after anything remembered in this reply. */
+  const current = (): AssistantFacts => ({ ...facts, memory });
+  const offerTop = () => {
+    const top = nudgesFrom(current(), now).find((nudge) => nudge.action);
+    if (top?.action) steps.push({ kind: 'offer', step: top.action.step, nudgeId: top.id });
+  };
+
   for (const action of reply.actions) {
     if (action.do === 'open') steps.push({ kind: 'open', screen: action.screen });
     else if (action.do === 'tell') {
-      if (!deps.stay) steps.push({ kind: 'open', screen: FACT_SCREEN[action.about] });
-      steps.push({ kind: 'say', text: tellAbout(action.about, facts) });
+      const screen = FACT_SCREEN[action.about];
+      if (!deps.stay && screen) steps.push({ kind: 'open', screen });
+      steps.push({ kind: 'say', text: tellAbout(action.about, current(), now) });
+      if (action.about === 'whats-new') offerTop();
     }
     else if (action.do === 'afford') {
       if (!deps.stay) steps.push({ kind: 'open', screen: 'plan' });
-      steps.push({ kind: 'say', text: tellAfford(Math.round(action.amount * 100), facts.picture) });
+      steps.push({ kind: 'say', text: tellAfford(toMinor(action.amount) ?? 0, facts.picture, turn) });
     }
     else if (action.do === 'pay') steps.push(...(await planPayment(action, account, deps)));
     else if (action.do === 'request') {
@@ -688,6 +1009,33 @@ export async function planReply(
         ...(action.kind ? { category: action.kind } : {}),
         ...(amountMinor !== undefined ? { amountMinor } : {}),
       });
+    } else if (action.do === 'goal' || action.do === 'prefer' || action.do === 'remind' || action.do === 'forget') {
+      if (!memory) {
+        steps.push({ kind: 'say', text: 'I could not reach what I remember just now, so nothing was saved. Try again in a moment.' });
+        continue;
+      }
+      const planned = planMemory(action, memory, current(), now);
+      if (planned.entries) {
+        memory = planned.entries;
+        steps.push({ kind: 'remember', entries: planned.entries });
+      }
+      if (planned.text) steps.push({ kind: 'say', text: planned.text });
+    } else if (action.do === 'checkin') {
+      const nudges = nudgesFrom(current(), now);
+      const checkin = facts.lines?.length ? buildCheckin(facts.lines, lagosToday(now)) : null;
+      steps.push({ kind: 'say', text: checkinWords(checkin, nudges[0] ?? null) });
+      if (checkin && nudges[0]?.action) steps.push({ kind: 'offer', step: nudges[0].action.step, nudgeId: nudges[0].id });
+    } else if (action.do === 'explain') {
+      steps.push({ kind: 'say', text: explain(action.topic) });
+    } else if (action.do === 'swap') {
+      if (action.from === action.to) {
+        steps.push({ kind: 'say', text: 'Those are the same currency. Which one should it become?' });
+        continue;
+      }
+      const amountCents = toMinor(action.amount);
+      steps.push({ kind: 'swap', from: action.from, to: action.to, ...(amountCents !== undefined ? { amountCents } : {}) });
+    } else if (action.do === 'add-to-pocket') {
+      steps.push({ kind: 'add-to-pocket', ...(action.pocket ? { pocket: action.pocket } : {}) });
     }
     else steps.push({ kind: 'pause', paused: action.do === 'pause' });
   }
@@ -696,25 +1044,8 @@ export async function planReply(
   const spoke = steps.some((step) => step.kind === 'say');
   if (!spoke && reply.say) steps.unshift({ kind: 'say', text: reply.say });
   else if (!spoke) {
-    const first = steps[0];
-    const words =
-      first?.kind === 'open'
-        ? `Opening ${SCREEN_NAMES[first.screen]}.`
-        : first?.kind === 'request'
-          ? first.amountMinor !== undefined
-            ? `Here is your link, asking for ${formatNaira(kobo(first.amountMinor))}.`
-            : 'Here is how you get paid.'
-          : first?.kind === 'savings'
-            ? first.mode === 'deposit'
-              ? 'Here is savings. You confirm what goes in.'
-              : 'Here is savings. You confirm what comes out.'
-            : first?.kind === 'bill'
-              ? first.category
-                ? first.amountMinor !== undefined
-                  ? `Here is that bill, for ${formatNaira(kobo(first.amountMinor))}. Add the account number, then confirm it yourself.`
-                  : 'Here is that bill. Add the account number and the amount, then confirm it yourself.'
-                : 'Here are your bills.'
-              : null;
+    const first = steps.find((step) => step.kind !== 'remember' && step.kind !== 'offer');
+    const words = first ? stepWords(first, turn) : null;
     if (words) steps.unshift({ kind: 'say', text: words });
   }
   return steps;
@@ -722,6 +1053,10 @@ export async function planReply(
 
 /** Whether a reply needs the money picture, so it is only built when it is asked about. */
 export function asksPicture(reply: AssistantReply): boolean {
-  return reply.actions.some((action) =>
-    action.do === 'afford' || (action.do === 'tell' && ['safe-to-spend', 'leaks', 'subscriptions', 'picture', 'tax'].includes(action.about)));
+  return reply.actions.some(
+    (action) =>
+      action.do === 'afford' ||
+      action.do === 'checkin' ||
+      (action.do === 'tell' && ['balance', 'safe-to-spend', 'leaks', 'subscriptions', 'picture', 'tax', 'whats-new'].includes(action.about)),
+  );
 }

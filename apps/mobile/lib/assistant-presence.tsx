@@ -9,7 +9,7 @@ import { useStore } from '@entole/core/store';
 
 import { useAccount } from './account';
 import { useAssistant } from './assistant';
-import { useAssistantRunner } from './assistant-run';
+import { useAssistantRunner, useAyoOpening } from './assistant-run';
 import { onConfirmation } from './confirm-announce';
 import type { Phase } from './conversation';
 import { presence } from './presence-engine';
@@ -73,6 +73,8 @@ export function AssistantPresenceProvider({ children }: { children: React.ReactN
   const { account } = useAccount();
   const { talking } = useAssistant();
   const run = useAssistantRunner();
+  const opening = useAyoOpening();
+  const openingRef = useRef(opening);
   const store = useStore();
   const signedIn = Boolean(account);
 
@@ -92,7 +94,8 @@ export function AssistantPresenceProvider({ children }: { children: React.ReactN
   useEffect(() => {
     talkingRef.current = talking;
     firstNameRef.current = firstName;
-  }, [talking, firstName]);
+    openingRef.current = opening;
+  }, [talking, firstName, opening]);
 
   const voiceReady = canListen();
 
@@ -160,8 +163,11 @@ export function AssistantPresenceProvider({ children }: { children: React.ReactN
   useEffect(() => {
     if (!live || !wake) return;
     // Open, and say hello once per run of the app: someone arriving, not a setting changing.
-    void presence.ensureEars().then((open) => {
-      if (open) presence.greetOnce(welcomeLine('launch', firstNameRef.current, greetingFor()));
+    // With something worth saying today, Ayo opens with it ("Morning, Evan. Brightloop paid…"); otherwise a plain hello.
+    void presence.ensureEars().then(async (open) => {
+      if (!open) return;
+      const nudge = await openingRef.current({ onlyWithNudge: true }).catch(() => null);
+      presence.greetOnce(nudge ?? welcomeLine('launch', firstNameRef.current, greetingFor()));
     });
     return () => presence.shutDown();
   }, [live, wake]);

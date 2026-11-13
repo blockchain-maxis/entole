@@ -77,6 +77,7 @@ export function AssistantTalkSheet() {
     setup,
     getListening,
     dismissSetup,
+    sealed,
     problem,
     startListening,
     stopListening,
@@ -230,6 +231,8 @@ export function AssistantTalkSheet() {
 
         <p className="mt-3 flex-none text-pretty font-body text-note text-slate">
           It opens screens and gets things ready. Anything that moves your money, you confirm yourself.
+          {/* Said only when the server says the model that answered runs in sealed hardware. */}
+          {sealed ? ' What you said was heard inside sealed hardware, and it is never shown your figures.' : null}
         </p>
       </div>
     </div>

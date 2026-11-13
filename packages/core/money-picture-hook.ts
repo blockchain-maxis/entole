@@ -109,10 +109,23 @@ export async function readMoneyPicture(
   backend: Pick<ReturnType<typeof useBackend>, 'statement'>,
   store: Pick<ReturnType<typeof useStore>, 'activity' | 'contacts' | 'balance' | 'status'>,
 ): Promise<MoneyPicture | null> {
+  return (await readMoneyView(backend, store)).picture;
+}
+
+/**
+ * The picture and the lines it was built from (statements and Entole
+ * activity together), for the check-in and the nudges. With no statement
+ * read, the lines are Entole's own and there is no picture.
+ */
+export async function readMoneyView(
+  backend: Pick<ReturnType<typeof useBackend>, 'statement'>,
+  store: Pick<ReturnType<typeof useStore>, 'activity' | 'contacts' | 'balance' | 'status'>,
+): Promise<{ picture: MoneyPicture | null; lines: StatementLine[] }> {
   const [lines, reads] = await Promise.all([backend.statement.lines(), backend.statement.reads()]);
-  if (!lines.length) return null;
   const entole = activityToLines(store.activity, (id) => store.contacts.find((contact) => contact.id === id)?.name ?? 'Entole');
+  const all = [...lines, ...entole];
+  if (!lines.length) return { picture: null, lines: all };
   const bank = reads[0]?.closingMinor;
   const balanceMinor = store.status === 'ready' ? store.balance + (bank ?? 0) : bank ?? null;
-  return buildMoneyPicture({ lines: [...lines, ...entole], balanceMinor, today: today(), settings: DEFAULT_PICTURE_SETTINGS });
+  return { picture: buildMoneyPicture({ lines: all, balanceMinor, today: today(), settings: DEFAULT_PICTURE_SETTINGS }), lines: all };
 }

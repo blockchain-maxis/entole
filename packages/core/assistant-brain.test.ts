@@ -24,8 +24,13 @@ describe('what the model is told', () => {
     expect(ASSISTANT_SYSTEM_PROMPT).toContain('"do":"pay"');
     expect(ASSISTANT_SYSTEM_PROMPT).toContain('"do":"tell"');
     expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/You cannot confirm, approve or send a payment/);
-    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/never answer with figures of your own/);
-    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/Never say money has been sent/);
+    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/never say figures about it/);
+    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/Never say money has moved, been sent, saved or paid/);
+    // Ayo v2: memory, the friend and pockets are in the vocabulary too.
+    for (const shape of ['"do":"goal"', '"do":"prefer"', '"do":"remind"', '"do":"forget"', '"do":"checkin"', '"do":"explain"', '"do":"swap"', '"do":"add-to-pocket"']) {
+      expect(ASSISTANT_SYSTEM_PROMPT).toContain(shape);
+    }
+    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/Never give personal investment, tax-avoidance or legal advice/);
   });
 
   it('is sent the words, the screen and the last turns, and nothing about the account', async () => {
@@ -33,14 +38,34 @@ describe('what the model is told', () => {
     await readWithModel(
       'abeg show me how dem go pay me',
       { apiKey: 'k', fetch: fetchImpl },
-      { screen: 'home', history: [{ from: 'you', text: 'hello' }, { from: 'assistant', text: 'What do you need?' }] },
+      { screen: 'home', today: '2026-11-13', history: [{ from: 'you', text: 'hello' }, { from: 'assistant', text: 'What do you need?' }] },
     );
     const messages = sent[0]!.body.messages as { role: string; content: string }[];
-    expect(messages.map((m) => m.role)).toEqual(['system', 'system', 'user', 'assistant', 'user']);
+    expect(messages.map((m) => m.role)).toEqual(['system', 'system', 'system', 'user', 'assistant', 'user']);
+    // The one thing about the world it is told: the date, so "by March" can become a day.
+    expect(messages[1]!.content).toBe('Today is Friday, 2026-11-13.');
     expect(messages.at(-1)!.content).toBe('abeg show me how dem go pay me');
     expect(sent[0]!.auth).toBe('Bearer k');
     // No balance, no names, no history of payments ever leaves with the request.
     expect(JSON.stringify(sent[0]!.body)).not.toMatch(/balance(Minor)?"|contacts|allowances"|0x[0-9a-f]{40}/i);
+  });
+
+  it('never hears back a figure the device spoke', async () => {
+    const { fetchImpl, sent } = model('{"say":"","actions":[]}');
+    await readWithModel('and my savings?', { apiKey: 'k', fetch: fetchImpl }, {
+      history: [
+        { from: 'you', text: 'what is my balance' },
+        { from: 'assistant', text: 'You have ₦12,500.72. About ₦8,400 a day is safe to spend, 12% of your income, for 4 months.' },
+      ],
+    });
+    const said = JSON.stringify(sent[0]!.body.messages);
+    expect(said).not.toMatch(/12,500|8,400|12%|4 months/);
+  });
+
+  it('is told how they like to be answered, and nothing else about them', async () => {
+    const { fetchImpl, sent } = model('{"say":"","actions":[]}');
+    await readWithModel('how far', { apiKey: 'k', fetch: fetchImpl }, { style: 'pidgin' });
+    expect(JSON.stringify(sent[0]!.body.messages)).toMatch(/They asked you to talk Pidgin with them\./);
   });
 });
 
@@ -71,6 +96,7 @@ describe('what the model may answer', () => {
     const { fetchImpl } = model('{"say":"Getting it ready.","actions":[{"do":"pay","to":"Tunde","amount":2000,"note":"fuel"}]}');
     expect(await readWithModel('abeg send Tunde 2k for fuel', { apiKey: 'k', fetch: fetchImpl })).toEqual({
       ok: true,
+      model: 'kimi-k2.6',
       reply: { say: 'Getting it ready.', actions: [{ do: 'pay', to: 'Tunde', amount: 2000, note: 'fuel' }] },
     });
   });
@@ -79,6 +105,7 @@ describe('what the model may answer', () => {
     const { fetchImpl } = model('```json\n{"say":"","actions":[{"do":"tell","about":"balance"}]}\n```');
     expect(await readWithModel('wetin be my balance', { apiKey: 'k', fetch: fetchImpl })).toEqual({
       ok: true,
+      model: 'kimi-k2.6',
       reply: { actions: [{ do: 'tell', about: 'balance' }] },
     });
   });
@@ -99,6 +126,7 @@ describe('what the model may answer', () => {
     const { fetchImpl } = model('{"say":"Opening your wallet.","actions":[{"do":"open","screen":"home"}]}');
     expect(await readWithModel('go home', { apiKey: 'k', fetch: fetchImpl })).toEqual({
       ok: true,
+      model: 'kimi-k2.6',
       reply: { actions: [{ do: 'open', screen: 'home' }] },
     });
   });

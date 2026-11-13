@@ -12,7 +12,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Text } from '@/components/ui/Text';
 import { useAccount } from '@/lib/account';
 import { useAssistant } from '@/lib/assistant';
-import { useAssistantRunner } from '@/lib/assistant-run';
+import { useAssistantRunner, useAyoOpening } from '@/lib/assistant-run';
 import { useThemeColors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 import { canListen, listen, speak, stopSpeaking } from '@/lib/voice';
@@ -40,6 +40,7 @@ export default function Talk() {
   const { account } = useAccount();
   const { talking } = useAssistant();
   const run = useAssistantRunner();
+  const opening = useAyoOpening();
   const { show } = useToast();
   const colors = useThemeColors();
 
@@ -61,6 +62,19 @@ export default function Talk() {
     },
     [],
   );
+
+  // Opened with nothing said yet: Ayo says hello, and leads with the one thing worth saying today.
+  useEffect(() => {
+    if (!account || !talking) return;
+    void opening().then((line) => {
+      if (!line || !live.current || turnsRef.current.length > 0) return;
+      turnsRef.current = [{ from: 'assistant', text: line }];
+      setTurns(turnsRef.current);
+      speak(line);
+    });
+    // Once, when the sheet opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Off means off: the sheet does not exist for someone who has not started talking to it.
   if (!account || !talking) return <Redirect href="/" />;

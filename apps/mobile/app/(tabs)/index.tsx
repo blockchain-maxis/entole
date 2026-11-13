@@ -28,6 +28,7 @@ import { useMoneyPicture } from '@entole/core/money-picture-hook';
 import { formatDollars, formatNaira, kobo } from '@entole/core/money';
 import type { Activity } from '@entole/core/schemas';
 import { useStore } from '@entole/core/store';
+import { AyoCard } from '@/components/ui/AyoCard';
 import { useAssistant } from '@/lib/assistant';
 import { safeUntilWords } from '@/lib/plan-words';
 import { useBalanceHidden } from '@/lib/privacy';
@@ -244,6 +245,8 @@ export default function Home() {
                 <Button label="Receive" variant="secondary" onPress={() => router.push('/receive')} />
               </View>
             ) : null}
+
+            {!loading && !failed ? <AyoCard /> : null}
 
             {loading ? <ActionsSkeleton /> : null}
 

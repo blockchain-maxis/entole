@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { askForJson, askModel, type ModelCall } from './language-model';
+import { askForJson, askModel, thinkingOff, type ModelCall } from './language-model';
 
 type Reply = { status: number; body?: unknown; headers?: Record<string, string> } | 'throw' | 'hang';
 
@@ -162,5 +162,29 @@ describe('askForJson, for callers that only need the object', () => {
   it('is the object, or null for any failure', async () => {
     expect(await askForJson(MESSAGES, { apiKey: 'k', fetch: endpoint(answer('{"a":1}')).fetchImpl })).toEqual({ a: 1 });
     expect(await askForJson(MESSAGES, { apiKey: 'k', fetch: endpoint({ status: 500 }).fetchImpl })).toBeNull();
+  });
+});
+
+describe('asking a model not to think first', () => {
+  it('uses the words each server knows, and sends nothing to a server that knows neither', () => {
+    expect(thinkingOff('kimi-k2.6', 'https://api.moonshot.ai/v1/chat/completions')).toEqual({ thinking: { type: 'disabled' } });
+    expect(thinkingOff('deepseek-ai/DeepSeek-V4.1-Flash-1017', 'https://cloud-api.near.ai/v1/chat/completions')).toEqual({
+      chat_template_kwargs: { thinking: false },
+    });
+    // NEAR AI ignores it for Kimi, and other servers do not know the fields.
+    expect(thinkingOff('moonshotai/kimi-k2.6', 'https://cloud-api.near.ai/v1/chat/completions')).toEqual({});
+    expect(thinkingOff('deepseek-chat', 'https://api.deepseek.com/chat/completions')).toEqual({});
+    expect(thinkingOff('gpt-x', 'https://example.com/v1/chat/completions')).toEqual({});
+  });
+
+  it('is sent with the ask', async () => {
+    let sent: Record<string, unknown> = {};
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      sent = JSON.parse(String(init.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"a":1}' } }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await askModel(MESSAGES, { apiKey: 'k', model: 'deepseek-ai/DeepSeek-V4.1-Flash-1017', apiUrl: 'https://cloud-api.near.ai/v1/chat/completions', fetch: fetchImpl });
+    expect(sent.chat_template_kwargs).toEqual({ thinking: false });
+    expect(sent.thinking).toBeUndefined();
   });
 });

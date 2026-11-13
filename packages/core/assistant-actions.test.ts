@@ -314,15 +314,16 @@ describe('figures are the app’s own, never the reader’s', () => {
 
   it('says the balance, the username, savings and what the assistant may spend', () => {
     expect(tellAbout('balance', facts)).toBe('You have ₦12,500.72.');
-    expect(tellAbout('username', facts)).toBe('Your username is @that_guy.');
-    expect(tellAbout('savings', facts)).toBe('There is nothing in savings yet.');
+    expect(tellAbout('username', facts)).toBe('Your username is @that_guy. People can pay you with it.');
+    expect(tellAbout('savings', facts)).toBe('There is nothing in savings yet. Say save five thousand and I will open it.');
     expect(tellAbout('allowances', facts)).toBe('Mum: ₦30,000 left of ₦50,000.');
   });
 
   it('says what moved, who with, and which were the assistant’s', () => {
     const said = tellAbout('recent', facts, now);
     expect(said).toContain('Ada Eze sent you ₦2,500');
-    expect(said).toContain('The assistant sent ₦5,000 to Mum');
+    // Ayo speaks for itself: what it paid inside an allowance is said as its own.
+    expect(said).toContain('I paid Mum ₦5,000 from their allowance');
     expect(tellAbout('recent', { ...facts, activity: [] })).toBe('Nothing has moved in or out yet.');
   });
 
@@ -436,8 +437,8 @@ describe('talking to it, with no model', () => {
     ['thank you', /welcome/],
     ['thanks!', /welcome/],
     ['who are you', /I’m Ayo/],
-    ['what can you do', /open any screen/],
-    ['help', /open any screen/],
+    ['what can you do', /where your money stands/],
+    ['help', /where your money stands/],
     ['bye', /Alright/],
   ])('"%s" is answered at once, with words and no action', (said, answer) => {
     const reply = readPlainRequest(said);

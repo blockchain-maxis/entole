@@ -295,6 +295,7 @@ export function useOnChainBackend(
       brain,
       near,
       statement: records.statement,
+      memory: records.memory,
       paymentCode: encodePaymentCode(owner.viemAccount.address),
     };
     return { gateway, backend };

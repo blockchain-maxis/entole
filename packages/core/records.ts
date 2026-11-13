@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { decodePaymentCode } from './payment-code';
 import { initialsFor } from './profile';
+import { MEMORY_MAX_ENTRIES, memoryEntrySchema, type MemoryEntry } from './ayo-memory';
 import { mergeStatements, statementLineSchema, type StatementLine } from './statement';
 import { RECORD_COLLECTIONS, type RecordCollection, type RecordSync } from './record-sync';
 import {
@@ -380,6 +381,14 @@ export function createRecords(store: RecordStore, owner: Address, sync?: RecordS
       async clear() {
         await write('statement', []);
         await write('statement-reads', []);
+      },
+    },
+    /** What Ayo remembers, as one list (`ayo-memory.ts`). Written whole: the assistant works out the new list. */
+    memory: {
+      list: (): Promise<MemoryEntry[]> => read('ayo-memory', memoryEntrySchema),
+      async write(entries: readonly MemoryEntry[]) {
+        // Never store what would not read back, and never more than the limit.
+        await write('ayo-memory', entries.map((entry) => memoryEntrySchema.parse(entry)).slice(-MEMORY_MAX_ENTRIES));
       },
     },
     beneficiaries: {

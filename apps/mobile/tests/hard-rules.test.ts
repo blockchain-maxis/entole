@@ -368,6 +368,8 @@ describe('two inks: black is the person, blue is the assistant', () => {
     'components/ui/AllowanceIntro.tsx',
     // The capsule it speaks and listens in.
     'components/ui/AssistantPresence.tsx',
+    // What Ayo says on Home: a nudge in its own words, shown only once the assistant is on.
+    'components/ui/AyoCard.tsx',
     'components/ui/Badge.tsx',
     // The logo: a blue ring, the brand's own and not the assistant's.
     'components/ui/BrandMark.tsx',
@@ -2007,7 +2009,8 @@ describe('the assistant works the app, and can never confirm for you', () => {
   it('figures it speaks are the app’s own, planned on the device', () => {
     expect(run).toMatch(/planReply\(/);
     expect(run).toMatch(/balanceMinor: store\.balance,/);
-    expect(run).toMatch(/backend\.brain\.read\(text, \{ history \}\)/);
+    // The words, the last turns and how they like to be answered (english, pidgin or short): nothing about their money.
+    expect(run).toMatch(/backend\.brain\.read\(text, \{ history, style \}\)/);
   });
 
   it('off means off: no microphone in the header, and no sheet', () => {

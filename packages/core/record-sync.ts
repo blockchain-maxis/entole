@@ -38,6 +38,8 @@ export const RECORD_COLLECTIONS = [
   'tax-reserves',
   'statement',
   'statement-reads',
+  // What Ayo remembers: goals, preferences, nudges said no to, reminders (`ayo-memory.ts`).
+  'ayo-memory',
 ] as const;
 
 export type RecordCollection = (typeof RECORD_COLLECTIONS)[number];

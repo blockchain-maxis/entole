@@ -48,7 +48,7 @@ describe('the cases themselves', () => {
     expect(ASSISTANT_EVALS.length).toBeGreaterThanOrEqual(50);
     expect(new Set(ASSISTANT_EVALS.map((item) => item.text.toLowerCase())).size).toBe(ASSISTANT_EVALS.length);
     const areas = new Set(ASSISTANT_EVALS.map((item) => item.area));
-    for (const area of ['pay', 'request', 'savings', 'bill', 'tell', 'open', 'control', 'talk', 'refuse', 'safety']) {
+    for (const area of ['pay', 'request', 'savings', 'bill', 'tell', 'open', 'control', 'talk', 'refuse', 'safety', 'memory', 'friend', 'pockets']) {
       expect(areas).toContain(area);
     }
   });

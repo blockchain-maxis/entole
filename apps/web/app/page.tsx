@@ -15,6 +15,7 @@ import { ActivityList } from '@/components/ActivityRow';
 import { AllowanceCard } from '@/components/AllowanceCard';
 import { AllowanceIntro } from '@/components/AllowanceIntro';
 import { Figure } from '@/components/Amount';
+import { AyoCard } from '@/components/AyoCard';
 import { AssistantBadge } from '@/components/Badge';
 import { ButtonLink } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
@@ -124,6 +125,8 @@ export default function Home() {
             <ButtonLink href="/add-money" label="Add money" variant="secondary" size="compact" />
             <ButtonLink href="/receive" label="Receive" variant="secondary" size="compact" />
           </div>
+
+          {loading || failed ? null : <AyoCard />}
 
           {!loading && !failed && money.status !== 'loading' && !safe ? (
             <Link

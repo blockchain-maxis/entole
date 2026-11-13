@@ -1,3 +1,5 @@
+import { appendFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { readWithModel } from './assistant-brain';
@@ -14,13 +16,20 @@ import { ASSISTANT_EVALS, scoreReply, summarise, type EvalVerdict } from './assi
  * - `EVAL_MIN` (default 0.9) is the share of answered cases that must pass.
  * - `ASSISTANT_MODEL` / `ASSISTANT_API_URL` score another model the same way.
  *
- * It prints the score by area and every failure. A case the model was too
+ * It prints the score by area and every failure, and with `EVAL_OUT` set also
+ * writes each line to that file (the test runner can swallow what is printed). A case the model was too
  * busy to answer is counted apart: it says nothing about understanding.
  */
-const apiKey = process.env.KIMI_API_KEY?.trim();
+// `ASSISTANT_API_KEY` scores any OpenAI-compatible endpoint (NEAR AI Cloud, say) with its own key.
+const apiKey = process.env.ASSISTANT_API_KEY?.trim() || process.env.KIMI_API_KEY?.trim();
 const run = process.env.RUN_LIVE_EVALS === '1' && Boolean(apiKey);
 const perMinute = Number(process.env.EVAL_RPM) > 0 ? Number(process.env.EVAL_RPM) : 3;
 const minimum = Number(process.env.EVAL_MIN) > 0 ? Number(process.env.EVAL_MIN) : 0.9;
+const out = process.env.EVAL_OUT?.trim();
+const note = (line: string) => {
+  console.log(line);
+  if (out) appendFileSync(out, `${line}\n`);
+};
 
 describe.skipIf(!run)('the live model against the eval set', () => {
   it(
@@ -34,20 +43,22 @@ describe.skipIf(!run)('the live model against the eval set', () => {
       };
       const gap = Math.ceil(60_000 / perMinute);
       const results: { item: (typeof ASSISTANT_EVALS)[number]; verdict: EvalVerdict | 'busy' }[] = [];
+      const times: number[] = [];
 
       for (const item of ASSISTANT_EVALS) {
         const started = Date.now();
         const read = await readWithModel(item.text, config);
         const verdict = read.ok ? scoreReply(item, read.reply) : read.why === 'busy' ? 'busy' : scoreReply(item, null);
         results.push({ item, verdict });
-        console.log(
-          JSON.stringify({ text: item.text, ms: Date.now() - started, verdict, ...(read.ok ? { reply: read.reply } : { read }) }),
-        );
+        times.push(Date.now() - started);
+        note(JSON.stringify({ text: item.text, ms: Date.now() - started, verdict, ...(read.ok ? { reply: read.reply } : { read }) }));
         await new Promise((resolve) => setTimeout(resolve, Math.max(0, gap - (Date.now() - started))));
       }
 
       const report = summarise(results);
-      console.log(JSON.stringify({ model: config.model ?? 'default', ...report }, null, 2));
+      const sorted = [...times].sort((a, b) => a - b);
+      const ms = { median: sorted[Math.floor(sorted.length / 2)], p90: sorted[Math.floor(sorted.length * 0.9)], max: sorted.at(-1) };
+      note(JSON.stringify({ model: config.model ?? 'default', ms, ...report }, null, 2));
       expect(report.total, 'the model answered too few cases to score').toBeGreaterThanOrEqual(ASSISTANT_EVALS.length * 0.8);
       expect(report.passed / report.total).toBeGreaterThanOrEqual(minimum);
     },
