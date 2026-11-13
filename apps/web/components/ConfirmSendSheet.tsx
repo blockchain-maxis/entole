@@ -6,6 +6,7 @@ import type { SendQuote } from '@entole/core/gateway';
 import { cents, formatDollars, formatNaira, kobo } from '@entole/core/money';
 import { useStore } from '@entole/core/store';
 
+import { useDialogFocus } from '@/lib/dialog-focus';
 import { plainMessage, rateLine } from '@/lib/send';
 
 import { LogoLoader } from './LogoLoader';
@@ -97,9 +98,7 @@ export function ConfirmSendSheet({
     };
   }, [fetchQuote]);
 
-  useEffect(() => {
-    panel.current?.focus();
-  }, []);
+  useDialogFocus(panel);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {

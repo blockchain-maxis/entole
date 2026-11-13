@@ -49,6 +49,10 @@ export function StatementImport({
   const [password, setPassword] = useState('');
 
   async function read(bytes: Uint8Array, sample: boolean, withPassword?: string) {
+    // The sheet steps aside the moment reading starts, and any earlier "that
+    // password didn't open it" goes with it: the page says what is happening
+    // now. A password that is wrong again brings the sheet back, saying so.
+    setLocked(null);
     setReading(true);
     setProblem(null);
     try {
@@ -88,11 +92,13 @@ export function StatementImport({
     }
   }
 
-  if (reading && !locked) {
+  if (reading) {
     return (
       <div className="flex flex-col items-center border-y border-hairline py-8 text-center">
         <LogoLoader size={44} label="Reading your statement" />
-        <p className="mt-4 font-strong text-prose text-ink">Reading in sealed hardware…</p>
+        <p role="status" className="mt-4 font-strong text-prose text-ink">
+          Reading in sealed hardware…
+        </p>
         <p className="mt-1 max-w-[34ch] text-pretty font-body text-note text-slate">
           This can take a minute. Nobody can look inside while it reads, and nothing is kept there.
         </p>
@@ -129,12 +135,12 @@ export function StatementImport({
       ) : null}
 
       {locked ? (
-        <GlassSheet label="Statement password" onDismiss={() => setLocked(null)} locked={reading}>
+        <GlassSheet label="Statement password" onDismiss={() => setLocked(null)}>
           <form
             className="pt-5"
             onSubmit={(event) => {
               event.preventDefault();
-              if (password && !reading) void read(locked.bytes, locked.sample, password);
+              if (password) void read(locked.bytes, locked.sample, password);
             }}
           >
             <h2 className="font-display text-subhead text-ink">This statement is locked</h2>
@@ -151,8 +157,12 @@ export function StatementImport({
               autoCapitalize="none"
               spellCheck={false}
               value={password}
-              disabled={reading}
-              onChange={(event) => setPassword(event.target.value)}
+              autoFocus
+              onChange={(event) => {
+                setPassword(event.target.value);
+                // A new attempt starts clean: the old "didn't open it" is about the last one.
+                if (locked.wrong) setLocked({ ...locked, wrong: false });
+              }}
               className="mt-2 h-12 w-full rounded-control border-[1.5px] border-line bg-card px-4 font-strong text-ui text-ink outline-none focus:border-ink"
             />
             {locked.wrong ? (
@@ -165,9 +175,8 @@ export function StatementImport({
                 The sample&apos;s password is <span className="font-strong text-ink">{SAMPLE_PASSWORD}</span>.
               </p>
             ) : null}
-            <button type="submit" disabled={!password || reading} className={`mt-5 ${PRIMARY}`}>
-              {reading ? <LogoLoader size={20} label="Reading your statement" mono /> : null}
-              {reading ? 'Reading in sealed hardware…' : 'Open and read it'}
+            <button type="submit" disabled={!password} className={`mt-5 ${PRIMARY}`}>
+              Open and read it
             </button>
           </form>
         </GlassSheet>

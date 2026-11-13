@@ -29,6 +29,19 @@ import { messageOf } from '@/lib/pockets';
 
 type Quote = { qrPayload: string; sendCents: number; invoiceCents: number; deadline: string | null };
 
+/**
+ * Why the payer is asked for more than the invoice says. Worked out from the
+ * quote itself, never written in: in dollars it is the exact difference; from
+ * another currency the two figures cannot be subtracted, so it says what the
+ * difference is for without a number.
+ */
+function feeWords(quote: Quote, source: PayInSource): string {
+  if (source.currency !== 'USD') return 'What you send includes the exchange and network fees.';
+  const extra = quote.sendCents - quote.invoiceCents;
+  if (extra <= 0) return '';
+  return `That includes ${formatPocketAmount(extra, 'USD')} for the exchange and network fees.`;
+}
+
 const ROW =
   'flex min-h-14 w-full items-center gap-3 border-b border-hairline py-3.5 text-left transition-colors hover:bg-press active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -108,7 +121,8 @@ export function PayFromAnotherApp({
           </p>
           <p className="mt-1 text-pretty font-body text-note text-slate">
             Scan it from the app you are paying from, or copy it and paste it there. It pays this invoice in full,{' '}
-            {formatPocketAmount(quote.invoiceCents, 'USD')} at today&apos;s rate.
+            {formatPocketAmount(quote.invoiceCents, 'USD')} at today&apos;s rate.{' '}
+            {feeWords(quote, source!)}
             {quote.deadline
               ? ` The code is good until ${new Date(quote.deadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`
               : ''}

@@ -265,15 +265,23 @@ function invoicePayableFromAnotherApp(checkout: Checkout): { username: string; r
 // ---------------------------------------------------------------------------
 
 /** Nothing from the link is echoed here — it did not parse, so none of it can be trusted. */
-export function InvalidCheckout() {
+export function InvalidCheckout({ username }: { username?: string }) {
   return (
     <section aria-labelledby="checkout-title" className="pt-16">
-      <h1 id="checkout-title" className="font-display text-heading text-ink">
-        This link isn&apos;t valid
+      <h1 id="checkout-title" className="text-pretty font-display text-heading text-ink">
+        {username ? `There's no one called @${username} on Entole` : "This link isn't valid"}
       </h1>
-      <p className="mt-3 max-w-[34ch] text-pretty font-body text-prose text-slate">
-        It may have been cut short when it was copied. Ask the person who sent it to share it again.
+      <p className="mt-3 max-w-[38ch] text-pretty font-body text-prose text-slate">
+        {username
+          ? 'Check the username with the person who sent it. It may be spelled differently, or they may have changed it.'
+          : 'It may have been cut short when it was copied. Ask the person who sent it to share it again.'}
       </p>
+      <Link
+        href="/"
+        className="mt-6 inline-flex min-h-11 items-center font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink"
+      >
+        Go to Entole
+      </Link>
     </section>
   );
 }

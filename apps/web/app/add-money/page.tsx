@@ -27,6 +27,7 @@ import {
   forgetBalanceBeforeTransfer,
   rememberBalanceBeforeTransfer,
 } from '@/lib/add-money';
+import { useDialogFocus } from '@/lib/dialog-focus';
 
 type Phase =
   /** Nothing asked yet. */
@@ -618,9 +619,7 @@ function BankTransferSheet({
     };
   }, [start, attempt]);
 
-  useEffect(() => {
-    panel.current?.focus();
-  }, []);
+  useDialogFocus(panel);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {

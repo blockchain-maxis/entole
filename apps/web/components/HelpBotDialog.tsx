@@ -80,7 +80,7 @@ export function HelpBotDialog({
   }
 
   return (
-    <GlassSheet label="Ask for help" onDismiss={onDismiss}>
+    <GlassSheet glass label="Ask for help" onDismiss={onDismiss}>
       <div className="pt-4">
         <p className="font-strong text-note text-slate">Support</p>
         <h2 className="mt-0.5 font-display text-heading text-ink">Ask for help</h2>

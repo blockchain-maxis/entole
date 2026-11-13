@@ -150,6 +150,39 @@ bill or an invoice, where it is only said.
   last turns, never the account, and its manner (warm, short, a light Nigerian
   turn of phrase) is in `ASSISTANT_SYSTEM_PROMPT`.
 
+**Ayo v2 (13 November 2026): the friend, memory and nudges.** Still a
+translator; what changed is what it can name and what the device does with it.
+
+- **The model** is DeepSeek V4.1 Flash on NEAR AI Cloud, run by NEAR in sealed
+  hardware, asked with its thinking off (`thinkingOff` in
+  `language-model.ts`); Moonshot's Kimi stands behind it. The turn answers
+  `sealed: true` only when that model, not the backup, answered, and only then
+  does the sheet say what was said was heard inside sealed hardware. The model
+  is also told the date (so "by March" becomes a day) and, when the person chose
+  one, their reply style (english, pidgin or short). Figures the device spoke
+  are taken out of the history before it is sent back (`withoutFigures`).
+- **New actions**: `goal`, `prefer` (payday, savings-share, reply-style),
+  `remind`, `forget`, `checkin`, `explain` (a fixed, checked set of
+  explanations in `ayo-knowledge.ts`, education only), `swap` (Money's Change
+  currency sheet, filled in; quoted first, confirmed by the person),
+  `add-to-pocket`, and `tell` goals, reminders and whats-new.
+- **Memory** (`ayo-memory.ts`) is one record collection, `ayo-memory`, kept and
+  sealed like every other (`records.ts`, `record-sync.ts`), at most 200
+  entries. The model names a goal or a reminder; the device checks the words,
+  resolves the day and keeps it. Reminders are said when Entole is opened on
+  the day: there are no push notifications yet, and Ayo says so.
+- **Nudges** (`ayo-nudges.ts`, pure) are worked out on the device from the money
+  picture, its lines, the balance, savings, invoices and memory: pay landed,
+  a week under the usual, a subscription renewing, small payments above the
+  usual, a thin buffer, tax for the month, money idle beyond a month, an
+  invoice overdue, a goal on or behind track, a reminder due. A nudge whose
+  figures are missing is not made. The top one is Ayo's opening line and the
+  card on Home (shown once the assistant is on); its offer waits one turn for
+  a yes (`answerOffer`), which only opens the screen with the amount filled in.
+- **Spoken figures** (`tellAbout`, `tellAfford`, `checkinWords`) vary by turn
+  (`pick` in `ayo-voice.ts`, deterministic), relate figures to each other
+  where the lines support it, and keep to one sentence for "short".
+
 Listening and speaking are the browser's or the phone's own, or a model on the
 device. Entole receives words, never sound.
 
@@ -202,7 +235,9 @@ in, words out: nothing in them touches the account or money.
   account address. Counted per caller and per day, because it is open to the
   app without an account.
 - **Glass.** The feedback and support sheets are frosted glass: a blurred pane
-  with a wash, a sheen and a lit rim. In the browser it is `backdrop-filter`.
+  with a wash, a sheen and a lit rim. Every other sheet is opaque `card`
+  (13 November 2026: pocket figures and the tab bar read through the glass).
+  In the browser it is `backdrop-filter`, behind `GlassSheet`'s `glass` prop.
   On the phone it is `expo-blur`, loaded only where the build has it; on
   Android the blur needs a target next to the sheet, which `GlassHost`
   (`apps/mobile/lib/blur.tsx`) gives a screen. Without the blur it is the same

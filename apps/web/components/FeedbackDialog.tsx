@@ -50,7 +50,7 @@ export function FeedbackDialog({
   }
 
   return (
-    <GlassSheet label="Send feedback" onDismiss={onDismiss} locked={phase === 'sending'}>
+    <GlassSheet glass label="Send feedback" onDismiss={onDismiss} locked={phase === 'sending'}>
       {phase === 'thanks' ? (
         <div className="flex flex-col items-center pb-2 pt-6 text-center">
           <BrandGlyph size={84} />

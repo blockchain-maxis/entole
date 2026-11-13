@@ -68,12 +68,14 @@ export default function PayPage() {
           ) : store.contacts.length === 0 ? (
             <li className="border-t border-hairline py-4">
               <p className="text-pretty font-body text-ui text-slate">
-                No beneficiaries yet. Save someone from{' '}
-                <Link href="/beneficiaries/new" className="font-strong text-ink underline decoration-mist underline-offset-4 hover:decoration-ink">
-                  Beneficiaries
-                </Link>
-                , or from the receipt after you pay them.
+                No beneficiaries yet. Save someone here, or from the receipt after you pay them.
               </p>
+              <Link
+                href="/beneficiaries/new"
+                className="mt-1 inline-flex min-h-11 items-center font-strong text-ui text-ink underline decoration-mist underline-offset-4 transition-colors hover:decoration-ink"
+              >
+                Save a beneficiary
+              </Link>
             </li>
           ) : (
             store.contacts.map((contact) => (

@@ -199,7 +199,7 @@ export function Landing({
       </header>
 
       <main>
-        <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 items-center gap-12 px-gutter pb-16 pt-8 lg:min-h-[min(calc(100dvh-68px),780px)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14 lg:px-10 lg:pb-16 lg:pt-2">
+        <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 items-center gap-12 px-gutter pb-16 pt-8 lg:min-h-[min(calc(100dvh-68px),780px)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14 xl:gap-10 lg:px-10 lg:pb-16 lg:pt-2">
           <div className="landing-rise min-w-0">
             <h1 className="text-pretty font-display text-figure-sm text-ink sm:text-figure-md lg:text-figure xl:text-poster">
               <span className="lg:block lg:whitespace-nowrap">Money that moves </span>
@@ -363,14 +363,14 @@ export function Landing({
             <BrandGlyph size={22} />
             <span className="font-display text-ui text-ink">Entole</span>
           </div>
-          <nav aria-label="Legal and contact" className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Link href="/legal/terms" className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+          <nav aria-label="Legal and contact" className="-my-2 flex flex-wrap items-center gap-x-6">
+            <Link href="/legal/terms" className="inline-flex min-h-11 items-center font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
               Terms
             </Link>
-            <Link href="/legal/privacy" className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+            <Link href="/legal/privacy" className="inline-flex min-h-11 items-center font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
               Privacy
             </Link>
-            <a href="mailto:support@entole.pro" className="font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
+            <a href="mailto:support@entole.pro" className="inline-flex min-h-11 items-center font-body text-note text-slate underline decoration-mist underline-offset-4 transition-colors hover:text-ink hover:decoration-ink">
               support@entole.pro
             </a>
           </nav>

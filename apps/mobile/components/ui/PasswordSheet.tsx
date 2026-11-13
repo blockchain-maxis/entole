@@ -27,6 +27,9 @@ export function PasswordSheet({
   const colors = useThemeColors();
   const [password, setPassword] = useState('');
   const [focused, setFocused] = useState(false);
+  // A new attempt starts clean: "that password didn't open it" is about the last one.
+  const [typed, setTyped] = useState(false);
+  const showWrong = wrong && !typed;
 
   return (
     <SheetLayer>
@@ -38,8 +41,11 @@ export function PasswordSheet({
           <Text numberOfLines={1} className="mt-1 font-body text-note text-slate">
             {fileName}
           </Text>
-          <Text accessibilityRole={wrong ? 'alert' : undefined} className={`mt-3 font-body text-ui ${wrong ? 'text-halt' : 'text-slate'}`}>
-            {message}
+          <Text
+            accessibilityRole={showWrong ? 'alert' : undefined}
+            className={`mt-3 font-body text-ui ${showWrong ? 'text-halt' : 'text-slate'}`}
+          >
+            {wrong && typed ? 'Enter the password your bank sent with it.' : message}
           </Text>
 
           <Text className="mt-5 font-strong text-note text-slate">Statement password</Text>
@@ -48,7 +54,10 @@ export function PasswordSheet({
           >
             <TextInput
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(next) => {
+                setPassword(next);
+                setTyped(true);
+              }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               secureTextEntry

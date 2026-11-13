@@ -14,6 +14,7 @@ import { Avatar } from '@/components/Avatar';
 import { Header } from '@/components/Header';
 import { LogoLoader } from '@/components/LogoLoader';
 import { RowSkeleton } from '@/components/Skeleton';
+import { useDialogFocus } from '@/lib/dialog-focus';
 
 type Load = { state: 'loading' } | { state: 'missing' } | { state: 'ready'; beneficiary: Beneficiary };
 
@@ -309,8 +310,9 @@ function RemoveSheet({
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
+  useDialogFocus(panel);
+
   useEffect(() => {
-    panel.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !removing) onDismiss();
     };

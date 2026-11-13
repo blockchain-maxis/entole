@@ -9,15 +9,15 @@ import { BrandGlyph } from './Header';
 /**
  * Same 5 tabs, same order as `apps/mobile/app/(tabs)/_layout.tsx`: Home, Pay,
  * Money, Plan, Me (decided 12 November). Business left the bar; it is a row on
- * Me and a shortcut on Pay, so Pay stays lit there. Grow's content moved into
+ * Me (and a shortcut on Pay), so Me stays lit there. Grow's content moved into
  * Money, and its old pages still open, under Money.
  */
 const TABS: { href: string; label: string; icon: LucideIcon; also?: string[] }[] = [
   { href: '/', label: 'Home', icon: House },
-  { href: '/transfer', label: 'Pay', icon: SendHorizontal, also: ['/business'] },
+  { href: '/transfer', label: 'Pay', icon: SendHorizontal },
   { href: '/money', label: 'Money', icon: Banknote, also: ['/grow'] },
   { href: '/plan', label: 'Plan', icon: Compass },
-  { href: '/me', label: 'Me', icon: User },
+  { href: '/me', label: 'Me', icon: User, also: ['/business'] },
 ];
 
 /** Screens that are one decision with its own button at the bottom. The bar

@@ -117,7 +117,9 @@ thing the screen is about. Everything else sits on paper.
 ## Patterns
 
 **Bottom sheets, not modals.** Dismissible by gesture. Everything operable
-one-handed.
+one-handed. A sheet is opaque `card`: nothing behind it reads through. In the
+browser it holds focus while open (Tab goes round its own controls) and gives
+it back to what opened it.
 
 **Bottom-anchored primary actions.** Nothing important in the top corners except
 the pause control.
@@ -192,7 +194,7 @@ One word for each thing, everywhere a person reads.
 | `add-money` / `/add-money` | The balance as a line on paper, then the ways to add |
 | `(tabs)/money` / `/money` | The balance as a line, pockets (dollars, euros, pounds) as ruled rows with add and change-currency sheets, savings raised, stocks. `/grow` still opens |
 | `(tabs)/plan` / `/plan` | The financial friend: read a statement (password sheet, the turning mark while it reads, the proof panel and the balance check), then safe to spend, money in and out, subscriptions, small leaks, how long money lasts, can I afford it, tax estimate, suggestions |
-| `business` / `/business` | Off the tab bar since 12 November 2026, reached from Me and Pay. Services as ruled rows, then invoices, each showing where it was paid from |
+| `business` / `/business` | Off the tab bar since 12 November 2026, reached from Me and Pay. Services as ruled rows, then invoices, each showing where it was paid from. An invoice opens (a screen on the phone, a sheet in the browser) to its pay link as a scan code and text, Copy link and Share, and Mark as paid, which asks first |
 | `pause` | Stopping the assistant |
 | `onboarding` / the account gate | The first screen: what Entole is, one button |
 | the public pay page, `/pay/[code]` | For someone who is not a user: who, how much, the way that works first. An invoice can be paid from another app: the one-time code only as a scan code with a copy button (decided 12 November 2026) |

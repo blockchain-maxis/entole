@@ -2,31 +2,40 @@
 
 import { useEffect, useRef } from 'react';
 
+import { useDialogFocus } from '@/lib/dialog-focus';
+
 /**
- * A bottom sheet in frosted glass: what is behind it shows through, blurred,
- * with a wash of the card colour so text stays readable, a sheen from the top
- * edge and a lit rim. The blur is the browser's own (`backdrop-filter`); a
- * browser without it gets the same pane, more opaque.
+ * A bottom sheet: one opaque sheet of `card` rising from the bottom over a
+ * scrim. Until 13 November 2026 every sheet was frosted glass; under the
+ * pockets and the statement reader what was behind it (pocket figures, the
+ * tab bar's labels) read through and fought the sheet's own words. Solid is
+ * the default now, in both themes.
  *
- * It is a dialog: it takes focus when it opens, closes on Escape or a tap on the
- * ground behind it, and says so to a screen reader.
+ * `glass` keeps the frosted pane for the feedback and help sheets, where it was
+ * decided (docs/ARCHITECTURE.md): a blur, a wash of `card` strong enough that
+ * nothing behind it can be read, a sheen from the top edge and a lit rim.
+ *
+ * It is a dialog: focus moves into it when it opens, Tab goes round its own
+ * controls and never out behind it, focus returns to whatever opened it when
+ * it closes, it closes on Escape or a tap on the ground behind it, and it says
+ * so to a screen reader.
  */
 export function GlassSheet({
   label,
   onDismiss,
   locked = false,
+  glass = false,
   children,
 }: {
   label: string;
   onDismiss: () => void;
   locked?: boolean;
+  glass?: boolean;
   children: React.ReactNode;
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    panel.current?.focus();
-  }, []);
+  useDialogFocus(panel);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -52,12 +61,18 @@ export function GlassSheet({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className="sheet-rise relative max-h-[88dvh] w-full max-w-[560px] overflow-y-auto overscroll-contain rounded-t-[32px] border-x border-t border-card/80 bg-card/90 px-gutter-lg pb-[max(24px,env(safe-area-inset-bottom))] pt-3 shadow-floating outline-none supports-[backdrop-filter]:bg-card/55 supports-[backdrop-filter]:backdrop-blur-2xl supports-[backdrop-filter]:backdrop-saturate-150"
+        className={`sheet-rise relative max-h-[88dvh] w-full max-w-[560px] overflow-y-auto overscroll-contain rounded-t-sheet border-x border-t px-gutter-lg pb-[max(24px,env(safe-area-inset-bottom))] pt-3 shadow-floating outline-none ${
+          glass
+            ? 'border-card/80 bg-card/95 supports-[backdrop-filter]:bg-card/90 supports-[backdrop-filter]:backdrop-blur-2xl supports-[backdrop-filter]:backdrop-saturate-150'
+            : 'border-hairline bg-card'
+        }`}
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-28 rounded-t-[32px] bg-gradient-to-b from-card/70 to-transparent"
-        />
+        {glass ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-28 rounded-t-sheet bg-gradient-to-b from-card/70 to-transparent"
+          />
+        ) : null}
         <div className="relative">
           <div aria-hidden className="mx-auto h-1 w-10 rounded-pill bg-line" />
           {children}

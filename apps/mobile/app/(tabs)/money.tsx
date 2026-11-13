@@ -1,9 +1,11 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 
 import { toDollars } from '@entole/core/fx';
+import type { PocketId } from '@entole/core/intents-pockets';
 import { formatDollars, formatNaira, kobo } from '@entole/core/money';
+import { pocketsOpeningFrom, type PocketsOpening } from '@entole/core/pockets-link';
 import { savingsEarning } from '@entole/core/savings';
 import { useStore } from '@entole/core/store';
 
@@ -54,6 +56,18 @@ export default function Money() {
   const { reload, reloading } = useReload();
   const pockets = usePockets();
   const [sheet, setSheet] = useState<'add' | 'change' | null>(null);
+  /** Change currency found the pocket short and offered to add to it first. */
+  const [addFirst, setAddFirst] = useState<PocketId | null>(null);
+
+  // Ayo's "change 100 dollars to euros" arrives as a link, stamped with when it was asked, so asking again opens it again.
+  const params = useLocalSearchParams<{ change?: string; from?: string; to?: string; amount?: string; add?: string; at?: string }>();
+  const asked = pocketsOpeningFrom((key) => params[key as keyof typeof params] ?? null);
+  const askedKey = asked ? `${params.at ?? ''}:${JSON.stringify(asked)}` : null;
+  const [opening, setOpening] = useState<{ key: string; asked: PocketsOpening } | null>(null);
+  if (asked && askedKey && opening?.key !== askedKey) {
+    setOpening({ key: askedKey, asked });
+    setSheet(asked.sheet);
+  }
 
   const loading = store.status === 'loading';
   const failed = store.status === 'failed';
@@ -129,7 +143,10 @@ export default function Money() {
               <PocketsSection
                 state={pockets.state}
                 onRetry={() => void pockets.reload()}
-                onAdd={() => setSheet('add')}
+                onAdd={() => {
+                  setAddFirst(null);
+                  setSheet('add');
+                }}
                 onChange={() => setSheet('change')}
               />
 
@@ -249,13 +266,25 @@ export default function Money() {
       </Screen>
 
       {sheet === 'add' ? (
-        <AddToPocketSheet onDismiss={() => setSheet(null)} onArrived={() => void pockets.reload()} />
+        <AddToPocketSheet
+          initialPocket={addFirst ?? (opening?.asked.sheet === 'add' ? opening.asked.pocket : undefined)}
+          onDismiss={() => {
+            setAddFirst(null);
+            setSheet(null);
+          }}
+          onArrived={() => void pockets.reload()}
+        />
       ) : null}
       {sheet === 'change' && pockets.state.status === 'ready' ? (
         <ChangeCurrencySheet
           pockets={pockets.state.pockets}
+          initial={opening?.asked.sheet === 'change' ? opening.asked : undefined}
           onDismiss={() => setSheet(null)}
           onFinished={() => void pockets.reload()}
+          onAddFirst={(pocket) => {
+            setAddFirst(pocket);
+            setSheet('add');
+          }}
         />
       ) : null}
     </View>

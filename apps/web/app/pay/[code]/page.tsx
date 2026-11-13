@@ -25,18 +25,22 @@ type Props = {
 /**
  * The checkout a link names. A pay link is a username (`/pay/@ada.eze`): the
  * directory says whose it is, and the page shows them under the name its owner
- * gave. A username nobody holds is an invalid link like any other.
+ * gave. A username nobody holds says so, by name: the payer typed it or was
+ * sent it, and "this link isn't valid" would send them looking for a fault in
+ * the link instead of in the name.
  *
  * A link made before usernames names the account in the path instead. It
  * still opens. When that account has since taken a username, the page uses it,
  * so whatever is handed on from here is the short form.
  */
-async function checkoutFor(code: string, query: QueryInput): Promise<Checkout | null> {
+type Found = { checkout: Checkout } | { nobody: string } | null;
+
+async function checkoutFor(code: string, query: QueryInput): Promise<Found> {
   const direct = checkoutFromRequest(code, query);
   if (direct) {
     const { address } = direct;
     const known = await getByAddress(address).catch(() => null);
-    return known?.username ? { ...direct, payee: known.name, username: known.username } : direct;
+    return { checkout: known?.username ? { ...direct, payee: known.name, username: known.username } : direct };
   }
 
   let text = code;
@@ -50,10 +54,11 @@ async function checkoutFor(code: string, query: QueryInput): Promise<Checkout | 
   if (handle?.kind !== 'username') return null;
 
   const owner = await getUsernameOwner(handle.username);
-  const record = owner ? await getByAddress(owner) : null;
+  if (!owner) return { nobody: handle.username };
+  const record = await getByAddress(owner);
   if (!record) return null;
   const checkout = checkoutFromRequest(encodePaymentCode(record.address), { ...query, n: record.name });
-  return checkout ? { ...checkout, username: handle.username } : null;
+  return checkout ? { checkout: { ...checkout, username: handle.username } } : null;
 }
 
 // A payment link is for one person. It has no business in a search index.
@@ -61,7 +66,8 @@ const PRIVATE: Metadata['robots'] = { index: false, follow: false };
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const [{ code }, query] = await Promise.all([params, searchParams]);
-  const checkout = await checkoutFor(code, query);
+  const found = await checkoutFor(code, query);
+  const checkout = found && 'checkout' in found ? found.checkout : null;
   if (!checkout) return { title: 'Payment link — Entole', robots: PRIVATE };
 
   const title = checkoutTitle(checkout);
@@ -76,7 +82,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function CheckoutPage({ params, searchParams }: Props) {
   const [{ code }, query] = await Promise.all([params, searchParams]);
-  const checkout = await checkoutFor(code, query);
+  const found = await checkoutFor(code, query);
+  const checkout = found && 'checkout' in found ? found.checkout : null;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col px-gutter pb-[max(24px,env(safe-area-inset-bottom))]">
@@ -92,7 +99,7 @@ export default async function CheckoutPage({ params, searchParams }: Props) {
           <PaymentOptions checkout={checkout} onrampUrl={onrampUrlFor(checkout)} />
         </>
       ) : (
-        <InvalidCheckout />
+        <InvalidCheckout {...(found && 'nobody' in found ? { username: found.nobody } : {})} />
       )}
     </main>
   );

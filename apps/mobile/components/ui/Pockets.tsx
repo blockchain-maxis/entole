@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { EMPTY_ENTRY, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import { EMPTY_ENTRY, entryFromMinor, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import { useBackend } from '@entole/core/backend';
 import { toNaira } from '@entole/core/fx';
 import {
@@ -19,8 +19,9 @@ import {
   type PayInSource,
   type PocketCurrency,
   type PocketDefinition,
+  type PocketId,
 } from '@entole/core/intents-pockets';
-import { cents, formatNaira } from '@entole/core/money';
+import { cents, formatNaira, kobo } from '@entole/core/money';
 import { NearClientError, type PocketView, type PreparedPocketSwap } from '@entole/core/near-client';
 import { useStore } from '@entole/core/store';
 import { token } from '@entole/tokens';
@@ -178,7 +179,8 @@ export function PocketsSection({
       ) : null}
       <View className="mt-4 flex-row gap-2.5">
         <Button label="Add to a pocket" variant="secondary" onPress={onAdd} />
-        <Button label="Change currency" variant="secondary" disabled={!anything} onPress={onChange} />
+        {/* Open even with nothing held: the rate can be seen before any money is added. */}
+        <Button label="Change currency" variant="secondary" onPress={onChange} />
       </View>
     </View>
   );
@@ -287,9 +289,19 @@ type AddStep =
  * how much, then a one-time scan code with a copy button. The code is never
  * spelled out. What it says under it is where the money has got to.
  */
-export function AddToPocketSheet({ onDismiss, onArrived }: { onDismiss: () => void; onArrived: () => void }) {
+export function AddToPocketSheet({
+  initialPocket,
+  onDismiss,
+  onArrived,
+}: {
+  /** Asked for by name ("add dollars"): the pocket is picked already. */
+  initialPocket?: PocketId | undefined;
+  onDismiss: () => void;
+  onArrived: () => void;
+}) {
   const { near } = useBackend();
-  const [step, setStep] = useState<AddStep>({ kind: 'pocket' });
+  const picked = initialPocket ? POCKETS.find((pocket) => pocket.id === initialPocket) : undefined;
+  const [step, setStep] = useState<AddStep>(picked ? { kind: 'source', pocket: picked } : { kind: 'pocket' });
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [asking, setAsking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -377,6 +389,10 @@ export function AddToPocketSheet({ onDismiss, onArrived }: { onDismiss: () => vo
               <Text accessibilityLiveRegion="polite" className="mt-2 text-center font-body text-note text-slate">
                 {amountProblem(amountCents, step.source.currency) ??
                   `Into your ${step.pocket.words} pocket. The code shows what arrives.`}
+              </Text>
+              <Text className="mt-3 border-t border-hairline pt-3 text-center font-body text-note text-slate">
+                This is real money. It arrives in your {step.pocket.words} pocket in about a minute; nothing is sent until
+                you send it from your other app.
               </Text>
               {problem ? (
                 <Text accessibilityRole="alert" className="mt-2 text-center font-body text-note text-halt">
@@ -484,26 +500,40 @@ type ChangeStep =
  */
 export function ChangeCurrencySheet({
   pockets,
+  initial,
   onDismiss,
   onFinished,
+  onAddFirst,
 }: {
   pockets: PocketView[];
+  /** Filled in from a link (Ayo's "change 100 dollars to euros"): which pockets and how much. Never a quote, never a confirmation. */
+  initial?: { from?: PocketId | undefined; to?: PocketId | undefined; amountCents?: number | undefined } | undefined;
   onDismiss: () => void;
   onFinished: () => void;
+  /** The pocket is short: open Add to a pocket on it instead. */
+  onAddFirst: (pocket: PocketId) => void;
 }) {
   const { near } = useBackend();
   const funded = POCKETS.filter((pocket) => (pockets.find((entry) => entry.id === pocket.id)?.cents ?? 0) > 0);
-  const [from, setFrom] = useState<PocketDefinition>(funded[0] ?? POCKETS[0]!);
-  const [to, setTo] = useState<PocketDefinition>(POCKETS.find((pocket) => pocket.id !== (funded[0] ?? POCKETS[0]!).id)!);
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const startFrom = POCKETS.find((pocket) => pocket.id === initial?.from) ?? funded[0] ?? POCKETS[0]!;
+  const startTo = POCKETS.find((pocket) => pocket.id === initial?.to && pocket.id !== startFrom.id) ?? POCKETS.find((pocket) => pocket.id !== startFrom.id)!;
+  const [from, setFrom] = useState<PocketDefinition>(startFrom);
+  const [to, setTo] = useState<PocketDefinition>(startTo);
+  // Cents and kobo are both hundredths, so the keypad's entry holds either.
+  const [entry, setEntry] = useState<AmountEntry>(initial?.amountCents ? entryFromMinor(kobo(initial.amountCents)) : EMPTY_ENTRY);
   const [step, setStep] = useState<ChangeStep>({ kind: 'amount' });
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  /** A dry quote for an amount the pocket does not hold yet. Nothing can be confirmed from it. */
+  const [preview, setPreview] = useState<{ key: string; receivesCents: number } | null>(null);
 
   const held = pockets.find((pocket) => pocket.id === from.id)?.cents ?? 0;
   const amountCents = Number(entryToMinor(entry));
   const tooMuch = amountCents > held;
   const rangeProblem = amountProblem(amountCents, from.currency);
+  // Only for exactly what is on screen: a new amount or pocket and it is gone.
+  const previewKey = `${from.id}:${to.id}:${amountCents}`;
+  const shown = tooMuch && preview?.key === previewKey ? preview : null;
 
   const check = useCallback((id: string) => near.swapState(id), [near]);
   const state = useMovement(step.kind === 'moving' ? step.followId : null, check, (finished) => {
@@ -525,6 +555,21 @@ export function ChangeCurrencySheet({
       setStep({ kind: 'quote', prepared: await near.prepareSwap(from.id, to.id, amountCents) });
     } catch (error) {
       setProblem(plainMessage(error, "We couldn't get a quote just now. Try again."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  /** The rate only, for a pocket that does not hold the amount yet. */
+  async function seeRate() {
+    if (working || !tooMuch || rangeProblem !== null || amountCents <= 0) return;
+    setWorking(true);
+    setProblem(null);
+    try {
+      const answer = await near.previewSwap(from.id, to.id, amountCents);
+      setPreview({ key: previewKey, receivesCents: answer.receivesCents });
+    } catch (error) {
+      setProblem(plainMessage(error, "We couldn't get a rate just now. Try again."));
     } finally {
       setWorking(false);
     }
@@ -562,7 +607,6 @@ export function ChangeCurrencySheet({
                     key={pocket.id}
                     label={pocket.words}
                     chosen={pocket.id === from.id}
-                    disabled={!funded.some((option) => option.id === pocket.id)}
                     onPress={() => pickFrom(pocket)}
                   />
                 ))}
@@ -579,7 +623,7 @@ export function ChangeCurrencySheet({
               <Text
                 tabular
                 accessibilityLiveRegion="polite"
-                className={`mt-1 text-center font-body text-note ${tooMuch ? 'text-halt' : 'text-slate'}`}
+                className="mt-1 text-center font-body text-note text-slate"
               >
                 {tooMuch
                   ? `That is more than the ${formatPocketAmount(held, from.currency)} in ${from.words}.`
@@ -590,16 +634,40 @@ export function ChangeCurrencySheet({
                   {problem}
                 </Text>
               ) : null}
+              {shown ? (
+                <View accessibilityLiveRegion="polite" className="mt-3 border-y border-hairline py-3">
+                  <Text tabular className="text-center font-strong text-ui text-ink">
+                    {formatPocketAmount(amountCents, from.currency)} would get about{' '}
+                    {formatPocketAmount(shown.receivesCents, to.currency)} today
+                  </Text>
+                  <Text className="mt-1 text-center font-body text-note text-slate">
+                    Add {CURRENCY_WORDS[from.currency]} to this pocket first. The rate is checked again when you change
+                    it.
+                  </Text>
+                </View>
+              ) : null}
               <View className="mt-3">
                 <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
               </View>
               <View className="mt-3 flex-row">
-                <Button
-                  label={working ? 'Getting a quote' : 'See what arrives'}
-                  busy={working}
-                  disabled={amountCents <= 0 || tooMuch || rangeProblem !== null}
-                  onPress={() => void quote()}
-                />
+                {shown ? (
+                  <Button label={`Add to ${from.words}`} onPress={() => onAddFirst(from.id)} />
+                ) : tooMuch && amountCents > 0 ? (
+                  // More than the pocket holds: the rate can still be seen, but there is nothing to confirm.
+                  <Button
+                    label={working ? 'Getting the rate' : 'See the rate'}
+                    busy={working}
+                    disabled={rangeProblem !== null}
+                    onPress={() => void seeRate()}
+                  />
+                ) : (
+                  <Button
+                    label={working ? 'Getting a quote' : 'See what arrives'}
+                    busy={working}
+                    disabled={amountCents <= 0 || tooMuch || rangeProblem !== null}
+                    onPress={() => void quote()}
+                  />
+                )}
               </View>
             </View>
           ) : step.kind === 'quote' ? (

@@ -3,7 +3,7 @@
 import { ArrowDownUp, Check, ChevronRight, Plus } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
-import { EMPTY_ENTRY, entryDisplay, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
+import { EMPTY_ENTRY, entryDisplay, entryFromMinor, entryToMinor, pressKey, type AmountEntry } from '@entole/core/amount-entry';
 import { useBackend } from '@entole/core/backend';
 import { toNaira } from '@entole/core/fx';
 import {
@@ -16,8 +16,9 @@ import {
   type PayInSource,
   type PocketId,
 } from '@entole/core/intents-pockets';
-import { cents, formatNaira } from '@entole/core/money';
+import { cents, formatNaira, kobo } from '@entole/core/money';
 import type { PocketView, PreparedPocketSwap } from '@entole/core/near-client';
+import type { PocketsOpening } from '@entole/core/pockets-link';
 import { useStore } from '@entole/core/store';
 
 import { GlassSheet } from './GlassSheet';
@@ -39,15 +40,17 @@ import { messageOf, signOf, usePockets } from '@/lib/pockets';
 const PRIMARY =
   'flex h-14 w-full items-center justify-center gap-2.5 rounded-control bg-ink font-strong text-prose text-paper transition-colors hover:bg-ink/85 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60';
 const SECONDARY =
-  'flex h-12 flex-1 items-center justify-center gap-2 rounded-control border border-line bg-card px-3 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60';
+  'flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-control border border-line bg-card px-3 font-strong text-ui text-ink transition-colors hover:border-mist active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60';
 const ROW =
   'flex min-h-14 w-full items-center gap-3 border-b border-hairline py-3.5 text-left transition-colors hover:bg-press active:translate-y-px';
 
 const words = (id: PocketId) => POCKETS.find((pocket) => pocket.id === id)!.words;
 
-export function PocketsSection() {
+export function PocketsSection({ opening = null }: { opening?: PocketsOpening | null }) {
   const pockets = usePockets();
-  const [sheet, setSheet] = useState<'add' | 'change' | null>(null);
+  const [sheet, setSheet] = useState<'add' | 'change' | null>(opening?.sheet ?? null);
+  /** A pocket to add to, picked already: from a link, or from "add dollars first" on Change currency. */
+  const [addPocket, setAddPocket] = useState<PocketId | null>(opening?.sheet === 'add' ? (opening.pocket ?? null) : null);
   const ready = pockets.status === 'ready';
   const { reload } = pockets;
 
@@ -90,8 +93,17 @@ export function PocketsSection() {
         </ul>
       )}
 
-      <div className="mt-4 flex gap-2.5">
-        <button type="button" disabled={!ready} onClick={() => setSheet('add')} className={SECONDARY}>
+      {/* One above the other on a phone, side by side once both labels fit on one line. */}
+      <div className="mt-4 grid grid-cols-1 gap-2.5 min-[480px]:grid-cols-2">
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={() => {
+            setAddPocket(null);
+            setSheet('add');
+          }}
+          className={SECONDARY}
+        >
           <Plus size={18} strokeWidth={1.75} aria-hidden />
           Add to a pocket
         </button>
@@ -101,9 +113,24 @@ export function PocketsSection() {
         </button>
       </div>
 
-      {sheet === 'add' ? <AddToPocketSheet onDismiss={() => setSheet(null)} onArrived={reload} /> : null}
+      {sheet === 'add' ? (
+        <AddToPocketSheet
+          initialPocket={addPocket ?? undefined}
+          onDismiss={() => setSheet(null)}
+          onArrived={reload}
+        />
+      ) : null}
       {sheet === 'change' && ready ? (
-        <ChangeCurrencySheet pockets={pockets.pockets} onDismiss={() => setSheet(null)} onArrived={reload} />
+        <ChangeCurrencySheet
+          pockets={pockets.pockets}
+          initial={opening?.sheet === 'change' ? opening : undefined}
+          onDismiss={() => setSheet(null)}
+          onArrived={reload}
+          onAddFirst={(pocket) => {
+            setAddPocket(pocket);
+            setSheet('add');
+          }}
+        />
       ) : null}
     </section>
   );
@@ -166,9 +193,17 @@ function MovementLine({ state }: { state: MovementState }) {
 
 type Deposit = { qrPayload: string; receivesCents: number; deadline: string | null; sendCents: number };
 
-function AddToPocketSheet({ onDismiss, onArrived }: { onDismiss: () => void; onArrived: () => void }) {
+function AddToPocketSheet({
+  initialPocket,
+  onDismiss,
+  onArrived,
+}: {
+  initialPocket?: PocketId | undefined;
+  onDismiss: () => void;
+  onArrived: () => void;
+}) {
   const { near } = useBackend();
-  const [pocket, setPocket] = useState<PocketId | null>(null);
+  const [pocket, setPocket] = useState<PocketId | null>(initialPocket ?? null);
   const [source, setSource] = useState<PayInSource | null>(null);
   const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
   const [asking, setAsking] = useState(false);
@@ -253,7 +288,11 @@ function AddToPocketSheet({ onDismiss, onArrived }: { onDismiss: () => void; onA
           <div className="mt-5 w-full">
             <Keypad onKey={(key) => setEntry((current) => pressKey(current, key))} />
           </div>
-          <button type="button" onClick={() => void getCode()} disabled={amountCents < 100 || asking} className={`mt-5 ${PRIMARY}`}>
+          <p className="mt-4 w-full text-pretty border-t border-hairline pt-3 text-center font-body text-note text-slate">
+            This is real money. It arrives in your {words(pocket)} pocket in about a minute; nothing is sent until you
+            send it from your other app.
+          </p>
+          <button type="button" onClick={() => void getCode()} disabled={amountCents < 100 || asking} className={`mt-4 ${PRIMARY}`}>
             {asking ? <LogoLoader size={20} label="Getting the code" mono /> : null}
             {asking ? 'Getting the code' : 'Get the code'}
           </button>
@@ -294,8 +333,13 @@ function AddToPocketSheet({ onDismiss, onArrived }: { onDismiss: () => void; onA
 // Change currency
 // ---------------------------------------------------------------------------
 
+/** A dry quote for a pocket that does not hold the amount yet. Nothing can be confirmed from it. */
+type SwapPreview = { receivesCents: number; receivesAtLeastCents: number; etaSeconds: number };
+
 type SwapPhase =
   | { kind: 'enter' }
+  | { kind: 'previewing' }
+  | { kind: 'previewed'; preview: SwapPreview }
   | { kind: 'quoting' }
   | { kind: 'quoted'; prepared: PreparedPocketSwap }
   | { kind: 'confirming'; prepared: PreparedPocketSwap }
@@ -340,18 +384,27 @@ function PocketChoice({
 
 function ChangeCurrencySheet({
   pockets,
+  initial,
   onDismiss,
   onArrived,
+  onAddFirst,
 }: {
   pockets: PocketView[];
+  /** Filled in from a link: which pockets, and how much. Never a quote, never a confirmation. */
+  initial?: { from?: PocketId | undefined; to?: PocketId | undefined; amountCents?: number | undefined } | undefined;
   onDismiss: () => void;
   onArrived: () => void;
+  /** The pocket is short: open Add to a pocket on it instead. */
+  onAddFirst: (pocket: PocketId) => void;
 }) {
   const { near } = useBackend();
   const fullest = [...pockets].sort((a, b) => (b.usdCents ?? 0) - (a.usdCents ?? 0))[0]?.id ?? 'usd';
-  const [from, setFrom] = useState<PocketId>(fullest);
-  const [to, setTo] = useState<PocketId>(fullest === 'usd' ? 'eur' : 'usd');
-  const [entry, setEntry] = useState<AmountEntry>(EMPTY_ENTRY);
+  const startFrom = initial?.from ?? fullest;
+  const startTo = initial?.to && initial.to !== startFrom ? initial.to : startFrom === 'usd' ? 'eur' : 'usd';
+  const [from, setFrom] = useState<PocketId>(startFrom);
+  const [to, setTo] = useState<PocketId>(startTo);
+  // Cents and kobo are both hundredths, so the keypad's entry holds either.
+  const [entry, setEntry] = useState<AmountEntry>(initial?.amountCents ? entryFromMinor(kobo(initial.amountCents)) : EMPTY_ENTRY);
   const [phase, setPhase] = useState<SwapPhase>({ kind: 'enter' });
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -388,6 +441,19 @@ function ChangeCurrencySheet({
     setPhase({ kind: 'quoting' });
     try {
       setPhase({ kind: 'quoted', prepared: await near.prepareSwap(from, to, amountCents) });
+    } catch (error) {
+      setProblem(messageOf(error));
+      setPhase({ kind: 'enter' });
+    }
+  }
+
+  /** The rate only, for an amount the pocket does not hold yet. Nothing here can be confirmed. */
+  async function preview() {
+    if (amountCents < 100 || !tooMuch) return;
+    setProblem(null);
+    setPhase({ kind: 'previewing' });
+    try {
+      setPhase({ kind: 'previewed', preview: await near.previewSwap(from, to, amountCents) });
     } catch (error) {
       setProblem(messageOf(error));
       setPhase({ kind: 'enter' });
@@ -441,12 +507,24 @@ function ChangeCurrencySheet({
 
           <div className="mt-6 flex flex-col items-center">
             <EntryFigure sign={fromDef.sign} entry={entry} />
-            <p className={`tabular mt-1.5 font-body text-ui ${tooMuch ? 'text-halt' : 'text-slate'}`}>
+            <p className="tabular mt-1.5 font-body text-ui text-slate">
               {tooMuch
                 ? `More than the ${formatPocketAmount(held, fromDef.currency)} in ${fromDef.words}`
                 : `${formatPocketAmount(held, fromDef.currency)} in ${fromDef.words}`}
             </p>
           </div>
+
+          {phase.kind === 'previewed' ? (
+            <div role="status" className="mt-5 border-y border-hairline py-3.5 text-center">
+              <p className="tabular text-pretty font-strong text-prose text-ink">
+                {formatPocketAmount(amountCents, fromDef.currency)} would get about{' '}
+                {formatPocketAmount(phase.preview.receivesCents, toDef.currency)} today
+              </p>
+              <p className="mt-1 text-pretty font-body text-note text-slate">
+                Add {fromDef.words.toLowerCase()} to this pocket first. The rate is checked again when you change it.
+              </p>
+            </div>
+          ) : null}
 
           {prepared ? (
             <dl className="mt-5 divide-y divide-hairline border-y border-hairline">
@@ -483,6 +561,22 @@ function ChangeCurrencySheet({
                 Change the amount
               </button>
             </>
+          ) : phase.kind === 'previewed' ? (
+            <button type="button" onClick={() => onAddFirst(from)} className={`mt-5 ${PRIMARY}`}>
+              <Plus size={20} strokeWidth={1.75} aria-hidden />
+              Add to {fromDef.words}
+            </button>
+          ) : tooMuch && amountCents >= 100 ? (
+            // More than the pocket holds: the rate can still be seen, but there is nothing to confirm.
+            <button
+              type="button"
+              onClick={() => void preview()}
+              disabled={phase.kind === 'previewing'}
+              className={`mt-5 ${PRIMARY}`}
+            >
+              {phase.kind === 'previewing' ? <LogoLoader size={20} label="Asking for a rate" mono /> : null}
+              {phase.kind === 'previewing' ? 'Asking for a rate' : 'See the rate'}
+            </button>
           ) : (
             <button
               type="button"
@@ -494,9 +588,11 @@ function ChangeCurrencySheet({
               {phase.kind === 'quoting' ? 'Asking for a rate' : 'See what arrives'}
             </button>
           )}
-          <p className="mt-3 text-pretty text-center font-body text-note text-slate">
-            Nothing moves until you confirm.
-          </p>
+          {phase.kind === 'previewed' ? null : (
+            <p className="mt-3 text-pretty text-center font-body text-note text-slate">
+              Nothing moves until you confirm.
+            </p>
+          )}
         </>
       )}
     </GlassSheet>

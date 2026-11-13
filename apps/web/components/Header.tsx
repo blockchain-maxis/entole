@@ -43,7 +43,11 @@ function HeaderRow({ title, back }: { title?: string | undefined; back?: string 
     <header className="flex flex-none items-center justify-between px-gutter pb-3.5 pt-4">
       <div className="flex min-w-0 flex-1 items-center gap-3.5">
         {back ? (
-          <Link href={back} aria-label="Go back" className="flex text-slate hover:text-ink">
+          <Link
+            href={back}
+            aria-label="Go back"
+            className="-my-2.5 -ml-2.5 flex h-11 w-11 flex-none items-center justify-center rounded-pill text-slate transition-colors hover:bg-press hover:text-ink"
+          >
             <ArrowLeft size={22} strokeWidth={1.5} />
           </Link>
         ) : title ? null : (
