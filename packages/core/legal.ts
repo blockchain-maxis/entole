@@ -30,7 +30,7 @@ export type LegalDocument = {
 
 export const LEGAL_CONTACT = 'support@entole.pro';
 
-const UPDATED = '12 October 2026';
+const UPDATED = '13 November 2026';
 
 export const TERMS: LegalDocument = {
   title: 'Terms',
@@ -40,8 +40,9 @@ export const TERMS: LegalDocument = {
     {
       heading: 'What Entole is today',
       body: [
-        'Entole is a money app that is still being built. Today it runs on a test network, with test money.',
-        'Test money has no value. It cannot be exchanged for naira, dollars or anything else, and a balance in Entole is not money that anyone owes you. Nothing you do here is a real payment yet.',
+        'Entole is a money app that is still being built. Your Entole balance, payments between Entole accounts, allowances and savings run on a test network, with test money.',
+        'Test money has no value. It cannot be exchanged for naira, dollars or anything else, and an Entole balance is not money that anyone owes you.',
+        'Pockets are different: the Dollars, Euros and Pounds pockets, changing money between them, money added to a pocket from another app, and invoices paid from another app all use real money, on NEAR’s main network. They are described under “Pockets” below.',
         'Entole is not a bank and is not licensed by the Central Bank of Nigeria or any other regulator. Balances are not deposits and are not insured.',
         'When real money becomes possible, these terms will change first, and we will tell you in the app before anything real can move.',
       ],
@@ -73,6 +74,23 @@ export const TERMS: LegalDocument = {
         'A payment the assistant is about to make waits for a short time first, and you can cancel it in that time. You can pause the assistant from the top of any screen, and revoke an allowance whenever you like.',
         'You can talk or type to the assistant and it will work the app for you: open a screen, pick the person, fill in the amount. It cannot confirm for you. Outside an allowance, nothing moves until you confirm it yourself with your own fingerprint, face or screen lock.',
         'The assistant can misread or mishear you. The allowance, the wait and the pause are there for that, and so is the screen it leaves you on: check it before you confirm. A payment it makes inside an allowance you wrote, and that you did not cancel, is a payment you authorised.',
+      ],
+    },
+    {
+      heading: 'Pockets',
+      body: [
+        'Pockets hold real money: dollar, euro and pound stablecoins, in an account on NEAR Intents that only your own key can move. Entole never holds that key and cannot move a pocket for you.',
+        'Money you add to a pocket from another app is sent by you, from that app. Check the amount and the network before you send. Money sent on the wrong network, or after the code has expired, may be returned to your pocket or may be lost, and we cannot reverse a payment once it is made.',
+        'Changing money between pockets uses a quote from NEAR Intents (1Click). The quote shows what arrives and the least it can be; the rate can move until you confirm. Partners charge a fee that is part of the quote. Nothing moves until you confirm it yourself.',
+        'An invoice paid from another app arrives in your Dollars pocket. It is marked paid only when the money has arrived.',
+        'Pockets are not deposits, are not insured, and are not covered by any deposit guarantee.',
+      ],
+    },
+    {
+      heading: 'Your money picture',
+      body: [
+        'If you choose to read a bank statement, Entole works out a picture of your money from it: what is safe to spend, what you spend on, small payments that add up, how long your money lasts, whether you can afford something, and an income tax estimate.',
+        'These are estimates from your own statement, to plan with. They can be wrong if the statement was read wrongly; the app shows whether the statement balanced against its own opening and closing figures. The tax figure is an estimate under the Nigeria Tax Act 2025, not a filing or a tax assessment.',
       ],
     },
     {
@@ -154,10 +172,18 @@ export const PRIVACY: LegalDocument = {
       ],
     },
     {
+      heading: 'Your bank statements',
+      body: [
+        'A statement you choose to read is sent, with its password if it has one, to our server, which opens it in memory and passes its lines to a language model running in sealed hardware on NEAR AI Cloud. Before anything is sent, the app checks the hardware’s proof (from Intel and NVIDIA) that nobody, including NEAR AI and us, can look inside while it runs, and it checks every answer was stamped there.',
+        'Nothing from the statement is kept on our server: not the file, the password, the text or the answers, and none of it is written to a log. The lines that come back are kept on your device, sealed, and in your sealed backup, which we cannot read. Forget my statements, in Plan, removes them.',
+      ],
+    },
+    {
       heading: 'What is public',
       body: [
         'Payments are recorded on a public payment network. The record shows account numbers, amounts and times. It does not show names.',
-        'That record is permanent. Neither you nor we can change or delete it. Today these are test payments on a test network.',
+        'That record is permanent. Neither you nor we can change or delete it. Entole payments are test payments on a test network today.',
+        'Money in pockets, and every change between them, is recorded on NEAR’s public network the same way, with real amounts.',
       ],
     },
     {
@@ -165,7 +191,8 @@ export const PRIVACY: LegalDocument = {
       body: [
         'Vercel hosts the app, and Upstash stores what is listed under “What we keep”.',
         'Telegram, if you connect the assistant to it, carries your messages to and from the assistant.',
-        'Alibaba Cloud provides the language model that reads what you say or type to the assistant, in the app or on Telegram, when the app cannot read it by itself. It receives your words, the name of the screen you are on and the last few things said. It does not receive your name, your account, your balance or the people you have saved.',
+        'NEAR AI Cloud runs the language model that reads what you say or type to the assistant when the app cannot read it by itself, in sealed hardware; Moonshot AI is used when NEAR AI Cloud is not available. Either receives your words, the name of the screen you are on and the last few things said. Neither receives your name, your account, your balance or the people you have saved. NEAR AI Cloud also reads bank statements, as described above.',
+        'NEAR Intents (through its 1Click service) prices and carries out pocket changes and money added to a pocket from another app. It receives your pocket account and the amounts, never your name.',
         'If you speak to the assistant, your browser or phone turns the sound into words before Entole sees anything. In Chrome and on Android that is done by Google’s speech service. Entole receives the words and never the sound.',
         'When paying in by bank or card opens, that step is run by a payment partner on their own page. They collect what they need from you directly. We never see your card details or your bank login.',
         'The market data sources behind stock prices receive nothing about you.',

@@ -20,6 +20,8 @@ const safe: SafeToSpend = {
   days: 13,
   untilIncome: true,
   committedMinor: 0,
+  dueMinor: 0,
+  usualDailyMinor: 0,
   dueBeforeIncome: [],
   savingsSetAsideMinor: 0,
   taxSetAsideMinor: 0,
@@ -103,7 +105,7 @@ describe('the words round the money picture', () => {
       expect(`${words.headline} ${words.detail}`).not.toMatch(BANNED);
       expect(words.detail.length).toBeGreaterThan(0);
     }
-    expect(affordWords({ ...base, verdict: 'not-now', shortByMinor: 12_000_00 }).detail).toMatch(/₦12,000 from money already due/);
+    expect(affordWords({ ...base, verdict: 'not-now', shortByMinor: 12_000_00 }).detail).toMatch(/eat ₦12,000 into what is kept back for bills, savings and tax/);
   });
 
   it('every suggestion is a row that goes somewhere real', () => {

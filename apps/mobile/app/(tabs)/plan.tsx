@@ -380,11 +380,10 @@ function PictureSections({
             </View>
             <Text className="mt-2 font-body text-ui text-slate">A day, {safeUntilWords(picture)}.</Text>
             <View className="mt-4 border-t border-hairline">
-              {safe.committedMinor - safe.savingsSetAsideMinor - safe.taxSetAsideMinor > 0 ? (
-                <DetailRow label="Bills due before then" value={naira(safe.committedMinor - safe.savingsSetAsideMinor - safe.taxSetAsideMinor)} />
-              ) : null}
+              {safe.dueMinor > 0 ? <DetailRow label="Bills due before then" value={naira(safe.dueMinor)} /> : null}
               {safe.savingsSetAsideMinor > 0 ? <DetailRow label="Kept for savings" value={naira(safe.savingsSetAsideMinor)} /> : null}
               {safe.taxSetAsideMinor > 0 ? <DetailRow label="Kept for tax" value={naira(safe.taxSetAsideMinor)} /> : null}
+              {safe.usualDailyMinor > 0 ? <DetailRow label="You usually spend" value={`${naira(safe.usualDailyMinor)} a day`} /> : null}
             </View>
           </>
         ) : (

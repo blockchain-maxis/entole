@@ -67,7 +67,7 @@ describe('the privacy notice names what the code does', () => {
   const text = words(PRIVACY);
 
   it('names every company that is handed something', () => {
-    for (const company of ['Vercel', 'Upstash', 'Telegram', 'Alibaba Cloud']) expect(text).toContain(company);
+    for (const company of ['Vercel', 'Upstash', 'Telegram', 'NEAR AI Cloud', 'Moonshot AI', 'NEAR Intents']) expect(text).toContain(company);
   });
 
   it('says payments are public and cannot be deleted, and that nothing is sold or tracked', () => {
@@ -110,3 +110,19 @@ describe('the privacy notice says a username is published', () => {
   });
 });
 
+
+describe('pockets and statements, from 13 Nov 2026', () => {
+  const terms = [TERMS.lead, ...TERMS.sections.flatMap((section) => [section.heading, ...section.body])].join('\n');
+  const privacy = [PRIVACY.lead, ...PRIVACY.sections.flatMap((section) => [section.heading, ...section.body])].join('\n');
+
+  it('says pockets are real money while the Entole balance is test money', () => {
+    expect(terms).toMatch(/Pockets are different/);
+    expect(terms).toMatch(/real money/);
+    expect(terms).toMatch(/test money/);
+  });
+
+  it('says what happens to a bank statement and that nothing is kept on the server', () => {
+    expect(privacy).toMatch(/sealed hardware on NEAR AI Cloud/);
+    expect(privacy).toMatch(/Nothing from the statement is kept on our server/);
+  });
+});

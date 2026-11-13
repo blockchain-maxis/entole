@@ -51,8 +51,24 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     category: 'start',
     question: 'Is the money in the app real?',
     answer:
-      'Not yet. Entole is in testing, so the balances you see are test money with no value, and it is added from Add money. It lets you try everything, including sending and allowances, without risking anything.',
+      'Your Entole balance is not, yet. Entole is in testing, so that balance is test money with no value, added from Add money, so you can try sending and allowances without risking anything. Pockets are real: Dollars, Euros and Pounds in Money hold real money on NEAR’s main network, and so does an invoice paid from another app.',
     keywords: ['real', 'fake', 'test', 'demo', 'testnet', 'value', 'live'],
+  },
+  {
+    id: 'pockets',
+    category: 'money',
+    question: 'What are pockets?',
+    answer:
+      'Pockets hold money in other currencies: Dollars, Euros and Pounds, side by side, in Money. You can add to one from another app with a scan code, and change money between them at a quote you see first. Nothing moves until you confirm with your fingerprint or face, and a change shows as arrived only when it has. Pockets are real money.',
+    keywords: ['dollar', 'dollars', 'euro', 'euros', 'pound', 'pounds', 'usd', 'eur', 'gbp', 'currency', 'swap', 'change', 'exchange', 'domiciliary'],
+  },
+  {
+    id: 'statement',
+    category: 'money',
+    question: 'Is it safe to read my bank statement in Entole?',
+    answer:
+      'Your statement is read by a model in sealed hardware on NEAR AI Cloud, which nobody can look inside, not even us. The app checks that hardware’s proof before sending anything, keeps nothing on the server, and keeps the lines sealed on your device. You can forget them from Plan at any time.',
+    keywords: ['statement', 'pdf', 'bank', 'gtbank', 'access', 'kuda', 'opay', 'private', 'privacy', 'safe', 'password', 'plan', 'picture'],
   },
   {
     id: 'sign-in',

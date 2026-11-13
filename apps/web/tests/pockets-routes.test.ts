@@ -102,6 +102,21 @@ describe('pockets', () => {
 });
 
 describe('swapping', () => {
+  it('shows the rate for an empty pocket with a dry quote, and nothing that can be signed', async () => {
+    balances[0] = '0';
+    try {
+      const response = await swap(req('/api/pockets/swap', { action: 'preview', address: owner.address, from: 'usd', to: 'eur', cents: 500 }));
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(Object.keys(body).sort()).toEqual(['etaSeconds', 'receivesAtLeastCents', 'receivesCents']);
+      expect(body.receivesCents).toBe(440);
+      expect(sent.find((call) => call.url.endsWith('/v0/quote'))?.body).toMatchObject({ dry: true });
+      expect(sent.some((call) => call.url.endsWith('/v0/generate-intent'))).toBe(false);
+    } finally {
+      balances[0] = '9000000';
+    }
+  });
+
   it('prepares a swap whose intent moves exactly the amount, and hands on only the owner\'s signature', async () => {
     const prepared = await (await swap(req('/api/pockets/swap', { action: 'prepare', address: owner.address, from: 'usd', to: 'eur', cents: 500 }))).json();
     expect(prepared).toMatchObject({ followId: DEPOSIT, receivesCents: 440 });

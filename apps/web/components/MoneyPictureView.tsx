@@ -75,11 +75,12 @@ export function MoneyPictureView({ picture }: { picture: MoneyPicture }) {
           <>
             <SafeToSpendFigure picture={picture} safe={safe} />
             <dl className="mt-4 divide-y divide-hairline border-t border-hairline">
-              {safe.committedMinor > 0 ? (
-                <Fact label={`Due before then (${safe.dueBeforeIncome.length})`} value={naira(safe.committedMinor)} />
+              {safe.dueMinor > 0 ? (
+                <Fact label={safe.dueBeforeIncome.length === 1 ? 'A bill due before then' : `${safe.dueBeforeIncome.length} bills due before then`} value={naira(safe.dueMinor)} />
               ) : null}
               {safe.savingsSetAsideMinor > 0 ? <Fact label="Put aside for savings" value={naira(safe.savingsSetAsideMinor)} /> : null}
               {safe.taxSetAsideMinor > 0 ? <Fact label="Put aside for tax" value={naira(safe.taxSetAsideMinor)} /> : null}
+              {safe.usualDailyMinor > 0 ? <Fact label="You usually spend" value={`${naira(safe.usualDailyMinor)} a day`} /> : null}
             </dl>
           </>
         ) : (

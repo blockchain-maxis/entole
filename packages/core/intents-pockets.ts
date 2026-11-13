@@ -391,6 +391,46 @@ export async function prepareSwap(
   };
 }
 
+export type SwapPreview = { from: PocketId; to: PocketId; cents: number; receivesCents: number; receivesAtLeastCents: number; etaSeconds: number };
+
+/**
+ * What a swap would give at today's rate, without the money to make it: a dry
+ * quote, so someone with an empty pocket can see the rate before adding to it.
+ * Nothing can be signed or sent from it.
+ */
+export async function previewSwap(input: { owner: Address; from: PocketId; to: PocketId; cents: number }, client: OneClickClient): Promise<SwapPreview> {
+  if (input.from === input.to) throw new Error('A swap needs two different pockets.');
+  const source = pocketOf(input.from);
+  const target = pocketOf(input.to);
+  const now = (client.now ?? (() => new Date()))();
+  const account = intentsAccountOf(input.owner);
+  const answer = await call(client, '/v0/quote', {
+    dry: true,
+    swapType: 'EXACT_INPUT',
+    slippageTolerance: SLIPPAGE_BPS,
+    depositType: 'INTENTS',
+    originAsset: source.primary,
+    destinationAsset: target.primary,
+    amount: centsToUnits(input.cents, source.holds[0]!.decimals).toString(),
+    refundTo: account,
+    refundType: 'INTENTS',
+    recipient: account,
+    recipientType: 'INTENTS',
+    deadline: new Date(now.getTime() + QUOTE_WINDOW_MS).toISOString(),
+    referral: 'entole',
+  }, quoteSchema);
+  // A dry quote has no deposit address: there is nowhere to send, by design.
+  const targetDecimals = target.holds[0]!.decimals;
+  return {
+    from: input.from,
+    to: input.to,
+    cents: input.cents,
+    receivesCents: unitsToCents(BigInt(answer.quote.amountOut), targetDecimals),
+    receivesAtLeastCents: unitsToCents(BigInt(answer.quote.minAmountOut ?? answer.quote.amountOut), targetDecimals),
+    etaSeconds: answer.quote.timeEstimate ?? 60,
+  };
+}
+
 export async function submitSwap(input: { intent: GeneratedIntent; signature: Hex }, client: OneClickClient): Promise<string> {
   const { intentHash } = await call(client, '/v0/submit-intent', {
     type: 'swap_transfer',

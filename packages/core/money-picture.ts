@@ -45,6 +45,8 @@ export function payeeKey(line: Pick<StatementLine, 'merchant' | 'description'>):
   return base
     .replace(/\b(pos|web|nip|trf|transfer|to|from|ref|purchase|payment|debit|credit|via|ussd|mob|app)\b/g, ' ')
     .replace(/[^a-z ]+/g, ' ')
+    // The same payee is named "Claude", "Claude AI" or "CLAUDE.AI SUBSCRIPTION USD" from one month to the next.
+    .replace(/\b(ai|com|co|ng|io|net|ltd|limited|inc|plc|subscriptions?|renewal|monthly|usd|ngn|lagos|abuja|nigeria|payments?|services?)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
@@ -55,9 +57,9 @@ export function payeeKey(line: Pick<StatementLine, 'merchant' | 'description'>):
 /** Kinds that are committed costs rather than choices. */
 const FIXED_KINDS: readonly SpendingKind[] = ['rent-home', 'power', 'data-airtime', 'education', 'health', 'tax'];
 /** Kinds where small, frequent payments add up unnoticed. */
-const LEAK_KINDS: readonly SpendingKind[] = ['food', 'transport', 'data-airtime', 'shopping', 'entertainment', 'subscriptions', 'bank-fees', 'cash', 'other'];
+export const LEAK_KINDS: readonly SpendingKind[] = ['food', 'transport', 'data-airtime', 'shopping', 'entertainment', 'subscriptions', 'bank-fees', 'cash', 'other'];
 /** Kinds that are not spending: money moved between one's own places. */
-const NOT_SPENDING: readonly SpendingKind[] = ['savings-investing'];
+export const NOT_SPENDING: readonly SpendingKind[] = ['savings-investing'];
 
 // ---------------------------------------------------------- recurring
 
@@ -80,11 +82,19 @@ export type Recurring = {
   fixed: boolean;
 };
 
+/** The first time a monthly payment falls on or after `today`, at most a year on. */
+function nextOnOrAfter(lastDate: string, today: string | undefined): string {
+  let next = nextMonthDay(lastDate);
+  for (let step = 0; today && next < today && step < 12; step += 1) next = nextMonthDay(next);
+  return next;
+}
+
 /**
  * Payments to the same payee, at about the same amount, about a month apart,
  * at least twice. Amounts within 15% of the middle one; gaps of 25 to 35 days.
+ * With `today`, the next date is the first one not already past.
  */
-export function findRecurring(lines: readonly StatementLine[], direction: 'in' | 'out' = 'out'): Recurring[] {
+export function findRecurring(lines: readonly StatementLine[], direction: 'in' | 'out' = 'out', today?: string): Recurring[] {
   const groups = new Map<string, StatementLine[]>();
   for (const line of lines) {
     if (line.direction !== direction) continue;
@@ -110,7 +120,7 @@ export function findRecurring(lines: readonly StatementLine[], direction: 'in' |
       typicalMinor: typical,
       count: days.length,
       lastDate: dayString(days.at(-1)!),
-      nextDate: nextMonthDay(dayString(days.at(-1)!)),
+      nextDate: nextOnOrAfter(dayString(days.at(-1)!), today),
       subscription: kind === 'subscriptions',
       fixed: FIXED_KINDS.includes(kind) || kind === 'subscriptions',
     });
@@ -167,7 +177,12 @@ export type SafeToSpend = {
   /** Days until the next expected income, or to the month's end when there is none. */
   days: number;
   untilIncome: boolean;
+  /** Everything kept back before anything is safe: bills due, plus savings and tax. */
   committedMinor: number;
+  /** Only the bills and subscriptions due before then. */
+  dueMinor: number;
+  /** What this person usually spends in a day, for scale. */
+  usualDailyMinor: number;
   dueBeforeIncome: Recurring[];
   savingsSetAsideMinor: number;
   taxSetAsideMinor: number;
@@ -209,7 +224,7 @@ export function buildMoneyPicture(input: {
   const monthlyIncome = Math.round(totalIncome / months);
 
   // Income sources and whether the main one arrives monthly.
-  const incomeRecurring = findRecurring(earned, 'in');
+  const incomeRecurring = findRecurring(earned, 'in', input.today);
   const sourceMap = new Map<string, IncomeSource>();
   for (const line of earned) {
     const key = payeeKey(line) || 'income';
@@ -233,7 +248,7 @@ export function buildMoneyPicture(input: {
     .map(([kind, total]) => ({ kind, totalMinor: total, monthlyMinor: Math.round(total / months), shareBps: totalOut ? Math.round((total * 10_000) / totalOut) : 0 }))
     .sort((a, b) => b.totalMinor - a.totalMinor);
 
-  const recurring = findRecurring(spending);
+  const recurring = findRecurring(spending, 'out', input.today);
   const subscriptionItems = recurring.filter((item) => item.subscription);
   const subscriptions = {
     count: subscriptionItems.length,
@@ -260,9 +275,11 @@ export function buildMoneyPicture(input: {
       monthlyIncomeMinor: monthlyIncome,
       savingsBps: settings.savingsBps,
       taxMonthlyMinor: taxSetAside,
+      monthlyOutMinor: monthlyOut,
     });
 
-  const leaks = findLeaks(spending, to, monthlyIncome);
+  // A subscription or bill that comes every month is not a leak: it has its own place.
+  const leaks = findLeaks(spending, to, monthlyIncome, new Set(recurring.map((item) => item.key)));
 
   // Suggestions, each from a figure above.
   const suggestions: Suggestion[] = [];
@@ -310,6 +327,7 @@ function safeToSpendFor(input: {
   monthlyIncomeMinor: number;
   savingsBps: number;
   taxMonthlyMinor: number;
+  monthlyOutMinor: number;
 }): SafeToSpend {
   const today = dayNumber(input.today);
   const date = new Date(today * DAY_MS);
@@ -321,13 +339,16 @@ function safeToSpendFor(input: {
   const share = Math.min(1, days / AVERAGE_MONTH_DAYS);
   const savingsSetAsideMinor = Math.round(((input.monthlyIncomeMinor * input.savingsBps) / 10_000) * share);
   const taxSetAsideMinor = Math.round(input.taxMonthlyMinor * share);
-  const committedMinor = due.reduce((sum, item) => sum + item.typicalMinor, 0) + savingsSetAsideMinor + taxSetAsideMinor;
+  const dueMinor = due.reduce((sum, item) => sum + item.typicalMinor, 0);
+  const committedMinor = dueMinor + savingsSetAsideMinor + taxSetAsideMinor;
   const free = Math.max(0, input.balanceMinor - committedMinor);
   return {
     todayMinor: Math.floor(free / days / 100) * 100,
     days,
     untilIncome: Boolean(input.nextIncome),
     committedMinor,
+    dueMinor,
+    usualDailyMinor: Math.round(input.monthlyOutMinor / AVERAGE_MONTH_DAYS),
     dueBeforeIncome: due,
     savingsSetAsideMinor,
     taxSetAsideMinor,
@@ -339,12 +360,12 @@ function safeToSpendFor(input: {
  * 1.5% of a month's income, kept between ₦1,500 and ₦10,000; ₦5,000 without
  * income.
  */
-export function findLeaks(spending: readonly StatementLine[], lastDay: string, monthlyIncomeMinor: number): Leaks {
+export function findLeaks(spending: readonly StatementLine[], lastDay: string, monthlyIncomeMinor: number, recurringKeys: ReadonlySet<string> = new Set()): Leaks {
   const thresholdMinor = monthlyIncomeMinor > 0
     ? Math.min(1_000_000, Math.max(150_000, Math.round(monthlyIncomeMinor * 0.015)))
     : 500_000;
   const start = dayString(dayNumber(lastDay) - LEAK_WINDOW_DAYS + 1);
-  const small = spending.filter((line) => line.date >= start && line.amountMinor <= thresholdMinor && LEAK_KINDS.includes(line.kind));
+  const small = spending.filter((line) => line.date >= start && line.amountMinor <= thresholdMinor && LEAK_KINDS.includes(line.kind) && !recurringKeys.has(payeeKey(line)));
   const groups = new Map<string, { name: string; count: number; totalMinor: number }>();
   for (const line of small) {
     const key = payeeKey(line) || line.kind;

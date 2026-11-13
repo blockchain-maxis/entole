@@ -59,7 +59,7 @@ export function affordWords(check: AffordCheck): { headline: string; detail: str
   if (check.verdict === 'not-now') {
     return {
       headline: 'Not now',
-      detail: `${amount} would leave you ${naira(check.shortByMinor)} short of what is already due before your next income.${earnBack}`,
+      detail: `${amount} would eat ${naira(check.shortByMinor)} into what is kept back for bills, savings and tax before you are next paid.${earnBack}`,
     };
   }
   if (check.verdict === 'tight') {

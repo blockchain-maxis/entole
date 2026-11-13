@@ -64,17 +64,18 @@ private thing a "financial assistant" can ask to do.
 - **Statement → picture.** Sign up (fingerprint or passkey), open **Plan**,
   tap "Try a sample statement" (or upload
   [`samples/statements/adaeze-3-months-locked.pdf`](samples/statements);
-  password `entole2026`). You see the proof panel tick through each check,
-  "Balanced to the kobo", then safe to spend, small leaks (Bolt rides),
+  password `entole2026`). Reading takes about a minute; then the proof panel
+  lists each check with a tick, "Balanced to the kobo", then safe to spend, small leaks (Bolt rides),
   subscriptions (Netflix, Claude), runway and a tax estimate. Ask Ayo "how much
   can I spend today?" or "can I afford a 200k laptop?".
 - **Pockets.** **Money** → Add to a pocket → Dollars → "USDC on Base", $5 →
   you get a scan code; send from any app and watch it go from waiting to
   arrived. Then Change currency → Dollars to Euros → see what arrives and the
-  least it can be → confirm. Real money on NEAR's main network: there is no
-  test network for NEAR Intents.
-- **Invoice paid from another network.** Business → new invoice → open its
-  link in another browser → "Pay from another app" → "USDT on Tron" → scan
+  least it can be → confirm. With an empty pocket, Change currency still shows
+  today's rate; confirming needs money in the pocket first. Real money on
+  NEAR's main network: there is no test network for NEAR Intents.
+- **Invoice paid from another network.** Me → Business → new invoice → open
+  it → Copy link, and open the link in another browser → "Pay from another app" → "USDT on Tron" → scan
   code for the exact amount; when it arrives the invoice turns paid.
 - **Check the NEAR side yourself, no account needed:**
   `pnpm --filter @entole/web near:check` prints every hardware check against

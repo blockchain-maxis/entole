@@ -1,7 +1,7 @@
 // Regenerates .expo/types/router.d.ts (expo-router typed routes) without a
 // long-lived dev server. `expo start` writes the file when Metro boots (and
 // skips the write when nothing changed), so this starts it, waits for the
-// ready line plus a short grace period, checks the file exists, then stops it.
+// ready line, waits up to GRACE_MS for the file to appear, then stops it.
 // Run before `tsc` so fresh clones and CI have route types for new screens.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -11,7 +11,10 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const target = join(root, ".expo", "types", "router.d.ts");
 const TIMEOUT_MS = 120_000;
-const GRACE_MS = 4_000;
+// Metro can write the file well after its ready line on a slow machine.
+const GRACE_MS = 45_000;
+const POLL_MS = 250;
+const MIN_WAIT_MS = 4_000;
 
 const child = spawn(
   "pnpm",
@@ -23,7 +26,18 @@ let ready = false;
 const onData = (chunk) => {
   if (ready || !String(chunk).includes("Waiting on")) return;
   ready = true;
-  setTimeout(() => finish(existsSync(target) ? 0 : 1), GRACE_MS);
+  const started = Date.now();
+  const until = started + GRACE_MS;
+  const poll = setInterval(() => {
+    // At least MIN_WAIT_MS, so an existing file can be rewritten with new screens first.
+    if (existsSync(target) && Date.now() - started >= MIN_WAIT_MS) {
+      clearInterval(poll);
+      finish(0);
+    } else if (Date.now() > until) {
+      clearInterval(poll);
+      finish(1);
+    }
+  }, POLL_MS);
 };
 child.stdout.on("data", onData);
 child.stderr.on("data", onData);

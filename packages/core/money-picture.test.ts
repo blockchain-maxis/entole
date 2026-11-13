@@ -146,3 +146,32 @@ describe('income tax estimate', () => {
     expect(estimateIncomeTax({ yearlyIncomeMinor: naira(30_000_000), yearlyRentMinor: naira(9_000_000) }).reliefMinor).toBe(naira(500_000));
   });
 });
+
+describe('what QA found on 13 Nov', () => {
+  it('groups a subscription named differently from one month to the next', () => {
+    const lines = [
+      line('2026-08-04', 'out', 31_500, 'Claude', 'subscriptions'),
+      { ...line('2026-09-04', 'out', 31_500, 'Claude AI', 'subscriptions'), description: 'POS CLAUDE.AI SUBSCRIPTION USD' },
+      { ...line('2026-10-04', 'out', 31_500, '', 'subscriptions'), description: 'POS CLAUDE.AI SUBSCRIPTION USD' },
+    ];
+    expect(new Set(lines.map(payeeKey)).size).toBe(1);
+    expect(findRecurring(lines)).toHaveLength(1);
+  });
+
+  it('moves the next date past today, never shows one already gone', () => {
+    const netflix = findRecurring(threeMonths(), 'out', '2026-11-13').find((item) => item.name === 'Netflix')!;
+    expect(netflix.nextDate).toBe('2026-12-05');
+  });
+
+  it('keeps a monthly subscription out of small leaks', () => {
+    const picture = buildMoneyPicture({ lines: threeMonths(), balanceMinor: naira(400_000), today: '2026-10-26' })!;
+    expect(picture.leaks.top.map((item) => item.name)).not.toContain('Netflix');
+  });
+
+  it('keeps bills due apart from savings and tax, and gives usual spending for scale', () => {
+    const safe = buildMoneyPicture({ lines: threeMonths(), balanceMinor: naira(400_000), today: '2026-10-26' })!.safeToSpend!;
+    expect(safe.committedMinor).toBe(safe.dueMinor + safe.savingsSetAsideMinor + safe.taxSetAsideMinor);
+    expect(safe.dueMinor).toBe(safe.dueBeforeIncome.reduce((sum, item) => sum + item.typicalMinor, 0));
+    expect(safe.usualDailyMinor).toBeGreaterThan(0);
+  });
+});

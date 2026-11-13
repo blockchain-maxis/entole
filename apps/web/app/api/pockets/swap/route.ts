@@ -6,6 +6,7 @@ import {
   POCKET_IDS,
   generatedIntentSchema,
   prepareSwap,
+  previewSwap,
   readMovement,
   readPockets,
   submitSwap,
@@ -19,6 +20,8 @@ import { rateLimit } from '@/lib/server/sponsor';
 /**
  * Swapping between the person's own pockets.
  *
+ *   POST preview  the rate only (a dry quote), for a pocket that does not
+ *                 yet hold the amount; nothing can be signed from it.
  *   POST prepare  a 1Click quote from their Intents account to their Intents
  *                 account, and the intent that carries it out, checked to move
  *                 exactly that amount to exactly that quote (core
@@ -41,6 +44,13 @@ const postSchema = z.discriminatedUnion('action', [
     to: z.enum(POCKET_IDS),
     cents: z.number().int().min(100).max(10_000_000),
   }),
+  z.object({
+    action: z.literal('preview'),
+    address: accountAddress,
+    from: z.enum(POCKET_IDS),
+    to: z.enum(POCKET_IDS),
+    cents: z.number().int().min(100).max(10_000_000),
+  }),
   z.object({ action: z.literal('submit'), address: accountAddress, intent: generatedIntentSchema, signature }),
 ]);
 
@@ -54,6 +64,11 @@ export async function POST(request: Request) {
   const client = oneClickClient();
 
   try {
+    if (body.action === 'preview') {
+      if (body.from === body.to) return json({ error: 'bad_request' }, 400);
+      const preview = await previewSwap({ owner: body.address, from: body.from, to: body.to, cents: body.cents }, client);
+      return json({ receivesCents: preview.receivesCents, receivesAtLeastCents: preview.receivesAtLeastCents, etaSeconds: preview.etaSeconds });
+    }
     if (body.action === 'prepare') {
       if (body.from === body.to) return json({ error: 'bad_request' }, 400);
       const balance = (await readPockets({ owner: body.address })).find((pocket) => pocket.id === body.from)!;

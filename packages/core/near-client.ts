@@ -156,6 +156,15 @@ export function createNearClient(options: Options & {
       const { state } = await call(options, `/api/pockets/deposit?depositAddress=${encodeURIComponent(qrPayload)}`, null, movementStateSchema, 'GET');
       return state;
     },
+    /** The rate only, for a pocket that does not hold the amount yet. Nothing can be confirmed from it. */
+    async previewSwap(from: PocketId, to: PocketId, cents: number): Promise<{ receivesCents: number; receivesAtLeastCents: number; etaSeconds: number }> {
+      return call(
+        options,
+        '/api/pockets/swap',
+        { action: 'preview', address: options.account, from, to, cents },
+        z.object({ receivesCents: z.number().int().nonnegative(), receivesAtLeastCents: z.number().int().nonnegative(), etaSeconds: z.number().nonnegative() }),
+      );
+    },
     /** A quote for a swap: what arrives, and the least it can be. Nothing moves. */
     async prepareSwap(from: PocketId, to: PocketId, cents: number): Promise<PreparedPocketSwap> {
       const prepared = await call(options, '/api/pockets/swap', { action: 'prepare', address: options.account, from, to, cents }, preparedSwapSchema);
@@ -212,6 +221,7 @@ export const pendingNearClient: NearClient = {
   pockets: notSignedIn,
   startPocketDeposit: notSignedIn,
   pocketDepositState: notSignedIn,
+  previewSwap: notSignedIn,
   prepareSwap: notSignedIn,
   confirmSwap: notSignedIn,
   swapState: notSignedIn,
