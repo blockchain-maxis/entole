@@ -70,8 +70,44 @@ export async function pdfTextItems(bytes: Uint8Array, password?: string): Promis
 // Every chunk at once: a reading is as slow as its slowest chunk, about a
 // minute for three months of lines (measured 13 Nov 2026).
 const READ_CONCURRENCY = STATEMENT_MAX_CHUNKS;
-// The route stops at 120 s; past this the person hears "too long", not a timeout.
+// The route stops at 120 s; past this the person hears "try again shortly", not a timeout.
 export const READ_DEADLINE_MS = 105_000;
+
+// NEAR AI Cloud now and then leaves one request waiting far longer than the
+// rest (14 Nov 2026: two readings in three ran past the deadline on
+// production). A chunk still unanswered after this is asked a second time,
+// and whichever answer comes first is used.
+const HEDGE_AFTER_MS = 35_000;
+
+function hedged<T>(work: () => Promise<T>, afterMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let started = 0;
+    let failed = 0;
+    const run = () => {
+      started += 1;
+      work().then(
+        (value) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error: unknown) => {
+          failed += 1;
+          if (settled || failed < started) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    };
+    const timer = setTimeout(() => {
+      if (!settled) run();
+    }, afterMs);
+    run();
+  });
+}
 
 async function inTurns<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -108,6 +144,7 @@ export async function readStatement(
     ask?: typeof askSealed;
     answers?: typeof checkAnswers;
     deadlineMs?: number;
+    hedgeMs?: number;
   },
 ): Promise<StatementReading> {
   const { items, pages } = await pdfTextItems(input.pdf, input.password);
@@ -136,13 +173,16 @@ export async function readStatement(
   let answers: SealedAnswer[];
   try {
     answers = await inTurns(chunks, READ_CONCURRENCY, async (chunk) => {
-      const answer = await ask(config, { model, system: STATEMENT_SYSTEM_PROMPT, user: chunk, maxTokens: 8000, signal });
+      const answer = await hedged(
+        () => ask(config, { model, system: STATEMENT_SYSTEM_PROMPT, user: chunk, maxTokens: 8000, signal }),
+        deps.hedgeMs ?? HEDGE_AFTER_MS,
+      );
       stamps.push(checkStamps(config, model, [answer], hardware)
         .catch((): ProofCheck => ({ id: 'answers', part: 'answers', passed: false, detail: 'stamp not checked' })));
       return answer;
     });
   } catch {
-    throw new StatementReadError(signal.aborted ? 'too_long' : 'model_unavailable');
+    throw new StatementReadError('model_unavailable');
   }
   const each = await Promise.all(stamps);
   const good = each.filter((check) => check.passed).length;

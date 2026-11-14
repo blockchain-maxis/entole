@@ -128,10 +128,23 @@ describe('reading a statement', () => {
     expect(reading.reconciliation.differenceMinor).not.toBe(0);
   });
 
-  it('says the statement is too long, not that the reader failed, when reading runs past its time', async () => {
+  it('says to try again shortly, not that a three-month statement is too long, when reading runs past its time', async () => {
     const slow = (_c: NearAiConfig, input: { signal?: AbortSignal }) =>
       new Promise<never>((_resolve, reject) => input.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
-    await expect(readStatement({ pdf: plain }, config, { ...deps, ask: slow, deadlineMs: 20 })).rejects.toMatchObject({ reason: 'too_long' });
+    await expect(readStatement({ pdf: plain }, config, { ...deps, ask: slow, deadlineMs: 20 })).rejects.toMatchObject({ reason: 'model_unavailable' });
+  });
+
+  it('asks a stuck chunk a second time and uses whichever answer comes first', async () => {
+    const seen = new Map<string, number>();
+    const stuckOnce = (c: NearAiConfig, input: { user: string; signal?: AbortSignal }) => {
+      const count = (seen.get(input.user) ?? 0) + 1;
+      seen.set(input.user, count);
+      if (count === 1) return new Promise<never>((_resolve, reject) => input.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+      return fakeModel(c, input);
+    };
+    const reading = await readStatement({ pdf: plain }, config, { ...deps, ask: stuckOnce as typeof fakeModel, hedgeMs: 10, deadlineMs: 5_000 });
+    expect(reading.lines.length).toBeGreaterThan(0);
+    expect([...seen.values()].every((count) => count === 2)).toBe(true);
   });
 });
 
