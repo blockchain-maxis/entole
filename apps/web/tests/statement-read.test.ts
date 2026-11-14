@@ -101,6 +101,21 @@ describe('reading a statement', () => {
     expect(reading.proof.proven).toBe(false);
   });
 
+  it('checks each answer\'s stamp on its own, and one missing stamp is counted, not hidden', async () => {
+    let calls = 0;
+    const answers = async (_c: NearAiConfig, _m: string, list: readonly unknown[]) => {
+      calls += 1;
+      expect(list).toHaveLength(1);
+      return { ...pass('answers'), passed: calls !== 1 };
+    };
+    const reading = await readStatement({ pdf: plain }, config, { ...deps, answers });
+    const check = reading.proof.checks.find((c) => c.id === 'answers')!;
+    expect(calls).toBeGreaterThan(0);
+    expect(check.passed).toBe(calls === 0);
+    expect(check.detail).toBe(`${calls - 1} of ${calls} answers stamped`);
+    expect(reading.proof.proven).toBe(false);
+  });
+
   it('shows a gap, not a guess, when the model drops a line', async () => {
     const dropping = async (c: NearAiConfig, input: { user: string }) => {
       const answer = await fakeModel(c, input);

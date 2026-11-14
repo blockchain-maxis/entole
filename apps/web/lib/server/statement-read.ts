@@ -13,7 +13,7 @@ import {
   type StatementLine,
   type TextItem,
 } from '@entole/core/statement';
-import { newNonce, summariseProof, type ProofSummary } from '@entole/core/tee-proof';
+import { newNonce, summariseProof, type ProofCheck, type ProofSummary } from '@entole/core/tee-proof';
 
 import { askSealed, checkAnswers, checkHardware, type CheckedHardware, type NearAiConfig, type SealedAnswer } from './near-ai';
 
@@ -129,14 +129,24 @@ export async function readStatement(
 
   const ask = deps.ask ?? askSealed;
   const signal = AbortSignal.timeout(deps.deadlineMs ?? READ_DEADLINE_MS);
+  const checkStamps = deps.answers ?? checkAnswers;
+  // Each answer's stamp is looked up as soon as that answer is in, so a stamp
+  // the service is slow to record has the rest of the reading to appear.
+  const stamps: Promise<ProofCheck>[] = [];
   let answers: SealedAnswer[];
   try {
-    answers = await inTurns(chunks, READ_CONCURRENCY, (chunk) =>
-      ask(config, { model, system: STATEMENT_SYSTEM_PROMPT, user: chunk, maxTokens: 8000, signal }));
+    answers = await inTurns(chunks, READ_CONCURRENCY, async (chunk) => {
+      const answer = await ask(config, { model, system: STATEMENT_SYSTEM_PROMPT, user: chunk, maxTokens: 8000, signal });
+      stamps.push(checkStamps(config, model, [answer], hardware)
+        .catch((): ProofCheck => ({ id: 'answers', part: 'answers', passed: false, detail: 'stamp not checked' })));
+      return answer;
+    });
   } catch {
     throw new StatementReadError(signal.aborted ? 'too_long' : 'model_unavailable');
   }
-  const stamped = await (deps.answers ?? checkAnswers)(config, model, answers, hardware);
+  const each = await Promise.all(stamps);
+  const good = each.filter((check) => check.passed).length;
+  const stamped: ProofCheck = { id: 'answers', part: 'answers', passed: good === answers.length, detail: `${good} of ${answers.length} answers stamped` };
 
   const joined = joinChunks(answers.map((answer) => parseAnswer(answer.content)));
   return {

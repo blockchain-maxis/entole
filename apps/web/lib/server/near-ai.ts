@@ -182,18 +182,26 @@ export async function askSealed(
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** An answer's stamp, which can take a moment to be recorded. */
+/**
+ * An answer's stamp, which can take a moment to be recorded: longer when the
+ * model is busy (on 14 Nov 2026 one stamp of a production reading was still
+ * missing after 10 s). A busy or failed lookup is asked again too.
+ */
 async function fetchStamp(config: NearAiConfig, id: string): Promise<z.infer<typeof answerStampSchema> | null> {
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const response = await config.fetch(`${config.base}/signature/${encodeURIComponent(id)}?signing_algo=ecdsa`, {
-      headers: { authorization: `Bearer ${config.apiKey}`, accept: 'application/json' },
-    });
-    if (response.ok) {
-      const parsed = answerStampSchema.safeParse(await response.json());
-      return parsed.success ? parsed.data : null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      const response = await config.fetch(`${config.base}/signature/${encodeURIComponent(id)}?signing_algo=ecdsa`, {
+        headers: { authorization: `Bearer ${config.apiKey}`, accept: 'application/json' },
+      });
+      if (response.ok) {
+        const parsed = answerStampSchema.safeParse(await response.json());
+        return parsed.success ? parsed.data : null;
+      }
+      if (response.status !== 404 && response.status !== 429 && response.status < 500) return null;
+    } catch {
+      // A dropped lookup is asked again.
     }
-    if (response.status !== 404) return null;
-    await sleep(500 * (attempt + 1));
+    await sleep(Math.min(500 * (attempt + 1), 3000));
   }
   return null;
 }
