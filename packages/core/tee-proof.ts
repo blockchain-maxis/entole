@@ -266,7 +266,9 @@ export function stampMatches(input: {
   if (stamp.text !== expectedStampText(stamp.signature_kind, input.model, input.request, input.response)) return false;
   const signer = stamp.signing_address.toLowerCase();
   if (stamp.signature_kind === 'gateway') return signer === input.checkedGatewayAddress.toLowerCase();
-  return input.checkedModelAddresses.filter((address) => address.toLowerCase() === signer).length === 1;
+  // One key may be listed by several machines (seen 14 Nov 2026: two GPU
+  // nodes, one key); each listing passed every check before it got here.
+  return input.checkedModelAddresses.some((address) => address.toLowerCase() === signer);
 }
 
 export const proofSummarySchema = z.object({

@@ -117,9 +117,9 @@ export async function checkHardware(
     checkOne(attestation.gateway_attestation, nonce, 'gateway', verify),
     ...models.map(async (report) => [...(await checkOne(report, nonce, 'model', verify)), await checkGpu(report, nonce, config.fetch)]),
   ]);
-  const modelAddresses = models
+  const modelAddresses = [...new Set(models
     .filter((_, index) => perModel[index]!.every((check) => check.passed))
-    .map((report) => report.signing_address.toLowerCase());
+    .map((report) => report.signing_address.toLowerCase()))];
   return {
     checks: [...gateway!, ...perModel.flat()],
     gatewayAddress: gateway!.every((check) => check.passed) ? attestation.gateway_attestation.signing_address.toLowerCase() : '',

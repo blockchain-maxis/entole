@@ -135,6 +135,8 @@ describe('an answer\'s stamp', () => {
     const base = { stamp, model: 'm', request, response, recovers: true, checkedGatewayAddress: '0x0' };
     expect(stampMatches({ ...base, checkedModelAddresses: [signer.address] })).toBe(true);
     expect(stampMatches({ ...base, checkedModelAddresses: [] })).toBe(false);
+    // The same checked key listed by two machines still matches.
+    expect(stampMatches({ ...base, checkedModelAddresses: [signer.address, signer.address.toLowerCase()] })).toBe(true);
     expect(stampMatches({ ...base, response: new TextEncoder().encode('{}'), checkedModelAddresses: [signer.address] })).toBe(false);
     expect(stampMatches({ ...base, recovers: false, checkedModelAddresses: [signer.address] })).toBe(false);
   });
