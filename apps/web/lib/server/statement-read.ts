@@ -146,7 +146,13 @@ export async function readStatement(
   }
   const each = await Promise.all(stamps);
   const good = each.filter((check) => check.passed).length;
-  const stamped: ProofCheck = { id: 'answers', part: 'answers', passed: good === answers.length, detail: `${good} of ${answers.length} answers stamped` };
+  const why = [...new Set(each.filter((check) => !check.passed).map((check) => /\((.*)\)$/.exec(check.detail)?.[1] ?? check.detail))];
+  const stamped: ProofCheck = {
+    id: 'answers',
+    part: 'answers',
+    passed: good === answers.length,
+    detail: `${good} of ${answers.length} answers stamped${why.length ? ` (${why.join('; ')})` : ''}`,
+  };
 
   const joined = joinChunks(answers.map((answer) => parseAnswer(answer.content)));
   return {

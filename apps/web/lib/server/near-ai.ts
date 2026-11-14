@@ -6,6 +6,7 @@ import {
   answerStampSchema,
   attestationSchema,
   checkReport,
+  expectedStampText,
   gpuEvidenceFor,
   gpuVerdict,
   stampMatches,
@@ -209,12 +210,14 @@ async function fetchStamp(config: NearAiConfig, id: string): Promise<z.infer<typ
 /** One `answers` check: every answer carries a stamp from hardware already checked. */
 export async function checkAnswers(config: NearAiConfig, model: string, answers: readonly SealedAnswer[], hardware: CheckedHardware): Promise<ProofCheck> {
   if (!answers.length) return { id: 'answers', part: 'answers', passed: false, detail: 'no answers' };
-  const results = await Promise.all(answers.map(async (answer) => {
+  // Each answer's outcome is named, so a failed check says why (no stamp, a
+  // stamp over other bytes, or a key that was not checked), never just "no".
+  const results = await Promise.all(answers.map(async (answer): Promise<string> => {
     const stamp = await fetchStamp(config, answer.id);
-    if (!stamp) return false;
+    if (!stamp) return 'no stamp';
     const recovers = stamp.signing_algo === 'ecdsa'
       && await verifyMessage({ address: stamp.signing_address as Hex, message: stamp.text, signature: stamp.signature as Hex }).catch(() => false);
-    return stampMatches({
+    const matches = stampMatches({
       stamp,
       model,
       request: answer.request,
@@ -223,7 +226,17 @@ export async function checkAnswers(config: NearAiConfig, model: string, answers:
       checkedModelAddresses: hardware.modelAddresses,
       checkedGatewayAddress: hardware.gatewayAddress,
     });
+    if (matches) return 'ok';
+    if (!recovers) return 'stamp does not recover';
+    if (stamp.signature_kind && stamp.text !== expectedStampText(stamp.signature_kind, model, answer.request, answer.response)) return `${stamp.signature_kind} stamp over other bytes`;
+    return `${stamp.signature_kind ?? 'unknown'} key not checked`;
   }));
-  const good = results.filter(Boolean).length;
-  return { id: 'answers', part: 'answers', passed: good === answers.length, detail: `${good} of ${answers.length} answers stamped` };
+  const good = results.filter((result) => result === 'ok').length;
+  const why = [...new Set(results.filter((result) => result !== 'ok'))];
+  return {
+    id: 'answers',
+    part: 'answers',
+    passed: good === answers.length,
+    detail: `${good} of ${answers.length} answers stamped${why.length ? ` (${why.join('; ')})` : ''}`,
+  };
 }

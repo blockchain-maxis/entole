@@ -112,7 +112,7 @@ describe('reading a statement', () => {
     const check = reading.proof.checks.find((c) => c.id === 'answers')!;
     expect(calls).toBeGreaterThan(0);
     expect(check.passed).toBe(calls === 0);
-    expect(check.detail).toBe(`${calls - 1} of ${calls} answers stamped`);
+    expect(check.detail.startsWith(`${calls - 1} of ${calls} answers stamped`)).toBe(true);
     expect(reading.proof.proven).toBe(false);
   });
 
