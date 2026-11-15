@@ -59,19 +59,20 @@ describe('amounts', () => {
 });
 
 describe('reading the pockets', () => {
-  it('reads every holding in one call and adds the dollar ones up', async () => {
-    const answer = ['1000000', '250000', '0', '0', '2000000000000000000', '0'];
+  it('reads every holding in one call and adds the dollar ones up, money sent back from Base included', async () => {
+    // Dollars: NEAR USDC, NEAR USDT, Tron USDT, Solana USDC, Solana USDT, Base USDC, Arbitrum USDC, Ethereum USDC, Ethereum USDT; then Euros, Pounds.
+    const answer = ['1000000', '250000', '0', '0', '0', '500000', '0', '0', '0', '2000000000000000000', '0'];
     const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       const args = JSON.parse(atob(body.params.args_base64));
       expect(body.params.method_name).toBe('mt_batch_balance_of');
       expect(args.account_id).toBe(account);
-      expect(args.token_ids).toHaveLength(6);
+      expect(args.token_ids).toHaveLength(11);
       return json({ result: { result: [...new TextEncoder().encode(JSON.stringify(answer))] } });
     });
     const pockets = await readPockets({ owner, fetch: fetch as unknown as typeof globalThis.fetch });
-    expect(pockets.map((pocket) => [pocket.id, pocket.cents])).toEqual([['usd', 125], ['eur', 200], ['gbp', 0]]);
-    expect(pockets[0]!.holdings).toHaveLength(2);
+    expect(pockets.map((pocket) => [pocket.id, pocket.cents])).toEqual([['usd', 175], ['eur', 200], ['gbp', 0]]);
+    expect(pockets[0]!.holdings).toHaveLength(3);
   });
 });
 

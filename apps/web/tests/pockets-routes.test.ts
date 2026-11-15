@@ -23,7 +23,8 @@ const account = owner.address.toLowerCase();
 let ip = 0;
 
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-const balances = ['9000000', '0', '0', '0', '0', '0'];
+// One per holding: nine dollar sources, then Euros and Pounds.
+const balances = ['9000000', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
 const DEPOSIT = 'a'.repeat(64);
 
 const intentFor = (units: string, receiver = DEPOSIT) => ({

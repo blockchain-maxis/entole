@@ -67,9 +67,16 @@ export const POCKETS: readonly PocketDefinition[] = [
     holds: [
       { assetId: ASSETS.nearUsdc, decimals: 6 },
       { assetId: ASSETS.nearUsdt, decimals: 6 },
-      // Money from Tron or Solana that could not be completed is held as these (aurora-intents.ts).
+      // Money sent in from another network that could not be completed (too
+      // little, too late) is held in the account as it arrived, so every
+      // dollar source a person can pay in from counts here too.
       { assetId: ASSETS.tronUsdt, decimals: 6 },
       { assetId: ASSETS.solUsdc, decimals: 6 },
+      { assetId: ASSETS.solUsdt, decimals: 6 },
+      { assetId: ASSETS.baseUsdc, decimals: 6 },
+      { assetId: ASSETS.arbUsdc, decimals: 6 },
+      { assetId: ASSETS.ethUsdc, decimals: 6 },
+      { assetId: ASSETS.ethUsdt, decimals: 6 },
     ],
   },
   { id: 'eur', currency: 'EUR', words: 'Euros', sign: '€', primary: ASSETS.gnosisEure, holds: [{ assetId: ASSETS.gnosisEure, decimals: 18 }] },
